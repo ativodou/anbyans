@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import '@/styles/globals.css';
+import Providers from '@/components/Providers';
 
 export const metadata: Metadata = {
   title: 'Anbyans Entertainment — Evènman pou nou, pa nou',
@@ -9,7 +10,9 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ht">
-      <body className="min-h-screen bg-dark text-white font-body">{children}</body>
+      <body className="min-h-screen bg-dark text-white font-body">
+        <Providers>{children}</Providers>
+      </body>
     </html>
   );
 }
