@@ -294,6 +294,20 @@ const t = {
   vend_sales_title: { ht:'ISTORIK VANT', en:'SALES HISTORY', fr:'HISTORIQUE DES VENTES' },
   vend_sales_cost: { ht:'Koute', en:'Cost', fr:'Coût' },
 
+  /* ═══ ORGANIZER DASHBOARD ═══ */
+  org_nav_dashboard: { ht:'Dachbòd', en:'Dashboard', fr:'Tableau de bord' },
+  org_nav_vendors: { ht:'Vandè', en:'Vendors', fr:'Vendeurs' },
+  org_nav_revenue: { ht:'Revni', en:'Revenue', fr:'Revenus' },
+  org_nav_scanner: { ht:'Eskanè', en:'Scanner', fr:'Scanner' },
+  org_nav_settings: { ht:'Paramèt', en:'Settings', fr:'Paramètres' },
+  org_stat_sold: { ht:'Tikè Vann', en:'Tickets Sold', fr:'Billets vendus' },
+  org_stat_revenue: { ht:'Revni Total', en:'Total Revenue', fr:'Revenu total' },
+  org_stat_active: { ht:'Evènman Aktif', en:'Active Events', fr:'Événements actifs' },
+  org_stat_owed: { ht:'Dwe Vandè', en:'Owed to Vendors', fr:'Dû aux vendeurs' },
+  org_invite_vendor: { ht:'Envite Vandè', en:'Invite Vendor', fr:'Inviter un vendeur' },
+  org_open_scanner: { ht:'Ouvri Eskanè', en:'Open Scanner', fr:'Ouvrir le scanner' },
+  org_view_reports: { ht:'Wè Rapò', en:'View Reports', fr:'Voir les rapports' },
+
   /* ═══ VENDOR MANAGEMENT (ORGANIZER) ═══ */
   vendors_title: { ht:'JERE VANDÈ', en:'MANAGE VENDORS', fr:'GÉRER LES VENDEURS' },
   vendors_invite: { ht:'Envite Vandè', en:'Invite Vendor', fr:'Inviter un vendeur' },
