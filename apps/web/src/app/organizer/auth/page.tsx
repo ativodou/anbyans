@@ -1,172 +1,273 @@
 'use client';
-
-import Link from 'next/link';
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useT } from '@/i18n';
-import LangSwitcher from '@/components/LangSwitcher';
+import { signUp, signIn, signInWithGoogle } from '@/lib/auth';
+import { useAuth } from '@/hooks/useAuth';
 
-function getStrength(pwd: string) {
-  if (!pwd) return { score: 0, label: '', color: 'text-gray-muted' };
-  let s = 0;
-  if (pwd.length >= 8) s++;
-  if (/[a-z]/.test(pwd) && /[A-Z]/.test(pwd)) s++;
-  if (/\d/.test(pwd)) s++;
-  if (/[^a-zA-Z0-9]/.test(pwd)) s++;
-  return [
-    { score:0, label:'', color:'text-gray-muted' },
-    { score:1, label:'Weak', color:'text-red' },
-    { score:2, label:'Weak', color:'text-red' },
-    { score:3, label:'Medium', color:'text-orange' },
-    { score:4, label:'Strong 💪', color:'text-green' },
-  ][s];
-}
-
-const BAR_C = ['bg-white/[0.06]','bg-red','bg-red','bg-orange','bg-green'];
-type Screen = 'login' | 'register' | 'otp' | 'welcome';
-
-export default function OrganizerAuthPage() {
-  const { t, locale } = useT();
+export default function OrganizerAuth() {
+  const router = useRouter();
+  const { locale } = useT();
+  const { user } = useAuth();
   const L = (ht: string, en: string, fr: string) => ({ ht, en, fr }[locale]);
-  const [screen, setScreen] = useState<Screen>('login');
-  const [pwd, setPwd] = useState('');
-  const [otp, setOtp] = useState(['','','','','','']);
-  const str = getStrength(pwd);
 
-  const otpChange = (i: number, v: string) => {
-    if (!/^\d?$/.test(v)) return;
-    const next = [...otp]; next[i] = v; setOtp(next);
-    if (v && i < 5) document.getElementById(`otp-${i+1}`)?.focus();
-    if (next.every(x => x)) setScreen('welcome');
-  };
+  const [tab, setTab] = useState<'login' | 'register'>('login');
+  const [step, setStep] = useState(1);
 
-  const bizTypes = locale === 'en'
-    ? ['Event Promoter','Nightclub','Concert Hall / Theater','Church / Organization','Sports / Team','Other']
-    : locale === 'fr'
-    ? ['Promoteur d\'événements','Boîte de nuit','Salle de concert / Théâtre','Église / Organisation','Sports / Équipe','Autre']
-    : ['Promotè Evènman','Bwat de Nwi / Klèb','Sal Konsè / Teyat','Legliz / Òganizasyon','Espò / Ekip','Lòt'];
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPass, setLoginPass] = useState('');
+
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [regEmail, setRegEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [businessName, setBusinessName] = useState('');
+  const [businessType, setBusinessType] = useState('');
+  const [city, setCity] = useState('');
+  const [state_, setState_] = useState('');
+  const [country, setCountry] = useState('Haiti');
+  const [payoutMethod, setPayoutMethod] = useState('');
+  const [payoutDetails, setPayoutDetails] = useState('');
+  const [regPass, setRegPass] = useState('');
+  const [confirmPass, setConfirmPass] = useState('');
+
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [googleLoading, setGoogleLoading] = useState(false);
+
+  if (user) { router.push('/organizer/dashboard'); return null; }
+
+  async function handleLogin(e: React.FormEvent) {
+    e.preventDefault();
+    setError(''); setLoading(true);
+    try {
+      await signIn(loginEmail, loginPass);
+      router.push('/organizer/dashboard');
+    } catch (err: any) {
+      setError(err.code === 'auth/invalid-credential'
+        ? L('Imel oswa modpas pa korek', 'Invalid email or password', 'E-mail ou mot de passe invalide')!
+        : err.message);
+    } finally { setLoading(false); }
+  }
+
+  async function handleRegister(e: React.FormEvent) {
+    e.preventDefault();
+    setError('');
+    if (regPass !== confirmPass) { setError(L('Modpas yo pa matche', 'Passwords do not match', 'Les mots de passe ne correspondent pas')!); return; }
+    if (regPass.length < 6) { setError(L('Modpas dwe gen 6+ karakte', 'Password must be 6+ characters', 'Le mot de passe doit contenir 6+ caracteres')!); return; }
+    setLoading(true);
+    try {
+      await signUp(regEmail, regPass, {
+        firstName, lastName, phone, city, state: state_, country,
+        role: 'organizer', businessName, businessType, payoutMethod, payoutDetails,
+      });
+      setStep(3);
+    } catch (err: any) {
+      setError(err.code === 'auth/email-already-in-use'
+        ? L('Imel sa a deja itilize', 'Email already in use', 'Cet e-mail est deja utilise')!
+        : err.message);
+    } finally { setLoading(false); }
+  }
+
+  async function handleGoogleSignIn() {
+    setError(''); setGoogleLoading(true);
+    try {
+      await signInWithGoogle('organizer');
+      router.push('/organizer/dashboard');
+    } catch (err: any) {
+      if (err.code !== 'auth/popup-closed-by-user') setError(err.message);
+    } finally { setGoogleLoading(false); }
+  }
+
+  function getStrength(p: string) {
+    let s = 0;
+    if (p.length >= 6) s++; if (p.length >= 10) s++;
+    if (/[A-Z]/.test(p) && /[a-z]/.test(p)) s++; if (/\d/.test(p)) s++;
+    const labels = [
+      { text: '', color: '' },
+      { text: L('Feb', 'Weak', 'Faible'), color: '#ef4444' },
+      { text: L('Mwayen', 'Medium', 'Moyen'), color: '#f59e0b' },
+      { text: L('Fo', 'Strong', 'Fort'), color: '#22c55e' },
+      { text: L('Tre fo', 'Very strong', 'Tres fort'), color: '#06b6d4' },
+    ];
+    return labels[s] || labels[0];
+  }
+  const strength = getStrength(regPass);
+
+  const inputStyle: React.CSSProperties = { width: '100%', padding: 10, borderRadius: 8, border: '1px solid #1e1e2e', background: '#0a0a0f', color: '#fff', fontSize: 13, boxSizing: 'border-box' };
+  const labelStyle: React.CSSProperties = { color: '#888', fontSize: 12, marginBottom: 4, display: 'block' };
+
+  if (step === 3) {
+    return (
+      <div style={{ minHeight: '100vh', background: '#0a0a0f', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+        <div style={{ textAlign: 'center', maxWidth: 400 }}>
+          <div style={{ fontSize: 64, marginBottom: 16 }}>&#x1F389;</div>
+          <h1 style={{ color: '#fff', fontSize: 28, marginBottom: 8 }}>
+            {L('Byenveni, Organizate!', 'Welcome, Organizer!', 'Bienvenue, Organisateur!')}
+          </h1>
+          <p style={{ color: '#aaa', marginBottom: 32 }}>
+            {L('Kont ou pare. Kreye premye evenman ou!', 'Account ready. Create your first event!', 'Compte pret. Creez votre premier evenement!')}
+          </p>
+          <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
+            <Link href="/organizer/dashboard" style={{ padding: '14px 28px', background: '#f97316', color: '#000', borderRadius: 8, fontWeight: 700, textDecoration: 'none' }}>
+              {L('Dachbod', 'Dashboard', 'Tableau de bord')}
+            </Link>
+            <Link href="/organizer/events/create" style={{ padding: '14px 28px', border: '1px solid #f97316', color: '#f97316', borderRadius: 8, fontWeight: 700, textDecoration: 'none' }}>
+              {L('Kreye Evenman', 'Create Event', 'Creer un evenement')}
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-5 py-10">
-      <div className="w-full max-w-[420px]">
-        <div className="text-center mb-5">
-          <Link href="/"><img src="/logo.jpg" alt="Anbyans" className="h-[50px] rounded-md mx-auto" /></Link>
-          <p className="text-[11px] text-gray-light italic mt-1.5">{t('landing_tagline')}.</p>
-          <span className="inline-block mt-2 px-2.5 py-0.5 rounded-md text-[10px] font-bold border bg-orange-dim text-orange border-orange-border">🎤 {t('org_auth_title')}</span>
-          <div className="mt-2 flex justify-center"><LangSwitcher /></div>
+    <div style={{ minHeight: '100vh', background: '#0a0a0f', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <div style={{ width: '100%', maxWidth: 480, background: '#12121a', border: '1px solid #1e1e2e', borderRadius: 16, padding: 32 }}>
+        <div style={{ textAlign: 'center', marginBottom: 24 }}>
+          <h2 style={{ color: '#f97316', fontSize: 22, fontWeight: 800 }}>ANBYANS</h2>
+          <p style={{ color: '#666', fontSize: 13 }}>{L('Potay Organizate', 'Organizer Portal', 'Portail Organisateur')}</p>
         </div>
 
-        {(screen === 'login' || screen === 'register') && (
-          <div className="flex rounded-xl overflow-hidden border border-orange-border mb-5">
-            <button onClick={() => setScreen('login')} className={`flex-1 py-3 text-[13px] font-bold transition-all ${screen === 'login' ? 'bg-orange-dim text-orange shadow-[inset_0_-2px_0] shadow-orange' : 'bg-white/[0.02] text-gray-light hover:bg-dark-hover'}`}>🔑 {t('org_auth_login_tab')}</button>
-            <button onClick={() => setScreen('register')} className={`flex-1 py-3 text-[13px] font-bold transition-all ${screen === 'register' ? 'bg-orange-dim text-orange shadow-[inset_0_-2px_0] shadow-orange' : 'bg-white/[0.02] text-gray-light hover:bg-dark-hover'}`}>✨ {t('org_auth_signup_tab')}</button>
-          </div>
+        <div style={{ display: 'flex', marginBottom: 24, borderRadius: 8, overflow: 'hidden', border: '1px solid #1e1e2e' }}>
+          {(['login', 'register'] as const).map(t => (
+            <button key={t} onClick={() => { setTab(t); setError(''); }}
+              style={{
+                flex: 1, padding: '12px 0', border: 'none', cursor: 'pointer', fontSize: 14, fontWeight: 600,
+                background: tab === t ? '#f97316' : 'transparent',
+                color: tab === t ? '#000' : '#888',
+              }}>
+              {t === 'login' ? L('Konekte', 'Login', 'Connexion') : L('Enskri', 'Register', "S'inscrire")}
+            </button>
+          ))}
+        </div>
+
+        {error && <div style={{ background: '#2a1515', border: '1px solid #ef4444', borderRadius: 8, padding: '10px 14px', marginBottom: 16, color: '#ef4444', fontSize: 13 }}>{error}</div>}
+
+        <button onClick={handleGoogleSignIn} disabled={googleLoading}
+          style={{
+            width: '100%', padding: 14, borderRadius: 8, border: '1px solid #333',
+            background: '#1a1a2a', color: '#fff', fontSize: 14, fontWeight: 600,
+            cursor: googleLoading ? 'not-allowed' : 'pointer', display: 'flex',
+            alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 20,
+            opacity: googleLoading ? 0.6 : 1,
+          }}>
+          {googleLoading ? L('Ap konekte...', 'Connecting...', 'Connexion...') : (
+            <>
+              <svg width="18" height="18" viewBox="0 0 24 24">
+                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/>
+                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+              </svg>
+              {L('Kontinye ak Google', 'Continue with Google', 'Continuer avec Google')}
+            </>
+          )}
+        </button>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+          <div style={{ flex: 1, height: 1, background: '#1e1e2e' }} />
+          <span style={{ color: '#555', fontSize: 12 }}>{L('oswa', 'or', 'ou')}</span>
+          <div style={{ flex: 1, height: 1, background: '#1e1e2e' }} />
+        </div>
+
+        {tab === 'login' && (
+          <form onSubmit={handleLogin}>
+            <div style={{ marginBottom: 16 }}>
+              <label style={labelStyle}>{L('Imel', 'Email', 'E-mail')}</label>
+              <input type="email" value={loginEmail} onChange={e => setLoginEmail(e.target.value)} required style={inputStyle} />
+            </div>
+            <div style={{ marginBottom: 24 }}>
+              <label style={labelStyle}>{L('Modpas', 'Password', 'Mot de passe')}</label>
+              <input type="password" value={loginPass} onChange={e => setLoginPass(e.target.value)} required style={inputStyle} />
+            </div>
+            <button type="submit" disabled={loading}
+              style={{ width: '100%', padding: 14, borderRadius: 8, border: 'none', background: '#f97316', color: '#000', fontSize: 15, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.6 : 1 }}>
+              {loading ? L('Ap konekte...', 'Signing in...', 'Connexion...') : L('Konekte', 'Sign In', 'Se connecter')}
+            </button>
+          </form>
         )}
 
-        <div className="bg-dark-card border border-orange-border rounded-2xl p-7">
-
-          {screen === 'login' && <>
-            <h2 className="font-heading text-2xl tracking-wide mb-1">{t('org_auth_login_tab').toUpperCase()} — {L('ÒGANIZATÈ','ORGANIZER','ORGANISATEUR')}</h2>
-            <p className="text-xs text-gray-light mb-5">{t('org_auth_subtitle')}</p>
-            <div className="space-y-3.5">
-              <div><label className="block text-[11px] font-semibold text-gray-light mb-1.5">{t('email')}</label><input className="w-full px-3.5 py-3 rounded-[10px] bg-white/[0.04] border border-border text-white text-[13px] outline-none focus:border-orange placeholder:text-gray-muted" placeholder="email@example.com" /></div>
-              <div><label className="block text-[11px] font-semibold text-gray-light mb-1.5">{t('password')}</label><input type="password" className="w-full px-3.5 py-3 rounded-[10px] bg-white/[0.04] border border-border text-white text-[13px] outline-none focus:border-orange placeholder:text-gray-muted" placeholder="••••••••" /></div>
-              <a href="#" className="block text-right text-[11px] text-orange hover:underline -mt-1">{t('auth_forgot')}</a>
+        {tab === 'register' && (
+          <form onSubmit={handleRegister}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
+              <div><label style={labelStyle}>{L('Prenon', 'First Name', 'Prenom')}</label><input value={firstName} onChange={e => setFirstName(e.target.value)} required style={inputStyle} /></div>
+              <div><label style={labelStyle}>{L('Non', 'Last Name', 'Nom')}</label><input value={lastName} onChange={e => setLastName(e.target.value)} required style={inputStyle} /></div>
             </div>
-            <button onClick={() => setScreen('welcome')} className="w-full mt-4 py-3 rounded-[10px] bg-orange text-white font-bold text-sm hover:bg-orange/80 transition-all">{t('auth_login_btn')}</button>
-            <p className="text-center text-xs text-gray-light mt-4">{L('Pa gen kont?','No account?','Pas de compte ?')} <button onClick={() => setScreen('register')} className="text-orange font-semibold hover:underline">{L('Kreye youn gratis','Create one free','Créez-en un gratuitement')}</button></p>
-          </>}
-
-          {screen === 'register' && <>
-            <h2 className="font-heading text-2xl tracking-wide mb-1">{L('KREYE KONT ÒGANIZATÈ','CREATE ORGANIZER ACCOUNT','CRÉER UN COMPTE ORGANISATEUR')}</h2>
-            <p className="text-xs text-gray-light mb-5">{t('org_auth_subtitle')}</p>
-            <div className="space-y-3.5">
-              <div className="grid grid-cols-2 gap-2.5">
-                <div><label className="block text-[11px] font-semibold text-gray-light mb-1.5">{t('auth_first_name')} *</label><input className="w-full px-3.5 py-3 rounded-[10px] bg-white/[0.04] border border-border text-white text-[13px] outline-none focus:border-orange placeholder:text-gray-muted" placeholder="Ex: Jean" /></div>
-                <div><label className="block text-[11px] font-semibold text-gray-light mb-1.5">{t('auth_last_name')} *</label><input className="w-full px-3.5 py-3 rounded-[10px] bg-white/[0.04] border border-border text-white text-[13px] outline-none focus:border-orange placeholder:text-gray-muted" placeholder="Ex: Baptiste" /></div>
+            <div style={{ marginBottom: 12 }}>
+              <label style={labelStyle}>{L('Non Biznis', 'Business Name', "Nom de l'entreprise")}</label>
+              <input value={businessName} onChange={e => setBusinessName(e.target.value)} required style={inputStyle} />
+            </div>
+            <div style={{ marginBottom: 12 }}>
+              <label style={labelStyle}>{L('Tip Biznis', 'Business Type', "Type d'entreprise")}</label>
+              <select value={businessType} onChange={e => setBusinessType(e.target.value)} required style={inputStyle}>
+                <option value="">{L('Chwazi...', 'Select...', 'Choisir...')}</option>
+                <option value="promoter">{L('Pwomote', 'Promoter', 'Promoteur')}</option>
+                <option value="venue">{L('Sal Espektak', 'Venue', 'Salle de spectacle')}</option>
+                <option value="artist">{L('Atis / Manadye', 'Artist / Manager', 'Artiste / Manager')}</option>
+                <option value="sports">{L('Ekip Espo', 'Sports Team', 'Equipe sportive')}</option>
+                <option value="nonprofit">{L('Organizasyon', 'Nonprofit', 'Organisation')}</option>
+                <option value="religious">{L('Organizasyon Relijye', 'Religious Org', 'Organisation Religieuse')}</option>
+              </select>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
+              <div><label style={labelStyle}>{L('Imel', 'Email', 'E-mail')}</label><input type="email" value={regEmail} onChange={e => setRegEmail(e.target.value)} required style={inputStyle} /></div>
+              <div><label style={labelStyle}>{L('Telefon', 'Phone', 'Telephone')}</label><input type="tel" value={phone} onChange={e => setPhone(e.target.value)} style={inputStyle} placeholder="+509..." /></div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 12 }}>
+              <div><label style={labelStyle}>{L('Vil', 'City', 'Ville')}</label><input value={city} onChange={e => setCity(e.target.value)} style={inputStyle} /></div>
+              <div><label style={labelStyle}>{L('Eta', 'State', 'Etat')}</label><input value={state_} onChange={e => setState_(e.target.value)} style={inputStyle} /></div>
+              <div><label style={labelStyle}>{L('Peyi', 'Country', 'Pays')}</label>
+                <select value={country} onChange={e => setCountry(e.target.value)} style={inputStyle}>
+                  <option value="Haiti">Haiti</option><option value="USA">USA</option>
+                  <option value="Canada">Canada</option><option value="France">France</option>
+                  <option value="Rep. Dominiken">Rep. Dominiken</option>
+                </select>
               </div>
-              <div><label className="block text-[11px] font-semibold text-gray-light mb-1.5">{t('email')} *</label><input type="email" className="w-full px-3.5 py-3 rounded-[10px] bg-white/[0.04] border border-border text-white text-[13px] outline-none focus:border-orange placeholder:text-gray-muted" placeholder="email@example.com" /></div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
               <div>
-                <label className="block text-[11px] font-semibold text-gray-light mb-1.5">{t('phone')} *</label>
-                <div className="flex gap-2">
-                  <select className="w-[100px] px-2 py-3 rounded-[10px] bg-white/[0.04] border border-border text-white text-[13px] outline-none focus:border-orange"><option>🇭🇹 +509</option><option>🇺🇸 +1</option><option>🇨🇦 +1</option><option>🇩🇴 +1</option><option>🇫🇷 +33</option></select>
-                  <input type="tel" className="flex-1 px-3.5 py-3 rounded-[10px] bg-white/[0.04] border border-border text-white text-[13px] outline-none focus:border-orange placeholder:text-gray-muted" placeholder="3412 0000" />
+                <label style={labelStyle}>{L('Metod Peman', 'Payout Method', 'Mode de paiement')}</label>
+                <select value={payoutMethod} onChange={e => setPayoutMethod(e.target.value)} style={inputStyle}>
+                  <option value="">{L('Chwazi...', 'Select...', 'Choisir...')}</option>
+                  <option value="moncash">MonCash</option>
+                  <option value="natcash">Natcash</option>
+                  <option value="stripe">Stripe</option>
+                  <option value="bank">{L('Transfe Bank', 'Bank Transfer', 'Virement bancaire')}</option>
+                  <option value="zelle">Zelle</option>
+                  <option value="paypal">PayPal</option>
+                  <option value="cashapp">Cash App</option>
+                </select>
+              </div>
+              <div><label style={labelStyle}>{L('Detay Kont', 'Account Details', 'Details du compte')}</label><input value={payoutDetails} onChange={e => setPayoutDetails(e.target.value)} style={inputStyle} /></div>
+            </div>
+            <div style={{ marginBottom: 12 }}>
+              <label style={labelStyle}>{L('Modpas', 'Password', 'Mot de passe')}</label>
+              <input type="password" value={regPass} onChange={e => setRegPass(e.target.value)} required style={inputStyle} />
+              {regPass && (
+                <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div style={{ flex: 1, height: 4, background: '#1e1e2e', borderRadius: 2, overflow: 'hidden' }}>
+                    <div style={{ height: '100%', background: strength.color, width: `${(regPass.length > 0 ? 25 : 0) + (regPass.length >= 6 ? 25 : 0) + (regPass.length >= 10 ? 25 : 0) + (/[A-Z]/.test(regPass) && /\d/.test(regPass) ? 25 : 0)}%`, transition: 'width .3s' }} />
+                  </div>
+                  <span style={{ color: strength.color, fontSize: 11, fontWeight: 600 }}>{strength.text}</span>
                 </div>
-              </div>
-              <div className="border-t border-border pt-3.5"><p className="text-[10px] uppercase tracking-widest text-orange font-bold mb-3">{L('Enfòmasyon Biznis','Business Info','Infos entreprise')}</p></div>
-              <div><label className="block text-[11px] font-semibold text-gray-light mb-1.5">{t('org_auth_biz_name')} *</label><input className="w-full px-3.5 py-3 rounded-[10px] bg-white/[0.04] border border-border text-white text-[13px] outline-none focus:border-orange placeholder:text-gray-muted" placeholder="Ex: Mega Events Haiti" /></div>
-              <div>
-                <label className="block text-[11px] font-semibold text-gray-light mb-1.5">{t('org_auth_biz_type')} *</label>
-                <select className="w-full px-3.5 py-3 rounded-[10px] bg-white/[0.04] border border-border text-white text-[13px] outline-none focus:border-orange appearance-none bg-[url('data:image/svg+xml,%3Csvg%20width%3D%278%27%20height%3D%275%27%20viewBox%3D%270%200%2010%206%27%20fill%3D%27none%27%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%3E%3Cpath%20d%3D%27M1%201l4%204%204-4%27%20stroke%3D%27%239999AD%27%20stroke-width%3D%271.5%27%20stroke-linecap%3D%27round%27/%3E%3C/svg%3E')] bg-no-repeat bg-[position:right_12px_center] pr-8">
-                  <option value="" className="bg-dark-card">{L('Chwazi...','Choose...','Choisir...')}</option>
-                  {bizTypes.map(b => <option key={b} className="bg-dark-card">{b}</option>)}
-                </select>
-              </div>
-              <div className="grid grid-cols-3 gap-2.5">
-                <div><label className="block text-[11px] font-semibold text-gray-light mb-1.5">{t('city')} *</label><input className="w-full px-3.5 py-3 rounded-[10px] bg-white/[0.04] border border-border text-white text-[13px] outline-none focus:border-orange placeholder:text-gray-muted" placeholder="Pòtoprens" /></div>
-                <div><label className="block text-[11px] font-semibold text-gray-light mb-1.5">{L('Eta/Dept','State','Dépt')}</label><input className="w-full px-3.5 py-3 rounded-[10px] bg-white/[0.04] border border-border text-white text-[13px] outline-none focus:border-orange placeholder:text-gray-muted" placeholder={L('Lwès','Ouest','Ouest')!} /></div>
-                <div><label className="block text-[11px] font-semibold text-gray-light mb-1.5">{L('Peyi','Country','Pays')} *</label><select className="w-full px-2 py-3 rounded-[10px] bg-white/[0.04] border border-border text-white text-[13px] outline-none focus:border-orange"><option>🇭🇹 Ayiti</option><option>🇺🇸 USA</option><option>🇨🇦 Canada</option></select></div>
-              </div>
-              <div className="border-t border-border pt-3.5"><p className="text-[10px] uppercase tracking-widest text-orange font-bold mb-3">{t('org_auth_payment_section')}</p></div>
-              <div>
-                <label className="block text-[11px] font-semibold text-gray-light mb-1.5">{t('org_auth_primary_payment')} *</label>
-                <select className="w-full px-3.5 py-3 rounded-[10px] bg-white/[0.04] border border-border text-white text-[13px] outline-none focus:border-orange appearance-none bg-[url('data:image/svg+xml,%3Csvg%20width%3D%278%27%20height%3D%275%27%20viewBox%3D%270%200%2010%206%27%20fill%3D%27none%27%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%3E%3Cpath%20d%3D%27M1%201l4%204%204-4%27%20stroke%3D%27%239999AD%27%20stroke-width%3D%271.5%27%20stroke-linecap%3D%27round%27/%3E%3C/svg%3E')] bg-no-repeat bg-[position:right_12px_center] pr-8">
-                  <option value="" className="bg-dark-card">{L('Chwazi...','Choose...','Choisir...')}</option>
-                  <option className="bg-dark-card">📱 MonCash</option>
-                  <option className="bg-dark-card">💚 Natcash</option>
-                  <option className="bg-dark-card">🏦 {L('Kont Bank','Bank Account','Compte bancaire')}</option>
-                  <option className="bg-dark-card">💳 Stripe</option>
-                  <option className="bg-dark-card">⚡ Zelle</option>
-                  <option className="bg-dark-card">🅿️ PayPal</option>
-                  <option className="bg-dark-card">💲 Cash App</option>
-                </select>
-              </div>
-              <div><label className="block text-[11px] font-semibold text-gray-light mb-1.5">{t('org_auth_payment_account')} *</label><input className="w-full px-3.5 py-3 rounded-[10px] bg-white/[0.04] border border-border text-white text-[13px] outline-none focus:border-orange placeholder:text-gray-muted" placeholder={L('Nimewo kont, imèl, oswa $cashtag','Account number, email, or $cashtag','Numéro de compte, email ou $cashtag')!} /></div>
-              <div className="border-t border-border pt-3.5"><p className="text-[10px] uppercase tracking-widest text-orange font-bold mb-3">{t('password')}</p></div>
-              <div>
-                <label className="block text-[11px] font-semibold text-gray-light mb-1.5">{t('password')} *</label>
-                <input type="password" value={pwd} onChange={e => setPwd(e.target.value)} className="w-full px-3.5 py-3 rounded-[10px] bg-white/[0.04] border border-border text-white text-[13px] outline-none focus:border-orange placeholder:text-gray-muted" placeholder={L('Omwen 8 karaktè...','At least 8 characters...','Au moins 8 caractères...')!} />
-                <div className="flex gap-1 mt-1.5">{[1,2,3,4].map(i => <div key={i} className={`flex-1 h-[3px] rounded-full ${i <= str.score ? BAR_C[str.score] : 'bg-white/[0.06]'}`} />)}</div>
-                <p className={`text-[10px] mt-1 ${str.color}`}>{str.label}</p>
-              </div>
-              <div><label className="block text-[11px] font-semibold text-gray-light mb-1.5">{t('auth_confirm_password')} *</label><input type="password" className="w-full px-3.5 py-3 rounded-[10px] bg-white/[0.04] border border-border text-white text-[13px] outline-none focus:border-orange placeholder:text-gray-muted" placeholder={L('Tape modpas la ankò','Re-enter password','Retapez le mot de passe')!} /></div>
-              <label className="flex items-start gap-2 cursor-pointer">
-                <input type="checkbox" className="accent-orange w-4 h-4 mt-0.5" />
-                <span className="text-[11px] text-gray-light">{t('auth_terms')}</span>
-              </label>
+              )}
             </div>
-            <button onClick={() => setScreen('otp')} className="w-full mt-5 py-3 rounded-[10px] bg-orange text-white font-bold text-sm hover:bg-orange/80 transition-all">{t('org_auth_create_btn')}</button>
-            <p className="text-center text-xs text-gray-light mt-4">{L('Deja gen kont?','Already have an account?','Vous avez déjà un compte ?')} <button onClick={() => setScreen('login')} className="text-orange font-semibold hover:underline">{t('login')}</button></p>
-          </>}
-
-          {screen === 'otp' && (
-            <div className="text-center py-4">
-              <div className="text-5xl mb-3">📱</div>
-              <h3 className="text-lg font-bold mb-1.5">{L('Verifye Nimewo Ou','Verify Your Number','Vérifiez votre numéro')}</h3>
-              <p className="text-xs text-gray-light mb-5">{L('Nou voye yon kòd 6 chif sou','We sent a 6-digit code to','Nous avons envoyé un code à 6 chiffres au')} <strong className="text-white">+509 3412 ****</strong></p>
-              <div className="flex gap-2 justify-center">
-                {otp.map((v, i) => <input key={i} id={`otp-${i}`} type="text" maxLength={1} value={v} onChange={e => otpChange(i, e.target.value)} className="w-[46px] h-[52px] rounded-[10px] bg-white/[0.04] border border-border text-white font-heading text-2xl text-center outline-none focus:border-orange" />)}
-              </div>
-              <button onClick={() => setScreen('welcome')} className="w-full mt-5 py-3 rounded-[10px] bg-orange text-white font-bold text-sm hover:bg-orange/80 transition-all">{L('Verifye →','Verify →','Vérifier →')}</button>
-              <p className="text-[11px] text-gray-muted mt-3">{L("Pa resevwa kòd la?","Didn't receive the code?","Vous n'avez pas reçu le code ?")} <button className="text-orange hover:underline">{L('Voye ankò','Resend','Renvoyer')}</button></p>
+            <div style={{ marginBottom: 20 }}>
+              <label style={labelStyle}>{L('Konfime Modpas', 'Confirm Password', 'Confirmer le mot de passe')}</label>
+              <input type="password" value={confirmPass} onChange={e => setConfirmPass(e.target.value)} required style={inputStyle} />
             </div>
-          )}
+            <button type="submit" disabled={loading}
+              style={{ width: '100%', padding: 14, borderRadius: 8, border: 'none', background: '#f97316', color: '#000', fontSize: 15, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.6 : 1 }}>
+              {loading ? L('Ap kreye...', 'Creating...', 'Creation...') : L('Kreye Kont Organizate', 'Create Organizer Account', 'Creer un compte organisateur')}
+            </button>
+          </form>
+        )}
 
-          {screen === 'welcome' && (
-            <div className="text-center py-4">
-              <div className="text-6xl mb-3">🎉</div>
-              <h2 className="font-heading text-3xl tracking-wide mb-1">{L('BYENVENI, PROMOTÈ!','WELCOME, PROMOTER!','BIENVENUE, PROMOTEUR !')}</h2>
-              <p className="text-xs text-gray-light mb-6">{L('Kont ou pare. Kòmanse kreye evènman ak envite vandè.','Your account is ready. Start creating events and inviting vendors.','Votre compte est prêt. Commencez à créer des événements et inviter des vendeurs.')}</p>
-              <div className="flex flex-col gap-2.5">
-                <Link href="/organizer/dashboard" className="w-full py-3 rounded-lg bg-orange text-white font-bold text-sm hover:bg-orange/80 transition-all text-center">📊 {L('Ale nan Dachbòd','Go to Dashboard','Aller au tableau de bord')}</Link>
-                <Link href="/organizer/events/create" className="w-full py-3 rounded-lg border border-orange-border text-orange font-bold text-sm hover:bg-orange-dim transition-all text-center">📅 {L('Kreye Premye Evènman','Create First Event','Créer le premier événement')}</Link>
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="text-center mt-5 p-3.5 rounded-xl border border-border bg-white/[0.01]">
-          <p className="text-[11px] text-gray-muted">{t('org_auth_fan_link')}</p>
-          <Link href="/auth" className="text-cyan font-semibold text-xs hover:underline">{t('landing_fan_cta')}</Link>
+        <div style={{ textAlign: 'center', marginTop: 20, fontSize: 13, color: '#555' }}>
+          {L('Ou se yon fan?', 'Are you a fan?', 'Etes-vous un fan?')}{' '}
+          <Link href="/auth" style={{ color: '#06b6d4' }}>{L('Konekte kom kliyan', 'Sign in as fan', 'Connexion en tant que fan')}</Link>
         </div>
       </div>
     </div>

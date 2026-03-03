@@ -2,28 +2,91 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useT } from '@/i18n';
-import LangSwitcher from '@/components/LangSwitcher';
-import { TranslationKey } from '@/i18n/translations';
+import { getPublishedEvents, type EventData } from '@/lib/db';
+import { fetchHaitianCityEvents, tmEventsToGallery } from '@/lib/ticketmaster';
 
-const GALLERY = [
-  { title: 'Kompa Fest 2026', venue: 'Parc Istorik, Milot', date: '15 Mars', emoji: '🎶', price: 15, live: true },
-  { title: 'DJ Stéphane Live', venue: 'Karibe Hotel, PV', date: '22 Mars', emoji: '🎧', price: 25, live: false },
-  { title: 'Rara Lakay 2026', venue: 'Champ de Mars, PaP', date: '5 Avr', emoji: '🥁', price: 10, live: false },
-  { title: 'Tabou Combo 50 Ans', venue: 'Little Haiti, Miami', date: '12 Avr', emoji: '🎺', price: 45, live: false },
-  { title: 'Kanaval Jacmel', venue: 'Jacmel, Sidès', date: '8 Avr', emoji: '🎭', price: 5, live: true },
-  { title: 'Jazz nan Lakou', venue: 'Lakou Trignon, PaP', date: '20 Avr', emoji: '🎷', price: 30, live: false },
+const LangSwitcher = () => null;
+
+const FALLBACK_GALLERY = [
+  { title: 'Kompa Fest 2026', venue: 'Parc Istorik, Milot', date: '15 Mars', emoji: '🎶', price: 15, live: true, imageUrl: '', ticketUrl: '', source: 'anbyans' as const },
+  { title: 'DJ Stéphane Live', venue: 'Karibe Hotel, PV', date: '22 Mars', emoji: '🎧', price: 25, live: false, imageUrl: '', ticketUrl: '', source: 'anbyans' as const },
+  { title: 'Rara Lakay 2026', venue: 'Champ de Mars, PaP', date: '5 Avr', emoji: '🥁', price: 10, live: false, imageUrl: '', ticketUrl: '', source: 'anbyans' as const },
+  { title: 'Tabou Combo 50 Ans', venue: 'Little Haiti, Miami', date: '12 Avr', emoji: '🎺', price: 45, live: false, imageUrl: '', ticketUrl: '', source: 'anbyans' as const },
+  { title: 'Kanaval Jacmel', venue: 'Jacmel, Sidès', date: '8 Avr', emoji: '🎭', price: 5, live: true, imageUrl: '', ticketUrl: '', source: 'anbyans' as const },
+  { title: 'Jazz nan Lakou', venue: 'Lakou Trignon, PaP', date: '20 Avr', emoji: '🎷', price: 30, live: false, imageUrl: '', ticketUrl: '', source: 'anbyans' as const },
 ];
 
-const FAN_KEYS: TranslationKey[] = ['fan_feat_1','fan_feat_2','fan_feat_3','fan_feat_4','fan_feat_5','fan_feat_6'];
-const ORG_KEYS: TranslationKey[] = ['org_feat_1','org_feat_2','org_feat_3','org_feat_4','org_feat_5','org_feat_6'];
-const VEND_KEYS: TranslationKey[] = ['vend_feat_1','vend_feat_2','vend_feat_3','vend_feat_4','vend_feat_5','vend_feat_6'];
+type I18nKey = Parameters<ReturnType<typeof useT>['t']>[0];
+
+const FAN_KEYS: I18nKey[] = ['fan_feat_1','fan_feat_2','fan_feat_3','fan_feat_4','fan_feat_5','fan_feat_6'];
+const ORG_KEYS: I18nKey[] = ['org_feat_1','org_feat_2','org_feat_3','org_feat_4','org_feat_5','org_feat_6'];
+const VEND_KEYS: I18nKey[] = ['vend_feat_1','vend_feat_2','vend_feat_3','vend_feat_4','vend_feat_5','vend_feat_6'];
+
+type GalleryItem = {
+  title: string;
+  venue: string;
+  date: string;
+  emoji: string;
+  price: number;
+  live: boolean;
+  imageUrl?: string;
+  ticketUrl?: string;
+  source: 'anbyans' | 'ticketmaster';
+};
 
 export default function LandingPage() {
   const router = useRouter();
   const { t } = useT();
   const [q, setQ] = useState('');
+  const [gallery, setGallery] = useState<GalleryItem[]>(FALLBACK_GALLERY);
+
+  useEffect(() => {
+    async function loadEvents() {
+      const combined: GalleryItem[] = [];
+      const emojis = ['🎶','🎧','🥁','🎺','🎭','🎷','🎵','🎤','🪘','🎹'];
+
+      // Load Anbyans events from Firestore
+      try {
+        const anbyansEvents = await getPublishedEvents();
+        for (let i = 0; i < anbyansEvents.length; i++) {
+          const e = anbyansEvents[i];
+          combined.push({
+            title: e.name,
+            venue: `${e.venue?.name || ''}, ${e.venue?.city || ''}`,
+            date: e.startDate,
+            emoji: emojis[i % emojis.length],
+            price: e.sections?.length ? Math.min(...e.sections.map(s => s.price)) : 0,
+            live: e.status === 'live',
+            imageUrl: e.imageUrl || '',
+            ticketUrl: '',
+            source: 'anbyans',
+          });
+        }
+      } catch (err) {
+        console.error('Anbyans events error:', err);
+      }
+
+     // Only fetch Ticketmaster if fewer than 10 Anbyans events
+if (combined.length < 10) {
+  try {
+    const tmEvents = await fetchHaitianCityEvents(4);
+    const tmGallery = tmEventsToGallery(tmEvents);
+    combined.push(...tmGallery);
+  } catch (err) {
+    console.error('Ticketmaster events error:', err);
+  }
+}
+
+      // Use combined if we got anything, otherwise fallback
+      if (combined.length > 0) {
+        setGallery(combined);
+      }
+    }
+
+    loadEvents();
+  }, []);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -57,25 +120,35 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* GALLERY */}
+        {/* GALLERY SCROLL */}
         <section className="relative overflow-hidden py-4 mb-12">
           <div className="flex gap-4 px-5 animate-scroll hover:[animation-play-state:paused]">
-            {[...GALLERY, ...GALLERY].map((ev, i) => (
-              <Link key={i} href="/events" className="flex-shrink-0 w-[200px] bg-dark-card border border-border rounded-card overflow-hidden hover:border-white/[0.12] transition-all group">
-                <div className="h-24 bg-gradient-to-br from-[#1a1a2e] to-[#16213e] flex items-center justify-center text-4xl relative">
-                  {ev.emoji}
-                  {ev.live && <span className="absolute top-2 left-2 bg-red text-white text-[8px] font-bold px-1.5 py-0.5 rounded-md animate-pulse">● LIVE</span>}
-                </div>
-                <div className="p-3">
-                  <p className="text-xs font-bold truncate group-hover:text-cyan transition-colors">{ev.title}</p>
-                  <p className="text-[10px] text-gray-light mt-0.5 truncate">📍 {ev.venue}</p>
-                  <div className="flex items-center justify-between mt-2">
-                    <span className="text-[10px] text-gray-muted">📅 {ev.date}</span>
-                    <span className="font-heading text-base">${ev.price}</span>
+            {[...(gallery.length >= 8 ? gallery : [...gallery, ...gallery])].map((ev, i) => {
+         const CardWrapper = ({ children, ...props }: any) => <Link href="/events" {...props}>{children}</Link>;
+              return (
+                <CardWrapper key={i} className="flex-shrink-0 w-[200px] bg-dark-card border border-border rounded-card overflow-hidden hover:border-white/[0.12] transition-all group">
+                  <div className="h-24 bg-gradient-to-br from-[#1a1a2e] to-[#16213e] flex items-center justify-center text-4xl relative overflow-hidden">
+                    {ev.imageUrl ? (
+                      <img src={ev.imageUrl} alt={ev.title} className="w-full h-full object-cover" />
+                    ) : (
+                      ev.emoji
+                    )}
+                    {ev.live && <span className="absolute top-2 left-2 bg-red text-white text-[8px] font-bold px-1.5 py-0.5 rounded-md animate-pulse">● LIVE</span>}
+                    {ev.source === 'ticketmaster' && (
+                      <span className="absolute bottom-1 right-1 bg-black/60 text-[8px] text-gray-400 px-1 rounded">TM</span>
+                    )}
                   </div>
-                </div>
-              </Link>
-            ))}
+                  <div className="p-3">
+                    <p className="text-xs font-bold truncate group-hover:text-cyan transition-colors">{ev.title}</p>
+                    <p className="text-[10px] text-gray-light mt-0.5 truncate">📍 {ev.venue}</p>
+                    <div className="flex items-center justify-between mt-2">
+                      <span className="text-[10px] text-gray-muted">📅 {ev.date}</span>
+                      <span className="font-heading text-base">{ev.price > 0 ? `$${ev.price}` : 'Free'}</span>
+                    </div>
+                  </div>
+                </CardWrapper>
+              );
+            })}
           </div>
         </section>
 

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useT } from '@/i18n';
 import LangSwitcher from '@/components/LangSwitcher';
 
@@ -10,16 +10,18 @@ import LangSwitcher from '@/components/LangSwitcher';
 
 interface BulkTier { minQty: number; maxQty: number | null; priceEach: number; }
 
+interface LocalizedText { ht: string; en: string; fr: string; }
+
 interface AvailableEvent {
-  id: number; name: string; emoji: string; date: { ht: string; en: string; fr: string };
+  id: number; name: string; emoji: string; date: LocalizedText;
   sections: { section: string; sectionColor: string; onlinePrice: number; available: number; bulkTiers: BulkTier[] }[];
 }
 
 interface OwnedStock {
-  eventId: number; eventName: string; eventEmoji: string; eventDate: { ht: string; en: string; fr: string };
+  eventId: number; eventName: string; eventEmoji: string; eventDate: LocalizedText;
   section: string; sectionColor: string;
   qty: number; costEach: number; totalCost: number;
-  sold: number; purchaseDate: { ht: string; en: string; fr: string };
+  sold: number; purchaseDate: LocalizedText;
 }
 
 const AVAILABLE_EVENTS: AvailableEvent[] = [
@@ -64,7 +66,9 @@ type Tab = 'sell' | 'buy' | 'inventory' | 'sales';
 export default function VendorDashboardPage() {
   const router = useRouter();
   const { t, locale } = useT();
-  const L = (ht: string, en: string, fr: string) => ({ ht, en, fr }[locale]);
+  const L = (ht: string, en: string, fr: string) =>
+    ({ ht, en, fr } as Record<typeof locale, string>)[locale];
+  const byLocale = (value: LocalizedText) => value[locale as keyof LocalizedText];
   const [tab, setTab] = useState<Tab>('sell');
 
   // Sell state
@@ -193,12 +197,17 @@ export default function VendorDashboardPage() {
                       const rem = s.qty - s.sold;
                       if (rem <= 0) return null;
                       return (
-                        <button key={i} onClick={() => { setSellStock(i); setSellPrice(''); }}
-                          className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-all text-left ${sellStock === i ? 'border-purple bg-purple-dim' : 'border-border hover:border-white/[0.1]'}`}>
-                          <span className="text-xl">{s.eventEmoji}</span>
-                          <div className="flex-1">
-                            <p className="text-xs font-bold">{s.eventName}</p>
-                            <p className="text-[10px] text-gray-muted">📅 {s.eventDate[locale]} · <span style={{color:s.sectionColor}}>{s.section}</span></p>
+                        <button
+                          key={i}
+                          onClick={() => { setSellStock(i); setSellPrice(''); }}
+                          className={`w-full flex items-center justify-between gap-3 p-3 rounded-xl border transition-all ${sellStock === i ? 'border-purple bg-purple-dim' : 'border-border hover:border-white/[0.1]'}`}
+                        >
+                          <div className="flex items-center gap-3 text-left">
+                            <span className="text-2xl">{s.eventEmoji}</span>
+                            <div>
+                              <p className="text-xs font-bold">{s.eventName}</p>
+                              <p className="text-[10px] text-gray-muted">📅 {byLocale(s.eventDate)} · <span style={{color:s.sectionColor}}>{s.section}</span></p>
+                            </div>
                           </div>
                           <div className="text-right">
                             <p className="text-xs font-bold">{rem} {t('vend_sell_remaining')}</p>
@@ -290,23 +299,23 @@ export default function VendorDashboardPage() {
           <div>
             <h2 className="font-heading text-xl tracking-wide mb-1">{t('vend_buy_title')}</h2>
             <p className="text-xs text-gray-light mb-5">{t('vend_buy_subtitle')}</p>
+            <div className="space-y-2">
+              {AVAILABLE_EVENTS.map((ev, i) => (
+                <button
+                  key={ev.id}
+                  onClick={() => { setBuyEvent(i); setBuySection(0); setBuyQty(ev.sections[0]?.bulkTiers[0]?.minQty || 10); }}
+                  className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-all ${buyEvent === i ? 'border-purple bg-purple-dim' : 'border-border hover:border-white/[0.1]'}`}
+                >
+                  <span className="text-2xl">{ev.emoji}</span>
+                  <div className="text-left">
+                    <p className="text-xs font-bold">{ev.name}</p>
+                    <p className="text-[10px] text-gray-muted">📅 {byLocale(ev.date)}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
 
-            <div className="bg-dark-card border border-purple-border rounded-2xl p-5">
-              {/* Event */}
-              <div className="mb-4">
-                <label className="block text-[11px] font-semibold text-gray-light mb-1.5">{L('Evènman','Event','Événement')}</label>
-                <div className="space-y-2">
-                  {AVAILABLE_EVENTS.map((ev, i) => (
-                    <button key={ev.id} onClick={() => { setBuyEvent(i); setBuySection(0); setBuyQty(ev.sections[0]?.bulkTiers[0]?.minQty || 10); }}
-                      className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-all text-left ${buyEvent === i ? 'border-purple bg-purple-dim' : 'border-border hover:border-white/[0.1]'}`}>
-                      <span className="text-2xl">{ev.emoji}</span>
-                      <div><p className="text-xs font-bold">{ev.name}</p><p className="text-[10px] text-gray-muted">📅 {ev.date[locale]}</p></div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Section */}
+            {/* Section */}
               <div className="mb-4">
                 <label className="block text-[11px] font-semibold text-gray-light mb-1.5">{L('Seksyon','Section','Section')}</label>
                 <div className="flex gap-2">
@@ -377,7 +386,6 @@ export default function VendorDashboardPage() {
                 🛒 {t('vend_dash_buy')} {buyQty} {t('tickets')} — ${buyTotal.toLocaleString()}
               </button>
               <p className="text-[10px] text-gray-muted text-center mt-2">{L('Tikè yo ap parèt nan envantè ou imedyatman apre peman','Tickets will appear in your inventory immediately after payment','Les billets apparaîtront dans votre inventaire immédiatement après le paiement')}</p>
-            </div>
           </div>
         )}
 
@@ -427,21 +435,24 @@ export default function VendorDashboardPage() {
                 <p className="font-heading text-2xl text-green">{totalSold}</p>
               </div>
               <div className="bg-dark-card border border-border rounded-card p-3 text-center">
-                <p className="text-[9px] text-gray-muted uppercase">{t('vend_inv_invested')}</p>
-                <p className="font-heading text-2xl">${totalInvested.toLocaleString()}</p>
+                <p className="text-[9px] text-gray-muted uppercase">{t('remaining')}</p>
+                <p className="font-heading text-2xl">{totalRemaining}</p>
               </div>
             </div>
+
             <div className="space-y-3">
               {OWNED.map((s, i) => {
                 const rem = s.qty - s.sold;
-                const pct = Math.round((s.sold / s.qty) * 100);
+                const pct = s.qty > 0 ? Math.round((s.sold / s.qty) * 100) : 0;
                 return (
                   <div key={i} className="bg-dark-card border border-border rounded-card p-4">
-                    <div className="flex items-center gap-3 mb-2.5">
-                      <span className="text-xl">{s.eventEmoji}</span>
-                      <div className="flex-1">
-                        <p className="text-xs font-bold">{s.eventName}</p>
-                        <p className="text-[10px] text-gray-muted">📅 {s.eventDate[locale]} · {L('Achte','Bought','Acheté')} {s.purchaseDate[locale]}</p>
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                        <span className="text-2xl">{s.eventEmoji}</span>
+                        <div>
+                          <p className="text-xs font-bold">{s.eventName}</p>
+                          <p className="text-[10px] text-gray-muted">📅 {byLocale(s.eventDate)} · {L('Achte','Bought','Acheté')} {byLocale(s.purchaseDate)}</p>
+                        </div>
                       </div>
                       <span className="px-2 py-0.5 rounded text-[9px] font-bold border" style={{color:s.sectionColor, borderColor:s.sectionColor, background:s.sectionColor+'15'}}>{s.section}</span>
                     </div>

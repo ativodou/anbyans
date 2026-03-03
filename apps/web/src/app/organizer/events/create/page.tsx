@@ -1,532 +1,644 @@
 'use client';
-
-import Link from 'next/link';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useState, useCallback } from 'react';
+import Link from 'next/link';
+import { useT } from '@/i18n';
+import { useAuth } from '@/hooks/useAuth';
+import { createEvent, KNOWN_VENUES, type EventSection, type EventRestriction, type EventPromo, type EventVenue } from '@/lib/db';
 
-/* ══════════════════════════════════════════════════════════════════
-   TYPES & DATA
-   ══════════════════════════════════════════════════════════════════ */
-
-interface Section {
-  id: string;
-  name: string;
-  color: string;
-  seats: number;
-  description: string;
-}
-
-interface Tier {
-  id: string;
-  sectionId: string;
-  name: string;
-  color: string;
-  emoji: string;
-  price: number;
-  qty: number;
-}
-
-interface PromoCode {
-  code: string;
-  discount: number;
-}
-
-type Chip = { group: string; label: string };
-
-const RESTRICTIONS: { group: string; emoji: string; chips: string[] }[] = [
-  { group:'Kòd Abiman', emoji:'👔', chips:['Casual','Semi-Formal','Formal','Tèm / Kostim','Tout Blan','Tout Nwa'] },
-  { group:'Manje & Bwason', emoji:'🍽️', chips:['Pa gen manje deyò','Pa gen bwason deyò','BYOB','Manje enkli','Bwason enkli','Ba peyan'] },
-  { group:'Kamera & Anrejistreman', emoji:'📵', chips:['Pa gen kamera','Pa gen anrejistreman','Pa gen telefòn','Foto pèmèt'] },
-  { group:'Politik Sak', emoji:'👜', chips:['Pa gen sak','Ti sak sèlman','Sak transparan sèlman','Verifikasyon sak nan antre'] },
-  { group:'Sekirite', emoji:'🔒', chips:['Pa gen zam','Pa gen kouto / objè tranchan','Fouy nan antre','Detektè metal','Pyès idantite obligatwa','Pa gen reantre'] },
-  { group:'Aksesibilite', emoji:'♿', chips:['Aksè chèz woulant','Entèprèt lang siy','Pakin aksesib','Asansè disponib'] },
-  { group:'Sante', emoji:'🏥', chips:['Vaksen obligatwa','Mask obligatwa','Tcheke tanperati','Medsen sou plas'] },
-];
-
-const DEFAULT_SECTIONS: Section[] = [
-  { id:'vvip', name:'VVIP', color:'#FFD700', seats:50, description:'Pi pre sènn lan' },
-  { id:'vip', name:'VIP', color:'#FF6B35', seats:150, description:'Dezyèm ranje, aksè bar VIP' },
-  { id:'ga', name:'GA', color:'#00D4FF', seats:1000, description:'Aksè jeneral' },
-];
-
-const LAYOUTS = [
-  { icon:'🎤', name:'Konsè', desc:'Seksyon kanpe + chèz' },
-  { icon:'🎭', name:'Teyat', desc:'Ranje ak chèz fiks' },
-  { icon:'🍽️', name:'Bankè', desc:'Tab wonn' },
-  { icon:'🎪', name:'Jeneral', desc:'Pa gen chèz fikse' },
-];
-
-/* ══════════════════════════════════════════════════════════════════
-   FORM INPUT COMPONENTS
-   ══════════════════════════════════════════════════════════════════ */
-
-const inputCls = "w-full px-3.5 py-3 rounded-[10px] bg-white/[0.04] border border-border text-white text-[13px] outline-none focus:border-orange placeholder:text-gray-muted";
-const selectCls = inputCls + " appearance-none bg-[url('data:image/svg+xml,%3Csvg%20width%3D%278%27%20height%3D%275%27%20viewBox%3D%270%200%2010%206%27%20fill%3D%27none%27%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%3E%3Cpath%20d%3D%27M1%201l4%204%204-4%27%20stroke%3D%27%239999AD%27%20stroke-width%3D%271.5%27%20stroke-linecap%3D%27round%27/%3E%3C/svg%3E')] bg-no-repeat bg-[position:right_12px_center] pr-8";
-const labelCls = "block text-[11px] font-semibold text-gray-light mb-1.5";
-
-/* ══════════════════════════════════════════════════════════════════
-   PAGE
-   ══════════════════════════════════════════════════════════════════ */
-
-export default function CreateEventPage() {
+export default function CreateEvent() {
   const router = useRouter();
+  const { locale } = useT();
+  const { user } = useAuth();
+  const L = (ht: string, en: string, fr: string) => ({ ht, en, fr }[locale]);
+
   const [step, setStep] = useState(1);
-  const [done, setDone] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [createdId, setCreatedId] = useState('');
 
-  // Step 1
-  const [evName, setEvName] = useState('');
-  const [evCat, setEvCat] = useState('');
-  const [evDesc, setEvDesc] = useState('');
-  const [evLang, setEvLang] = useState('Kreyòl');
-  const [evAge, setEvAge] = useState('Tout laj');
-  const [selectedChips, setSelectedChips] = useState<Chip[]>([]);
-  const [customRestrict, setCustomRestrict] = useState('');
+  // Step 1: Info
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [category, setCategory] = useState('');
+  const [language, setLanguage] = useState('ht');
+  const [ageRestriction, setAgeRestriction] = useState('all');
+  const [showRestrictions, setShowRestrictions] = useState(false);
+  const [restrictions, setRestrictions] = useState<EventRestriction>({
+    dressCode: '', foodDrink: '', cameras: '', bags: '', security: '', accessibility: '', health: '',
+  });
 
-  // Step 2
-  const [evDateStart, setEvDateStart] = useState('');
-  const [evDateEnd, setEvDateEnd] = useState('');
-  const [evTimeStart, setEvTimeStart] = useState('');
-  const [evTimeEnd, setEvTimeEnd] = useState('');
-  const [evVenue, setEvVenue] = useState('');
-  const [evAddr, setEvAddr] = useState('');
-  const [evCity, setEvCity] = useState('');
-  const [evState, setEvState] = useState('');
-  const [evCountry, setEvCountry] = useState('🇭🇹 Ayiti');
-  const [evCap, setEvCap] = useState('');
+  // Step 2: Date & Venue
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [startTime, setStartTime] = useState('');
+  const [endTime, setEndTime] = useState('');
+  const [venueMode, setVenueMode] = useState<'known' | 'custom'>('known');
+  const [selectedVenueIdx, setSelectedVenueIdx] = useState(-1);
+  const [venueSearch, setVenueSearch] = useState('');
+  const [customVenue, setCustomVenue] = useState<EventVenue>({
+    name: '', address: '', city: '', country: 'Haiti', gps: { lat: 0, lng: 0 }, capacity: 0,
+  });
 
-  // Step 3
-  const [seatMode, setSeatMode] = useState<'build'|'upload'>('build');
-  const [layout, setLayout] = useState(0);
-  const [sections, setSections] = useState<Section[]>(DEFAULT_SECTIONS);
-
-  // Step 4
-  const [tiers, setTiers] = useState<Tier[]>([
-    { id:'t1', sectionId:'vvip', name:'VVIP', color:'#FFD700', emoji:'🟡', price:150, qty:50 },
-    { id:'t2', sectionId:'vip', name:'VIP', color:'#FF6B35', emoji:'🟠', price:75, qty:150 },
-    { id:'t3', sectionId:'ga', name:'General Admission', color:'#00D4FF', emoji:'🔵', price:15, qty:1000 },
+  // Step 3: Sections
+  const [sections, setSections] = useState<EventSection[]>([
+    { name: 'VVIP', capacity: 50, price: 150, sold: 0, color: '#FFD700' },
+    { name: 'VIP', capacity: 200, price: 75, sold: 0, color: '#C0C0C0' },
+    { name: 'General', capacity: 500, price: 35, sold: 0, color: '#06b6d4' },
   ]);
-  const [promos, setPromos] = useState<PromoCode[]>([{ code:'', discount:0 }]);
 
-  // Step 5
-  const [imagePreview, setImagePreview] = useState<string|null>(null);
+  // Step 4: Promos
+  const [promos, setPromos] = useState<EventPromo[]>([]);
+  const [newPromoCode, setNewPromoCode] = useState('');
+  const [newPromoDiscount, setNewPromoDiscount] = useState(10);
+  const [newPromoType, setNewPromoType] = useState<'percent' | 'fixed'>('percent');
+  const [newPromoMax, setNewPromoMax] = useState(100);
 
-  const STEPS = ['Enfòmasyon','Dat & Kote','Plan Sal','Tikè & Pri','Imaj','Revize'];
+  // Step 5: Image
+  const [imageUrl, setImageUrl] = useState('');
 
-  const toggleChip = (group: string, label: string) => {
-    setSelectedChips(prev => {
-      const exists = prev.find(c => c.group === group && c.label === label);
-      return exists ? prev.filter(c => !(c.group === group && c.label === label)) : [...prev, { group, label }];
-    });
-  };
+  const filteredVenues = KNOWN_VENUES.filter(v =>
+    v.name.toLowerCase().includes(venueSearch.toLowerCase()) ||
+    v.city.toLowerCase().includes(venueSearch.toLowerCase()) ||
+    v.country.toLowerCase().includes(venueSearch.toLowerCase())
+  );
 
-  const addSection = () => {
-    const id = `sec-${Date.now()}`;
-    setSections(prev => [...prev, { id, name:'Nouvo Seksyon', color:'#9999AD', seats:100, description:'Deskripsyon...' }]);
-    setTiers(prev => [...prev, { id:`t-${Date.now()}`, sectionId:id, name:'Nouvo Seksyon', color:'#9999AD', emoji:'⬜', price:0, qty:100 }]);
-  };
+  const venue = venueMode === 'known' && selectedVenueIdx >= 0 ? KNOWN_VENUES[selectedVenueIdx] : customVenue;
 
-  const removeSection = (id: string) => {
-    setSections(prev => prev.filter(s => s.id !== id));
-    setTiers(prev => prev.filter(t => t.sectionId !== id));
-  };
+  const inputStyle: React.CSSProperties = { width: '100%', padding: 12, borderRadius: 8, border: '1px solid #1e1e2e', background: '#0a0a0f', color: '#fff', fontSize: 14, boxSizing: 'border-box' };
+  const labelStyle: React.CSSProperties = { color: '#888', fontSize: 12, marginBottom: 6, display: 'block', fontWeight: 600 };
+  const cardStyle: React.CSSProperties = { background: '#12121a', border: '1px solid #1e1e2e', borderRadius: 12, padding: 24, marginBottom: 16 };
 
-  const updateSection = (id: string, field: keyof Section, val: string|number) => {
-    setSections(prev => prev.map(s => s.id === id ? { ...s, [field]: val } : s));
-    if (field === 'name') setTiers(prev => prev.map(t => t.sectionId === id ? { ...t, name: val as string } : t));
-    if (field === 'seats') setTiers(prev => prev.map(t => t.sectionId === id ? { ...t, qty: val as number } : t));
-  };
+  function updateSection(idx: number, field: keyof EventSection, value: any) {
+    const updated = [...sections];
+    (updated[idx] as any)[field] = value;
+    setSections(updated);
+  }
+  function addSection() {
+    setSections([...sections, { name: '', capacity: 100, price: 25, sold: 0, color: '#888888' }]);
+  }
+  function removeSection(idx: number) {
+    setSections(sections.filter((_, i) => i !== idx));
+  }
 
-  const updateTier = (id: string, field: keyof Tier, val: string|number) => {
-    setTiers(prev => prev.map(t => t.id === id ? { ...t, [field]: val } : t));
-  };
+  function addPromo() {
+    if (!newPromoCode) return;
+    setPromos([...promos, { code: newPromoCode.toUpperCase(), discount: newPromoDiscount, type: newPromoType, maxUses: newPromoMax, used: 0 }]);
+    setNewPromoCode(''); setNewPromoDiscount(10); setNewPromoMax(100);
+  }
+  function removePromo(idx: number) {
+    setPromos(promos.filter((_, i) => i !== idx));
+  }
 
-  const addTier = () => {
-    setTiers(prev => [...prev, { id:`t-${Date.now()}`, sectionId:'', name:'Nouvo Nivo', color:'#9999AD', emoji:'⬜', price:0, qty:0 }]);
-  };
+  async function handleSave(status: 'draft' | 'published') {
+    if (!user) { setError(L('Ou dwe konekte', 'You must be logged in', 'Vous devez etre connecte')!); return; }
+    setError(''); setSaving(true);
+    try {
+      const eventId = await createEvent({
+        name, description, category, language, ageRestriction,
+        startDate, endDate, startTime, endTime,
+        venue,
+        sections,
+        restrictions,
+        promos,
+        imageUrl,
+        status,
+        organizerId: user.uid,
+        organizerName: user.displayName || user.email || '',
+        totalCapacity: sections.reduce((sum, s) => sum + s.capacity, 0),
+      });
+      setCreatedId(eventId);
+      setStep(7);
+    } catch (err: any) {
+      setError(err.message);
+    } finally { setSaving(false); }
+  }
 
-  const removeTier = (id: string) => setTiers(prev => prev.filter(t => t.id !== id));
+  function canProceed() {
+    switch (step) {
+      case 1: return name.trim() && category;
+      case 2: return startDate && startTime && (venueMode === 'known' ? selectedVenueIdx >= 0 : customVenue.name);
+      case 3: return sections.length > 0 && sections.every(s => s.name && s.capacity > 0 && s.price >= 0);
+      case 4: return true;
+      case 5: return true;
+      case 6: return true;
+      default: return false;
+    }
+  }
 
-  const totalTix = tiers.reduce((a, t) => a + (t.qty || 0), 0);
-  const totalRev = tiers.reduce((a, t) => a + (t.qty || 0) * (t.price || 0), 0);
+  const steps = [
+    L('Enfomasyon', 'Information', 'Information'),
+    L('Dat & Kote', 'Date & Venue', 'Date & Lieu'),
+    L('Seksyon', 'Sections', 'Sections'),
+    L('Tike & Pri', 'Tickets & Pricing', 'Billets & Prix'),
+    L('Imaj', 'Image', 'Image'),
+    L('Revize', 'Review', 'Revue'),
+  ];
 
-  const handleImage = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => setImagePreview(reader.result as string);
-    reader.readAsDataURL(file);
-  };
-
-  const goTo = (s: number) => { setStep(s); window.scrollTo(0, 0); };
-
-  /* ═══════════════════════════════════════════════════════════
-     RENDER
-     ═══════════════════════════════════════════════════════════ */
+  if (step === 7) {
+    return (
+      <div style={{ minHeight: '100vh', background: '#0a0a0f', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+        <div style={{ textAlign: 'center', maxWidth: 420 }}>
+          <div style={{ fontSize: 64, marginBottom: 16 }}>&#x1F389;</div>
+          <h1 style={{ color: '#fff', fontSize: 28, marginBottom: 8 }}>
+            {L('Evenman Kreye!', 'Event Created!', 'Evenement Cree!')}
+          </h1>
+          <p style={{ color: '#aaa', marginBottom: 8 }}>{name}</p>
+          <p style={{ color: '#666', fontSize: 13, marginBottom: 32 }}>ID: {createdId}</p>
+          <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
+            <Link href="/organizer/dashboard" style={{ padding: '14px 28px', background: '#f97316', color: '#000', borderRadius: 8, fontWeight: 700, textDecoration: 'none' }}>
+              {L('Dachbod', 'Dashboard', 'Tableau de bord')}
+            </Link>
+            <button onClick={() => { setStep(1); setName(''); setDescription(''); setCategory(''); setCreatedId(''); }}
+              style={{ padding: '14px 28px', border: '1px solid #f97316', color: '#f97316', borderRadius: 8, fontWeight: 700, background: 'transparent', cursor: 'pointer' }}>
+              {L('Kreye yon lot', 'Create Another', 'Creer un autre')}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-dark">
-      {/* NAV */}
-      <nav className="sticky top-0 z-50 bg-dark border-b border-border px-5">
-        <div className="max-w-[720px] mx-auto flex items-center h-14 gap-3">
-          <button onClick={() => router.back()} className="text-gray-light text-xs hover:text-white transition-colors">← Retou</button>
-          <div className="w-px h-5 bg-border" />
-          <span className="font-heading text-xl tracking-wide flex-1">KREYE EVÈNMAN</span>
+    <div style={{ minHeight: '100vh', background: '#0a0a0f', padding: '20px 16px' }}>
+      <div style={{ maxWidth: 640, margin: '0 auto' }}>
+
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+          <Link href="/organizer/dashboard" style={{ color: '#f97316', textDecoration: 'none', fontSize: 14 }}>
+            &larr; {L('Dachbod', 'Dashboard', 'Tableau de bord')}
+          </Link>
+          <h1 style={{ color: '#fff', fontSize: 20, fontWeight: 800 }}>
+            {L('Kreye Evenman', 'Create Event', 'Creer Evenement')}
+          </h1>
+          <div style={{ width: 80 }} />
         </div>
-      </nav>
 
-      <div className="max-w-[720px] mx-auto px-5 py-6">
+        <div style={{ display: 'flex', gap: 4, marginBottom: 24 }}>
+          {steps.map((s, i) => (
+            <div key={i} style={{ flex: 1, textAlign: 'center' }}>
+              <div style={{
+                height: 4, borderRadius: 2, marginBottom: 6,
+                background: i + 1 <= step ? '#f97316' : '#1e1e2e',
+                transition: 'background .3s',
+              }} />
+              <span style={{ fontSize: 10, color: i + 1 === step ? '#f97316' : '#555' }}>{i + 1}. {s}</span>
+            </div>
+          ))}
+        </div>
 
-        {/* ═══ STEPS BAR ═══ */}
-        {!done && (
-          <div className="flex items-center gap-0 mb-7 flex-wrap">
-            {STEPS.map((s, i) => (
-              <div key={i} className="flex items-center gap-1.5">
-                <button onClick={() => goTo(i+1)} className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold transition-all border ${
-                  step === i+1 ? 'bg-orange text-white border-orange' : step > i+1 ? 'bg-green text-white border-green' : 'bg-white/[0.04] text-gray-muted border-border'
-                }`}>
-                  {step > i+1 ? '✓' : i+1}
-                </button>
-                <span className={`text-[10px] transition-colors ${step === i+1 ? 'text-white font-semibold' : step > i+1 ? 'text-green' : 'text-gray-muted'}`}>{s}</span>
-                {i < STEPS.length - 1 && <div className="w-4 h-px bg-border mx-1" />}
-              </div>
-            ))}
-          </div>
-        )}
+        {error && <div style={{ background: '#2a1515', border: '1px solid #ef4444', borderRadius: 8, padding: '10px 14px', marginBottom: 16, color: '#ef4444', fontSize: 13 }}>{error}</div>}
 
-        {/* ═══ STEP 1: ENFÒMASYON ═══ */}
-        {step === 1 && !done && (
-          <div>
-            <h2 className="font-heading text-xl tracking-wide mb-1">ENFÒMASYON EVÈNMAN</h2>
-            <p className="text-xs text-gray-light mb-5">Bay detay debaz sou evènman ou an.</p>
-
-            <div className="space-y-4">
-              <div><label className={labelCls}>Non Evènman *</label><input className={inputCls} placeholder="Ex: Kompa Fest 2026" value={evName} onChange={e => setEvName(e.target.value)} /></div>
+        {/* STEP 1: INFO */}
+        {step === 1 && (
+          <div style={cardStyle}>
+            <h2 style={{ color: '#fff', fontSize: 18, marginBottom: 20 }}>
+              {L('Enfomasyon Evenman', 'Event Information', 'Information Evenement')}
+            </h2>
+            <div style={{ marginBottom: 16 }}>
+              <label style={labelStyle}>{L('Non Evenman *', 'Event Name *', "Nom de l'evenement *")}</label>
+              <input value={name} onChange={e => setName(e.target.value)} required style={inputStyle}
+                placeholder={L('Ekz: Kompa Fest 2025', 'Ex: Kompa Fest 2025', 'Ex: Kompa Fest 2025')!} />
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <label style={labelStyle}>{L('Kategori *', 'Category *', 'Categorie *')}</label>
+              <select value={category} onChange={e => setCategory(e.target.value)} required style={inputStyle}>
+                <option value="">{L('Chwazi...', 'Select...', 'Choisir...')}</option>
+                <option value="kompa">{L('Kompa / Mizik', 'Kompa / Music', 'Kompa / Musique')}</option>
+                <option value="rara">{L('Rara / Kanaval', 'Rara / Carnival', 'Rara / Carnaval')}</option>
+                <option value="rasin">{L('Mizik Rasin', 'Roots Music', 'Musique Racines')}</option>
+                <option value="jazz">{L('Jazz / Bossa', 'Jazz / Bossa', 'Jazz / Bossa')}</option>
+                <option value="dj">{L('DJ / Fete', 'DJ / Party', 'DJ / Fete')}</option>
+                <option value="gala">{L('Gala / Dine', 'Gala / Dinner', 'Gala / Diner')}</option>
+                <option value="conference">{L('Konferans', 'Conference', 'Conference')}</option>
+                <option value="sports">{L('Espo', 'Sports', 'Sports')}</option>
+                <option value="theater">{L('Teyat / Dans', 'Theater / Dance', 'Theatre / Danse')}</option>
+                <option value="festival">{L('Festival', 'Festival', 'Festival')}</option>
+                <option value="religious">{L('Relijye', 'Religious', 'Religieux')}</option>
+                <option value="other">{L('Lot', 'Other', 'Autre')}</option>
+              </select>
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <label style={labelStyle}>{L('Deskripsyon', 'Description', 'Description')}</label>
+              <textarea value={description} onChange={e => setDescription(e.target.value)} rows={4}
+                style={{ ...inputStyle, resize: 'vertical' }}
+                placeholder={L('Dekri evenman ou a...', 'Describe your event...', 'Decrivez votre evenement...')!} />
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
               <div>
-                <label className={labelCls}>Kategori *</label>
-                <select className={selectCls} value={evCat} onChange={e => setEvCat(e.target.value)}>
-                  <option value="" className="bg-dark-card">Chwazi kategori...</option>
-                  {['Mizik / Konsè','Fèt / Party','Teyat / Comedy','Espò','Konferans / Seminè','Festival','Relijye','Gala / Benefis','Lòt'].map(c => <option key={c} className="bg-dark-card">{c}</option>)}
+                <label style={labelStyle}>{L('Lang', 'Language', 'Langue')}</label>
+                <select value={language} onChange={e => setLanguage(e.target.value)} style={inputStyle}>
+                  <option value="ht">Kreyol</option>
+                  <option value="en">English</option>
+                  <option value="fr">Francais</option>
+                  <option value="es">Espanol</option>
                 </select>
               </div>
-              <div><label className={labelCls}>Deskripsyon</label><textarea className={inputCls + " min-h-[80px] resize-y"} placeholder="Dekri evènman ou an..." value={evDesc} onChange={e => setEvDesc(e.target.value)} /></div>
-              <div className="grid grid-cols-2 gap-3">
-                <div><label className={labelCls}>Lang Prensipal</label><select className={selectCls} value={evLang} onChange={e => setEvLang(e.target.value)}>{['Kreyòl','Anglè','Fransè','Panyòl'].map(l => <option key={l} className="bg-dark-card">{l}</option>)}</select></div>
-                <div><label className={labelCls}>Laj Minimòm</label><select className={selectCls} value={evAge} onChange={e => setEvAge(e.target.value)}>{['Tout laj','12+','16+','18+','21+'].map(a => <option key={a} className="bg-dark-card">{a}</option>)}</select></div>
+              <div>
+                <label style={labelStyle}>{L('Laj', 'Age', 'Age')}</label>
+                <select value={ageRestriction} onChange={e => setAgeRestriction(e.target.value)} style={inputStyle}>
+                  <option value="all">{L('Tout Laj', 'All Ages', 'Tous ages')}</option>
+                  <option value="18+">18+</option>
+                  <option value="21+">21+</option>
+                  <option value="family">{L('Fanmi', 'Family', 'Famille')}</option>
+                </select>
               </div>
+            </div>
 
-              {/* Restrictions */}
-              <div className="bg-white/[0.02] border border-border rounded-xl p-4">
-                <p className="text-xs font-bold mb-3">Restriksyon & Règ Evènman</p>
-                {RESTRICTIONS.map(r => (
-                  <div key={r.group} className="mb-3.5 last:mb-0">
-                    <p className="text-[11px] font-bold text-gray-light mb-2">{r.emoji} {r.group}</p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {r.chips.map(c => {
-                        const active = selectedChips.some(sc => sc.group === r.group && sc.label === c);
-                        return (
-                          <button key={c} onClick={() => toggleChip(r.group, c)}
-                            className={`px-3 py-1.5 rounded-full text-[11px] border transition-all ${active ? 'bg-orange-dim border-orange-border text-orange font-semibold' : 'bg-white/[0.04] border-border text-gray-light hover:border-white/[0.15]'}`}>
-                            {c}
-                          </button>
-                        );
-                      })}
-                    </div>
+            {/* Restrictions toggle */}
+            <button type="button" onClick={() => setShowRestrictions(!showRestrictions)}
+              style={{
+                width: '100%', padding: '10px 14px', borderRadius: 8,
+                border: '1px solid #1e1e2e', background: showRestrictions ? '#1a1a2a' : 'transparent',
+                color: '#888', fontSize: 13, cursor: 'pointer', textAlign: 'left',
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              }}>
+              <span>{L('Restriksyon (opsyonel)', 'Restrictions (optional)', 'Restrictions (optionnel)')}</span>
+              <span style={{ fontSize: 18, transition: 'transform .2s', transform: showRestrictions ? 'rotate(180deg)' : 'none' }}>&#x25BE;</span>
+            </button>
+            {showRestrictions && (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 12, padding: 16, border: '1px solid #1e1e2e', borderRadius: 8 }}>
+                {[
+                  { key: 'dressCode', label: L('Kod Rad', 'Dress Code', 'Code vestimentaire') },
+                  { key: 'foodDrink', label: L('Manje/Bwason', 'Food/Drink', 'Nourriture/Boissons') },
+                  { key: 'cameras', label: L('Kamera', 'Cameras', 'Cameras') },
+                  { key: 'bags', label: L('Sak', 'Bags', 'Sacs') },
+                  { key: 'security', label: L('Sekirite', 'Security', 'Securite') },
+                  { key: 'accessibility', label: L('Aksesibilite', 'Accessibility', 'Accessibilite') },
+                ].map(r => (
+                  <div key={r.key}>
+                    <label style={{ ...labelStyle, fontSize: 11 }}>{r.label}</label>
+                    <input value={(restrictions as any)[r.key]}
+                      onChange={e => setRestrictions({ ...restrictions, [r.key]: e.target.value })}
+                      style={{ ...inputStyle, fontSize: 12, padding: 8 }} />
                   </div>
                 ))}
-                <div className="mt-3"><p className="text-[11px] font-bold text-gray-light mb-2">📝 Lòt Restriksyon</p><textarea className={inputCls + " min-h-[50px] resize-y"} placeholder="Ajoute nenpòt lòt règ..." value={customRestrict} onChange={e => setCustomRestrict(e.target.value)} /></div>
               </div>
-            </div>
-
-            <div className="flex gap-3 mt-6">
-              <button onClick={() => goTo(2)} className="flex-1 py-3 rounded-[10px] bg-orange text-white font-bold text-sm hover:bg-orange/80 transition-all">Kontinye →</button>
-            </div>
+            )}
           </div>
         )}
 
-        {/* ═══ STEP 2: DAT & KOTE ═══ */}
-        {step === 2 && !done && (
-          <div>
-            <h2 className="font-heading text-xl tracking-wide mb-1">DAT & KOTE</h2>
-            <p className="text-xs text-gray-light mb-5">Ki lè ak ki kote evènman an ap fèt?</p>
+        {/* STEP 2: DATE & VENUE */}
+        {step === 2 && (
+          <div style={cardStyle}>
+            <h2 style={{ color: '#fff', fontSize: 18, marginBottom: 20 }}>
+              {L('Dat & Kote', 'Date & Venue', 'Date & Lieu')}
+            </h2>
 
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div><label className={labelCls}>Dat Kòmanse *</label><input type="date" className={inputCls} value={evDateStart} onChange={e => setEvDateStart(e.target.value)} /></div>
-                <div><label className={labelCls}>Dat Fini (opsyonèl)</label><input type="date" className={inputCls} value={evDateEnd} onChange={e => setEvDateEnd(e.target.value)} /></div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div><label className={labelCls}>Lè Kòmanse *</label><input type="time" className={inputCls} value={evTimeStart} onChange={e => setEvTimeStart(e.target.value)} /></div>
-                <div><label className={labelCls}>Lè Fini</label><input type="time" className={inputCls} value={evTimeEnd} onChange={e => setEvTimeEnd(e.target.value)} /></div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+              <div>
+                <label style={labelStyle}>{L('Dat Komansman *', 'Start Date *', 'Date de debut *')}</label>
+                <input type="date" value={startDate} onChange={e => { setStartDate(e.target.value); if (!endDate) setEndDate(e.target.value); }} required style={inputStyle} />
               </div>
               <div>
-                <label className={labelCls}>Non Sal / Kote *</label>
-                <div className="flex gap-2">
-                  <input className={inputCls + " flex-1"} placeholder="Ex: Karibe Hotel" value={evVenue} onChange={e => setEvVenue(e.target.value)} />
-                  <button className="px-4 py-3 rounded-[10px] border border-orange-border bg-orange-dim text-orange text-xs font-bold whitespace-nowrap hover:bg-orange hover:text-white transition-all">📍 GPS</button>
-                </div>
+                <label style={labelStyle}>{L('Dat Fen', 'End Date', 'Date de fin')}</label>
+                <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} style={inputStyle} />
               </div>
-              <div><label className={labelCls}>Adrès</label><input className={inputCls} placeholder="Adrès konplè..." value={evAddr} onChange={e => setEvAddr(e.target.value)} /></div>
-              <div className="grid grid-cols-3 gap-3">
-                <div><label className={labelCls}>Vil *</label><input className={inputCls} placeholder="Pòtoprens" value={evCity} onChange={e => setEvCity(e.target.value)} /></div>
-                <div><label className={labelCls}>Eta / Dept.</label><input className={inputCls} placeholder="Lwès" value={evState} onChange={e => setEvState(e.target.value)} /></div>
-                <div><label className={labelCls}>Peyi *</label><select className={selectCls} value={evCountry} onChange={e => setEvCountry(e.target.value)}>{['🇭🇹 Ayiti','🇺🇸 Etazini','🇨🇦 Kanada','🇩🇴 Dominikani','🇫🇷 Frans'].map(c => <option key={c} className="bg-dark-card">{c}</option>)}</select></div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 24 }}>
+              <div>
+                <label style={labelStyle}>{L('Le Komansman *', 'Start Time *', 'Heure de debut *')}</label>
+                <input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} required style={inputStyle} />
               </div>
-              <div><label className={labelCls}>Kapasite Total *</label><input type="number" className={inputCls} placeholder="Ex: 1200" value={evCap} onChange={e => setEvCap(e.target.value)} /></div>
+              <div>
+                <label style={labelStyle}>{L('Le Fen', 'End Time', 'Heure de fin')}</label>
+                <input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} style={inputStyle} />
+              </div>
             </div>
 
-            <div className="flex gap-3 mt-6">
-              <button onClick={() => goTo(1)} className="px-6 py-3 rounded-[10px] border border-border text-gray-light font-bold text-sm hover:text-white transition-all">← Retou</button>
-              <button onClick={() => goTo(3)} className="flex-1 py-3 rounded-[10px] bg-orange text-white font-bold text-sm hover:bg-orange/80 transition-all">Kontinye →</button>
-            </div>
-          </div>
-        )}
+            <div style={{ borderTop: '1px solid #1e1e2e', paddingTop: 20 }}>
+              <label style={labelStyle}>{L('Kote Evenman *', 'Event Venue *', 'Lieu *')}</label>
+              <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+                {(['known', 'custom'] as const).map(m => (
+                  <button key={m} onClick={() => setVenueMode(m)}
+                    style={{
+                      flex: 1, padding: '10px 0', borderRadius: 8, border: '1px solid #1e1e2e', cursor: 'pointer',
+                      background: venueMode === m ? '#f97316' : 'transparent',
+                      color: venueMode === m ? '#000' : '#888', fontWeight: 600, fontSize: 13,
+                    }}>
+                    {m === 'known' ? L('Sal Nou Konnen', 'Known Venue', 'Lieu connu') : L('Nouvo Kote', 'Custom Venue', 'Lieu personnalise')}
+                  </button>
+                ))}
+              </div>
 
-        {/* ═══ STEP 3: PLAN SAL ═══ */}
-        {step === 3 && !done && (
-          <div>
-            <h2 className="font-heading text-xl tracking-wide mb-1">PLAN SAL</h2>
-            <p className="text-xs text-gray-light mb-5">Defini seksyon sal la. Tikè ak pri ap baze sou seksyon sa yo.</p>
-
-            {/* Mode selector */}
-            <div className="grid grid-cols-2 gap-3 mb-5">
-              {[{id:'build' as const, icon:'🔧', name:'Bati Plan', desc:'Kreye seksyon manyèlman'}, {id:'upload' as const, icon:'📄', name:'Telechaje Plan', desc:'Ou gen yon imaj plan sal'}].map(m => (
-                <button key={m.id} onClick={() => setSeatMode(m.id)}
-                  className={`p-4 rounded-xl border text-center transition-all ${seatMode === m.id ? 'border-orange bg-orange-dim' : 'border-border bg-white/[0.02] hover:border-white/[0.15]'}`}>
-                  <div className="text-3xl mb-1">{m.icon}</div>
-                  <p className="text-xs font-bold">{m.name}</p>
-                  <p className="text-[9px] text-gray-muted">{m.desc}</p>
-                </button>
-              ))}
-            </div>
-
-            {/* BUILD MODE */}
-            {seatMode === 'build' && (
-              <>
-                <label className={labelCls}>Tip Aransman</label>
-                <div className="grid grid-cols-4 gap-2.5 mb-5">
-                  {LAYOUTS.map((l, i) => (
-                    <button key={i} onClick={() => setLayout(i)}
-                      className={`p-3 rounded-xl border text-center transition-all ${layout === i ? 'border-orange bg-orange-dim' : 'border-border bg-white/[0.02] hover:border-white/[0.15]'}`}>
-                      <div className="text-2xl mb-1">{l.icon}</div>
-                      <p className="text-[11px] font-bold">{l.name}</p>
-                      <p className="text-[8px] text-gray-muted">{l.desc}</p>
-                    </button>
-                  ))}
-                </div>
-
-                <div className="bg-dark-card border border-border rounded-2xl p-5 mb-4">
-                  <div className="bg-gradient-to-r from-orange/15 to-orange/5 border border-dashed border-orange rounded-lg text-center py-2.5 mb-4">
-                    <span className="font-heading text-base tracking-widest text-orange">🎤 SÈNN</span>
-                  </div>
-                  <div className="space-y-2.5">
-                    {sections.map(s => (
-                      <div key={s.id} className="flex items-center gap-3 p-3 rounded-xl border border-border hover:border-white/[0.1] transition-all" style={{borderLeftColor:s.color, borderLeftWidth:3}}>
-                        <div className="w-3 h-3 rounded-full flex-shrink-0" style={{background:s.color}} />
-                        <div className="flex-1 min-w-0">
-                          <input value={s.name} onChange={e => updateSection(s.id, 'name', e.target.value)} className="bg-transparent text-xs font-bold text-white outline-none w-full" />
-                          <input value={s.description} onChange={e => updateSection(s.id, 'description', e.target.value)} className="bg-transparent text-[10px] text-gray-light outline-none w-full mt-0.5" />
-                        </div>
-                        <div className="text-right flex-shrink-0 flex items-center gap-2">
-                          <div>
-                            <input type="number" value={s.seats} onChange={e => updateSection(s.id, 'seats', Number(e.target.value))} className="bg-transparent font-heading text-xl text-right outline-none w-16" />
-                            <p className="text-[9px] text-gray-muted text-right">plas</p>
-                          </div>
-                          {sections.length > 1 && <button onClick={() => removeSection(s.id)} className="text-gray-muted hover:text-red text-sm">✕</button>}
-                        </div>
+              {venueMode === 'known' && (
+                <>
+                  <input
+                    value={venueSearch}
+                    onChange={e => setVenueSearch(e.target.value)}
+                    placeholder={L('Chache sal... (ekz: Karibe, Miami, Brooklyn)', 'Search venues... (e.g. Karibe, Miami, Brooklyn)', 'Chercher lieu... (ex: Karibe, Miami, Brooklyn)')!}
+                    style={{ ...inputStyle, marginBottom: 8, fontSize: 13 }}
+                  />
+                  <div style={{ maxHeight: 280, overflowY: 'auto', border: '1px solid #1e1e2e', borderRadius: 8 }}>
+                    {filteredVenues.length === 0 && (
+                      <div style={{ padding: 20, textAlign: 'center', color: '#555', fontSize: 13 }}>
+                        {L('Pa jwenn rezilta. Eseye "Custom Venue".', 'No results. Try "Custom Venue".', 'Aucun resultat. Essayez "Lieu personnalise".')}
                       </div>
-                    ))}
+                    )}
+                    {filteredVenues.map((v, i) => {
+                      const realIdx = KNOWN_VENUES.indexOf(v);
+                      return (
+                        <div key={realIdx} onClick={() => setSelectedVenueIdx(realIdx)}
+                          style={{
+                            padding: '12px 16px', cursor: 'pointer', borderBottom: '1px solid #0a0a0f',
+                            background: selectedVenueIdx === realIdx ? '#1a0a00' : 'transparent',
+                            borderLeft: selectedVenueIdx === realIdx ? '3px solid #f97316' : '3px solid transparent',
+                          }}>
+                          <div style={{ color: selectedVenueIdx === realIdx ? '#f97316' : '#fff', fontSize: 14, fontWeight: 600 }}>{v.name}</div>
+                          <div style={{ color: '#666', fontSize: 12 }}>{v.address} &bull; {v.city}, {v.country} &bull; {L('Kapasite', 'Capacity', 'Capacite')}: {v.capacity.toLocaleString()}</div>
+                        </div>
+                      );
+                    })}
                   </div>
-                  <button onClick={addSection} className="w-full mt-3 py-3 rounded-xl border-2 border-dashed border-border text-gray-light text-xs font-semibold hover:border-orange hover:text-orange transition-all">+ Ajoute Seksyon</button>
-                  <div className="flex gap-4 mt-3 pt-3 border-t border-border">
-                    {sections.map(s => <div key={s.id} className="flex items-center gap-1.5 text-[10px] text-gray-light"><span className="w-2 h-2 rounded-full inline-block" style={{background:s.color}} />{s.name}</div>)}
+                  {selectedVenueIdx >= 0 && (
+                    <div style={{ marginTop: 8, padding: '8px 12px', background: '#0a0a0f', borderRadius: 8, borderLeft: '3px solid #f97316' }}>
+                      <span style={{ color: '#f97316', fontSize: 13, fontWeight: 600 }}>&#x2713; {KNOWN_VENUES[selectedVenueIdx].name}</span>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {venueMode === 'custom' && (
+                <div>
+                  <div style={{ marginBottom: 12 }}>
+                    <label style={labelStyle}>{L('Non Kote *', 'Venue Name *', 'Nom du lieu *')}</label>
+                    <input value={customVenue.name} onChange={e => setCustomVenue({ ...customVenue, name: e.target.value })} style={inputStyle} />
+                  </div>
+                  <div style={{ marginBottom: 12 }}>
+                    <label style={labelStyle}>{L('Adres', 'Address', 'Adresse')}</label>
+                    <input value={customVenue.address} onChange={e => setCustomVenue({ ...customVenue, address: e.target.value })} style={inputStyle} />
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 12 }}>
+                    <div>
+                      <label style={labelStyle}>{L('Vil', 'City', 'Ville')}</label>
+                      <input value={customVenue.city} onChange={e => setCustomVenue({ ...customVenue, city: e.target.value })} style={inputStyle} />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>{L('Peyi', 'Country', 'Pays')}</label>
+                      <select value={customVenue.country} onChange={e => setCustomVenue({ ...customVenue, country: e.target.value })} style={inputStyle}>
+                        <option value="Haiti">Haiti</option><option value="USA">USA</option>
+                        <option value="Canada">Canada</option><option value="France">France</option>
+                        <option value="Rep. Dominiken">Rep. Dominiken</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label style={labelStyle}>{L('Kapasite', 'Capacity', 'Capacite')}</label>
+                      <input type="number" value={customVenue.capacity || ''} onChange={e => setCustomVenue({ ...customVenue, capacity: parseInt(e.target.value) || 0 })} style={inputStyle} />
+                    </div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                    <div>
+                      <label style={labelStyle}>Latitude</label>
+                      <input type="number" step="any" value={customVenue.gps.lat || ''} onChange={e => setCustomVenue({ ...customVenue, gps: { ...customVenue.gps, lat: parseFloat(e.target.value) || 0 } })} style={inputStyle} />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Longitude</label>
+                      <input type="number" step="any" value={customVenue.gps.lng || ''} onChange={e => setCustomVenue({ ...customVenue, gps: { ...customVenue.gps, lng: parseFloat(e.target.value) || 0 } })} style={inputStyle} />
+                    </div>
                   </div>
                 </div>
-              </>
-            )}
-
-            {/* UPLOAD MODE */}
-            {seatMode === 'upload' && (
-              <div className="border-2 border-dashed border-border rounded-2xl p-8 text-center hover:border-orange transition-all cursor-pointer">
-                <div className="text-4xl mb-2">🗺️</div>
-                <p className="text-xs text-gray-light"><span className="text-orange font-semibold">Klike pou chwazi</span> oswa trennen plan sal la isit</p>
-                <p className="text-[10px] text-gray-muted mt-1.5">JPG, PNG · Max 5MB</p>
-                <p className="text-[10px] text-gray-muted mt-3 bg-white/[0.02] rounded-lg p-2">📌 Apre telechaje, ou ka make seksyon yo dirèkteman sou plan an</p>
-              </div>
-            )}
-
-            <div className="flex gap-3 mt-6">
-              <button onClick={() => goTo(2)} className="px-6 py-3 rounded-[10px] border border-border text-gray-light font-bold text-sm hover:text-white transition-all">← Retou</button>
-              <button onClick={() => goTo(4)} className="flex-1 py-3 rounded-[10px] bg-orange text-white font-bold text-sm hover:bg-orange/80 transition-all">Kontinye →</button>
+              )}
             </div>
           </div>
         )}
 
-        {/* ═══ STEP 4: TIKÈ & PRI ═══ */}
-        {step === 4 && !done && (
-          <div>
-            <h2 className="font-heading text-xl tracking-wide mb-1">TIKÈ & PRI</h2>
-            <p className="text-xs text-gray-light mb-5">Fikse pri pou chak seksyon ou defini nan Plan Sal la.</p>
+        {/* STEP 3: SECTIONS */}
+        {step === 3 && (
+          <div style={cardStyle}>
+            <h2 style={{ color: '#fff', fontSize: 18, marginBottom: 20 }}>
+              {L('Seksyon & Plas', 'Sections & Seating', 'Sections & Places')}
+            </h2>
+            <p style={{ color: '#888', fontSize: 13, marginBottom: 16 }}>
+              {L('Defini seksyon yo ak pri.', 'Define sections and pricing.', 'Definissez les sections et les prix.')}
+            </p>
 
-            <div className="space-y-3">
-              {tiers.map(t => (
-                <div key={t.id} className="bg-white/[0.02] border border-border rounded-xl p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className="text-sm font-bold flex items-center gap-1.5">
-                      <span className="w-3 h-3 rounded-full inline-block" style={{background:t.color}} />
-                      {t.name}
-                    </h4>
-                    {tiers.length > 1 && <button onClick={() => removeTier(t.id)} className="text-gray-muted hover:text-red text-sm">✕</button>}
+            {sections.map((s, i) => (
+              <div key={i} style={{ border: '1px solid #1e1e2e', borderRadius: 8, padding: 16, marginBottom: 12, borderLeft: `4px solid ${s.color}` }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                  <span style={{ color: '#fff', fontWeight: 700 }}>{L('Seksyon', 'Section', 'Section')} {i + 1}</span>
+                  {sections.length > 1 && (
+                    <button onClick={() => removeSection(i)} style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: 12 }}>
+                      {L('Retire', 'Remove', 'Supprimer')}
+                    </button>
+                  )}
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 60px', gap: 10 }}>
+                  <div>
+                    <label style={{ ...labelStyle, fontSize: 11 }}>{L('Non', 'Name', 'Nom')}</label>
+                    <input value={s.name} onChange={e => updateSection(i, 'name', e.target.value)} style={{ ...inputStyle, fontSize: 13, padding: 8 }}
+                      placeholder="VVIP, VIP, General..." />
                   </div>
-                  <div className="grid grid-cols-3 gap-3">
-                    <div><label className={labelCls}>Non Nivo</label><input className={inputCls} value={t.name} onChange={e => updateTier(t.id, 'name', e.target.value)} /></div>
-                    <div><label className={labelCls}>Pri (USD)</label><input type="number" className={inputCls} value={t.price || ''} onChange={e => updateTier(t.id, 'price', Number(e.target.value))} /></div>
-                    <div><label className={labelCls}>Kantite</label><input type="number" className={inputCls} value={t.qty || ''} onChange={e => updateTier(t.id, 'qty', Number(e.target.value))} /></div>
+                  <div>
+                    <label style={{ ...labelStyle, fontSize: 11 }}>{L('Kapasite', 'Capacity', 'Capacite')}</label>
+                    <input type="number" value={s.capacity} onChange={e => updateSection(i, 'capacity', parseInt(e.target.value) || 0)}
+                      style={{ ...inputStyle, fontSize: 13, padding: 8 }} />
+                  </div>
+                  <div>
+                    <label style={{ ...labelStyle, fontSize: 11 }}>{L('Pri ($)', 'Price ($)', 'Prix ($)')}</label>
+                    <input type="number" value={s.price} onChange={e => updateSection(i, 'price', parseFloat(e.target.value) || 0)}
+                      style={{ ...inputStyle, fontSize: 13, padding: 8 }} />
+                  </div>
+                  <div>
+                    <label style={{ ...labelStyle, fontSize: 11 }}>{L('Koule', 'Color', 'Couleur')}</label>
+                    <input type="color" value={s.color} onChange={e => updateSection(i, 'color', e.target.value)}
+                      style={{ width: '100%', height: 36, borderRadius: 6, border: '1px solid #1e1e2e', background: 'transparent', cursor: 'pointer' }} />
                   </div>
                 </div>
-              ))}
-            </div>
-            <button onClick={addTier} className="w-full mt-3 py-3 rounded-xl border-2 border-dashed border-border text-gray-light text-xs font-semibold hover:border-orange hover:text-orange transition-all">+ Ajoute Yon Nivo</button>
+              </div>
+            ))}
 
-            {/* Summary */}
-            <div className="mt-4 bg-dark-card border border-border rounded-xl p-4 flex items-center justify-between">
-              <div><p className="text-[10px] text-gray-muted uppercase">Total Tikè</p><p className="font-heading text-2xl">{totalTix.toLocaleString()}</p></div>
-              <div className="text-right"><p className="text-[10px] text-gray-muted uppercase">Revni Potansyèl</p><p className="font-heading text-2xl text-green">${totalRev.toLocaleString()}</p></div>
-            </div>
+            <button onClick={addSection}
+              style={{ width: '100%', padding: 12, borderRadius: 8, border: '1px dashed #333', background: 'transparent', color: '#f97316', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
+              + {L('Ajoute Seksyon', 'Add Section', 'Ajouter Section')}
+            </button>
 
-            {/* Promo */}
-            <div className="mt-4">
-              <label className={labelCls}>Kòd Pwomo (opsyonèl)</label>
-              {promos.map((p, i) => (
-                <div key={i} className="grid grid-cols-2 gap-3 mb-2">
-                  <input className={inputCls} placeholder="Ex: KOMPA10" value={p.code} onChange={e => { const next = [...promos]; next[i].code = e.target.value; setPromos(next); }} />
-                  <div className="flex gap-2">
-                    <input type="number" className={inputCls} placeholder="% rabè" value={p.discount || ''} onChange={e => { const next = [...promos]; next[i].discount = Number(e.target.value); setPromos(next); }} />
-                    {promos.length > 1 && <button onClick={() => setPromos(prev => prev.filter((_, j) => j !== i))} className="text-gray-muted hover:text-red text-sm px-2">✕</button>}
-                  </div>
-                </div>
-              ))}
-              <button onClick={() => setPromos(prev => [...prev, { code:'', discount:0 }])} className="text-[11px] text-orange hover:underline">+ Ajoute kòd pwomo</button>
-            </div>
-
-            <div className="flex gap-3 mt-6">
-              <button onClick={() => goTo(3)} className="px-6 py-3 rounded-[10px] border border-border text-gray-light font-bold text-sm hover:text-white transition-all">← Retou</button>
-              <button onClick={() => goTo(5)} className="flex-1 py-3 rounded-[10px] bg-orange text-white font-bold text-sm hover:bg-orange/80 transition-all">Kontinye →</button>
+            <div style={{ marginTop: 16, padding: 12, background: '#0a0a0f', borderRadius: 8 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', color: '#aaa', fontSize: 13 }}>
+                <span>{L('Kapasite Total', 'Total Capacity', 'Capacite Totale')}</span>
+                <span style={{ color: '#fff', fontWeight: 700 }}>{sections.reduce((sum, s) => sum + s.capacity, 0).toLocaleString()}</span>
+              </div>
             </div>
           </div>
         )}
 
-        {/* ═══ STEP 5: IMAJ ═══ */}
-        {step === 5 && !done && (
-          <div>
-            <h2 className="font-heading text-xl tracking-wide mb-1">IMAJ EVÈNMAN</h2>
-            <p className="text-xs text-gray-light mb-5">Ajoute yon afich oswa foto pou evènman ou an.</p>
+        {/* STEP 4: PROMOS */}
+        {step === 4 && (
+          <div style={cardStyle}>
+            <h2 style={{ color: '#fff', fontSize: 18, marginBottom: 20 }}>
+              {L('Kod Pwomosyon', 'Promo Codes', 'Codes Promo')}
+            </h2>
+            <p style={{ color: '#888', fontSize: 13, marginBottom: 16 }}>
+              {L('Opsyonel. Ajoute kod rabe pou kliyan ou.', 'Optional. Add discount codes for your customers.', 'Optionnel. Ajoutez des codes de reduction.')}
+            </p>
 
-            {!imagePreview ? (
-              <label className="block border-2 border-dashed border-border rounded-2xl p-10 text-center hover:border-orange transition-all cursor-pointer">
-                <div className="text-5xl mb-3">📸</div>
-                <p className="text-xs text-gray-light"><span className="text-orange font-semibold">Klike pou chwazi</span> oswa trennen yon imaj isit</p>
-                <p className="text-[10px] text-gray-muted mt-1.5">JPG, PNG · Max 5MB · Rekòmande: 1200×630px</p>
-                <input type="file" accept="image/*" className="hidden" onChange={handleImage} />
-              </label>
-            ) : (
-              <div className="text-center">
-                <img src={imagePreview} alt="Preview" className="max-w-full max-h-[250px] rounded-xl border border-border mx-auto" />
-                <button onClick={() => setImagePreview(null)} className="text-red text-[11px] mt-2 hover:underline">✕ Retire imaj</button>
+            {promos.map((p, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', border: '1px solid #1e1e2e', borderRadius: 8, marginBottom: 8 }}>
+                <span style={{ color: '#f97316', fontWeight: 700, fontFamily: 'monospace' }}>{p.code}</span>
+                <span style={{ color: '#aaa', fontSize: 13 }}>
+                  {p.type === 'percent' ? `${p.discount}%` : `$${p.discount}`} &bull; max {p.maxUses}
+                </span>
+                <button onClick={() => removePromo(i)} style={{ marginLeft: 'auto', background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: 12 }}>X</button>
               </div>
-            )}
+            ))}
 
-            <div className="flex gap-3 mt-6">
-              <button onClick={() => goTo(4)} className="px-6 py-3 rounded-[10px] border border-border text-gray-light font-bold text-sm hover:text-white transition-all">← Retou</button>
-              <button onClick={() => goTo(6)} className="flex-1 py-3 rounded-[10px] bg-orange text-white font-bold text-sm hover:bg-orange/80 transition-all">Kontinye →</button>
+            <div style={{ border: '1px solid #1e1e2e', borderRadius: 8, padding: 16, marginTop: 8 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: 10, marginBottom: 12 }}>
+                <div>
+                  <label style={{ ...labelStyle, fontSize: 11 }}>{L('Kod', 'Code', 'Code')}</label>
+                  <input value={newPromoCode} onChange={e => setNewPromoCode(e.target.value.toUpperCase())} placeholder="KOMPA10"
+                    style={{ ...inputStyle, fontSize: 13, padding: 8, fontFamily: 'monospace' }} />
+                </div>
+                <div>
+                  <label style={{ ...labelStyle, fontSize: 11 }}>{L('Rabe', 'Discount', 'Rabais')}</label>
+                  <input type="number" value={newPromoDiscount} onChange={e => setNewPromoDiscount(parseInt(e.target.value) || 0)}
+                    style={{ ...inputStyle, fontSize: 13, padding: 8 }} />
+                </div>
+                <div>
+                  <label style={{ ...labelStyle, fontSize: 11 }}>{L('Tip', 'Type', 'Type')}</label>
+                  <select value={newPromoType} onChange={e => setNewPromoType(e.target.value as any)} style={{ ...inputStyle, fontSize: 13, padding: 8 }}>
+                    <option value="percent">%</option>
+                    <option value="fixed">$</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ ...labelStyle, fontSize: 11 }}>Max</label>
+                  <input type="number" value={newPromoMax} onChange={e => setNewPromoMax(parseInt(e.target.value) || 0)}
+                    style={{ ...inputStyle, fontSize: 13, padding: 8 }} />
+                </div>
+              </div>
+              <button onClick={addPromo} disabled={!newPromoCode}
+                style={{ padding: '8px 20px', borderRadius: 6, border: 'none', background: newPromoCode ? '#f97316' : '#333', color: newPromoCode ? '#000' : '#666', cursor: newPromoCode ? 'pointer' : 'not-allowed', fontSize: 13, fontWeight: 600 }}>
+                + {L('Ajoute', 'Add', 'Ajouter')}
+              </button>
             </div>
           </div>
         )}
 
-        {/* ═══ STEP 6: REVIZE ═══ */}
-        {step === 6 && !done && (
-          <div>
-            <h2 className="font-heading text-xl tracking-wide mb-1">REVIZE & PIBLIYE</h2>
-            <p className="text-xs text-gray-light mb-5">Verifye tout detay yo anvan ou pibliye.</p>
-
-            {/* Info */}
-            <div className="bg-dark-card border border-border rounded-xl p-5 mb-3">
-              <p className="text-[10px] text-gray-muted uppercase tracking-widest mb-2.5">Enfòmasyon</p>
-              {[['Non', evName],['Kategori', evCat],['Deskripsyon', evDesc || '—'],['Lang', evLang],['Laj', evAge]].map(([l,v]) => (
-                <div key={l as string} className="flex justify-between py-1.5 text-xs"><span className="text-gray-light">{l}:</span><span className="font-semibold">{v || '—'}</span></div>
-              ))}
+        {/* STEP 5: IMAGE */}
+        {step === 5 && (
+          <div style={cardStyle}>
+            <h2 style={{ color: '#fff', fontSize: 18, marginBottom: 20 }}>
+              {L('Afich Evenman', 'Event Poster', "Affiche de l'evenement")}
+            </h2>
+            <p style={{ color: '#888', fontSize: 13, marginBottom: 16 }}>
+              {L('Mete URL imaj afich evenman ou a.', 'Enter the URL of your event poster image.', "URL de l'affiche.")}
+            </p>
+            <div style={{ marginBottom: 16 }}>
+              <label style={labelStyle}>URL</label>
+              <input value={imageUrl} onChange={e => setImageUrl(e.target.value)} style={inputStyle}
+                placeholder="https://example.com/event-poster.jpg" />
             </div>
-
-            {/* Restrictions */}
-            {selectedChips.length > 0 && (
-              <div className="bg-dark-card border border-border rounded-xl p-5 mb-3">
-                <p className="text-[10px] text-gray-muted uppercase tracking-widest mb-2.5">Restriksyon</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {selectedChips.map((c, i) => <span key={i} className="px-2.5 py-1 rounded-full text-[10px] bg-orange-dim border border-orange-border text-orange">{c.label}</span>)}
-                </div>
+            {imageUrl && (
+              <div style={{ border: '1px solid #1e1e2e', borderRadius: 8, overflow: 'hidden', maxHeight: 300 }}>
+                <img src={imageUrl} alt="Preview" style={{ width: '100%', objectFit: 'cover' }}
+                  onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
               </div>
             )}
+            {!imageUrl && (
+              <div style={{ border: '2px dashed #1e1e2e', borderRadius: 12, padding: 40, textAlign: 'center' }}>
+                <div style={{ fontSize: 40, marginBottom: 8 }}>&#x1F5BC;</div>
+                <p style={{ color: '#555', fontSize: 13 }}>{L('Pa gen imaj anko', 'No image yet', "Pas encore d'image")}</p>
+              </div>
+            )}
+          </div>
+        )}
 
-            {/* Date & Venue */}
-            <div className="bg-dark-card border border-border rounded-xl p-5 mb-3">
-              <p className="text-[10px] text-gray-muted uppercase tracking-widest mb-2.5">Dat & Kote</p>
-              {[['Dat', evDateStart + (evDateEnd ? ` → ${evDateEnd}` : '')],['Lè', evTimeStart + (evTimeEnd ? ` → ${evTimeEnd}` : '')],['Kote', evVenue],['Adrès', evAddr],['Vil', evCity],['Eta/Dept.', evState],['Peyi', evCountry],['Kapasite', evCap]].map(([l,v]) => (
-                <div key={l as string} className="flex justify-between py-1.5 text-xs"><span className="text-gray-light">{l}:</span><span className="font-semibold">{v || '—'}</span></div>
-              ))}
+        {/* STEP 6: REVIEW */}
+        {step === 6 && (
+          <div style={cardStyle}>
+            <h2 style={{ color: '#fff', fontSize: 18, marginBottom: 20 }}>
+              {L('Revize Evenman', 'Review Event', "Revoir l'evenement")}
+            </h2>
+
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ color: '#888', fontSize: 11, marginBottom: 4 }}>{L('Non', 'Name', 'Nom')}</div>
+              <div style={{ color: '#fff', fontSize: 16, fontWeight: 700 }}>{name}</div>
             </div>
-
-            {/* Tickets */}
-            <div className="bg-dark-card border border-border rounded-xl p-5 mb-3">
-              <p className="text-[10px] text-gray-muted uppercase tracking-widest mb-2.5">Tikè</p>
-              {tiers.map(t => (
-                <div key={t.id} className="flex justify-between py-1.5 text-xs border-b border-border last:border-0">
-                  <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full inline-block" style={{background:t.color}} />{t.name}</span>
-                  <span className="font-semibold">{t.qty} tikè × ${t.price} = <span className="text-green">${(t.qty * t.price).toLocaleString()}</span></span>
-                </div>
-              ))}
-              <div className="flex justify-between pt-2.5 mt-1 text-xs font-bold">
-                <span>Total:</span><span className="text-green">{totalTix.toLocaleString()} tikè · ${totalRev.toLocaleString()}</span>
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ color: '#888', fontSize: 11, marginBottom: 4 }}>{L('Kategori', 'Category', 'Categorie')}</div>
+              <div style={{ color: '#fff' }}>{category}</div>
+            </div>
+            {description && (
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ color: '#888', fontSize: 11, marginBottom: 4 }}>{L('Deskripsyon', 'Description', 'Description')}</div>
+                <div style={{ color: '#ccc', fontSize: 13 }}>{description}</div>
+              </div>
+            )}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+              <div>
+                <div style={{ color: '#888', fontSize: 11, marginBottom: 4 }}>{L('Dat', 'Date', 'Date')}</div>
+                <div style={{ color: '#fff' }}>{startDate} {startTime && `@ ${startTime}`}</div>
+              </div>
+              <div>
+                <div style={{ color: '#888', fontSize: 11, marginBottom: 4 }}>{L('Kote', 'Venue', 'Lieu')}</div>
+                <div style={{ color: '#fff' }}>{venue.name}</div>
+                <div style={{ color: '#666', fontSize: 12 }}>{venue.city}, {venue.country}</div>
               </div>
             </div>
 
-            {/* Promos */}
-            {promos.some(p => p.code) && (
-              <div className="bg-dark-card border border-border rounded-xl p-5 mb-3">
-                <p className="text-[10px] text-gray-muted uppercase tracking-widest mb-2.5">Kòd Pwomo</p>
-                {promos.filter(p => p.code).map((p, i) => (
-                  <div key={i} className="flex justify-between py-1.5 text-xs"><span className="font-mono text-orange">{p.code}</span><span className="font-semibold">{p.discount}% rabè</span></div>
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ color: '#888', fontSize: 11, marginBottom: 8 }}>{L('Seksyon', 'Sections', 'Sections')}</div>
+              {sections.map((s, i) => (
+                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', borderLeft: `3px solid ${s.color}`, background: '#0a0a0f', borderRadius: 4, marginBottom: 4 }}>
+                  <span style={{ color: '#fff', fontWeight: 600 }}>{s.name}</span>
+                  <span style={{ color: '#aaa', fontSize: 13 }}>{s.capacity} {L('plas', 'seats', 'places')} &bull; ${s.price}</span>
+                </div>
+              ))}
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', marginTop: 4 }}>
+                <span style={{ color: '#f97316', fontWeight: 700 }}>Total</span>
+                <span style={{ color: '#f97316', fontWeight: 700 }}>{sections.reduce((s, x) => s + x.capacity, 0)} {L('plas', 'seats', 'places')}</span>
+              </div>
+            </div>
+
+            {promos.length > 0 && (
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ color: '#888', fontSize: 11, marginBottom: 4 }}>{L('Kod Pwomo', 'Promo Codes', 'Codes Promo')}</div>
+                {promos.map((p, i) => (
+                  <span key={i} style={{ display: 'inline-block', padding: '4px 10px', background: '#1a0a00', border: '1px solid #f97316', borderRadius: 20, color: '#f97316', fontSize: 12, marginRight: 6, marginBottom: 4 }}>
+                    {p.code} ({p.type === 'percent' ? `${p.discount}%` : `$${p.discount}`})
+                  </span>
                 ))}
               </div>
             )}
 
-            {/* Image */}
-            {imagePreview && (
-              <div className="bg-dark-card border border-border rounded-xl p-5 mb-3">
-                <p className="text-[10px] text-gray-muted uppercase tracking-widest mb-2.5">Imaj</p>
-                <img src={imagePreview} alt="Event" className="max-h-[150px] rounded-lg border border-border" />
+            {imageUrl && (
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ color: '#888', fontSize: 11, marginBottom: 4 }}>{L('Afich', 'Poster', 'Affiche')}</div>
+                <img src={imageUrl} alt="poster" style={{ width: '100%', maxHeight: 200, objectFit: 'cover', borderRadius: 8 }} />
               </div>
             )}
-
-            <div className="flex gap-3 mt-6">
-              <button onClick={() => goTo(5)} className="px-6 py-3 rounded-[10px] border border-border text-gray-light font-bold text-sm hover:text-white transition-all">← Retou</button>
-              <button className="px-6 py-3 rounded-[10px] border border-border text-gray-light font-bold text-sm hover:text-white transition-all">💾 Sove Bouyon</button>
-              <button onClick={() => setDone(true)} className="flex-1 py-3 rounded-[10px] bg-green text-white font-bold text-sm hover:bg-green/80 transition-all">🚀 Pibliye Evènman</button>
-            </div>
           </div>
         )}
 
-        {/* ═══ SUCCESS ═══ */}
-        {done && (
-          <div className="text-center py-16">
-            <div className="text-6xl mb-4">🎉</div>
-            <h2 className="font-heading text-3xl tracking-wide mb-2">EVÈNMAN PIBLIYE!</h2>
-            <p className="text-xs text-gray-light mb-6 max-w-sm mx-auto">Evènman ou an disponib kounye a. Moun ka kòmanse achte tikè.</p>
-            <div className="flex gap-3 justify-center">
-              <Link href="/organizer/dashboard" className="px-6 py-3 rounded-lg bg-orange text-white font-bold text-sm hover:bg-orange/80 transition-all">📊 Dachbòd</Link>
-              <Link href="/organizer/vendors" className="px-6 py-3 rounded-lg border border-orange-border text-orange font-bold text-sm hover:bg-orange-dim transition-all">🏪 Envite Vandè</Link>
-              <button onClick={() => { setDone(false); setStep(1); setEvName(''); setEvCat(''); setEvDesc(''); }} className="px-6 py-3 rounded-lg border border-border text-gray-light font-bold text-sm hover:text-white transition-all">➕ Kreye Yon Lòt</button>
-            </div>
-          </div>
-        )}
+        {/* NAV BUTTONS */}
+        <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
+          {step > 1 && step < 7 && (
+            <button onClick={() => setStep(step - 1)}
+              style={{ flex: 1, padding: 14, borderRadius: 8, border: '1px solid #333', background: 'transparent', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
+              &larr; {L('Retounen', 'Back', 'Retour')}
+            </button>
+          )}
+          {step < 6 && (
+            <button onClick={() => canProceed() && setStep(step + 1)} disabled={!canProceed()}
+              style={{
+                flex: 1, padding: 14, borderRadius: 8, border: 'none', fontSize: 14, fontWeight: 700, cursor: canProceed() ? 'pointer' : 'not-allowed',
+                background: canProceed() ? '#f97316' : '#333', color: canProceed() ? '#000' : '#666',
+              }}>
+              {L('Kontinye', 'Continue', 'Continuer')} &rarr;
+            </button>
+          )}
+          {step === 6 && (
+            <>
+              <button onClick={() => handleSave('draft')} disabled={saving}
+                style={{ flex: 1, padding: 14, borderRadius: 8, border: '1px solid #f97316', background: 'transparent', color: '#f97316', fontSize: 14, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.6 : 1 }}>
+                {saving ? '...' : L('Sove Bouyon', 'Save Draft', 'Sauvegarder Brouillon')}
+              </button>
+              <button onClick={() => handleSave('published')} disabled={saving}
+                style={{ flex: 1, padding: 14, borderRadius: 8, border: 'none', background: '#f97316', color: '#000', fontSize: 14, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.6 : 1 }}>
+                {saving ? '...' : L('Pibliye!', 'Publish!', 'Publier!')}
+              </button>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );

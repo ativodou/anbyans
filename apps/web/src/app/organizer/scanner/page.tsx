@@ -1,194 +1,727 @@
 'use client';
 
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { useAuth } from '@/hooks/useAuth';
 import { useT } from '@/i18n';
-import LangSwitcher from '@/components/LangSwitcher';
+import {
+  getEvent,
+  getOrganizerEvents,
+  addDoorStaff,
+  getDoorStaff,
+  removeDoorStaff,
+  toggleDoorStaff,
+  verifyDoorStaffPin,
+  updateDoorStaffStats,
+  downloadEventTickets,
+  markTicketUsed,
+  syncOfflineScans,
+  type EventData,
+  type DoorStaff,
+  type OfflineTicket,
+} from '@/lib/db';
 
-interface ScanResult {
-  id: string; status: 'valid' | 'used' | 'invalid' | 'wrong-event';
-  name: string; event: string; section: string; sectionColor: string;
-  seat: string; time: string; ticketId: string;
+// ─── Types ───────────────────────────────────────────────────────
+
+interface ScanRecord {
+  ticketCode: string;
+  buyerName: string;
+  section: string;
+  sectionColor: string;
+  seat: string;
+  status: 'admitted' | 'already-used' | 'not-found';
+  time: string;
+  synced: boolean;
 }
 
-const SCAN_HISTORY: ScanResult[] = [
-  { id:'1', status:'valid', name:'Marie Joseph', event:'Kompa Fest 2026', section:'VIP', sectionColor:'#FF6B35', seat:'V-042', time:'8:31 PM', ticketId:'ANB-KF26-V042' },
-  { id:'2', status:'valid', name:'Roberto Charles', event:'Kompa Fest 2026', section:'GA', sectionColor:'#00D4FF', seat:'GA-188', time:'8:28 PM', ticketId:'ANB-KF26-G188' },
-  { id:'3', status:'used', name:'Patrick Denis', event:'Kompa Fest 2026', section:'GA', sectionColor:'#00D4FF', seat:'GA-045', time:'8:25 PM', ticketId:'ANB-KF26-G045' },
-  { id:'4', status:'valid', name:'Sophia Bernard', event:'Kompa Fest 2026', section:'VVIP', sectionColor:'#FFD700', seat:'VV-008', time:'8:22 PM', ticketId:'ANB-KF26-VV08' },
-  { id:'5', status:'wrong-event', name:'Jacques Martin', event:'DJ Stéphane Live', section:'GA', sectionColor:'#00D4FF', seat:'GA-012', time:'8:18 PM', ticketId:'ANB-DS26-G012' },
-];
+type ViewMode = 'loading' | 'pin-entry' | 'organizer-select' | 'organizer-staff' | 'scanner';
+
+// ─── Local Storage Helpers ───────────────────────────────────────
+
+function saveTicketsLocal(eventId: string, tickets: OfflineTicket[]) {
+  try { localStorage.setItem(`anbyans-tickets-${eventId}`, JSON.stringify(tickets)); } catch {}
+}
+function loadTicketsLocal(eventId: string): OfflineTicket[] {
+  try { const r = localStorage.getItem(`anbyans-tickets-${eventId}`); return r ? JSON.parse(r) : []; } catch { return []; }
+}
+function saveScanHistory(eventId: string, history: ScanRecord[]) {
+  try { localStorage.setItem(`anbyans-scans-${eventId}`, JSON.stringify(history)); } catch {}
+}
+function loadScanHistory(eventId: string): ScanRecord[] {
+  try { const r = localStorage.getItem(`anbyans-scans-${eventId}`); return r ? JSON.parse(r) : []; } catch { return []; }
+}
+
+// ─── Component ───────────────────────────────────────────────────
 
 export default function ScannerPage() {
-  const router = useRouter();
-  const { t, locale } = useT();
+  const { user } = useAuth();
+  const { locale } = useT();
+  const searchParams = useSearchParams();
   const L = (ht: string, en: string, fr: string) => ({ ht, en, fr }[locale]);
 
-  const STATUS_MAP = {
-    'valid': { bg:'bg-green', border:'border-green', text:'text-green', dim:'bg-green-dim', icon:'✅', label:t('scanner_valid') },
-    'used': { bg:'bg-orange', border:'border-orange', text:'text-orange', dim:'bg-orange-dim', icon:'⚠️', label:t('scanner_used') },
-    'invalid': { bg:'bg-red', border:'border-red', text:'text-red', dim:'bg-red/10', icon:'❌', label:t('scanner_invalid') },
-    'wrong-event': { bg:'bg-red', border:'border-red', text:'text-red', dim:'bg-red/10', icon:'🚫', label:t('scanner_wrong_event') },
-  };
+  const role = (user as any)?.role || 'fan';
+  const isOrganizer = role === 'organizer';
 
-  const [scanning, setScanning] = useState(false);
-  const [result, setResult] = useState<ScanResult | null>(null);
-  const [selectedEvent, setSelectedEvent] = useState('Kompa Fest 2026');
-  const [history, setHistory] = useState(SCAN_HISTORY);
-  const [showManual, setShowManual] = useState(false);
+  // State
+  const [view, setView] = useState<ViewMode>('loading');
+  const [eventId, setEventId] = useState('');
+  const [event, setEvent] = useState<EventData | null>(null);
+  const [orgEvents, setOrgEvents] = useState<EventData[]>([]);
+
+  // Door staff management (organizer)
+  const [staffList, setStaffList] = useState<DoorStaff[]>([]);
+  const [newStaffName, setNewStaffName] = useState('');
+  const [addingStaff, setAddingStaff] = useState(false);
+
+  // PIN entry (door staff)
+  const [pin, setPin] = useState('');
+  const [pinError, setPinError] = useState('');
+  const [staffId, setStaffId] = useState('');
+  const [staffName, setStaffName] = useState('');
+
+  // Scanner
+  const [tickets, setTickets] = useState<OfflineTicket[]>([]);
+  const [scanHistory, setScanHistory] = useState<ScanRecord[]>([]);
+  const [downloading, setDownloading] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [isOnline, setIsOnline] = useState(true);
   const [manualCode, setManualCode] = useState('');
+  const [showManual, setShowManual] = useState(false);
+  const [lastScan, setLastScan] = useState<ScanRecord | null>(null);
+
+  // Online/offline tracking
+  useEffect(() => {
+    const on = () => setIsOnline(true);
+    const off = () => setIsOnline(false);
+    window.addEventListener('online', on);
+    window.addEventListener('offline', off);
+    setIsOnline(navigator.onLine);
+    return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off); };
+  }, []);
+
+  // Initialize
+  useEffect(() => {
+    const urlEventId = searchParams.get('event');
+
+    if (isOrganizer && !urlEventId) {
+      loadOrganizerEvents();
+    } else if (urlEventId) {
+      setEventId(urlEventId);
+      if (isOrganizer) {
+        loadEventForOrganizer(urlEventId);
+      } else {
+        setView('pin-entry');
+      }
+    } else {
+      setView('pin-entry');
+    }
+  }, [user, searchParams]);
+
+  // ─── Organizer Functions ───────────────────────────────────────
+
+  async function loadOrganizerEvents() {
+    if (!user) return;
+    try {
+      const events = await getOrganizerEvents(user.uid);
+      setOrgEvents(events.filter(e => e.status === 'published' || e.status === 'live'));
+    } catch {}
+    setView('organizer-select');
+  }
+
+  async function loadEventForOrganizer(eid: string) {
+    try {
+      const ev = await getEvent(eid);
+      if (ev) {
+        setEvent(ev);
+        const staff = await getDoorStaff(eid);
+        setStaffList(staff);
+        setView('organizer-staff');
+      }
+    } catch {}
+  }
+
+  function selectOrgEvent(eid: string) {
+    setEventId(eid);
+    loadEventForOrganizer(eid);
+  }
+
+  async function handleAddStaff() {
+    if (!newStaffName.trim() || !eventId) return;
+    setAddingStaff(true);
+    try {
+      const staff = await addDoorStaff(eventId, newStaffName.trim());
+      setStaffList(prev => [...prev, staff]);
+      setNewStaffName('');
+    } catch {}
+    setAddingStaff(false);
+  }
+
+  async function handleRemoveStaff(sid: string) {
+    await removeDoorStaff(eventId, sid);
+    setStaffList(prev => prev.filter(s => s.id !== sid));
+  }
+
+  async function handleToggleStaff(sid: string, disabled: boolean) {
+    await toggleDoorStaff(eventId, sid, disabled);
+    setStaffList(prev => prev.map(s => s.id === sid ? { ...s, disabled } : s));
+  }
+
+  function shareStaffPin(staff: DoorStaff) {
+    const url = `${window.location.origin}/organizer/scanner?event=${eventId}`;
+    const msg = `📱 Eskane tike pou "${event?.name}"\n👤 ${staff.staffName}\n🔗 ${url}\n🔑 PIN: ${staff.pin}\n\n⚠️ PIN sa a pou OU selman. Li pral bloke sou telefon OU.`;
+    if (navigator.share) {
+      navigator.share({ title: 'Anbyans Scanner', text: msg });
+    } else {
+      navigator.clipboard.writeText(msg);
+      alert(L('Kopye!', 'Copied!', 'Copie!'));
+    }
+  }
+
+  function organizerStartScanning() {
+    const localTickets = loadTicketsLocal(eventId);
+    const localHistory = loadScanHistory(eventId);
+    setTickets(localTickets);
+    setScanHistory(localHistory);
+    setStaffName('Organizer');
+    setStaffId('organizer');
+    setView('scanner');
+  }
+
+  // ─── Door Staff PIN Entry ─────────────────────────────────────
+
+  async function handlePinSubmit() {
+    if (!eventId || pin.length < 6) {
+      setPinError(L('Mete PIN 6 chif la', 'Enter the 6-digit PIN', 'Entrez le PIN a 6 chiffres'));
+      return;
+    }
+    setPinError('');
+    try {
+      const result = await verifyDoorStaffPin(eventId, pin);
+      if (result.valid) {
+        const ev = await getEvent(eventId);
+        setEvent(ev);
+        setStaffId(result.staffId || '');
+        setStaffName(result.staffName || '');
+        const localTickets = loadTicketsLocal(eventId);
+        const localHistory = loadScanHistory(eventId);
+        setTickets(localTickets);
+        setScanHistory(localHistory);
+        setView('scanner');
+      } else {
+        setPinError(result.error || L('PIN pa bon', 'Invalid PIN', 'PIN invalide'));
+      }
+    } catch {
+      setPinError(L('Ere koneksyon', 'Connection error', 'Erreur de connexion'));
+    }
+  }
+
+  // ─── Download Tickets ──────────────────────────────────────────
+
+  async function handleDownloadTickets() {
+    setDownloading(true);
+    try {
+      const fresh = await downloadEventTickets(eventId);
+      setTickets(fresh);
+      saveTicketsLocal(eventId, fresh);
+      alert(L(
+        `${fresh.length} tike telechaje! Eskane mache san entenet kounye a.`,
+        `${fresh.length} tickets downloaded! Scanner works offline now.`,
+        `${fresh.length} billets telecharges! Scanner fonctionne hors ligne.`
+      ));
+    } catch {
+      alert(L('Ere. Eseye anko.', 'Error. Try again.', 'Erreur. Reessayez.'));
+    }
+    setDownloading(false);
+  }
+
+  // ─── Scan Ticket (offline-first) ──────────────────────────────
+
+  const processTicketCode = useCallback((code: string) => {
+    const trimmed = code.trim().toUpperCase();
+    if (!trimmed) return;
+
+    const ticket = tickets.find(t => t.ticketCode === trimmed || t.qrData === trimmed);
+    const now = new Date().toLocaleTimeString('fr', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+    let record: ScanRecord;
+
+    if (!ticket) {
+      record = { ticketCode: trimmed, buyerName: '???', section: '—', sectionColor: '#666', seat: '—', status: 'not-found', time: now, synced: false };
+    } else if (ticket.status === 'used' || scanHistory.some(h => h.ticketCode === ticket.ticketCode && h.status === 'admitted')) {
+      record = { ticketCode: ticket.ticketCode, buyerName: ticket.buyerName, section: ticket.section, sectionColor: ticket.sectionColor, seat: ticket.seat, status: 'already-used', time: now, synced: false };
+    } else {
+      const updated = tickets.map(t => t.ticketCode === ticket.ticketCode ? { ...t, status: 'used' as const } : t);
+      setTickets(updated);
+      saveTicketsLocal(eventId, updated);
+      record = { ticketCode: ticket.ticketCode, buyerName: ticket.buyerName, section: ticket.section, sectionColor: ticket.sectionColor, seat: ticket.seat, status: 'admitted', time: now, synced: false };
+
+      if (isOnline) {
+        markTicketUsed(eventId, ticket.ticketCode, staffName).catch(() => {});
+        if (staffId && staffId !== 'organizer') {
+          updateDoorStaffStats(eventId, staffId, true).catch(() => {});
+        }
+        record.synced = true;
+      }
+    }
+
+    // Update denied stats too
+    if (record.status !== 'admitted' && isOnline && staffId && staffId !== 'organizer') {
+      updateDoorStaffStats(eventId, staffId, false).catch(() => {});
+    }
+
+    setLastScan(record);
+    const newHistory = [record, ...scanHistory];
+    setScanHistory(newHistory);
+    saveScanHistory(eventId, newHistory);
+  }, [tickets, scanHistory, eventId, isOnline, staffId, staffName]);
+
+  function handleManualScan() {
+    processTicketCode(manualCode);
+    setManualCode('');
+  }
+
+  function simulateScan() {
+    if (tickets.length === 0) {
+      alert(L('Telechaje tike yo anvan!', 'Download tickets first!', 'Telechargez les billets d\'abord!'));
+      return;
+    }
+    const t = tickets[Math.floor(Math.random() * tickets.length)];
+    processTicketCode(t.ticketCode);
+  }
+
+  // ─── Sync ─────────────────────────────────────────────────────
+
+  async function handleSync() {
+    const unsynced = scanHistory.filter(h => !h.synced && h.status === 'admitted');
+    if (unsynced.length === 0) {
+      alert(L('Tout sinkronize deja!', 'Everything synced!', 'Tout synchronise!'));
+      return;
+    }
+    setSyncing(true);
+    try {
+      const count = await syncOfflineScans(eventId, unsynced.map(s => ({
+        ticketCode: s.ticketCode, usedAt: new Date().toISOString(), scannedBy: staffName,
+      })));
+      const updated = scanHistory.map(h => ({ ...h, synced: true }));
+      setScanHistory(updated);
+      saveScanHistory(eventId, updated);
+      alert(L(`${count} tike sinkronize!`, `${count} tickets synced!`, `${count} billets synchronises!`));
+    } catch {
+      alert(L('Ere sinkronizasyon', 'Sync error', 'Erreur sync'));
+    }
+    setSyncing(false);
+  }
+
+  // ─── Stats ────────────────────────────────────────────────────
 
   const stats = {
-    scanned: history.filter(h => h.status === 'valid').length,
-    denied: history.filter(h => h.status !== 'valid').length,
-    total: history.length,
+    admitted: scanHistory.filter(h => h.status === 'admitted').length,
+    denied: scanHistory.filter(h => h.status !== 'admitted').length,
+    total: scanHistory.length,
+    unsynced: scanHistory.filter(h => !h.synced && h.status === 'admitted').length,
+    downloaded: tickets.length,
   };
 
-  const simulateScan = () => {
-    setScanning(true);
-    setTimeout(() => {
-      const statuses: ScanResult['status'][] = ['valid','valid','valid','used','invalid'];
-      const s = statuses[Math.floor(Math.random() * statuses.length)];
-      const r: ScanResult = {
-        id: Date.now().toString(), status: s,
-        name: ['Anel Pierre','Claudia M.','Frantz J.','Rosa L.','Kevin B.'][Math.floor(Math.random()*5)],
-        event: selectedEvent, section: ['VIP','GA','VVIP'][Math.floor(Math.random()*3)],
-        sectionColor: ['#FF6B35','#00D4FF','#FFD700'][Math.floor(Math.random()*3)],
-        seat: `${['V','GA','VV'][Math.floor(Math.random()*3)]}-${String(Math.floor(Math.random()*200)+1).padStart(3,'0')}`,
-        time: new Date().toLocaleTimeString('fr',{hour:'2-digit',minute:'2-digit'}),
-        ticketId: `ANB-${Date.now().toString().slice(-6)}`,
-      };
-      setResult(r);
-      setHistory(prev => [r, ...prev]);
-      setScanning(false);
-    }, 1500);
+  const statusConfig = {
+    'admitted': { bg: '#0a2a0a', border: '#22c55e', color: '#22c55e', icon: '✅', label: L('Antre!', 'Admitted!', 'Admis!') },
+    'already-used': { bg: '#2a1a00', border: '#f97316', color: '#f97316', icon: '⚠️', label: L('Deja Itilize!', 'Already Used!', 'Deja utilise!') },
+    'not-found': { bg: '#2a0a0a', border: '#ef4444', color: '#ef4444', icon: '❌', label: L('Pa Jwenn!', 'Not Found!', 'Non trouve!') },
   };
 
-  const manualLookup = () => {
-    if (!manualCode) return;
-    const r: ScanResult = {
-      id: Date.now().toString(), status: 'valid',
-      name: 'Manual Lookup', event: selectedEvent, section: 'GA',
-      sectionColor: '#00D4FF', seat: 'GA-???',
-      time: new Date().toLocaleTimeString('fr',{hour:'2-digit',minute:'2-digit'}),
-      ticketId: manualCode.toUpperCase(),
-    };
-    setResult(r);
-    setHistory(prev => [r, ...prev]);
-    setManualCode('');
-    setShowManual(false);
-  };
+  // ─── Styles ───────────────────────────────────────────────────
 
-  const st = result ? STATUS_MAP[result.status] : null;
+  const pageStyle: React.CSSProperties = { minHeight: '100vh', background: '#0a0a0f', color: '#fff' };
+  const cardStyle: React.CSSProperties = { background: '#12121a', border: '1px solid #1e1e2e', borderRadius: 12, padding: 20 };
+  const inputStyle: React.CSSProperties = { width: '100%', padding: 14, borderRadius: 8, border: '1px solid #1e1e2e', background: '#0a0a0f', color: '#fff', fontSize: 16, boxSizing: 'border-box' };
+  const btnOrange: React.CSSProperties = { padding: '14px 24px', borderRadius: 8, border: 'none', background: '#f97316', color: '#000', fontSize: 14, fontWeight: 700, cursor: 'pointer', width: '100%' };
+
+  // ═══════════════════════════════════════════════════════════════
+  // LOADING
+  // ═══════════════════════════════════════════════════════════════
+
+  if (view === 'loading') {
+    return (
+      <div style={{ ...pageStyle, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <p style={{ color: '#888' }}>...</p>
+      </div>
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // PIN ENTRY (door staff)
+  // ═══════════════════════════════════════════════════════════════
+
+  if (view === 'pin-entry') {
+    return (
+      <div style={{ ...pageStyle, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+        <div style={{ maxWidth: 380, width: '100%' }}>
+          <div style={{ textAlign: 'center', marginBottom: 32 }}>
+            <div style={{ fontSize: 48, marginBottom: 12 }}>🔒</div>
+            <h1 style={{ fontSize: 22, fontWeight: 800, marginBottom: 4 }}>
+              {L('Eskane Tike', 'Ticket Scanner', 'Scanner de Billets')}
+            </h1>
+            <p style={{ color: '#888', fontSize: 13 }}>
+              {L('Mete kod PIN oganizate a ba ou a', 'Enter the PIN code from the organizer', 'Entrez le code PIN de l\'organisateur')}
+            </p>
+          </div>
+
+          <div style={cardStyle}>
+            {!searchParams.get('event') && (
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ color: '#888', fontSize: 11, marginBottom: 6, display: 'block' }}>Event ID</label>
+                <input value={eventId} onChange={e => setEventId(e.target.value)} placeholder="abc123..." style={{ ...inputStyle, fontSize: 14 }} />
+              </div>
+            )}
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ color: '#888', fontSize: 11, marginBottom: 6, display: 'block' }}>PIN</label>
+              <input
+                value={pin}
+                onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                placeholder="• • • • • •"
+                type="tel"
+                maxLength={6}
+                style={{ ...inputStyle, textAlign: 'center', letterSpacing: 8, fontSize: 24, fontWeight: 800 }}
+              />
+            </div>
+
+            {pinError && (
+              <div style={{ background: '#2a0a0a', border: '1px solid #ef4444', borderRadius: 8, padding: '8px 12px', marginBottom: 16, color: '#ef4444', fontSize: 12, textAlign: 'center' }}>
+                {pinError}
+              </div>
+            )}
+
+            <button onClick={handlePinSubmit} disabled={pin.length < 6} style={{
+              ...btnOrange, opacity: pin.length < 6 ? 0.4 : 1, cursor: pin.length < 6 ? 'not-allowed' : 'pointer',
+            }}>
+              {L('Antre', 'Enter', 'Entrer')} →
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // ORGANIZER — SELECT EVENT
+  // ═══════════════════════════════════════════════════════════════
+
+  if (view === 'organizer-select') {
+    return (
+      <div style={{ ...pageStyle, padding: 20 }}>
+        <div style={{ maxWidth: 500, margin: '0 auto' }}>
+          <h1 style={{ fontSize: 22, fontWeight: 800, marginBottom: 4 }}>
+            📱 {L('Chwazi Evenman', 'Select Event', 'Choisir un evenement')}
+          </h1>
+          <p style={{ color: '#888', fontSize: 13, marginBottom: 24 }}>
+            {L('Ki evenman ou vle jere eskane a?', 'Which event to manage scanning?', 'Quel evenement gerer?')}
+          </p>
+
+          {orgEvents.length === 0 && (
+            <div style={cardStyle}>
+              <p style={{ color: '#666', textAlign: 'center' }}>{L('Pa gen evenman pibliye', 'No published events', 'Aucun evenement publie')}</p>
+            </div>
+          )}
+
+          {orgEvents.map(ev => (
+            <div key={ev.id} onClick={() => selectOrgEvent(ev.id!)}
+              style={{ ...cardStyle, marginBottom: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 16 }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 700, fontSize: 16 }}>{ev.name}</div>
+                <div style={{ color: '#888', fontSize: 12, marginTop: 4 }}>{ev.startDate} @ {ev.startTime} • {ev.venue?.name}</div>
+              </div>
+              <span style={{ color: '#555', fontSize: 18 }}>→</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // ORGANIZER — MANAGE DOOR STAFF
+  // ═══════════════════════════════════════════════════════════════
+
+  if (view === 'organizer-staff') {
+    return (
+      <div style={{ ...pageStyle, padding: 20 }}>
+        <div style={{ maxWidth: 540, margin: '0 auto' }}>
+
+          {/* Header */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
+            <div>
+              <h1 style={{ fontSize: 20, fontWeight: 800, marginBottom: 4 }}>🚪 {event?.name}</h1>
+              <p style={{ color: '#888', fontSize: 12 }}>{event?.startDate} @ {event?.startTime} • {event?.venue?.name}</p>
+            </div>
+            <button onClick={organizerStartScanning} style={{
+              padding: '10px 18px', borderRadius: 8, border: 'none',
+              background: '#f97316', color: '#000', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+            }}>
+              📷 {L('Eskane', 'Scan', 'Scanner')}
+            </button>
+          </div>
+
+          {/* Add door staff */}
+          <div style={{ ...cardStyle, marginBottom: 20 }}>
+            <div style={{ color: '#888', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>
+              {L('Ajoute Moun nan Pot', 'Add Door Staff', 'Ajouter Personnel')}
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input
+                value={newStaffName}
+                onChange={e => setNewStaffName(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleAddStaff()}
+                placeholder={L('Non moun nan (ekz: Jean)', 'Person\'s name (e.g. Jean)', 'Nom de la personne')!}
+                style={{ flex: 1, padding: 12, borderRadius: 8, border: '1px solid #1e1e2e', background: '#0a0a0f', color: '#fff', fontSize: 14 }}
+              />
+              <button onClick={handleAddStaff} disabled={!newStaffName.trim() || addingStaff}
+                style={{
+                  padding: '12px 20px', borderRadius: 8, border: 'none',
+                  background: newStaffName.trim() ? '#f97316' : '#333',
+                  color: newStaffName.trim() ? '#000' : '#666',
+                  fontWeight: 700, fontSize: 13, cursor: newStaffName.trim() ? 'pointer' : 'not-allowed',
+                }}>
+                + {L('Ajoute', 'Add', 'Ajouter')}
+              </button>
+            </div>
+          </div>
+
+          {/* Staff list */}
+          <div style={{ color: '#888', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>
+            {L('Ekip nan Pot', 'Door Team', 'Equipe Porte')} ({staffList.length})
+          </div>
+
+          {staffList.length === 0 && (
+            <div style={{ ...cardStyle, textAlign: 'center' }}>
+              <div style={{ fontSize: 32, marginBottom: 8 }}>👥</div>
+              <p style={{ color: '#666', fontSize: 13 }}>{L('Ajoute moun ki pral eskane tike nan pot la', 'Add people who will scan tickets at the door', 'Ajoutez les personnes qui scanneront')}</p>
+            </div>
+          )}
+
+          {staffList.map(staff => (
+            <div key={staff.id} style={{
+              ...cardStyle, marginBottom: 10, padding: 16,
+              opacity: staff.disabled ? 0.4 : 1,
+              borderColor: staff.activated ? '#22c55e30' : '#1e1e2e',
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 15 }}>
+                    {staff.staffName}
+                    {staff.disabled && <span style={{ color: '#ef4444', fontSize: 10, marginLeft: 8 }}>DISABLED</span>}
+                  </div>
+
+                  {/* PIN display */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
+                    <span style={{ color: '#888', fontSize: 11 }}>PIN:</span>
+                    <span style={{ fontSize: 18, fontWeight: 800, letterSpacing: 4, color: '#f97316', fontFamily: 'monospace' }}>{staff.pin}</span>
+                  </div>
+
+                  {/* Status */}
+                  <div style={{ marginTop: 8, display: 'flex', gap: 8, alignItems: 'center' }}>
+                    {staff.activated ? (
+                      <span style={{ fontSize: 10, color: '#22c55e', background: '#22c55e15', padding: '2px 8px', borderRadius: 4, fontWeight: 700 }}>
+                        ✓ {L('Aktive', 'Active', 'Actif')}
+                      </span>
+                    ) : (
+                      <span style={{ fontSize: 10, color: '#888', background: '#ffffff08', padding: '2px 8px', borderRadius: 4 }}>
+                        {L('Pa anko konekte', 'Not connected yet', 'Pas encore connecte')}
+                      </span>
+                    )}
+                    {staff.scansCount > 0 && (
+                      <span style={{ fontSize: 10, color: '#888' }}>
+                        {staff.scansCount} {L('eskan', 'scans', 'scans')} • {staff.admittedCount} ✅ • {staff.deniedCount} ❌
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
+                  <button onClick={() => shareStaffPin(staff)}
+                    style={{ padding: '6px 12px', borderRadius: 6, border: '1px solid #f97316', background: 'transparent', color: '#f97316', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>
+                    {L('Pataje', 'Share', 'Partager')}
+                  </button>
+                  <button onClick={() => handleToggleStaff(staff.id!, !staff.disabled)}
+                    style={{ padding: '6px 12px', borderRadius: 6, border: '1px solid #333', background: 'transparent', color: staff.disabled ? '#22c55e' : '#888', fontSize: 10, cursor: 'pointer' }}>
+                    {staff.disabled ? L('Aktive', 'Enable', 'Activer') : L('Dezaktive', 'Disable', 'Desactiver')}
+                  </button>
+                  <button onClick={() => { if (confirm(L('Retire moun sa a?', 'Remove this person?', 'Supprimer?')!)) handleRemoveStaff(staff.id!); }}
+                    style={{ padding: '6px 12px', borderRadius: 6, border: '1px solid #ef444430', background: 'transparent', color: '#ef4444', fontSize: 10, cursor: 'pointer' }}>
+                    {L('Retire', 'Remove', 'Supprimer')}
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+
+          {/* Back button */}
+          <button onClick={() => { setEventId(''); setEvent(null); setStaffList([]); setView('organizer-select'); }}
+            style={{ marginTop: 16, padding: '10px 0', background: 'transparent', border: 'none', color: '#888', fontSize: 13, cursor: 'pointer' }}>
+            ← {L('Retounen', 'Back', 'Retour')}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // SCANNER VIEW
+  // ═══════════════════════════════════════════════════════════════
+
+  const sc = lastScan ? statusConfig[lastScan.status] : null;
 
   return (
-    <div className="min-h-screen bg-dark flex flex-col">
-      <nav className="sticky top-0 z-50 bg-dark border-b border-border px-5">
-        <div className="max-w-[600px] mx-auto flex items-center h-14 gap-3">
-          <button onClick={() => router.back()} className="text-gray-light text-xs hover:text-white transition-colors">← {t('back')}</button>
-          <div className="w-px h-5 bg-border" />
-          <span className="font-heading text-lg tracking-wide flex-1">📷 {t('scanner_title')}</span>
-          <LangSwitcher />
-          <select value={selectedEvent} onChange={e => setSelectedEvent(e.target.value)}
-            className="px-3 py-1.5 rounded-lg bg-white/[0.04] border border-orange-border text-orange text-[11px] font-bold outline-none">
-            <option className="bg-dark-card">Kompa Fest 2026</option>
-            <option className="bg-dark-card">DJ Stéphane Live</option>
-          </select>
-        </div>
-      </nav>
+    <div style={pageStyle}>
+      <div style={{ maxWidth: 500, margin: '0 auto', padding: '16px 16px 100px' }}>
 
-      <div className="max-w-[600px] mx-auto w-full px-5 py-5 flex-1">
-        <div className="grid grid-cols-3 gap-3 mb-5">
-          <div className="bg-dark-card border border-border rounded-card p-3 text-center">
-            <p className="text-[9px] text-gray-muted uppercase">{t('scanner_scanned')}</p>
-            <p className="font-heading text-2xl">{stats.total}</p>
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+          <div>
+            <h1 style={{ fontSize: 18, fontWeight: 800, margin: 0 }}>📱 {event?.name || 'Scanner'}</h1>
+            <p style={{ color: '#888', fontSize: 11, margin: '4px 0 0' }}>
+              👤 {staffName} • {event?.venue?.name}
+            </p>
           </div>
-          <div className="bg-dark-card border border-border rounded-card p-3 text-center">
-            <p className="text-[9px] text-gray-muted uppercase">{t('scanner_admitted')}</p>
-            <p className="font-heading text-2xl text-green">{stats.scanned}</p>
-          </div>
-          <div className="bg-dark-card border border-border rounded-card p-3 text-center">
-            <p className="text-[9px] text-gray-muted uppercase">{t('scanner_denied')}</p>
-            <p className="font-heading text-2xl text-red">{stats.denied}</p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div style={{ width: 8, height: 8, borderRadius: '50%', background: isOnline ? '#22c55e' : '#ef4444' }} />
+            <span style={{ color: isOnline ? '#22c55e' : '#ef4444', fontSize: 10, fontWeight: 700 }}>
+              {isOnline ? 'ONLINE' : 'OFFLINE'}
+            </span>
           </div>
         </div>
 
-        <div className="relative rounded-2xl overflow-hidden border-2 border-border bg-black/40 mb-4" style={{aspectRatio:'4/3'}}>
-          <div className="absolute inset-0 flex flex-col items-center justify-center">
-            {scanning ? (
-              <>
-                <div className="w-48 h-48 border-2 border-orange rounded-xl animate-pulse" />
-                <p className="text-sm text-orange mt-3 animate-pulse">{L('Ap eskane...','Scanning...','Scan en cours...')}</p>
-              </>
-            ) : result ? (
-              <div className={`text-center p-5 rounded-2xl ${st?.dim} border ${st?.border} max-w-xs`}>
-                <div className="text-5xl mb-2">{st?.icon}</div>
-                <p className={`font-heading text-2xl tracking-wide mb-1 ${st?.text}`}>{st?.label}</p>
-                <p className="text-sm font-bold text-white">{result.name}</p>
-                <div className="flex items-center justify-center gap-2 mt-1">
-                  <span className="px-2 py-0.5 rounded text-[9px] font-bold border" style={{color:result.sectionColor, borderColor:result.sectionColor, background:result.sectionColor+'15'}}>{result.section}</span>
-                  <span className="text-[10px] text-gray-light">{L('Plas','Seat','Place')} {result.seat}</span>
-                </div>
-                <p className="text-[10px] text-gray-muted mt-1 font-mono">{result.ticketId}</p>
-              </div>
-            ) : (
-              <>
-                <div className="w-48 h-48 border-2 border-dashed border-gray-muted rounded-xl flex items-center justify-center">
-                  <span className="text-4xl">📷</span>
-                </div>
-                <p className="text-xs text-gray-muted mt-3">{L('Peze bouton an pou eskane QR code','Press button to scan QR code','Appuyez pour scanner le QR code')}</p>
-              </>
-            )}
+        {/* Stats */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 16 }}>
+          <div style={{ ...cardStyle, padding: 12, textAlign: 'center' }}>
+            <div style={{ color: '#888', fontSize: 9, textTransform: 'uppercase', letterSpacing: 1 }}>{L('Eskane', 'Scanned', 'Scannes')}</div>
+            <div style={{ fontSize: 24, fontWeight: 800 }}>{stats.total}</div>
+          </div>
+          <div style={{ ...cardStyle, padding: 12, textAlign: 'center' }}>
+            <div style={{ color: '#888', fontSize: 9, textTransform: 'uppercase', letterSpacing: 1 }}>{L('Antre', 'Admitted', 'Admis')}</div>
+            <div style={{ fontSize: 24, fontWeight: 800, color: '#22c55e' }}>{stats.admitted}</div>
+          </div>
+          <div style={{ ...cardStyle, padding: 12, textAlign: 'center' }}>
+            <div style={{ color: '#888', fontSize: 9, textTransform: 'uppercase', letterSpacing: 1 }}>{L('Refize', 'Denied', 'Refuses')}</div>
+            <div style={{ fontSize: 24, fontWeight: 800, color: '#ef4444' }}>{stats.denied}</div>
           </div>
         </div>
 
-        <div className="flex gap-3 mb-5">
-          <button onClick={() => { setResult(null); simulateScan(); }}
-            className="flex-1 py-4 rounded-xl bg-orange text-white font-bold text-sm hover:bg-orange/80 transition-all">
-            {result ? `📷 ${L('Eskane Ankò','Scan Again','Scanner encore')}` : `📷 ${L('Eskane QR Code','Scan QR Code','Scanner QR Code')}`}
+        {/* Download & Sync */}
+        <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+          <button onClick={handleDownloadTickets} disabled={downloading || !isOnline}
+            style={{
+              flex: 1, padding: 12, borderRadius: 8, border: '1px solid #06b6d4',
+              background: 'transparent', color: '#06b6d4', fontSize: 12, fontWeight: 700,
+              cursor: downloading || !isOnline ? 'not-allowed' : 'pointer',
+              opacity: downloading || !isOnline ? 0.4 : 1,
+            }}>
+            {downloading ? '...' : `⬇️ ${L('Telechaje', 'Download', 'Telecharger')} (${stats.downloaded})`}
+          </button>
+          <button onClick={handleSync} disabled={syncing || !isOnline || stats.unsynced === 0}
+            style={{
+              flex: 1, padding: 12, borderRadius: 8,
+              border: stats.unsynced > 0 ? 'none' : '1px solid #22c55e',
+              background: stats.unsynced > 0 ? '#22c55e' : 'transparent',
+              color: stats.unsynced > 0 ? '#000' : '#22c55e',
+              fontSize: 12, fontWeight: 700,
+              cursor: syncing || !isOnline || stats.unsynced === 0 ? 'not-allowed' : 'pointer',
+              opacity: syncing || !isOnline ? 0.4 : 1,
+            }}>
+            {syncing ? '...' : `🔄 ${L('Sinkronize', 'Sync', 'Sync')} (${stats.unsynced})`}
+          </button>
+        </div>
+
+        {/* Last scan result */}
+        {lastScan && sc && (
+          <div style={{ ...cardStyle, marginBottom: 16, textAlign: 'center', borderColor: sc.border, background: sc.bg }}>
+            <div style={{ fontSize: 48 }}>{sc.icon}</div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: sc.color, marginTop: 8 }}>{sc.label}</div>
+            <div style={{ fontSize: 16, fontWeight: 700, marginTop: 8 }}>{lastScan.buyerName}</div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 8 }}>
+              <span style={{ padding: '4px 10px', borderRadius: 4, fontSize: 11, fontWeight: 700, border: `1px solid ${lastScan.sectionColor}`, color: lastScan.sectionColor, background: lastScan.sectionColor + '15' }}>
+                {lastScan.section}
+              </span>
+              <span style={{ color: '#888', fontSize: 12 }}>{L('Plas', 'Seat', 'Place')} {lastScan.seat}</span>
+            </div>
+            <div style={{ color: '#555', fontSize: 10, fontFamily: 'monospace', marginTop: 8 }}>{lastScan.ticketCode}</div>
+          </div>
+        )}
+
+        {/* Scan buttons */}
+        <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+          <button onClick={simulateScan} style={{ ...btnOrange, flex: 1 }}>
+            📷 {lastScan ? L('Eskane Anko', 'Scan Again', 'Scanner encore') : L('Eskane QR Code', 'Scan QR Code', 'Scanner QR Code')}
           </button>
           <button onClick={() => setShowManual(!showManual)}
-            className="px-5 py-4 rounded-xl border border-border text-gray-light font-bold text-sm hover:text-white transition-all">
+            style={{ padding: '14px 20px', borderRadius: 8, border: '1px solid #1e1e2e', background: 'transparent', color: '#888', cursor: 'pointer', fontSize: 16 }}>
             ⌨️
           </button>
         </div>
 
+        {/* Manual entry */}
         {showManual && (
-          <div className="bg-dark-card border border-border rounded-xl p-4 mb-5">
-            <p className="text-[10px] uppercase tracking-widest text-orange font-bold mb-2">{t('scanner_manual')}</p>
-            <div className="flex gap-2">
-              <input value={manualCode} onChange={e => setManualCode(e.target.value)}
-                className="flex-1 px-3 py-2.5 rounded-lg bg-white/[0.04] border border-border text-white text-sm font-mono outline-none focus:border-orange placeholder:text-gray-muted"
-                placeholder={t('scanner_manual_placeholder')} />
-              <button onClick={manualLookup} className="px-5 py-2.5 rounded-lg bg-orange text-white text-xs font-bold hover:bg-orange/80 transition-all">{t('search')}</button>
+          <div style={{ ...cardStyle, marginBottom: 16 }}>
+            <div style={{ color: '#f97316', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>
+              {L('Antre kod tike a', 'Enter ticket code', 'Entrez le code du billet')}
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input value={manualCode} onChange={e => setManualCode(e.target.value.toUpperCase())}
+                onKeyDown={e => e.key === 'Enter' && handleManualScan()}
+                placeholder="ANB-XXXX..." style={{ flex: 1, padding: 12, borderRadius: 8, border: '1px solid #1e1e2e', background: '#0a0a0f', color: '#fff', fontSize: 14, fontFamily: 'monospace' }} />
+              <button onClick={handleManualScan} style={{ padding: '12px 20px', borderRadius: 8, border: 'none', background: '#f97316', color: '#000', fontWeight: 700, cursor: 'pointer' }}>
+                {L('Cheke', 'Check', 'Verifier')}
+              </button>
             </div>
           </div>
         )}
 
+        {/* Scan history */}
         <div>
-          <h3 className="text-xs font-bold text-gray-light mb-3">{t('scanner_history')}</h3>
-          <div className="space-y-2">
-            {history.slice(0, 20).map(h => {
-              const s = STATUS_MAP[h.status];
-              return (
-                <div key={h.id} className={`flex items-center gap-3 p-3 rounded-xl border ${s.border} ${s.dim}`}>
-                  <span className="text-base">{s.icon}</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold truncate">{h.name}</p>
-                    <p className="text-[10px] text-gray-muted">
-                      <span style={{color:h.sectionColor}}>{h.section}</span> · {h.seat} · <span className="font-mono">{h.ticketId}</span>
-                    </p>
-                  </div>
-                  <div className="text-right flex-shrink-0">
-                    <p className={`text-[10px] font-bold ${s.text}`}>{s.label}</p>
-                    <p className="text-[9px] text-gray-muted">{h.time}</p>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <h3 style={{ fontSize: 12, fontWeight: 700, color: '#888', margin: 0 }}>{L('Istwa Eskane', 'Scan History', 'Historique')}</h3>
+            {stats.unsynced > 0 && <span style={{ fontSize: 10, color: '#f97316' }}>{stats.unsynced} {L('pa sinkronize', 'not synced', 'non sync')}</span>}
+          </div>
+
+          {scanHistory.length === 0 && (
+            <div style={{ ...cardStyle, textAlign: 'center' }}>
+              <p style={{ color: '#555', fontSize: 13 }}>{L('Pa gen eskan anko', 'No scans yet', 'Aucun scan')}</p>
+            </div>
+          )}
+
+          {scanHistory.slice(0, 50).map((h, i) => {
+            const s = statusConfig[h.status];
+            return (
+              <div key={i} style={{
+                display: 'flex', alignItems: 'center', gap: 12,
+                padding: '10px 14px', marginBottom: 6,
+                borderRadius: 8, border: `1px solid ${s.border}30`, background: s.bg + '80',
+              }}>
+                <span style={{ fontSize: 16 }}>{s.icon}</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.buyerName}</div>
+                  <div style={{ fontSize: 10, color: '#888' }}>
+                    <span style={{ color: h.sectionColor }}>{h.section}</span> • {h.seat} • <span style={{ fontFamily: 'monospace' }}>{h.ticketCode}</span>
                   </div>
                 </div>
-              );
-            })}
-          </div>
+                <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: s.color }}>{s.label}</div>
+                  <div style={{ fontSize: 9, color: '#555' }}>{h.time}</div>
+                  {!h.synced && h.status === 'admitted' && (
+                    <div style={{ fontSize: 8, color: '#f97316', marginTop: 2 }}>⏳</div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
         </div>
+
+        {/* Back to staff management (organizer only) */}
+        {isOrganizer && (
+          <button onClick={() => setView('organizer-staff')}
+            style={{ marginTop: 20, padding: '10px 0', background: 'transparent', border: 'none', color: '#888', fontSize: 13, cursor: 'pointer', width: '100%', textAlign: 'center' }}>
+            ← {L('Retounen jere ekip la', 'Back to staff management', 'Retour gestion equipe')}
+          </button>
+        )}
       </div>
     </div>
   );

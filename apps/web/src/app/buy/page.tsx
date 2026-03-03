@@ -32,7 +32,10 @@ const PROMOS: Record<string,number> = { KOMPA10: 0.10, ANBYANS: 0.15 };
 
 export default function BuyTicketPage() {
   const { t, locale } = useT();
-  const L = (ht: string, en: string, fr: string) => ({ ht, en, fr }[locale]);
+  const L = (ht: string, en: string, fr: string) => {
+    const map: Record<'ht' | 'en' | 'fr', string> = { ht, en, fr };
+    return map[locale as keyof typeof map];
+  };
 
   const STEP_LABELS = [
     L('Chwazi Evènman','Choose Event','Choisir un événement'),
