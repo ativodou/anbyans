@@ -4,7 +4,6 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useT } from '@/i18n';
-import LangSwitcher from '@/components/LangSwitcher';
 
 export default function NavBar() {
   const pathname = usePathname();
@@ -13,10 +12,12 @@ export default function NavBar() {
   const L = (ht: string, en: string, fr: string) => ({ ht, en, fr }[locale]);
   const [menuOpen, setMenuOpen] = useState(false);
 
-  const role = (user as any)?.role || 'fan';
+  type Role = 'organizer' | 'vendor' | 'admin' | 'fan';
+  const role = ((user as { role?: Role })?.role ?? 'fan');
   const displayName = (user as any)?.firstName || user?.email?.split('@')[0] || '';
   const initial = displayName.charAt(0).toUpperCase();
 
+  // Role-based accent colors
   const accentMap: Record<string, string> = {
     organizer: '#f97316',
     vendor: '#a855f7',
@@ -25,14 +26,18 @@ export default function NavBar() {
   };
   const accent = accentMap[role] || '#06b6d4';
 
+  // --- Top bar links per role ---
   const links: { href: string; label: string }[] = [
     { href: '/', label: L('Lakay', 'Home', 'Accueil')! },
     { href: '/events', label: L('Evenman', 'Events', 'Evenements')! },
   ];
 
   if (role === 'fan') {
-    links.push({ href: '/buy', label: L('Achte Tike', 'Buy Tickets', 'Acheter Billets')! });
+    links.push(
+      { href: '/buy', label: L('Achte Tike', 'Buy Tickets', 'Acheter Billets')! },
+    );
   }
+
   if (role === 'organizer') {
     links.push(
       { href: '/organizer/dashboard', label: L('Dachbod', 'Dashboard', 'Tableau de bord')! },
@@ -41,9 +46,13 @@ export default function NavBar() {
       { href: '/organizer/scanner', label: L('Eskane', 'Scanner', 'Scanner')! },
     );
   }
+
   if (role === 'vendor') {
-    links.push({ href: '/vendor/dashboard', label: L('Dachbod', 'Dashboard', 'Tableau de bord')! });
+    links.push(
+      { href: '/vendor/dashboard', label: L('Dachbod', 'Dashboard', 'Tableau de bord')! },
+    );
   }
+
   if (role === 'admin') {
     links.push(
       { href: '/admin/dashboard', label: L('Dachbod', 'Dashboard', 'Tableau de bord')! },
@@ -62,12 +71,13 @@ export default function NavBar() {
     window.location.href = '/';
   }
 
-  const roleLabel = {
+ const roleLabelMap: Record<string, string | undefined> = {
     organizer: L('Promote', 'Organizer', 'Organisateur'),
     vendor: L('Machann', 'Vendor', 'Vendeur'),
     admin: L('Admin', 'Admin', 'Admin'),
     fan: L('Fan', 'Fan', 'Fan'),
-  }[role] || L('Fan', 'Fan', 'Fan');
+  };
+  const roleLabel = roleLabelMap[role] || L('Fan', 'Fan', 'Fan');
 
   return (
     <nav style={{ position: 'sticky', top: 0, zIndex: 50, background: '#0a0a0f', borderBottom: '1px solid #1e1e2e', padding: '0 16px' }}>
@@ -91,9 +101,6 @@ export default function NavBar() {
           ))}
         </div>
 
-        {/* Language Switcher */}
-        <LangSwitcher />
-
         {/* Right side - not logged in */}
         {!user ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
@@ -105,6 +112,7 @@ export default function NavBar() {
             </Link>
           </div>
         ) : (
+          /* Right side - logged in */
           <div style={{ position: 'relative', flexShrink: 0 }}>
             <button onClick={() => setMenuOpen(!menuOpen)} style={{
               display: 'flex', alignItems: 'center', gap: 8,
@@ -121,11 +129,13 @@ export default function NavBar() {
               <span style={{ color: '#555', fontSize: 10, marginLeft: 4 }}>&#9660;</span>
             </button>
 
+            {/* Dropdown menu */}
             {menuOpen && (
               <>
                 <div onClick={() => setMenuOpen(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 99 }} />
                 <div style={{ position: 'absolute', top: '110%', right: 0, width: 240, background: '#12121a', border: '1px solid #1e1e2e', borderRadius: 10, padding: 6, zIndex: 100, boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}>
 
+                  {/* User info */}
                   <div style={{ padding: '10px 12px', borderBottom: '1px solid #1e1e2e', marginBottom: 4 }}>
                     <div style={{ color: '#fff', fontSize: 14, fontWeight: 700 }}>{displayName}</div>
                     <div style={{
@@ -136,10 +146,12 @@ export default function NavBar() {
                     <div style={{ color: '#555', fontSize: 10, marginTop: 4 }}>{user.email}</div>
                   </div>
 
+                  {/* Shared links */}
                   <Link href="/events" onClick={() => setMenuOpen(false)} style={{ display: 'block', padding: '8px 12px', borderRadius: 6, color: '#ccc', fontSize: 12, textDecoration: 'none' }}>
                     {L('Jwenn Evenman', 'Browse Events', 'Parcourir')}
                   </Link>
 
+                  {/* Fan links */}
                   {role === 'fan' && (
                     <>
                       <div style={{ borderTop: '1px solid #1e1e2e', margin: '4px 0' }} />
@@ -150,6 +162,7 @@ export default function NavBar() {
                     </>
                   )}
 
+                  {/* Organizer links */}
                   {role === 'organizer' && (
                     <>
                       <div style={{ borderTop: '1px solid #1e1e2e', margin: '4px 0' }} />
@@ -171,6 +184,7 @@ export default function NavBar() {
                     </>
                   )}
 
+                  {/* Vendor links */}
                   {role === 'vendor' && (
                     <>
                       <div style={{ borderTop: '1px solid #1e1e2e', margin: '4px 0' }} />
@@ -183,6 +197,7 @@ export default function NavBar() {
                     </>
                   )}
 
+                  {/* Admin links */}
                   {role === 'admin' && (
                     <>
                       <div style={{ borderTop: '1px solid #1e1e2e', margin: '4px 0' }} />
@@ -196,6 +211,7 @@ export default function NavBar() {
                     </>
                   )}
 
+                  {/* Sign out */}
                   <div style={{ borderTop: '1px solid #1e1e2e', marginTop: 4 }} />
                   <button onClick={handleSignOut} style={{
                     width: '100%', padding: '8px 12px', borderRadius: 6,
