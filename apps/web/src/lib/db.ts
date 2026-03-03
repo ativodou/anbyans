@@ -1,5 +1,6 @@
 import {
   collection,
+  collectionGroup,
   doc,
   addDoc,
   setDoc,
@@ -425,7 +426,95 @@ export async function syncOfflineScans(
 }
 
 // ─── Known Venues (seeded data) ──────────────────────────────────
+// ─── Verify Ticket by Code (public) ─────────────────────────────
 
+export async function verifyTicketByCode(ticketCode: string): Promise<{
+  valid: boolean;
+  ticket?: TicketData;
+  event?: EventData;
+  error?: string;
+}> {
+  try {
+    const q = query(
+      collectionGroup(db, 'tickets'),
+      where('ticketCode', '==', ticketCode.trim().toUpperCase()),
+      limit(1)
+    );
+    const snap = await getDocs(q);
+    if (snap.empty) return { valid: false, error: 'Ticket not found' };
+
+    const ticketDoc = snap.docs[0];
+    const ticket = { id: ticketDoc.id, ...ticketDoc.data() } as TicketData;
+
+    // Get the parent event
+    const eventId = ticket.eventId || ticketDoc.ref.parent.parent?.id;
+    let event: EventData | null = null;
+    if (eventId) {
+      event = await getEvent(eventId);
+    }
+
+    return { valid: true, ticket, event: event || undefined };
+  } catch (err) {
+    console.error('Verify error:', err);
+    return { valid: false, error: 'Verification failed' };
+  }
+}
+// ─── Purchase Tickets (creates ticket docs) ──────────────────────
+
+function generateTicketCode(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = 'ANB-';
+  for (let i = 0; i < 8; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  return code;
+}
+
+export async function purchaseTickets(
+  eventId: string,
+  buyerName: string,
+  buyerEmail: string,
+  buyerPhone: string,
+  section: string,
+  sectionColor: string,
+  seats: string[],
+  pricePerSeat: number,
+): Promise<TicketData[]> {
+  const tickets: TicketData[] = [];
+
+  for (const seat of seats) {
+    const ticketCode = generateTicketCode();
+    const qrData = `ANB:${eventId}:${ticketCode}:${Date.now().toString(36)}`;
+    const ticketDoc: Omit<TicketData, 'id'> = {
+      eventId,
+      buyerName,
+      buyerEmail,
+      buyerPhone,
+      section,
+      sectionColor,
+      seat,
+      price: pricePerSeat,
+      ticketCode,
+      qrData,
+      status: 'valid',
+      purchasedAt: serverTimestamp(),
+    };
+    const ref = await addDoc(collection(db, 'events', eventId, 'tickets'), ticketDoc);
+    tickets.push({ id: ref.id, ...ticketDoc });
+  }
+
+  // Update event sold count and revenue
+  const eventRef = doc(db, 'events', eventId);
+  const eventSnap = await getDoc(eventRef);
+  if (eventSnap.exists()) {
+    const data = eventSnap.data();
+    await updateDoc(eventRef, {
+      totalSold: (data.totalSold || 0) + seats.length,
+      revenue: (data.revenue || 0) + (seats.length * pricePerSeat),
+      updatedAt: serverTimestamp(),
+    });
+  }
+
+  return tickets;
+}
 export const KNOWN_VENUES: EventVenue[] = [
   { name: 'Karibe Hotel', address: 'Juvenat 7, Petion-Ville', city: 'Petion-Ville', country: 'Haiti', gps: { lat: 18.5135, lng: -72.2896 }, capacity: 2000 },
   { name: 'Champ de Mars', address: 'Champ de Mars, Port-au-Prince', city: 'Port-au-Prince', country: 'Haiti', gps: { lat: 18.5458, lng: -72.3387 }, capacity: 10000 },
