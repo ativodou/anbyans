@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useT } from '@/i18n';
@@ -53,7 +53,7 @@ function loadScanHistory(eventId: string): ScanRecord[] {
 
 // ─── Component ───────────────────────────────────────────────────
 
-export default function ScannerPage() {
+function ScannerPageInner() {
   const { user } = useAuth();
   const { locale } = useT();
   const searchParams = useSearchParams();
@@ -724,5 +724,14 @@ export default function ScannerPage() {
         )}
       </div>
     </div>
+  );
+}
+
+
+export default function ScannerPage() {
+  return (
+    <Suspense fallback={<div style={{ minHeight: '100vh', background: '#0a0a0f', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><p style={{ color: '#888' }}>...</p></div>}>
+      <ScannerPageInner />
+    </Suspense>
   );
 }

@@ -81,7 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const register = async (data: RegisterData) => {
     setError(null);
     try {
-      const u = await signUp(data);
+      const authUser = await signUp(data.email, data.password, data);
       const profile = await getUserProfile(authUser.uid); setUser(profile);
       return profile;
     } catch (err: unknown) {
