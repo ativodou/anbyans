@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { getUserProfile, onAuthChange, signIn, signUp, signOut, UserRole } from '@/lib/auth';
+
 type AnbyansUser = Awaited<ReturnType<typeof getUserProfile>>;
 
 interface AuthContextType {
@@ -69,7 +70,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setError(null);
     try {
       const authUser = await signIn(email, password);
-      const profile = await getUserProfile(authUser.uid); setUser(profile);
+      const profile = await getUserProfile(authUser.uid);
+      setUser(profile);
       return profile;
     } catch (err: unknown) {
       const msg = parseAuthError(err);
@@ -82,7 +84,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setError(null);
     try {
       const authUser = await signUp(data.email, data.password, data);
-      const profile = await getUserProfile(authUser.uid); setUser(profile);
+      const profile = await getUserProfile(authUser.uid);
+      setUser(profile);
       return profile;
     } catch (err: unknown) {
       const msg = parseAuthError(err);

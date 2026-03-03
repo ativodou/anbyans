@@ -104,7 +104,7 @@ export default function CreateEvent() {
         imageUrl,
         status,
         organizerId: user.uid,
-        organizerName: user.firstName ? user.firstName + ' ' + user.lastName : user.email || '',
+        organizerName: user.email || '',
         totalCapacity: sections.reduce((sum, s) => sum + s.capacity, 0),
       });
       setCreatedId(eventId);

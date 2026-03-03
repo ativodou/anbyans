@@ -214,7 +214,16 @@ export default function BuyTicketPage() {
           </div>
           <div className="flex gap-2.5 justify-center mt-6">
             <Link href="/events" className="px-5 py-3 rounded-lg bg-cyan text-dark font-bold text-sm hover:bg-white transition-all">🎫 {L('Wè Plis Evènman', 'See More Events', 'Voir plus d\'événements')}</Link>
-            <button className="px-5 py-3 rounded-lg border border-border text-gray-light font-bold text-sm hover:text-white transition-all">📲 WhatsApp</button>
+            <button onClick={() => {
+  const phone = buyerPhone.replace(/[^0-9]/g, '');
+  const verifyUrl = `${window.location.origin}/verify`;
+  const msg = `🎫 *ANBYANS - TIKÈ OU PARE!*\n\n🎭 ${ev?.name}\n📍 ${ev?.venue?.name}\n📅 ${ev?.startDate} · 🕐 ${ev?.startTime}\n\n🎟️ Seksyon: ${sec?.name}\n💺 Plas: ${seats.join(', ')}\n🔑 Kòd: ${purchasedTickets[0]?.ticketCode}\n\n✅ Verifye tikè ou: ${verifyUrl}\n\n🛡️ Pwoteje pa Anbyans`;
+  if (phone) {
+    window.location.href = `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
+  } else {
+    window.location.href = `https://wa.me/?text=${encodeURIComponent(msg)}`;
+  }
+}} className="px-5 py-3 rounded-lg border border-green text-green font-bold text-sm hover:bg-green hover:text-dark transition-all">📲 WhatsApp</button>
           </div>
         </div>
       </div>
