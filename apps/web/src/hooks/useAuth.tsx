@@ -1,7 +1,8 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { AnbyansUser, getUserProfile, onAuthChange, signIn, signUp, signOut, UserRole } from '@/lib/auth';
+import { getUserProfile, onAuthChange, signIn, signUp, signOut, UserRole } from '@/lib/auth';
+type AnbyansUser = Awaited<ReturnType<typeof getUserProfile>>;
 
 interface AuthContextType {
   user: AnbyansUser | null;
@@ -67,9 +68,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, password: string) => {
     setError(null);
     try {
-      const u = await signIn(email, password);
-      setUser(u);
-      return u;
+      const authUser = await signIn(email, password);
+      const profile = await getUserProfile(authUser.uid); setUser(profile);
+      return profile;
     } catch (err: unknown) {
       const msg = parseAuthError(err);
       setError(msg);
@@ -81,8 +82,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setError(null);
     try {
       const u = await signUp(data);
-      setUser(u);
-      return u;
+      const profile = await getUserProfile(authUser.uid); setUser(profile);
+      return profile;
     } catch (err: unknown) {
       const msg = parseAuthError(err);
       setError(msg);
