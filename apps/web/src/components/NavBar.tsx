@@ -4,8 +4,9 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useT } from '@/i18n';
+import LangSwitcher from './LangSwitcher';
 
-export default function NavBar() {
+export default function Navbar() {
   const pathname = usePathname();
   const { user, logout } = useAuth();
   const { locale } = useT();
@@ -101,6 +102,8 @@ export default function NavBar() {
           ))}
         </div>
 
+      {/* Language Switcher */}
+        <LangSwitcher />
         {/* Right side - not logged in */}
         {!user ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>

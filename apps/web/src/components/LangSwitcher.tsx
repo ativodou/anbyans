@@ -19,7 +19,7 @@ export default function LangSwitcher() {
   }, []);
 
   return (
-    <div ref={ref} className="relative">
+    <div ref={ref} className="relative" style={{ zIndex: 9999 }}>
       <button
         onClick={() => setOpen(!open)}
         className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border text-[11px] font-bold text-gray-light hover:text-white hover:border-white/[0.15] transition-all"
@@ -30,7 +30,7 @@ export default function LangSwitcher() {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-1 bg-dark-card border border-border rounded-xl overflow-hidden shadow-xl z-50 min-w-[140px]">
+        <div className="absolute right-0 top-full mt-1 bg-dark-card border border-border rounded-xl overflow-hidden shadow-xl z-[9999] min-w-[140px]">
           {LOCALES.map(l => (
             <button
               key={l}

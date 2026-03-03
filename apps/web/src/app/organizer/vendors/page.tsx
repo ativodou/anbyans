@@ -146,7 +146,7 @@ export default function OrganizerVendorsPage() {
   return (
     <div className="min-h-screen flex flex-col bg-dark">
       {/* NAV */}
-      <nav className="sticky top-0 z-50 bg-dark border-b border-border px-5">
+      <nav className="sticky top-0 z-30 bg-dark border-b border-border px-5">
         <div className="max-w-[1200px] mx-auto flex items-center h-14 gap-3">
           <Link href="/organizer/dashboard" className="text-gray-light text-xs hover:text-white transition-colors">← Dachbòd</Link>
           <div className="w-px h-5 bg-border" />

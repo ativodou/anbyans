@@ -71,6 +71,7 @@ function ScannerPageInner() {
   // Door staff management (organizer)
   const [staffList, setStaffList] = useState<DoorStaff[]>([]);
   const [newStaffName, setNewStaffName] = useState('');
+  const [newStaffPhone, setNewStaffPhone] = useState('');
   const [addingStaff, setAddingStaff] = useState(false);
 
   // PIN entry (door staff)
@@ -149,9 +150,10 @@ function ScannerPageInner() {
     if (!newStaffName.trim() || !eventId) return;
     setAddingStaff(true);
     try {
-      const staff = await addDoorStaff(eventId, newStaffName.trim());
+      const staff = await addDoorStaff(eventId, newStaffName.trim(), newStaffPhone.trim());
       setStaffList(prev => [...prev, staff]);
       setNewStaffName('');
+      setNewStaffPhone('');
     } catch {}
     setAddingStaff(false);
   }
@@ -166,10 +168,13 @@ function ScannerPageInner() {
     setStaffList(prev => prev.map(s => s.id === sid ? { ...s, disabled } : s));
   }
 
-  function shareStaffPin(staff: DoorStaff) {
+function shareStaffPin(staff: DoorStaff) {
     const url = `${window.location.origin}/organizer/scanner?event=${eventId}`;
     const msg = `📱 Eskane tike pou "${event?.name}"\n👤 ${staff.staffName}\n🔗 ${url}\n🔑 PIN: ${staff.pin}\n\n⚠️ PIN sa a pou OU selman. Li pral bloke sou telefon OU.`;
-    if (navigator.share) {
+    const phone = staff.phone?.replace(/[^0-9]/g, '') || '';
+    if (phone) {
+      window.location.href = `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
+    } else if (navigator.share) {
       navigator.share({ title: 'Anbyans Scanner', text: msg });
     } else {
       navigator.clipboard.writeText(msg);
@@ -465,22 +470,32 @@ function ScannerPageInner() {
             <div style={{ color: '#888', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>
               {L('Ajoute Moun nan Pot', 'Add Door Staff', 'Ajouter Personnel')}
             </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <input
-                value={newStaffName}
-                onChange={e => setNewStaffName(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleAddStaff()}
-                placeholder={L('Non moun nan (ekz: Jean)', 'Person\'s name (e.g. Jean)', 'Nom de la personne')!}
-                style={{ flex: 1, padding: 12, borderRadius: 8, border: '1px solid #1e1e2e', background: '#0a0a0f', color: '#fff', fontSize: 14 }}
-              />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input
+                  value={newStaffName}
+                  onChange={e => setNewStaffName(e.target.value)}
+                  placeholder={L('Non (ekz: Jean)', 'Name (e.g. Jean)', 'Nom (ex: Jean)')!}
+                  style={{ flex: 1, padding: 12, borderRadius: 8, border: '1px solid #1e1e2e', background: '#0a0a0f', color: '#fff', fontSize: 14 }}
+                />
+                <input
+                  value={newStaffPhone}
+                  onChange={e => setNewStaffPhone(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleAddStaff()}
+                  placeholder="WhatsApp (+509...)"
+                  type="tel"
+                  style={{ flex: 1, padding: 12, borderRadius: 8, border: '1px solid #1e1e2e', background: '#0a0a0f', color: '#fff', fontSize: 14 }}
+                />
+              </div>
               <button onClick={handleAddStaff} disabled={!newStaffName.trim() || addingStaff}
                 style={{
                   padding: '12px 20px', borderRadius: 8, border: 'none',
                   background: newStaffName.trim() ? '#f97316' : '#333',
                   color: newStaffName.trim() ? '#000' : '#666',
                   fontWeight: 700, fontSize: 13, cursor: newStaffName.trim() ? 'pointer' : 'not-allowed',
+                  width: '100%',
                 }}>
-                + {L('Ajoute', 'Add', 'Ajouter')}
+                + {L('Ajoute Moun nan Pot', 'Add Door Staff', 'Ajouter Personnel')}
               </button>
             </div>
           </div>
@@ -537,9 +552,9 @@ function ScannerPageInner() {
 
                 {/* Actions */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
-                  <button onClick={() => shareStaffPin(staff)}
-                    style={{ padding: '6px 12px', borderRadius: 6, border: '1px solid #f97316', background: 'transparent', color: '#f97316', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>
-                    {L('Pataje', 'Share', 'Partager')}
+                <button onClick={() => shareStaffPin(staff)}
+                    style={{ padding: '6px 12px', borderRadius: 6, border: `1px solid ${staff.phone ? '#22c55e' : '#f97316'}`, background: staff.phone ? '#22c55e15' : 'transparent', color: staff.phone ? '#22c55e' : '#f97316', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>
+                    {staff.phone ? '💬 WhatsApp' : L('Pataje', 'Share', 'Partager')}
                   </button>
                   <button onClick={() => handleToggleStaff(staff.id!, !staff.disabled)}
                     style={{ padding: '6px 12px', borderRadius: 6, border: '1px solid #333', background: 'transparent', color: staff.disabled ? '#22c55e' : '#888', fontSize: 10, cursor: 'pointer' }}>

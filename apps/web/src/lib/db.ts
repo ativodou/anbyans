@@ -85,6 +85,7 @@ export interface EventData {
 export interface DoorStaff {
   id?: string;
   staffName: string;
+  phone: string;
   pin: string;
   deviceId: string | null;
   activated: boolean;
@@ -224,10 +225,11 @@ function generateDeviceId(): string {
 
 // ─── Add Door Staff (organizer) ──────────────────────────────────
 
-export async function addDoorStaff(eventId: string, staffName: string): Promise<DoorStaff> {
+export async function addDoorStaff(eventId: string, staffName: string, phone: string = ''): Promise<DoorStaff> {
   const pin = generatePin();
   const staffData: Omit<DoorStaff, 'id'> = {
     staffName,
+    phone,
     pin,
     deviceId: null,
     activated: false,
