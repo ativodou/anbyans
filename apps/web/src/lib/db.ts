@@ -112,6 +112,7 @@ export interface TicketData {
   price: number;
   ticketCode: string;
   qrData: string;
+  buyerPin?: string;
   status: 'valid' | 'used' | 'cancelled' | 'refunded';
   usedAt?: any;
   usedBy?: string;
@@ -468,6 +469,9 @@ function generateTicketCode(): string {
   return code;
 }
 
+function generateBuyerPin(): string {
+  return String(Math.floor(1000 + Math.random() * 9000));
+}
 export async function purchaseTickets(
   eventId: string,
   buyerName: string,
@@ -477,6 +481,7 @@ export async function purchaseTickets(
   sectionColor: string,
   seats: string[],
   pricePerSeat: number,
+  buyerPin?: string,
 ): Promise<TicketData[]> {
   const tickets: TicketData[] = [];
 
@@ -494,6 +499,7 @@ export async function purchaseTickets(
       price: pricePerSeat,
       ticketCode,
       qrData,
+     buyerPin: buyerPin || generateBuyerPin(),
       status: 'valid',
       purchasedAt: serverTimestamp(),
     };

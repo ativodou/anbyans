@@ -216,9 +216,9 @@ export default function BuyTicketPage() {
             <Link href="/events" className="px-5 py-3 rounded-lg bg-cyan text-dark font-bold text-sm hover:bg-white transition-all">🎫 {L('Wè Plis Evènman', 'See More Events', 'Voir plus d\'événements')}</Link>
             <button onClick={() => {
   const phone = buyerPhone.replace(/[^0-9]/g, '');
-  const verifyUrl = `${window.location.origin}/verify`;
-  const msg = `🎫 *ANBYANS - TIKÈ OU PARE!*\n\n🎭 ${ev?.name}\n📍 ${ev?.venue?.name}\n📅 ${ev?.startDate} · 🕐 ${ev?.startTime}\n\n🎟️ Seksyon: ${sec?.name}\n💺 Plas: ${seats.join(', ')}\n🔑 Kòd: ${purchasedTickets[0]?.ticketCode}\n\n✅ Verifye tikè ou: ${verifyUrl}\n\n🛡️ Pwoteje pa Anbyans`;
-  if (phone) {
+  const ticketUrl = `${window.location.origin}/ticket/${purchasedTickets[0]?.ticketCode}`;
+  const pin = purchasedTickets[0]?.buyerPin || "";
+  const msg = `🎫 *ANBYANS - TIKÈ OU PARE!*\n\n🎭 ${ev?.name}\n📍 ${ev?.venue?.name}\n📅 ${ev?.startDate} · 🕐 ${ev?.startTime}\n\n🎟️ Seksyon: ${sec?.name}\n💺 Plas: ${seats.join(", ")}\n🔑 Kòd: ${purchasedTickets[0]?.ticketCode}\n🔐 PIN: ${pin}\n\n📱 Wè tikè ou: ${ticketUrl}\n\n⚠️ Kenbe PIN ou an sekirite.\n\n🛡️ Pwoteje pa Anbyans`;  if (phone) {
     window.location.href = `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
   } else {
     window.location.href = `https://wa.me/?text=${encodeURIComponent(msg)}`;
