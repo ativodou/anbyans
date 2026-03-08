@@ -20,9 +20,6 @@ const FALLBACK_GALLERY = [
 
 type I18nKey = Parameters<ReturnType<typeof useT>['t']>[0];
 
-const FAN_KEYS: I18nKey[] = ['fan_feat_1','fan_feat_2','fan_feat_3','fan_feat_4','fan_feat_5','fan_feat_6'];
-const ORG_KEYS: I18nKey[] = ['org_feat_1','org_feat_2','org_feat_3','org_feat_4','org_feat_5','org_feat_6'];
-const VEND_KEYS: I18nKey[] = ['vend_feat_1','vend_feat_2','vend_feat_3','vend_feat_4','vend_feat_5','vend_feat_6'];
 
 type GalleryItem = {
   title: string;
@@ -153,3 +150,42 @@ if (combined.length < 10) {
         </section>
 
       </main>
+
+      {/* FOOTER */}
+      <footer className="border-t border-border bg-dark-card/50">
+        <div className="max-w-6xl mx-auto px-5 py-8">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 mb-8">
+            <div>
+              <h4 className="font-heading text-lg tracking-widest mb-2">ANBYANS</h4>
+              <p className="text-xs text-gray-light italic">{t('landing_tagline')}.</p>
+              <p className="text-xs text-gray-muted mt-3">{t('landing_subtitle')}</p>
+            </div>
+            <div>
+              <h5 className="text-xs font-bold text-gray-light mb-3 tracking-wide">PLATFÒM</h5>
+              <div className="flex flex-col gap-2">
+                <Link href="/events" className="text-xs text-gray-muted hover:text-cyan transition-colors">{t('footer_browse')}</Link>
+                <Link href="/organizer/auth" className="text-xs text-gray-muted hover:text-orange transition-colors">{t('footer_organizer')}</Link>
+                <Link href="/vendor/auth" className="text-xs text-gray-muted hover:text-purple transition-colors">{t('footer_vendor')}</Link>
+                <span className="text-xs text-gray-muted">FAQ</span>
+              </div>
+            </div>
+            <div>
+              <h5 className="text-xs font-bold text-gray-light mb-3 tracking-wide">LEGAL</h5>
+              <div className="flex flex-col gap-2">
+                <span className="text-xs text-gray-muted">Terms</span>
+                <span className="text-xs text-gray-muted">Privacy</span>
+                <span className="text-xs text-gray-muted">Refunds</span>
+              </div>
+            </div>
+          </div>
+          <div className="border-t border-border pt-5 flex items-center justify-between">
+            <p className="text-[10px] text-gray-muted">© 2026 Lavi Miyò LLC. {t('footer_rights')}</p>
+            <div className="flex gap-3">
+              {['📘','📸','🐦','▶️'].map((ic,i) => <span key={i} className="w-8 h-8 rounded-lg bg-white/[0.03] border border-border flex items-center justify-center text-xs">{ic}</span>)}
+            </div>
+          </div>
+        </div>
+      </footer>
+    </div>
+  );
+}
