@@ -761,7 +761,7 @@ export async function acceptVendorInvite(token: string, uid: string): Promise<Ve
     joinedDate,
     updatedAt: serverTimestamp(),
   });
-  return { id: vendorDoc.id, ...vendorDoc.data(), uid, status: 'active', joinedDate } as VendorData;
+  return { id: resellerDoc.id, ...resellerDoc.data(), uid, status: 'active', joinedDate } as VendorData;
 }
 
 // ─── Get Bulk Pricing for an Event (from event sections) ─────────
