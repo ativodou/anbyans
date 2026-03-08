@@ -212,7 +212,7 @@ export default function BuyTicketPage() {
   const phone = buyerPhone.replace(/[^0-9]/g, '');
   const ticketUrl = `${window.location.origin}/ticket/${purchasedTickets[0]?.ticketCode}`;
   const pin = purchasedTickets[0]?.buyerPin || '';
-  const msg = `🎫 *ANBYANS - TIKÈ OU PARE!*\n\n🎭 ${ev?.name}\n📍 ${ev?.venue?.name}\n📅 ${ev?.startDate} · 🕐 ${ev?.startTime}\n\n🎟️ Seksyon: ${sec?.name}\n💺 Plas: ${seats.join(', ')}\n🔑 Kòd: ${purchasedTickets[0]?.ticketCode}\n🔐 PIN: ${pin}\n\n📱 Wè tikè ou: ${ticketUrl}\n\n⚠️ Kenbe PIN ou an sekirite. Ou bezwen li pou wè tikè ou nan anbyans.com/tickets\n\n🛡️ Pwoteje pa Anbyans`;
+  const msg = `🎫 *ANBYANS - TIKÈ OU PARE!*\n\n🎭 ${ev?.name}\n📍 ${ev?.venue?.name}\n📅 ${ev?.startDate} · 🕐 ${ev?.startTime}\n\n🎟️ Seksyon: ${sec?.name}\n💺 Plas: ${seats.join(', ')}\n🔑 Kòd: ${purchasedTickets[0]?.ticketCode}\n🔐 PIN: ${pin}\n\n📱 Wè tikè ou: ${ticketUrl}\n\n⚠️ Kenbe PIN ou an sekirite. Ou bezwen li pou wè tikè ou sou aplikasyon an\n\n🛡️ Pwoteje pa Anbyans`;
   if (phone) {
     window.location.href = `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
   } else {

@@ -99,7 +99,7 @@ export default function OrganizerVendorsPage() {
     try {
       const vendor = await inviteVendor({ organizerId: user.uid, ...inviteForm });
       const msg = encodeURIComponent(
-        `Bonjou ${inviteForm.contact}! Ou envite kòm vandè sou Anbyans.\n\nKlike lyen sa a pou kreye kont ou:\nhttps://anbyans.com/vendor/join?token=${vendor.inviteToken}\n\nMèsi!`
+        `Bonjou ${inviteForm.contact}! Ou envite kòm vandè sou Anbyans.\n\nKlike lyen sa a pou kreye kont ou:\n${window.location.origin}/vendor/join?token=${vendor.inviteToken}\n\nMèsi!`
       );
       setWhatsAppUrl(`https://wa.me/${inviteForm.phone.replace(/\D/g, '')}?text=${msg}`);
       setInviteSent(true);
