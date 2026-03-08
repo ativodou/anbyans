@@ -166,7 +166,7 @@ export default function BuyTicketPage() {
     if (step > 1) setStep(step - 1);
   };
 
-  const canNext = step === 1 ? !!ev : step === 2 ? !!sec : step === 3 ? seats.length > 0 : step === 4 ? true : !!pay;
+  const canNext = step === 1 ? !!ev : step === 2 ? !!sec : step === 3 ? seats.length > 0 : step === 4 ? !!buyerPhone.trim() : !!pay;
 
   const perSeat = L('pa plas', 'per seat', 'par place');
   const availOf = L('disponib sou', 'available of', 'disponible sur');
@@ -213,12 +213,13 @@ export default function BuyTicketPage() {
             <p className="text-[9px] text-gray-muted mt-1 font-mono break-all">{ticket.qrData}</p>
           </div>
           <div className="flex gap-2.5 justify-center mt-6">
-            <Link href="/events" className="px-5 py-3 rounded-lg bg-cyan text-dark font-bold text-sm hover:bg-white transition-all">🎫 {L('Wè Plis Evènman', 'See More Events', 'Voir plus d\'événements')}</Link>
-            <button onClick={() => {
+<Link href="/events" className="px-5 py-3 rounded-lg bg-cyan text-dark font-bold text-sm hover:bg-white transition-all">🎫 {L('Wè Plis Evènman', 'See More Events', 'Voir plus d\'événements')}</Link>
+<button onClick={() => {
   const phone = buyerPhone.replace(/[^0-9]/g, '');
   const ticketUrl = `${window.location.origin}/ticket/${purchasedTickets[0]?.ticketCode}`;
-  const pin = purchasedTickets[0]?.buyerPin || "";
-  const msg = `🎫 *ANBYANS - TIKÈ OU PARE!*\n\n🎭 ${ev?.name}\n📍 ${ev?.venue?.name}\n📅 ${ev?.startDate} · 🕐 ${ev?.startTime}\n\n🎟️ Seksyon: ${sec?.name}\n💺 Plas: ${seats.join(", ")}\n🔑 Kòd: ${purchasedTickets[0]?.ticketCode}\n🔐 PIN: ${pin}\n\n📱 Wè tikè ou: ${ticketUrl}\n\n⚠️ Kenbe PIN ou an sekirite.\n\n🛡️ Pwoteje pa Anbyans`;  if (phone) {
+  const pin = purchasedTickets[0]?.buyerPin || '';
+  const msg = `🎫 *ANBYANS - TIKÈ OU PARE!*\n\n🎭 ${ev?.name}\n📍 ${ev?.venue?.name}\n📅 ${ev?.startDate} · 🕐 ${ev?.startTime}\n\n🎟️ Seksyon: ${sec?.name}\n💺 Plas: ${seats.join(', ')}\n🔑 Kòd: ${purchasedTickets[0]?.ticketCode}\n🔐 PIN: ${pin}\n\n📱 Wè tikè ou: ${ticketUrl}\n\n⚠️ Kenbe PIN ou an sekirite. Ou bezwen li pou wè tikè ou nan anbyans.com/tickets\n\n🛡️ Pwoteje pa Anbyans`;
+  if (phone) {
     window.location.href = `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
   } else {
     window.location.href = `https://wa.me/?text=${encodeURIComponent(msg)}`;
@@ -457,14 +458,12 @@ export default function BuyTicketPage() {
                 <input value={buyerName} onChange={e => setBuyerName(e.target.value)}
                   placeholder={L('Non konplè', 'Full name', 'Nom complet')!}
                   className="w-full px-3.5 py-2.5 rounded-[10px] bg-white/[0.04] border border-border text-white text-[13px] outline-none focus:border-cyan placeholder:text-gray-muted" />
-                <div className="grid grid-cols-2 gap-2">
-                  <input value={buyerEmail} onChange={e => setBuyerEmail(e.target.value)}
-                    placeholder="Email" type="email"
-                    className="w-full px-3.5 py-2.5 rounded-[10px] bg-white/[0.04] border border-border text-white text-[13px] outline-none focus:border-cyan placeholder:text-gray-muted" />
-                  <input value={buyerPhone} onChange={e => setBuyerPhone(e.target.value)}
-                    placeholder={L('Telefòn / WhatsApp', 'Phone / WhatsApp', 'Téléphone / WhatsApp')!} type="tel"
-                    className="w-full px-3.5 py-2.5 rounded-[10px] bg-white/[0.04] border border-border text-white text-[13px] outline-none focus:border-cyan placeholder:text-gray-muted" />
-                </div>
+              <input value={buyerPhone} onChange={e => setBuyerPhone(e.target.value)}
+                  placeholder={L('WhatsApp / Telefòn (obligatwa)', 'WhatsApp / Phone (required)', 'WhatsApp / Téléphone (obligatoire)')!} type="tel"
+                  className="w-full px-3.5 py-2.5 rounded-[10px] bg-white/[0.04] border border-border text-white text-[13px] outline-none focus:border-cyan placeholder:text-gray-muted" />
+                <input value={buyerEmail} onChange={e => setBuyerEmail(e.target.value)}
+                  placeholder={L('Imèl (opsyonèl)', 'Email (optional)', 'E-mail (optionnel)')!} type="email"
+                  className="w-full px-3.5 py-2.5 rounded-[10px] bg-white/[0.04] border border-border text-white text-[13px] outline-none focus:border-cyan placeholder:text-gray-muted" />
               </div>
 
               <div>

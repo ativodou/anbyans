@@ -537,3 +537,260 @@ export const KNOWN_VENUES: EventVenue[] = [
   { name: 'Place des Arts Montreal', address: '175 Rue Sainte-Catherine O, Montreal', city: 'Montreal', country: 'Canada', gps: { lat: 45.5076, lng: -73.5663 }, capacity: 3000 },
   { name: 'Zenith Paris', address: '211 Avenue Jean Jaures, Paris', city: 'Paris', country: 'France', gps: { lat: 48.8935, lng: 2.3935 }, capacity: 6300 },
 ];
+// ═══════════════════════════════════════════════════════════════════
+// VENDOR MANAGEMENT
+// ═══════════════════════════════════════════════════════════════════
+
+export interface BulkTier {
+  minQty: number;
+  maxQty: number | null;
+  priceEach: number;
+}
+
+export interface VendorSectionPricing {
+  section: string;
+  sectionColor: string;
+  onlinePrice: number;
+  bulkTiers: BulkTier[];
+  available: number;
+}
+
+export interface VendorPurchase {
+  id?: string;
+  eventId: string;
+  eventName: string;
+  eventEmoji: string;
+  eventDate: string;
+  section: string;
+  sectionColor: string;
+  qty: number;
+  priceEach: number;
+  totalPaid: number;
+  sold: number;
+  purchaseDate: string;
+  ticketCodes: string[];
+  createdAt: any;
+}
+
+export interface VendorData {
+  id?: string;
+  uid?: string;           // Firebase Auth UID (set when vendor accepts invite)
+  organizerId: string;    // which organizer invited them
+  name: string;
+  contact: string;
+  phone: string;
+  city: string;
+  payMethod: string;
+  payAccount: string;
+  status: 'active' | 'inactive' | 'pending';
+  joinedDate: string;
+  inviteToken?: string;   // random token sent via WhatsApp link
+  createdAt: any;
+  updatedAt: any;
+}
+
+// ─── Create / Invite Vendor ──────────────────────────────────────
+
+export async function inviteVendor(data: {
+  organizerId: string;
+  name: string;
+  contact: string;
+  phone: string;
+  city: string;
+  payMethod: string;
+}): Promise<VendorData> {
+  const token = Math.random().toString(36).slice(2, 10).toUpperCase();
+  const vendorDoc: Omit<VendorData, 'id'> = {
+    ...data,
+    payAccount: data.phone,
+    status: 'pending',
+    joinedDate: '—',
+    inviteToken: token,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  };
+  const ref = await addDoc(collection(db, 'vendors'), vendorDoc);
+  return { id: ref.id, ...vendorDoc };
+}
+
+// ─── Get Vendors by Organizer ────────────────────────────────────
+
+export async function getOrganizerVendors(organizerId: string): Promise<VendorData[]> {
+  const q = query(
+    collection(db, 'vendors'),
+    where('organizerId', '==', organizerId)
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as VendorData));
+}
+
+// ─── Get Vendor Purchases ────────────────────────────────────────
+
+export async function getVendorPurchases(vendorId: string): Promise<VendorPurchase[]> {
+  const q = query(
+    collection(db, 'vendorPurchases'),
+    where('vendorId', '==', vendorId),
+    orderBy('createdAt', 'desc')
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as VendorPurchase));
+}
+
+// ─── Get All Vendor Purchases for an Organizer ───────────────────
+
+export async function getOrganizerVendorPurchases(organizerId: string): Promise<(VendorPurchase & { vendorId: string; vendorName: string })[]> {
+  const q = query(
+    collection(db, 'vendorPurchases'),
+    where('organizerId', '==', organizerId),
+    orderBy('createdAt', 'desc')
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as VendorPurchase & { vendorId: string; vendorName: string }));
+}
+
+// ─── Bulk Purchase (vendor buys tickets upfront) ─────────────────
+
+export async function vendorBulkPurchase(params: {
+  vendorId: string;
+  vendorName: string;
+  organizerId: string;
+  eventId: string;
+  eventName: string;
+  eventEmoji: string;
+  eventDate: string;
+  section: string;
+  sectionColor: string;
+  qty: number;
+  priceEach: number;
+}): Promise<VendorPurchase> {
+  const totalPaid = params.qty * params.priceEach;
+  const now = new Date();
+  const purchaseDate = `${now.getDate()} ${['Jan','Fev','Mas','Avr','Me','Jen','Jiy','Out','Sep','Okt','Nov','Des'][now.getMonth()]}`;
+
+  // Generate ticket codes for each ticket in the batch
+  const ticketCodes: string[] = [];
+  for (let i = 0; i < params.qty; i++) {
+    ticketCodes.push(generateTicketCode());
+  }
+
+  // Save vendor tickets to event's tickets subcollection
+  for (const code of ticketCodes) {
+    const qrData = `ANB:${params.eventId}:${code}:${Date.now().toString(36)}`;
+    await addDoc(collection(db, 'events', params.eventId, 'tickets'), {
+      eventId: params.eventId,
+      buyerName: `Vandè: ${params.vendorName}`,
+      buyerEmail: '',
+      buyerPhone: '',
+      section: params.section,
+      sectionColor: params.sectionColor,
+      seat: 'GA',
+      price: params.priceEach,
+      ticketCode: code,
+      qrData,
+      buyerPin: generateBuyerPin(),
+      status: 'valid',
+      vendorId: params.vendorId,
+      vendorName: params.vendorName,
+      isVendorTicket: true,
+      purchasedAt: serverTimestamp(),
+    });
+  }
+
+  // Save purchase record
+  const purchaseDoc = {
+    vendorId: params.vendorId,
+    vendorName: params.vendorName,
+    organizerId: params.organizerId,
+    eventId: params.eventId,
+    eventName: params.eventName,
+    eventEmoji: params.eventEmoji,
+    eventDate: params.eventDate,
+    section: params.section,
+    sectionColor: params.sectionColor,
+    qty: params.qty,
+    priceEach: params.priceEach,
+    totalPaid,
+    sold: 0,
+    purchaseDate,
+    ticketCodes,
+    createdAt: serverTimestamp(),
+  };
+
+  const ref = await addDoc(collection(db, 'vendorPurchases'), purchaseDoc);
+
+  // Update event totalSold + revenue
+  const eventRef = doc(db, 'events', params.eventId);
+  const eventSnap = await getDoc(eventRef);
+  if (eventSnap.exists()) {
+    const data = eventSnap.data();
+    await updateDoc(eventRef, {
+      totalSold: (data.totalSold || 0) + params.qty,
+      revenue: (data.revenue || 0) + totalPaid,
+      updatedAt: serverTimestamp(),
+    });
+  }
+
+  return { id: ref.id, ...purchaseDoc };
+}
+
+// ─── Update Vendor Status ────────────────────────────────────────
+
+export async function updateVendorStatus(vendorId: string, status: 'active' | 'inactive' | 'pending') {
+  await updateDoc(doc(db, 'vendors', vendorId), {
+    status,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+// ─── Accept Vendor Invite (vendor side) ─────────────────────────
+
+export async function acceptVendorInvite(token: string, uid: string): Promise<VendorData | null> {
+  const q = query(
+    collection(db, 'vendors'),
+    where('inviteToken', '==', token),
+    limit(1)
+  );
+  const snap = await getDocs(q);
+  if (snap.empty) return null;
+  const vendorDoc = snap.docs[0];
+  const now = new Date();
+  const joinedDate = `${now.getDate()} ${['Jan','Fev','Mas','Avr','Me','Jen','Jiy','Out','Sep','Okt','Nov','Des'][now.getMonth()]} ${now.getFullYear()}`;
+  await updateDoc(vendorDoc.ref, {
+    uid,
+    status: 'active',
+    joinedDate,
+    updatedAt: serverTimestamp(),
+  });
+  return { id: vendorDoc.id, ...vendorDoc.data(), uid, status: 'active', joinedDate } as VendorData;
+}
+
+// ─── Get Bulk Pricing for an Event (from event sections) ─────────
+
+export async function getEventBulkPricing(eventId: string): Promise<VendorSectionPricing[]> {
+  const event = await getEvent(eventId);
+  if (!event) return [];
+  return event.sections.map(s => ({
+    section: s.name,
+    sectionColor: s.color,
+    onlinePrice: s.price,
+    available: s.capacity - s.sold,
+    bulkTiers: (s as any).bulkTiers || [],
+  }));
+}
+
+// ─── Save Bulk Tiers to Event Section ────────────────────────────
+
+export async function saveEventBulkTiers(
+  eventId: string,
+  sectionName: string,
+  tiers: BulkTier[]
+) {
+  const eventRef = doc(db, 'events', eventId);
+  const snap = await getDoc(eventRef);
+  if (!snap.exists()) return;
+  const data = snap.data();
+  const sections = (data.sections || []).map((s: any) =>
+    s.name === sectionName ? { ...s, bulkTiers: tiers } : s
+  );
+  await updateDoc(eventRef, { sections, updatedAt: serverTimestamp() });
+}
