@@ -794,3 +794,52 @@ export async function saveEventBulkTiers(
   );
   await updateDoc(eventRef, { sections, updatedAt: serverTimestamp() });
 }
+// ─── Get Vendor by Firebase Auth UID ────────────────────────────
+
+export async function getVendorByUid(uid: string): Promise<VendorData | null> {
+  const q = query(collection(db, 'vendors'), where('uid', '==', uid), limit(1));
+  const snap = await getDocs(q);
+  if (snap.empty) return null;
+  return { id: snap.docs[0].id, ...snap.docs[0].data() } as VendorData;
+}
+
+// ─── Vendor Sells a Ticket to a Customer ────────────────────────
+// Assigns the next available ticket from vendor's pool to a real buyer
+
+export async function vendorSellTicket(params: {
+  purchaseId: string;
+  eventId: string;
+  buyerName: string;
+  buyerPhone: string;
+  qty: number;
+}): Promise<string[]> {
+  const purchaseRef = doc(db, 'vendorPurchases', params.purchaseId);
+  const purchaseSnap = await getDoc(purchaseRef);
+  if (!purchaseSnap.exists()) throw new Error('Purchase not found');
+
+  const purchase = purchaseSnap.data() as VendorPurchase;
+  const available = purchase.qty - purchase.sold;
+  if (params.qty > available) throw new Error('Not enough tickets');
+
+  const assignedCodes = purchase.ticketCodes.slice(purchase.sold, purchase.sold + params.qty);
+
+  for (const code of assignedCodes) {
+    const ticketsQ = query(
+      collection(db, 'events', params.eventId, 'tickets'),
+      where('ticketCode', '==', code),
+      limit(1)
+    );
+    const ticketSnap = await getDocs(ticketsQ);
+    if (!ticketSnap.empty) {
+      await updateDoc(ticketSnap.docs[0].ref, {
+        buyerName: params.buyerName,
+        buyerPhone: params.buyerPhone,
+        isVendorSold: true,
+        status: 'valid',
+      });
+    }
+  }
+
+  await updateDoc(purchaseRef, { sold: purchase.sold + params.qty });
+  return assignedCodes;
+}
