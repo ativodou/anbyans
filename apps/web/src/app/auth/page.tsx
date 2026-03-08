@@ -256,6 +256,12 @@ export default function FanAuth() {
             {L('Konekte kom organizate', 'Sign in as organizer', "Connexion en tant qu'organisateur")}
           </Link>
         </div>
+        <div style={{ textAlign: 'center', marginTop: 12, fontSize: 13, color: '#555' }}>
+          {L('Ou se revandè?', 'Are you a reseller?', 'Etes-vous un revendeur?')}{' '}
+          <Link href="/vendor/login" style={{ color: '#a855f7' }}>
+            {L('Konekte kom revande', 'Sign in as reseller', 'Connexion en tant que revendeur')}
+          </Link>
+        </div>
       </div>
     </div>
   );
