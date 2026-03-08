@@ -55,7 +55,6 @@ export default function OrganizerDashboardPage() {
   const { user } = useAuth();
   const [tab, setTab] = useState<Tab>('dashboard');
   const [sideOpen, setSideOpen] = useState(false);
-  const [showInvite, setShowInvite] = useState(false);
   const [events, setEvents] = useState<EventData[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -152,7 +151,6 @@ export default function OrganizerDashboardPage() {
               </button>
               <button onClick={() => router.push('/organizer/vendors')} className="bg-dark-card border border-border rounded-card p-4 flex items-center gap-3 hover:border-orange-border hover:bg-dark-hover transition-all text-left">
                 <span className="text-2xl">🏪</span>
-                <div><p className="text-xs font-bold">Envite Revandè</p><p className="text-[10px] text-gray-light">Ajoute yon nouvo pwen vant fizik</p></div>
               </button>
               <Link href="/organizer/scanner" className="bg-dark-card border border-border rounded-card p-4 flex items-center gap-3 hover:border-orange-border hover:bg-dark-hover transition-all">
                 <span className="text-2xl">📱</span>
@@ -238,36 +236,7 @@ export default function OrganizerDashboardPage() {
           {tab === 'resellers' && <>
             <div className="flex items-center justify-between mb-4">
               <p className="text-xs text-gray-light">{RESELLERS.length} revandè anrejistre</p>
-              <button onClick={() => setShowInvite(!showInvite)} className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-orange text-white text-xs font-bold hover:bg-orange/80 transition-all">
-                ➕ Envite Revandè
-              </button>
             </div>
-
-            {/* Invite Form */}
-            {showInvite && (
-              <div className="bg-dark-card border border-orange-border rounded-card p-5 mb-4">
-                <h3 className="font-heading text-lg tracking-wide mb-3">ENVITE YON NOUVO REVANDÈ</h3>
-                <p className="text-xs text-gray-light mb-4">Revandè a ap resevwa yon lyen pou kreye kont li. Apre sa ou ka ba li tikè pou vann.</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div><label className="block text-[11px] font-semibold text-gray-light mb-1.5">Non Biznis *</label><input className="w-full px-3.5 py-2.5 rounded-[10px] bg-white/[0.04] border border-border text-white text-[13px] outline-none focus:border-orange placeholder:text-gray-muted" placeholder="Ex: Ti Jak Boutik" /></div>
-                  <div><label className="block text-[11px] font-semibold text-gray-light mb-1.5">Kontakt *</label><input className="w-full px-3.5 py-2.5 rounded-[10px] bg-white/[0.04] border border-border text-white text-[13px] outline-none focus:border-orange placeholder:text-gray-muted" placeholder="Non moun ki responsab" /></div>
-                  <div><label className="block text-[11px] font-semibold text-gray-light mb-1.5">Telefòn *</label><input className="w-full px-3.5 py-2.5 rounded-[10px] bg-white/[0.04] border border-border text-white text-[13px] outline-none focus:border-orange placeholder:text-gray-muted" placeholder="+509 3412 0000" /></div>
-                  <div><label className="block text-[11px] font-semibold text-gray-light mb-1.5">Vil *</label><input className="w-full px-3.5 py-2.5 rounded-[10px] bg-white/[0.04] border border-border text-white text-[13px] outline-none focus:border-orange placeholder:text-gray-muted" placeholder="Pétion-Ville" /></div>
-                  <div><label className="block text-[11px] font-semibold text-gray-light mb-1.5">Komisyon (%)</label><input type="number" className="w-full px-3.5 py-2.5 rounded-[10px] bg-white/[0.04] border border-border text-white text-[13px] outline-none focus:border-orange placeholder:text-gray-muted" placeholder="5" /></div>
-                  <div>
-                    <label className="block text-[11px] font-semibold text-gray-light mb-1.5">Evènman *</label>
-                    <select className="w-full px-3.5 py-2.5 rounded-[10px] bg-white/[0.04] border border-border text-white text-[13px] outline-none focus:border-orange">
-                      <option className="bg-dark-card">Chwazi evènman...</option>
-                      {(events as any[]).filter(e => e.status !== 'past').map(e => <option key={e.id} className="bg-dark-card">{(e.emoji || '🎵')} {e.name}</option>)}
-                    </select>
-                  </div>
-                </div>
-                <div className="flex gap-2 mt-4">
-                  <button className="px-5 py-2.5 rounded-[10px] bg-orange text-white text-xs font-bold hover:bg-orange/80 transition-all">📨 Voye Envitasyon</button>
-                  <button onClick={() => setShowInvite(false)} className="px-5 py-2.5 rounded-[10px] border border-border text-gray-light text-xs font-bold hover:text-white transition-all">Anile</button>
-                </div>
-              </div>
-            )}
 
             {/* Reseller Cards */}
             <div className="space-y-3">
