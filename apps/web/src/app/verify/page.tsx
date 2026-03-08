@@ -220,9 +220,9 @@ export default function VerifyPage() {
         {/* Footer info */}
         <div style={{ textAlign: 'center', marginTop: 32, color: '#555', fontSize: 11, lineHeight: 1.8 }}>
           <p>{L(
-            'Sèlman tikè achte sou anbyans.com garanti otantik.',
-            'Only tickets purchased on anbyans.com are guaranteed authentic.',
-            'Seuls les billets achetés sur anbyans.com sont garantis authentiques.'
+            'Sèlman tikè achte sou anbyans.events garanti otantik.',
+            'Only tickets purchased on anbyans.events are guaranteed authentic.',
+            'Seuls les billets achetés sur anbyans.events sont garantis authentiques.'
           )}</p>
           <p style={{ marginTop: 8 }}>
             🛡️ {L('Pwoteje pa Anbyans', 'Protected by Anbyans', 'Protégé par Anbyans')}

@@ -180,7 +180,7 @@ export default function TicketPage() {
       // Footer
       ctx.fillStyle = '#333';
       ctx.font = '11px Arial, sans-serif';
-      ctx.fillText('🛡️ Pwoteje pa Anbyans · anbyans.com/verify', W / 2, 780);
+      ctx.fillText('🛡️ Pwoteje pa Anbyans · anbyans.events/verify', W / 2, 780);
 
       // Valid status bar
       ctx.fillStyle = '#22c55e';
