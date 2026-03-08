@@ -66,7 +66,7 @@ export default function OrganizerDashboardPage() {
         <nav className="flex-1 py-3 px-3 overflow-y-auto">
           <p className="text-[9px] font-bold uppercase tracking-widest text-gray-muted px-3 mb-2">Jeneral</p>
           {NAV_ITEMS.map(n => (
-            <button key={n.id} onClick={() => { setTab(n.id); setSideOpen(false); }}
+            <button key={n.id} onClick={() => { if (n.id === 'resellers') { router.push('/organizer/vendors'); return; } setTab(n.id); setSideOpen(false); }}
               className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-[12.5px] mb-0.5 transition-all ${tab === n.id ? 'bg-orange-dim text-orange font-semibold' : 'text-gray-light hover:bg-dark-hover hover:text-white'}`}>
               <span className="text-base w-5 text-center">{n.icon}</span>
               {n.label}
