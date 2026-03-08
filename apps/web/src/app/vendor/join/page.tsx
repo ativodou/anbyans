@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { collection, query, where, getDocs, doc, updateDoc } from 'firebase/firestore';
@@ -10,7 +10,7 @@ import LangSwitcher from '@/components/LangSwitcher';
 
 type VendorInvite = { id: string; contact: string; organizerId: string; status: string };
 
-export default function VendorJoinPage() {
+function VendorJoinInner() {
   const { locale } = useT();
   const router = useRouter();
   const params = useSearchParams();
@@ -149,5 +149,17 @@ export default function VendorJoinPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function VendorJoinPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-10 h-10 border-4 border-cyan border-t-transparent rounded-full animate-spin" />
+      </div>
+    }>
+      <VendorJoinInner />
+    </Suspense>
   );
 }
