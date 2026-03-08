@@ -8,7 +8,6 @@ import {
   getOrganizerEvents,
   getOrganizerVendors,
   getOrganizerVendorPurchases,
-  inviteVendor,
   updateVendorStatus,
   saveEventBulkTiers,
   EventData,
@@ -40,18 +39,11 @@ export default function OrganizerResellersPage() {
   const [saving, setSaving] = useState(false);
 
   const [expandedReseller, setExpandedReseller] = useState<string | null>(null);
-  const [showInvite, setShowInvite] = useState(false);
   const [showPricing, setShowPricing] = useState(false);
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterEvent, setFilterEvent] = useState<string>('all');
   const [pricingEventIdx, setPricingEventIdx] = useState(0);
 
-  const [inviteForm, setInviteForm] = useState({
-    name: '', contact: '', phone: '', city: '', payMethod: 'MonCash',
-  });
-  const [inviteError, setInviteError] = useState('');
-  const [inviteSent, setInviteSent] = useState(false);
-  const [whatsAppUrl, setWhatsAppUrl] = useState('');
 
   const loadData = useCallback(async () => {
     if (!user?.uid) return;
@@ -88,29 +80,6 @@ export default function OrganizerResellersPage() {
     return true;
   });
 
-  const handleInvite = async () => {
-    if (!user?.uid) return;
-    if (!inviteForm.name || !inviteForm.contact || !inviteForm.phone || !inviteForm.city) {
-      setInviteError('Ranpli tout chan obligatwa yo *');
-      return;
-    }
-    setSaving(true);
-    setInviteError('');
-    try {
-      const reseller = await inviteVendor({ organizerId: user.uid, ...inviteForm });
-      const msg = encodeURIComponent(
-        `Bonjou ${inviteForm.contact}! Ou envite kòm vandè sou Anbyans.\n\nKlike lyen sa a pou kreye kont ou:\n${window.location.origin}/vendor/join?token=${reseller.inviteToken}\n\nMèsi!`
-      );
-      setWhatsAppUrl(`https://wa.me/${inviteForm.phone.replace(/\D/g, '')}?text=${msg}`);
-      setInviteSent(true);
-      setInviteForm({ name: '', contact: '', phone: '', city: '', payMethod: 'MonCash' });
-      await loadData();
-    } catch (err) {
-      setInviteError('Erè — Eseye ankò');
-    } finally {
-      setSaving(false);
-    }
-  };
 
   const handleSaveTiers = async (eventId: string, sectionName: string, tiers: BulkTier[]) => {
     setSaving(true);
@@ -136,9 +105,6 @@ export default function OrganizerResellersPage() {
           {saving && <span className="text-[10px] text-orange animate-pulse">Ap {t('save').toLowerCase()}…</span>}
           <button onClick={() => setShowPricing(!showPricing)} className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-orange-border text-orange text-xs font-bold hover:bg-orange hover:text-white transition-all">
             💲 {t('resellers_bulk_pricing')}
-          </button>
-          <button onClick={() => { setShowInvite(true); setInviteSent(false); setWhatsAppUrl(''); }} className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-orange text-white text-xs font-bold hover:bg-orange/80 transition-all">
-            ➕ {t('resellers_invite')}
           </button>
         </div>
       </nav>
@@ -267,61 +233,6 @@ export default function OrganizerResellersPage() {
               <span className="text-[11px] text-gray-muted ml-auto">{filtered.length} {t('org_nav_resellers').toLowerCase()}</span>
             </div>
 
-            {/* INVITE FORM */}
-            {showInvite && (
-              <div className="bg-dark-card border border-orange-border rounded-card p-5 mb-5">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-heading text-lg tracking-wide">{t('resellers_invite_title')}</h3>
-                  <button onClick={() => setShowInvite(false)} className="text-gray-muted hover:text-white text-sm">✕</button>
-                </div>
-                {inviteSent ? (
-                  <div className="text-center py-6">
-                    <p className="text-3xl mb-2">✅</p>
-                    <p className="text-sm font-bold text-green mb-1">{t('resellers_done')}!</p>
-                    <p className="text-xs text-gray-muted mb-4">{t('resellers_invite_subtitle')}</p>
-                    <div className="flex gap-3 justify-center flex-wrap">
-                      <a href={whatsAppUrl} target="_blank" rel="noreferrer"
-                        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-[10px] bg-green-600 text-white text-xs font-bold hover:bg-green-500 transition-all">
-                        📨 {t('resellers_send_invite')}
-                      </a>
-                      <button onClick={() => { setInviteSent(false); setWhatsAppUrl(''); }}
-                        className="px-5 py-2 rounded-[10px] bg-orange text-white text-xs font-bold hover:bg-orange/80 transition-all">
-                        ➕ {t('resellers_invite')}
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    <p className="text-xs text-gray-light mb-4">{t('resellers_invite_subtitle')}</p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                      <div><label className="block text-[11px] font-semibold text-gray-light mb-1.5">{t('vend_auth_biz_name')} *</label><input value={inviteForm.name} onChange={e => setInviteForm(f => ({ ...f, name: e.target.value }))} className="w-full px-3.5 py-2.5 rounded-[10px] bg-white/[0.04] border border-border text-white text-[13px] outline-none focus:border-orange placeholder:text-gray-muted" placeholder="Ex: Ti Jak Boutik" /></div>
-                      <div><label className="block text-[11px] font-semibold text-gray-light mb-1.5">{t('name')} *</label><input value={inviteForm.contact} onChange={e => setInviteForm(f => ({ ...f, contact: e.target.value }))} className="w-full px-3.5 py-2.5 rounded-[10px] bg-white/[0.04] border border-border text-white text-[13px] outline-none focus:border-orange placeholder:text-gray-muted" placeholder="Non moun responsab" /></div>
-                      <div><label className="block text-[11px] font-semibold text-gray-light mb-1.5">{t('phone')} WhatsApp *</label><input value={inviteForm.phone} onChange={e => setInviteForm(f => ({ ...f, phone: e.target.value }))} className="w-full px-3.5 py-2.5 rounded-[10px] bg-white/[0.04] border border-border text-white text-[13px] outline-none focus:border-orange placeholder:text-gray-muted" placeholder="+509 3412 0000" /></div>
-                      <div><label className="block text-[11px] font-semibold text-gray-light mb-1.5">{t('city')} *</label><input value={inviteForm.city} onChange={e => setInviteForm(f => ({ ...f, city: e.target.value }))} className="w-full px-3.5 py-2.5 rounded-[10px] bg-white/[0.04] border border-border text-white text-[13px] outline-none focus:border-orange placeholder:text-gray-muted" placeholder="Pétion-Ville" /></div>
-                      <div>
-                        <label className="block text-[11px] font-semibold text-gray-light mb-1.5">{t('vend_auth_payment_method')}</label>
-                        <select value={inviteForm.payMethod} onChange={e => setInviteForm(f => ({ ...f, payMethod: e.target.value }))} className="w-full px-3.5 py-2.5 rounded-[10px] bg-white/[0.04] border border-border text-white text-[13px] outline-none focus:border-orange">
-                          <option className="bg-dark-card">📱 MonCash</option>
-                          <option className="bg-dark-card">💚 Natcash</option>
-                          <option className="bg-dark-card">🏦 Kont Bank</option>
-                          <option className="bg-dark-card">💳 Stripe</option>
-                          <option className="bg-dark-card">⚡ Zelle</option>
-                          <option className="bg-dark-card">🅿️ PayPal</option>
-                          <option className="bg-dark-card">💲 Cash App</option>
-                        </select>
-                      </div>
-                    </div>
-                    {inviteError && <p className="text-xs text-red-400 mt-2">{inviteError}</p>}
-                    <div className="flex gap-2 mt-4">
-                      <button onClick={handleInvite} disabled={saving} className="px-5 py-2.5 rounded-[10px] bg-orange text-white text-xs font-bold hover:bg-orange/80 transition-all disabled:opacity-50">
-                        {saving ? `Ap ${t('save').toLowerCase()}…` : `💾 ${t('save')} ak Prepare WhatsApp`}
-                      </button>
-                      <button onClick={() => setShowInvite(false)} className="px-5 py-2.5 rounded-[10px] border border-border text-gray-light text-xs font-bold hover:text-white transition-all">{t('cancel')}</button>
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
 
             {/* EMPTY STATE */}
             {filtered.length === 0 && (
