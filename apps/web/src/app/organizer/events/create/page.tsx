@@ -24,6 +24,7 @@ export default function CreateEvent() {
   const [language, setLanguage] = useState('ht');
   const [ageRestriction, setAgeRestriction] = useState('all');
   const [showRestrictions, setShowRestrictions] = useState(false);
+  const [isPrivate, setIsPrivate] = useState(false);
   const [restrictions, setRestrictions] = useState<EventRestriction>({
     dressCode: '', foodDrink: '', cameras: '', bags: '', security: '', accessibility: '', health: '',
   });
@@ -94,6 +95,10 @@ export default function CreateEvent() {
     if (!user) { setError(L('Ou dwe konekte', 'You must be logged in', 'Vous devez etre connecte')!); return; }
     setError(''); setSaving(true);
     try {
+      const privateToken = isPrivate
+        ? Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 10)
+        : undefined;
+
       const eventId = await createEvent({
         name, description, category, language, ageRestriction,
         startDate, endDate, startTime, endTime,
@@ -102,6 +107,8 @@ export default function CreateEvent() {
         restrictions,
         promos,
         imageUrl,
+        isPrivate,
+        privateToken,
         status,
         organizerId: user.uid,
         organizerName: user.email || '',
@@ -242,6 +249,40 @@ export default function CreateEvent() {
                   <option value="family">{L('Fanmi', 'Family', 'Famille')}</option>
                 </select>
               </div>
+            </div>
+
+            {/* Private event toggle */}
+            <div style={{ marginBottom: 16 }}>
+              <label style={{
+                display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px',
+                border: `1px solid ${isPrivate ? '#f97316' : '#1e1e2e'}`,
+                borderRadius: 10, cursor: 'pointer', background: isPrivate ? '#1a0a00' : 'transparent',
+                transition: 'all .2s',
+              }}>
+                <div onClick={() => setIsPrivate(!isPrivate)} style={{
+                  width: 44, height: 24, borderRadius: 12, flexShrink: 0,
+                  background: isPrivate ? '#f97316' : '#333', position: 'relative',
+                  transition: 'background .2s', cursor: 'pointer',
+                }}>
+                  <div style={{
+                    position: 'absolute', top: 3, left: isPrivate ? 23 : 3,
+                    width: 18, height: 18, borderRadius: '50%', background: '#fff',
+                    transition: 'left .2s',
+                  }} />
+                </div>
+                <div>
+                  <div style={{ color: '#fff', fontWeight: 700, fontSize: 14 }}>
+                    🔒 {L('Evenman Prive', 'Private Event', 'Événement Privé')}
+                  </div>
+                  <div style={{ color: '#666', fontSize: 12, marginTop: 2 }}>
+                    {L(
+                      'Sèlman moun ki gen lyen prive a ka wè evenman an',
+                      'Only people with the private link can see this event',
+                      'Seuls les gens avec le lien privé peuvent voir cet événement',
+                    )}
+                  </div>
+                </div>
+              </label>
             </div>
 
             {/* Restrictions toggle */}
@@ -551,7 +592,14 @@ export default function CreateEvent() {
 
             <div style={{ marginBottom: 16 }}>
               <div style={{ color: '#888', fontSize: 11, marginBottom: 4 }}>{L('Non', 'Name', 'Nom')}</div>
-              <div style={{ color: '#fff', fontSize: 16, fontWeight: 700 }}>{name}</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ color: '#fff', fontSize: 16, fontWeight: 700 }}>{name}</div>
+                {isPrivate && (
+                  <span style={{ background: '#f97316', color: '#000', fontSize: 10, fontWeight: 800, padding: '2px 8px', borderRadius: 20 }}>
+                    🔒 PRIVE
+                  </span>
+                )}
+              </div>
             </div>
             <div style={{ marginBottom: 16 }}>
               <div style={{ color: '#888', fontSize: 11, marginBottom: 4 }}>{L('Kategori', 'Category', 'Categorie')}</div>
