@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useT } from '@/i18n';
@@ -25,6 +25,7 @@ export default function CreateEvent() {
   const [ageRestriction, setAgeRestriction] = useState('all');
   const [showRestrictions, setShowRestrictions] = useState(false);
   const [isPrivate, setIsPrivate] = useState(false);
+  const privateTokenRef = useRef('');
   const [restrictions, setRestrictions] = useState<EventRestriction>({
     dressCode: '', foodDrink: '', cameras: '', bags: '', security: '', accessibility: '', health: '',
   });
@@ -98,6 +99,7 @@ export default function CreateEvent() {
       const privateToken = isPrivate
         ? Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 10)
         : undefined;
+      if (privateToken) privateTokenRef.current = privateToken;
 
       const eventId = await createEvent({
         name, description, category, language, ageRestriction,
@@ -151,7 +153,36 @@ export default function CreateEvent() {
             {L('Evenman Kreye!', 'Event Created!', 'Evenement Cree!')}
           </h1>
           <p style={{ color: '#aaa', marginBottom: 8 }}>{name}</p>
-          <p style={{ color: '#666', fontSize: 13, marginBottom: 32 }}>ID: {createdId}</p>
+          <p style={{ color: '#666', fontSize: 13, marginBottom: 16 }}>ID: {createdId}</p>
+
+          {isPrivate && (
+            <div style={{ background: '#1a0a00', border: '1px solid #f97316', borderRadius: 12, padding: 16, marginBottom: 32, textAlign: 'left' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                <span style={{ fontSize: 18 }}>🔒</span>
+                <span style={{ color: '#f97316', fontWeight: 700, fontSize: 13 }}>{L('Lyen Prive', 'Private Link', 'Lien Privé')}</span>
+              </div>
+              <div style={{ background: '#0a0a0f', borderRadius: 8, padding: '10px 12px', marginBottom: 12, wordBreak: 'break-all' }}>
+                <span style={{ color: '#ccc', fontSize: 12, fontFamily: 'monospace' }}>
+                  {`${typeof window !== 'undefined' ? window.location.origin : 'https://anbyans.events'}/e/${privateTokenRef.current}`}
+                </span>
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={() => {
+                  const url = `${window.location.origin}/e/${privateTokenRef.current}`;
+                  navigator.clipboard.writeText(url);
+                }}
+                  style={{ flex: 1, padding: '10px 0', borderRadius: 8, border: '1px solid #f97316', background: 'transparent', color: '#f97316', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                  📋 {L('Kopye', 'Copy', 'Copier')}
+                </button>
+                <a href={`https://wa.me/?text=${encodeURIComponent(L('Ou envite nan', 'You are invited to', 'Vous êtes invité à') + ' ' + name + '. ' + L('Achte tikè ou la', 'Get your ticket here', 'Obtenez votre billet ici') + ': ' + (typeof window !== 'undefined' ? window.location.origin : 'https://anbyans.events') + '/e/' + privateTokenRef.current)}`}
+                  target="_blank" rel="noreferrer"
+                  style={{ flex: 1, padding: '10px 0', borderRadius: 8, background: '#25D366', color: '#000', fontSize: 12, fontWeight: 700, cursor: 'pointer', textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                  💬 WhatsApp
+                </a>
+              </div>
+            </div>
+          )}
+          {!isPrivate && <div style={{ marginBottom: 32 }} />}
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
             <Link href="/organizer/dashboard" style={{ padding: '14px 28px', background: '#f97316', color: '#000', borderRadius: 8, fontWeight: 700, textDecoration: 'none' }}>
               {L('Dachbod', 'Dashboard', 'Tableau de bord')}
