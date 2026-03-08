@@ -54,9 +54,9 @@ function VendorJoinInner() {
     setSubmitting(true);
     try {
       const cleanPhone = phone.replace(/[^0-9]/g, '');
-      const email = `${cleanPhone}@reseller.anbyans.events`;
+      const email = `${cleanPhone}@vendor.anbyans.events`;
       const cred = await createUserWithEmailAndPassword(auth, email, pin);
-      await updateDoc(doc(db, 'resellers', invite.id), {
+      await updateDoc(doc(db, 'vendors', invite.id), {
         uid: cred.user.uid,
         name: name.trim(),
         phone: phone.trim(),

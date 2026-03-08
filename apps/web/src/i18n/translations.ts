@@ -110,7 +110,7 @@ const t = {
   footer_fans: { ht:'Achte Tikè', en:'Buy Tickets', fr:'Acheter des billets' },
   footer_browse: { ht:'Wè Evènman', en:'Browse Events', fr:'Voir les événements' },
   footer_organizer: { ht:'Vin Òganizatè', en:'Become an Organizer', fr:'Devenir organisateur' },
-  footer_reseller: { ht:'Vin Revandè', en:'Become a Reseller', fr:'Devenir vendeur' },
+  footer_vendor: { ht:'Vin Revandè', en:'Become a Reseller', fr:'Devenir vendeur' },
   footer_rights: { ht:'Tout dwa rezève.', en:'All rights reserved.', fr:'Tous droits réservés.' },
 
   // Stats
