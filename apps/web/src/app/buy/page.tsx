@@ -206,7 +206,8 @@ export default function BuyTicketPage() {
             <p className="text-xs font-bold mt-3">Ref: {ticket.ticketCode}</p>
             <p className="text-[9px] text-gray-muted mt-1 font-mono break-all">{ticket.qrData}</p>
           </div>
-          <div className="flex gap-2.5 justify-center mt-6">
+          <p className="text-sm text-cyan font-bold text-center mt-6 mb-2">👇 {L('Klike pou resevwa tikè ou sou WhatsApp', 'Click to receive your ticket on WhatsApp', 'Cliquez pour recevoir votre billet sur WhatsApp')}</p>
+          <div className="flex gap-2.5 justify-center">
 <Link href="/events" className="px-5 py-3 rounded-lg bg-cyan text-dark font-bold text-sm hover:bg-white transition-all">🎫 {L('Wè Plis Evènman', 'See More Events', 'Voir plus d\'événements')}</Link>
 <button onClick={() => {
   const phone = buyerPhone.replace(/[^0-9]/g, '');
