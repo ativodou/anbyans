@@ -48,7 +48,6 @@ const NAV_ITEMS: { id: Tab; icon: string; label: string; badge?: number }[] = [
 
 export default function OrganizerDashboardPage() {
   const router = useRouter();
-  const router = useRouter();
   const [tab, setTab] = useState<Tab>('dashboard');
   const [sideOpen, setSideOpen] = useState(false);
   const [showInvite, setShowInvite] = useState(false);
