@@ -6,14 +6,14 @@ import { useAuth } from '@/hooks/useAuth';
 import { useT } from '@/i18n';
 import {
   getOrganizerEvents,
-  getOrganizerVendors,
-  getOrganizerVendorPurchases,
-  inviteVendor,
-  updateVendorStatus,
+  getOrganizerResellers,
+  getOrganizerResellerPurchases,
+  inviteReseller,
+  updateResellerStatus,
   saveEventBulkTiers,
   EventData,
   VendorData,
-  VendorPurchase,
+  ResellerPurchase,
   BulkTier,
 } from '@/lib/db';
 
@@ -30,16 +30,16 @@ const sectionColors: Record<string, string> = {
   GA: '#00D4FF',
 };
 
-export default function OrganizerVendorsPage() {
+export default function OrganizerResellersPage() {
   const { user } = useAuth();
   const { t } = useT();
 
   const [events, setEvents] = useState<EventData[]>([]);
-  const [vendors, setVendors] = useState<VendorWithPurchases[]>([]);
+  const [resellers, setResellers] = useState<ResellerWithPurchases[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  const [expandedVendor, setExpandedVendor] = useState<string | null>(null);
+  const [expandedReseller, setExpandedReseller] = useState<string | null>(null);
   const [showInvite, setShowInvite] = useState(false);
   const [showPricing, setShowPricing] = useState(false);
   const [filterStatus, setFilterStatus] = useState<string>('all');
@@ -57,17 +57,17 @@ export default function OrganizerVendorsPage() {
     if (!user?.uid) return;
     setLoading(true);
     try {
-      const [evList, vendorList, purchaseList] = await Promise.all([
+      const [evList, resellerList, purchaseList] = await Promise.all([
         getOrganizerEvents(user.uid),
-        getOrganizerVendors(user.uid),
-        getOrganizerVendorPurchases(user.uid),
+        getOrganizerResellers(user.uid),
+        getOrganizerResellerPurchases(user.uid),
       ]);
-      const vendorsWithPurchases: VendorWithPurchases[] = vendorList.map(v => ({
+      const resellersWithPurchases: ResellerWithPurchases[] = resellerList.map(v => ({
         ...v,
         purchases: purchaseList.filter(p => p.vendorId === v.id),
       }));
       setEvents(evList.sort((a, b) => (a.startDate || '').localeCompare(b.startDate || '')));
-      setVendors(vendorsWithPurchases);
+      setResellers(resellersWithPurchases);
     } catch (err) {
       console.error('Load error:', err);
     } finally {
@@ -77,12 +77,12 @@ export default function OrganizerVendorsPage() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  const allPurchases = vendors.flatMap(v => v.purchases);
+  const allPurchases = resellers.flatMap(v => v.purchases);
   const totalPurchased = allPurchases.reduce((a, b) => a + b.qty, 0);
   const totalSold = allPurchases.reduce((a, b) => a + b.sold, 0);
   const totalRevenue = allPurchases.reduce((a, b) => a + b.totalPaid, 0);
 
-  const filtered = vendors.filter(v => {
+  const filtered = resellers.filter(v => {
     if (filterStatus !== 'all' && v.status !== filterStatus) return false;
     if (filterEvent !== 'all' && !v.purchases.some(p => p.eventId === filterEvent)) return false;
     return true;
@@ -97,7 +97,7 @@ export default function OrganizerVendorsPage() {
     setSaving(true);
     setInviteError('');
     try {
-      const vendor = await inviteVendor({ organizerId: user.uid, ...inviteForm });
+      const reseller = await inviteReseller({ organizerId: user.uid, ...inviteForm });
       const msg = encodeURIComponent(
         `Bonjou ${inviteForm.contact}! Ou envite kòm vandè sou Anbyans.\n\nKlike lyen sa a pou kreye kont ou:\n${window.location.origin}/vendor/join?token=${vendor.inviteToken}\n\nMèsi!`
       );
@@ -132,13 +132,13 @@ export default function OrganizerVendorsPage() {
         <div className="max-w-[1200px] mx-auto flex items-center h-14 gap-3">
           <Link href="/organizer/dashboard" className="text-gray-light text-xs hover:text-white transition-colors">← {t('dashboard')}</Link>
           <div className="w-px h-5 bg-border" />
-          <span className="font-heading text-lg tracking-wide flex-1">{t('vendors_title')}</span>
+          <span className="font-heading text-lg tracking-wide flex-1">{t('resellers_title')}</span>
           {saving && <span className="text-[10px] text-orange animate-pulse">Ap {t('save').toLowerCase()}…</span>}
           <button onClick={() => setShowPricing(!showPricing)} className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-orange-border text-orange text-xs font-bold hover:bg-orange hover:text-white transition-all">
-            💲 {t('vendors_bulk_pricing')}
+            💲 {t('resellers_bulk_pricing')}
           </button>
           <button onClick={() => { setShowInvite(true); setInviteSent(false); setWhatsAppUrl(''); }} className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-orange text-white text-xs font-bold hover:bg-orange/80 transition-all">
-            ➕ {t('vendors_invite')}
+            ➕ {t('resellers_invite')}
           </button>
         </div>
       </nav>
@@ -159,19 +159,19 @@ export default function OrganizerVendorsPage() {
             {/* STATS */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
               <div className="bg-dark-card border border-border rounded-card p-3.5">
-                <p className="text-[9px] text-gray-muted uppercase tracking-widest mb-1">{t('vendors_active')}</p>
-                <p className="font-heading text-2xl">{vendors.filter(v => v.status === 'active').length}</p>
+                <p className="text-[9px] text-gray-muted uppercase tracking-widest mb-1">{t('resellers_active')}</p>
+                <p className="font-heading text-2xl">{resellers.filter(v => v.status === 'active').length}</p>
               </div>
               <div className="bg-dark-card border border-border rounded-card p-3.5">
-                <p className="text-[9px] text-gray-muted uppercase tracking-widest mb-1">{t('vendors_purchased')}</p>
+                <p className="text-[9px] text-gray-muted uppercase tracking-widest mb-1">{t('resellers_purchased')}</p>
                 <p className="font-heading text-2xl">{totalPurchased}</p>
               </div>
               <div className="bg-dark-card border border-border rounded-card p-3.5">
-                <p className="text-[9px] text-gray-muted uppercase tracking-widest mb-1">{t('vendors_vendor_sold')}</p>
+                <p className="text-[9px] text-gray-muted uppercase tracking-widest mb-1">{t('resellers_reseller_sold')}</p>
                 <p className="font-heading text-2xl text-green">{totalSold} <span className="text-[10px] text-gray-muted font-body font-normal">({totalPurchased > 0 ? Math.round((totalSold/totalPurchased)*100) : 0}%)</span></p>
               </div>
               <div className="bg-dark-card border border-green rounded-card p-3.5">
-                <p className="text-[9px] text-green uppercase tracking-widest mb-1">💰 {t('vendors_revenue')}</p>
+                <p className="text-[9px] text-green uppercase tracking-widest mb-1">💰 {t('resellers_revenue')}</p>
                 <p className="font-heading text-2xl text-green">${totalRevenue.toLocaleString()}</p>
               </div>
             </div>
@@ -180,10 +180,10 @@ export default function OrganizerVendorsPage() {
             {showPricing && (
               <div className="bg-dark-card border border-orange-border rounded-card p-5 mb-5">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-heading text-lg tracking-wide">💲 {t('vendors_pricing_title')}</h3>
+                  <h3 className="font-heading text-lg tracking-wide">💲 {t('resellers_pricing_title')}</h3>
                   <button onClick={() => setShowPricing(false)} className="text-gray-muted hover:text-white text-sm">✕</button>
                 </div>
-                <p className="text-xs text-gray-light mb-4">{t('vendors_pricing_subtitle')}</p>
+                <p className="text-xs text-gray-light mb-4">{t('resellers_pricing_subtitle')}</p>
                 {events.length === 0 ? (
                   <p className="text-xs text-gray-muted">Pa gen evènman disponib. Kreye yon evènman dabò.</p>
                 ) : (
@@ -206,7 +206,7 @@ export default function OrganizerVendorsPage() {
                               <div className="flex items-center gap-2 mb-3">
                                 <span className="w-3 h-3 rounded-full" style={{ background: color }} />
                                 <span className="text-sm font-bold">{sec.name}</span>
-                                <span className="text-[10px] text-gray-muted">· {t('vendors_online_price')}: <strong className="text-white">${sec.price}</strong> · {sec.capacity - sec.sold} {t('vendors_available')}</span>
+                                <span className="text-[10px] text-gray-muted">· {t('resellers_online_price')}: <strong className="text-white">${sec.price}</strong> · {sec.capacity - sec.sold} {t('resellers_available')}</span>
                               </div>
                               {tiers.length === 0 ? (
                                 <p className="text-[11px] text-gray-muted mb-3">Pa gen pri angwo konfigire pou seksyon sa a.</p>
@@ -215,10 +215,10 @@ export default function OrganizerVendorsPage() {
                                   <table className="w-full text-left">
                                     <thead>
                                       <tr className="border-b border-border">
-                                        <th className="text-[9px] text-gray-muted uppercase tracking-widest pb-2">{t('vendors_qty')}</th>
-                                        <th className="text-[9px] text-gray-muted uppercase tracking-widest pb-2 text-right">{t('vendors_price_per')}</th>
+                                        <th className="text-[9px] text-gray-muted uppercase tracking-widest pb-2">{t('resellers_qty')}</th>
+                                        <th className="text-[9px] text-gray-muted uppercase tracking-widest pb-2 text-right">{t('resellers_price_per')}</th>
                                         <th className="text-[9px] text-gray-muted uppercase tracking-widest pb-2 text-right">{t('vend_buy_discount')}</th>
-                                        <th className="text-[9px] text-gray-muted uppercase tracking-widest pb-2 text-right">{t('vendors_example')}</th>
+                                        <th className="text-[9px] text-gray-muted uppercase tracking-widest pb-2 text-right">{t('resellers_example')}</th>
                                       </tr>
                                     </thead>
                                     <tbody>
@@ -240,7 +240,7 @@ export default function OrganizerVendorsPage() {
                               <button onClick={() => {
                                 const newTier: BulkTier = { minQty: 10, maxQty: 25, priceEach: Math.round(sec.price * 0.8) };
                                 handleSaveTiers(pricingEvent.id!, sec.name, [...tiers, newTier]);
-                              }} className="text-[10px] text-orange hover:underline">✏️ {t('vendors_edit_price')}</button>
+                              }} className="text-[10px] text-orange hover:underline">✏️ {t('resellers_edit_price')}</button>
                             </div>
                           );
                         })}
@@ -248,7 +248,7 @@ export default function OrganizerVendorsPage() {
                     )}
                   </>
                 )}
-                <p className="text-[10px] text-gray-muted mt-4 bg-white/[0.02] rounded-lg p-3">💡 {t('vendors_prepaid_note')}</p>
+                <p className="text-[10px] text-gray-muted mt-4 bg-white/[0.02] rounded-lg p-3">💡 {t('resellers_prepaid_note')}</p>
               </div>
             )}
 
@@ -264,35 +264,35 @@ export default function OrganizerVendorsPage() {
                 <option value="all" className="bg-dark-card">{t('all')} {t('events')}</option>
                 {events.map(ev => <option key={ev.id} value={ev.id} className="bg-dark-card">{ev.name}</option>)}
               </select>
-              <span className="text-[11px] text-gray-muted ml-auto">{filtered.length} {t('org_nav_vendors').toLowerCase()}</span>
+              <span className="text-[11px] text-gray-muted ml-auto">{filtered.length} {t('org_nav_resellers').toLowerCase()}</span>
             </div>
 
             {/* INVITE FORM */}
             {showInvite && (
               <div className="bg-dark-card border border-orange-border rounded-card p-5 mb-5">
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-heading text-lg tracking-wide">{t('vendors_invite_title')}</h3>
+                  <h3 className="font-heading text-lg tracking-wide">{t('resellers_invite_title')}</h3>
                   <button onClick={() => setShowInvite(false)} className="text-gray-muted hover:text-white text-sm">✕</button>
                 </div>
                 {inviteSent ? (
                   <div className="text-center py-6">
                     <p className="text-3xl mb-2">✅</p>
-                    <p className="text-sm font-bold text-green mb-1">{t('vendors_done')}!</p>
-                    <p className="text-xs text-gray-muted mb-4">{t('vendors_invite_subtitle')}</p>
+                    <p className="text-sm font-bold text-green mb-1">{t('resellers_done')}!</p>
+                    <p className="text-xs text-gray-muted mb-4">{t('resellers_invite_subtitle')}</p>
                     <div className="flex gap-3 justify-center flex-wrap">
                       <a href={whatsAppUrl} target="_blank" rel="noreferrer"
                         className="inline-flex items-center gap-2 px-5 py-2.5 rounded-[10px] bg-green-600 text-white text-xs font-bold hover:bg-green-500 transition-all">
-                        📨 {t('vendors_send_invite')}
+                        📨 {t('resellers_send_invite')}
                       </a>
                       <button onClick={() => { setInviteSent(false); setWhatsAppUrl(''); }}
                         className="px-5 py-2 rounded-[10px] bg-orange text-white text-xs font-bold hover:bg-orange/80 transition-all">
-                        ➕ {t('vendors_invite')}
+                        ➕ {t('resellers_invite')}
                       </button>
                     </div>
                   </div>
                 ) : (
                   <>
-                    <p className="text-xs text-gray-light mb-4">{t('vendors_invite_subtitle')}</p>
+                    <p className="text-xs text-gray-light mb-4">{t('resellers_invite_subtitle')}</p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                       <div><label className="block text-[11px] font-semibold text-gray-light mb-1.5">{t('vend_auth_biz_name')} *</label><input value={inviteForm.name} onChange={e => setInviteForm(f => ({ ...f, name: e.target.value }))} className="w-full px-3.5 py-2.5 rounded-[10px] bg-white/[0.04] border border-border text-white text-[13px] outline-none focus:border-orange placeholder:text-gray-muted" placeholder="Ex: Ti Jak Boutik" /></div>
                       <div><label className="block text-[11px] font-semibold text-gray-light mb-1.5">{t('name')} *</label><input value={inviteForm.contact} onChange={e => setInviteForm(f => ({ ...f, contact: e.target.value }))} className="w-full px-3.5 py-2.5 rounded-[10px] bg-white/[0.04] border border-border text-white text-[13px] outline-none focus:border-orange placeholder:text-gray-muted" placeholder="Non moun responsab" /></div>
@@ -327,21 +327,21 @@ export default function OrganizerVendorsPage() {
             {filtered.length === 0 && (
               <div className="text-center py-16">
                 <p className="text-4xl mb-3">🏪</p>
-                <p className="text-sm font-bold mb-1">Pa gen {t('org_nav_vendors').toLowerCase()} ankò</p>
-                <p className="text-xs text-gray-muted mb-4">Klike "{t('vendors_invite')}" pou kòmanse.</p>
+                <p className="text-sm font-bold mb-1">Pa gen {t('org_nav_resellers').toLowerCase()} ankò</p>
+                <p className="text-xs text-gray-muted mb-4">Klike "{t('resellers_invite')}" pou kòmanse.</p>
               </div>
             )}
 
-            {/* VENDOR LIST */}
+            {/* RESELLER LIST */}
             <div className="space-y-3">
               {filtered.map(v => {
-                const expanded = expandedVendor === v.id;
+                const expanded = expandedReseller === v.id;
                 const vTotalQty = v.purchases.reduce((a, b) => a + b.qty, 0);
                 const vTotalSold = v.purchases.reduce((a, b) => a + b.sold, 0);
                 const vTotalPaid = v.purchases.reduce((a, b) => a + b.totalPaid, 0);
                 return (
                   <div key={v.id} className="bg-dark-card border border-border rounded-card overflow-hidden hover:border-white/[0.08] transition-all">
-                    <div className="p-4 cursor-pointer" onClick={() => setExpandedVendor(expanded ? null : v.id!)}>
+                    <div className="p-4 cursor-pointer" onClick={() => setExpandedReseller(expanded ? null : v.id!)}>
                       <div className="flex items-start gap-3">
                         <div className="w-11 h-11 rounded-lg bg-purple-dim border border-purple-border flex items-center justify-center text-xl flex-shrink-0">🏪</div>
                         <div className="flex-1 min-w-0">
@@ -352,13 +352,13 @@ export default function OrganizerVendorsPage() {
                             </span>
                           </div>
                           <p className="text-[11px] text-gray-light">{v.contact} · 📍 {v.city} · {v.phone}</p>
-                          <p className="text-[10px] text-gray-muted mt-0.5">{v.payMethod} — {v.payAccount} · {t('vendors_since')} {v.joinedDate}</p>
+                          <p className="text-[10px] text-gray-muted mt-0.5">{v.payMethod} — {v.payAccount} · {t('resellers_since')} {v.joinedDate}</p>
                         </div>
                         <div className="text-right flex-shrink-0">
                           <div className="flex items-center gap-3">
-                            <div className="text-right"><p className="text-[9px] text-gray-muted uppercase">{t('vendors_bought')}</p><p className="text-sm font-bold">{vTotalQty}</p></div>
+                            <div className="text-right"><p className="text-[9px] text-gray-muted uppercase">{t('resellers_bought')}</p><p className="text-sm font-bold">{vTotalQty}</p></div>
                             <div className="text-right"><p className="text-[9px] text-gray-muted uppercase">{t('sold')}</p><p className="text-sm font-bold text-green">{vTotalSold}</p></div>
-                            <div className="text-right"><p className="text-[9px] text-green uppercase">{t('vendors_paid')}</p><p className="text-sm font-bold text-green">${vTotalPaid.toLocaleString()}</p></div>
+                            <div className="text-right"><p className="text-[9px] text-green uppercase">{t('resellers_paid')}</p><p className="text-sm font-bold text-green">${vTotalPaid.toLocaleString()}</p></div>
                             <span className={`text-gray-muted text-xs transition-transform ${expanded ? 'rotate-180' : ''}`}>▼</span>
                           </div>
                         </div>
@@ -368,9 +368,9 @@ export default function OrganizerVendorsPage() {
                       <div className="border-t border-border">
                         {v.purchases.length === 0 ? (
                           <div className="p-5 text-center">
-                            <p className="text-xs text-gray-muted">{v.status === 'pending' ? 'Vandè sa a poko aksepte envitasyon an.' : 'Vandè sa a poko achte tikè angwo.'}</p>
+                            <p className="text-xs text-gray-muted">{v.status === 'pending' ? 'Revandè sa a poko aksepte envitasyon an.' : 'Revandè sa a poko achte tikè angwo.'}</p>
                             {v.status === 'pending' && (
-                              <button onClick={async () => { await updateVendorStatus(v.id!, 'active'); await loadData(); }}
+                              <button onClick={async () => { await updateResellerStatus(v.id!, 'active'); await loadData(); }}
                                 className="mt-3 px-4 py-1.5 rounded-lg bg-green-dim border border-green text-green text-[10px] font-bold hover:bg-green hover:text-white transition-all">
                                 ✅ Manyèlman {t('active')}
                               </button>
@@ -384,12 +384,12 @@ export default function OrganizerVendorsPage() {
                                   <tr className="border-b border-border">
                                     <th className="text-[9px] text-gray-muted uppercase tracking-widest pb-2">{t('events')}</th>
                                     <th className="text-[9px] text-gray-muted uppercase tracking-widest pb-2">Seksyon</th>
-                                    <th className="text-[9px] text-gray-muted uppercase tracking-widest pb-2 text-center">{t('vendors_bought')}</th>
+                                    <th className="text-[9px] text-gray-muted uppercase tracking-widest pb-2 text-center">{t('resellers_bought')}</th>
                                     <th className="text-[9px] text-gray-muted uppercase tracking-widest pb-2 text-center">{t('sold')}</th>
                                     <th className="text-[9px] text-gray-muted uppercase tracking-widest pb-2 text-center">{t('remaining')}</th>
-                                    <th className="text-[9px] text-gray-muted uppercase tracking-widest pb-2 text-right">{t('vendors_price_per')}</th>
-                                    <th className="text-[9px] text-gray-muted uppercase tracking-widest pb-2 text-right">{t('total')} {t('vendors_paid')}</th>
-                                    <th className="text-[9px] text-gray-muted uppercase tracking-widest pb-2 text-right">{t('vendors_purchase_date')}</th>
+                                    <th className="text-[9px] text-gray-muted uppercase tracking-widest pb-2 text-right">{t('resellers_price_per')}</th>
+                                    <th className="text-[9px] text-gray-muted uppercase tracking-widest pb-2 text-right">{t('total')} {t('resellers_paid')}</th>
+                                    <th className="text-[9px] text-gray-muted uppercase tracking-widest pb-2 text-right">{t('resellers_purchase_date')}</th>
                                   </tr>
                                 </thead>
                                 <tbody>
@@ -408,7 +408,7 @@ export default function OrganizerVendorsPage() {
                                             <div className="w-10 h-1.5 bg-white/[0.06] rounded-full overflow-hidden"><div className="h-full bg-green rounded-full" style={{ width: `${pct}%` }} /></div>
                                           </div>
                                         </td>
-                                        <td className={`text-xs text-center font-bold ${remaining <= 5 && remaining > 0 ? 'text-orange' : remaining === 0 ? 'text-gray-muted' : ''}`}>{remaining === 0 ? `✓ ${t('vendors_done')}` : remaining}</td>
+                                        <td className={`text-xs text-center font-bold ${remaining <= 5 && remaining > 0 ? 'text-orange' : remaining === 0 ? 'text-gray-muted' : ''}`}>{remaining === 0 ? `✓ ${t('resellers_done')}` : remaining}</td>
                                         <td className="text-xs text-right font-bold">${p.priceEach} <span className="text-[9px] text-gray-muted font-normal">{t('buy_each')}</span></td>
                                         <td className="text-xs text-right text-green font-bold">${p.totalPaid.toLocaleString()}</td>
                                         <td className="text-xs text-right text-gray-muted">{p.purchaseDate}</td>
@@ -419,9 +419,9 @@ export default function OrganizerVendorsPage() {
                               </table>
                             </div>
                             <div className="flex items-center gap-4 pt-2 border-t border-border flex-wrap">
-                              <div><span className="text-[9px] text-gray-muted uppercase">{t('total')} {t('vendors_bought')}:</span> <span className="text-xs font-bold">{vTotalQty}</span></div>
+                              <div><span className="text-[9px] text-gray-muted uppercase">{t('total')} {t('resellers_bought')}:</span> <span className="text-xs font-bold">{vTotalQty}</span></div>
                               <div><span className="text-[9px] text-gray-muted uppercase">{t('total')} {t('sold')}:</span> <span className="text-xs font-bold text-green">{vTotalSold}</span></div>
-                              <div><span className="text-[9px] text-green uppercase font-bold">💰 {t('vendors_paid_upfront')}:</span> <span className="text-xs font-bold text-green">${vTotalPaid.toLocaleString()}</span></div>
+                              <div><span className="text-[9px] text-green uppercase font-bold">💰 {t('resellers_paid_upfront')}:</span> <span className="text-xs font-bold text-green">${vTotalPaid.toLocaleString()}</span></div>
                             </div>
                           </div>
                         )}

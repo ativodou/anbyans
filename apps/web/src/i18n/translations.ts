@@ -95,8 +95,8 @@ const t = {
   org_feat_5: { ht:'💰 Peman rapid — MonCash, Natcash, Bank', en:'💰 Fast payouts — MonCash, Natcash, Bank', fr:'💰 Paiements rapides — MonCash, Natcash, Banque' },
   org_feat_6: { ht:'📈 Rapò vant detaye ak analitik', en:'📈 Detailed sales reports & analytics', fr:'📈 Rapports de ventes détaillés et analytiques' },
 
-  // Vendor features
-  landing_vend_badge: { ht:'VANDÈ / REVENDÈ', en:'VENDOR / RESELLER', fr:'VENDEUR / REVENDEUR' },
+  // Reseller features
+  landing_vend_badge: { ht:'REVANDÈ / REVENDÈ', en:'RESELLER / RESELLER', fr:'VENDEUR / REVENDEUR' },
   landing_vend_heading: { ht:'VANN TIKÈ SOU TEREN', en:'SELL TICKETS ON THE GROUND', fr:'VENDEZ DES BILLETS SUR LE TERRAIN' },
   landing_vend_cta: { ht:'Enskri →', en:'Sign Up →', fr:"S'inscrire →" },
   vend_feat_1: { ht:'🏪 Vann tikè nan boutik ou oswa sou teren', en:'🏪 Sell tickets from your shop or on the ground', fr:'🏪 Vendez des billets dans votre boutique ou sur le terrain' },
@@ -110,7 +110,7 @@ const t = {
   footer_fans: { ht:'Achte Tikè', en:'Buy Tickets', fr:'Acheter des billets' },
   footer_browse: { ht:'Wè Evènman', en:'Browse Events', fr:'Voir les événements' },
   footer_organizer: { ht:'Vin Òganizatè', en:'Become an Organizer', fr:'Devenir organisateur' },
-  footer_vendor: { ht:'Vin Vandè', en:'Become a Vendor', fr:'Devenir vendeur' },
+  footer_reseller: { ht:'Vin Revandè', en:'Become a Reseller', fr:'Devenir vendeur' },
   footer_rights: { ht:'Tout dwa rezève.', en:'All rights reserved.', fr:'Tous droits réservés.' },
 
   // Stats
@@ -207,9 +207,9 @@ const t = {
   org_stat_total_revenue: { ht:'Revni Total', en:'Total Revenue', fr:'Revenu total' },
   org_stat_tickets_sold: { ht:'Tikè Vann', en:'Tickets Sold', fr:'Billets vendus' },
   org_stat_active_events: { ht:'Evènman Aktif', en:'Active Events', fr:'Événements actifs' },
-  org_stat_vendors: { ht:'Vandè', en:'Vendors', fr:'Vendeurs' },
+  org_stat_resellers: { ht:'Revandè', en:'Resellers', fr:'Vendeurs' },
   org_recent_sales: { ht:'Dènye Vant', en:'Recent Sales', fr:'Ventes récentes' },
-  org_manage_vendors: { ht:'Jere Vandè →', en:'Manage Vendors →', fr:'Gérer les vendeurs →' },
+  org_manage_resellers: { ht:'Jere Revandè →', en:'Manage Resellers →', fr:'Gérer les vendeurs →' },
   org_create_event: { ht:'+ Kreye Evènman', en:'+ Create Event', fr:'+ Créer un événement' },
 
   /* ═══ CREATE EVENT ═══ */
@@ -247,8 +247,8 @@ const t = {
   scanner_manual_placeholder: { ht:'Kòd tikè', en:'Ticket code', fr:'Code du billet' },
   scanner_history: { ht:'Istorik Eskanè', en:'Scan History', fr:'Historique des scans' },
 
-  /* ═══ VENDOR AUTH ═══ */
-  vend_auth_title: { ht:'Pòtal Vandè', en:'Vendor Portal', fr:'Portail Vendeur' },
+  /* ═══ RESELLER AUTH ═══ */
+  vend_auth_title: { ht:'Pòtal Revandè', en:'Reseller Portal', fr:'Portail Vendeur' },
   vend_auth_subtitle: { ht:'Konekte pou jere vant tikè ou', en:'Log in to manage your ticket sales', fr:'Connectez-vous pour gérer vos ventes de billets' },
   vend_auth_login_tab: { ht:'Konekte', en:'Log In', fr:'Connexion' },
   vend_auth_invite_tab: { ht:'Envitasyon', en:'Invitation', fr:'Invitation' },
@@ -258,10 +258,10 @@ const t = {
   vend_auth_biz_name: { ht:'Non Biznis', en:'Business Name', fr:"Nom de l'entreprise" },
   vend_auth_payment_method: { ht:'Metòd Peman', en:'Payment Method', fr:'Méthode de paiement' },
   vend_auth_payment_account: { ht:'Nimewo Kont Peman', en:'Payment Account Number', fr:'Numéro de compte de paiement' },
-  vend_auth_create_btn: { ht:'Kreye Kont Vandè →', en:'Create Vendor Account →', fr:'Créer un compte vendeur →' },
+  vend_auth_create_btn: { ht:'Kreye Kont Revandè →', en:'Create Reseller Account →', fr:'Créer un compte vendeur →' },
   vend_auth_org_link: { ht:'Ou se yon òganizatè?', en:'Are you an organizer?', fr:'Vous êtes organisateur ?' },
 
-  /* ═══ VENDOR DASHBOARD ═══ */
+  /* ═══ RESELLER DASHBOARD ═══ */
   vend_dash_sell: { ht:'Vann', en:'Sell', fr:'Vendre' },
   vend_dash_buy: { ht:'Achte', en:'Buy', fr:'Acheter' },
   vend_dash_inventory: { ht:'Envantè', en:'Inventory', fr:'Inventaire' },
@@ -296,44 +296,44 @@ const t = {
 
   /* ═══ ORGANIZER DASHBOARD ═══ */
   org_nav_dashboard: { ht:'Dachbòd', en:'Dashboard', fr:'Tableau de bord' },
-  org_nav_vendors: { ht:'Vandè', en:'Vendors', fr:'Vendeurs' },
+  org_nav_resellers: { ht:'Revandè', en:'Resellers', fr:'Vendeurs' },
   org_nav_revenue: { ht:'Revni', en:'Revenue', fr:'Revenus' },
   org_nav_scanner: { ht:'Eskanè', en:'Scanner', fr:'Scanner' },
   org_nav_settings: { ht:'Paramèt', en:'Settings', fr:'Paramètres' },
   org_stat_sold: { ht:'Tikè Vann', en:'Tickets Sold', fr:'Billets vendus' },
   org_stat_revenue: { ht:'Revni Total', en:'Total Revenue', fr:'Revenu total' },
   org_stat_active: { ht:'Evènman Aktif', en:'Active Events', fr:'Événements actifs' },
-  org_stat_owed: { ht:'Dwe Vandè', en:'Owed to Vendors', fr:'Dû aux vendeurs' },
-  org_invite_vendor: { ht:'Envite Vandè', en:'Invite Vendor', fr:'Inviter un vendeur' },
+  org_stat_owed: { ht:'Dwe Revandè', en:'Owed to Resellers', fr:'Dû aux vendeurs' },
+  org_invite_reseller: { ht:'Envite Revandè', en:'Invite Reseller', fr:'Inviter un vendeur' },
   org_open_scanner: { ht:'Ouvri Eskanè', en:'Open Scanner', fr:'Ouvrir le scanner' },
   org_view_reports: { ht:'Wè Rapò', en:'View Reports', fr:'Voir les rapports' },
 
-  /* ═══ VENDOR MANAGEMENT (ORGANIZER) ═══ */
-  vendors_title: { ht:'JERE VANDÈ', en:'MANAGE VENDORS', fr:'GÉRER LES VENDEURS' },
-  vendors_invite: { ht:'Envite Vandè', en:'Invite Vendor', fr:'Inviter un vendeur' },
-  vendors_bulk_pricing: { ht:'Pri Angwo', en:'Bulk Pricing', fr:'Prix de gros' },
-  vendors_active: { ht:'Vandè Aktif', en:'Active Vendors', fr:'Vendeurs actifs' },
-  vendors_purchased: { ht:'Tikè Achte pa Vandè', en:'Tickets Purchased by Vendors', fr:'Billets achetés par les vendeurs' },
-  vendors_vendor_sold: { ht:'Tikè Vandè Vann', en:'Tickets Vendors Sold', fr:'Billets vendus par les vendeurs' },
-  vendors_revenue: { ht:'Revni (Peye Davans)', en:'Revenue (Paid Upfront)', fr:'Revenu (Payé en avance)' },
-  vendors_pricing_title: { ht:'PRI ANGWO PA EVÈNMAN', en:'BULK PRICING BY EVENT', fr:'PRIX DE GROS PAR ÉVÉNEMENT' },
-  vendors_pricing_subtitle: { ht:'Fikse pri angwo pou vandè yo. Plis yo achte, mwens yo peye pa tikè. Vandè peye davans — pa gen dèt.', en:'Set bulk prices for vendors. The more they buy, the less they pay per ticket. Vendors pay upfront — no debt.', fr:"Fixez les prix de gros pour les vendeurs. Plus ils achètent, moins ils paient par billet. Les vendeurs paient d'avance — pas de dette." },
-  vendors_online_price: { ht:'Pri online', en:'Online price', fr:'Prix en ligne' },
-  vendors_available: { ht:'disponib pou vandè', en:'available for vendors', fr:'disponible pour les vendeurs' },
-  vendors_qty: { ht:'Kantite', en:'Quantity', fr:'Quantité' },
-  vendors_price_per: { ht:'Pri Angwo pa Tikè', en:'Bulk Price per Ticket', fr:'Prix de gros par billet' },
-  vendors_example: { ht:'Egzanp Total', en:'Example Total', fr:'Exemple de total' },
-  vendors_edit_price: { ht:'Modifye pri pou seksyon sa a', en:'Edit price for this section', fr:'Modifier le prix pour cette section' },
-  vendors_prepaid_note: { ht:'Vandè peye davans. Lajan an ale dirèkteman nan kont ou lè yo achte tikè. Pa gen dèt, pa gen kouri dèyè lajan.', en:'Vendors pay upfront. Money goes directly to your account when they buy tickets. No debt, no chasing payments.', fr:"Les vendeurs paient d'avance. L'argent va directement sur votre compte quand ils achètent des billets. Pas de dette, pas de relance." },
-  vendors_invite_title: { ht:'ENVITE YON NOUVO VANDÈ', en:'INVITE A NEW VENDOR', fr:'INVITER UN NOUVEAU VENDEUR' },
-  vendors_invite_subtitle: { ht:'Vandè a ap resevwa yon lyen WhatsApp pou kreye kont li. Apre sa li ka achte tikè angwo.', en:'The vendor will receive a WhatsApp link to create their account. Then they can buy tickets in bulk.', fr:'Le vendeur recevra un lien WhatsApp pour créer son compte. Ensuite, il pourra acheter des billets en gros.' },
-  vendors_send_invite: { ht:'Voye Envitasyon WhatsApp', en:'Send WhatsApp Invitation', fr:'Envoyer une invitation WhatsApp' },
-  vendors_bought: { ht:'Achte', en:'Bought', fr:'Acheté' },
-  vendors_paid: { ht:'Peye', en:'Paid', fr:'Payé' },
-  vendors_paid_upfront: { ht:'Peye Davans', en:'Paid Upfront', fr:"Payé d'avance" },
-  vendors_since: { ht:'Depi', en:'Since', fr:'Depuis' },
-  vendors_purchase_date: { ht:'Dat Acha', en:'Purchase Date', fr:"Date d'achat" },
-  vendors_done: { ht:'Fini', en:'Done', fr:'Terminé' },
+  /* ═══ RESELLER MANAGEMENT (ORGANIZER) ═══ */
+  resellers_title: { ht:'JERE REVANDÈ', en:'MANAGE RESELLERS', fr:'GÉRER LES VENDEURS' },
+  resellers_invite: { ht:'Envite Revandè', en:'Invite Reseller', fr:'Inviter un vendeur' },
+  resellers_bulk_pricing: { ht:'Pri Angwo', en:'Bulk Pricing', fr:'Prix de gros' },
+  resellers_active: { ht:'Revandè Aktif', en:'Active Resellers', fr:'Vendeurs actifs' },
+  resellers_purchased: { ht:'Tikè Achte pa Revandè', en:'Tickets Purchased by Resellers', fr:'Billets achetés par les vendeurs' },
+  resellers_reseller_sold: { ht:'Tikè Revandè Vann', en:'Tickets Resellers Sold', fr:'Billets vendus par les vendeurs' },
+  resellers_revenue: { ht:'Revni (Peye Davans)', en:'Revenue (Paid Upfront)', fr:'Revenu (Payé en avance)' },
+  resellers_pricing_title: { ht:'PRI ANGWO PA EVÈNMAN', en:'BULK PRICING BY EVENT', fr:'PRIX DE GROS PAR ÉVÉNEMENT' },
+  resellers_pricing_subtitle: { ht:'Fikse pri angwo pou revandè yo. Plis yo achte, mwens yo peye pa tikè. Revandè peye davans — pa gen dèt.', en:'Set bulk prices for resellers. The more they buy, the less they pay per ticket. Resellers pay upfront — no debt.', fr:"Fixez les prix de gros pour les vendeurs. Plus ils achètent, moins ils paient par billet. Les vendeurs paient d'avance — pas de dette." },
+  resellers_online_price: { ht:'Pri online', en:'Online price', fr:'Prix en ligne' },
+  resellers_available: { ht:'disponib pou revandè', en:'available for resellers', fr:'disponible pour les vendeurs' },
+  resellers_qty: { ht:'Kantite', en:'Quantity', fr:'Quantité' },
+  resellers_price_per: { ht:'Pri Angwo pa Tikè', en:'Bulk Price per Ticket', fr:'Prix de gros par billet' },
+  resellers_example: { ht:'Egzanp Total', en:'Example Total', fr:'Exemple de total' },
+  resellers_edit_price: { ht:'Modifye pri pou seksyon sa a', en:'Edit price for this section', fr:'Modifier le prix pour cette section' },
+  resellers_prepaid_note: { ht:'Revandè peye davans. Lajan an ale dirèkteman nan kont ou lè yo achte tikè. Pa gen dèt, pa gen kouri dèyè lajan.', en:'Resellers pay upfront. Money goes directly to your account when they buy tickets. No debt, no chasing payments.', fr:"Les vendeurs paient d'avance. L'argent va directement sur votre compte quand ils achètent des billets. Pas de dette, pas de relance." },
+  resellers_invite_title: { ht:'ENVITE YON NOUVO REVANDÈ', en:'INVITE A NEW RESELLER', fr:'INVITER UN NOUVEAU VENDEUR' },
+  resellers_invite_subtitle: { ht:'Revandè a ap resevwa yon lyen WhatsApp pou kreye kont li. Apre sa li ka achte tikè angwo.', en:'The reseller will receive a WhatsApp link to create their account. Then they can buy tickets in bulk.', fr:'Le vendeur recevra un lien WhatsApp pour créer son compte. Ensuite, il pourra acheter des billets en gros.' },
+  resellers_send_invite: { ht:'Voye Envitasyon WhatsApp', en:'Send WhatsApp Invitation', fr:'Envoyer une invitation WhatsApp' },
+  resellers_bought: { ht:'Achte', en:'Bought', fr:'Acheté' },
+  resellers_paid: { ht:'Peye', en:'Paid', fr:'Payé' },
+  resellers_paid_upfront: { ht:'Peye Davans', en:'Paid Upfront', fr:"Payé d'avance" },
+  resellers_since: { ht:'Depi', en:'Since', fr:'Depuis' },
+  resellers_purchase_date: { ht:'Dat Acha', en:'Purchase Date', fr:"Date d'achat" },
+  resellers_done: { ht:'Fini', en:'Done', fr:'Terminé' },
 
 } as const;
 

@@ -63,7 +63,7 @@ type Tab = 'sell' | 'buy' | 'inventory' | 'sales';
 
 /* ══════════════════════════════════════════════════════════════════ */
 
-export default function VendorDashboardPage() {
+export default function ResellerDashboardPage() {
   const router = useRouter();
   const { t, locale } = useT();
   const L = (ht: string, en: string, fr: string) =>
@@ -145,7 +145,7 @@ export default function VendorDashboardPage() {
           <div className="w-px h-5 bg-border" />
           <span className="font-heading text-lg tracking-wide flex-1">TI JAK BOUTIK</span>
           <LangSwitcher />
-          <span className="text-[10px] text-purple font-bold bg-purple-dim px-2 py-0.5 rounded">🏪 {L('VANDÈ','VENDOR','VENDEUR')}</span>
+          <span className="text-[10px] text-purple font-bold bg-purple-dim px-2 py-0.5 rounded">🏪 {L('REVANDÈ','RESELLER','VENDEUR')}</span>
           <button onClick={() => router.back()} className="text-gray-muted hover:text-red text-sm ml-2">🚪</button>
         </div>
       </nav>

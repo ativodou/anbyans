@@ -538,7 +538,7 @@ export const KNOWN_VENUES: EventVenue[] = [
   { name: 'Zenith Paris', address: '211 Avenue Jean Jaures, Paris', city: 'Paris', country: 'France', gps: { lat: 48.8935, lng: 2.3935 }, capacity: 6300 },
 ];
 // ═══════════════════════════════════════════════════════════════════
-// VENDOR MANAGEMENT
+// RESELLER MANAGEMENT
 // ═══════════════════════════════════════════════════════════════════
 
 export interface BulkTier {
@@ -547,7 +547,7 @@ export interface BulkTier {
   priceEach: number;
 }
 
-export interface VendorSectionPricing {
+export interface ResellerSectionPricing {
   section: string;
   sectionColor: string;
   onlinePrice: number;
@@ -555,7 +555,7 @@ export interface VendorSectionPricing {
   available: number;
 }
 
-export interface VendorPurchase {
+export interface ResellerPurchase {
   id?: string;
   eventId: string;
   eventName: string;
@@ -574,7 +574,7 @@ export interface VendorPurchase {
 
 export interface VendorData {
   id?: string;
-  uid?: string;           // Firebase Auth UID (set when vendor accepts invite)
+  uid?: string;           // Firebase Auth UID (set when reseller accepts invite)
   organizerId: string;    // which organizer invited them
   name: string;
   contact: string;
@@ -589,9 +589,9 @@ export interface VendorData {
   updatedAt: any;
 }
 
-// ─── Create / Invite Vendor ──────────────────────────────────────
+// ─── Create / Invite Reseller ──────────────────────────────────────
 
-export async function inviteVendor(data: {
+export async function inviteReseller(data: {
   organizerId: string;
   name: string;
   contact: string;
@@ -610,10 +610,10 @@ export async function inviteVendor(data: {
     updatedAt: serverTimestamp(),
   };
   const ref = await addDoc(collection(db, 'vendors'), vendorDoc);
-  return { id: ref.id, ...vendorDoc };
+  return { id: ref.id, ...resellerDoc };
 }
 
-// ─── Get Vendors by Organizer ────────────────────────────────────
+// ─── Get Resellers by Organizer ────────────────────────────────────
 
 export async function getOrganizerVendors(organizerId: string): Promise<VendorData[]> {
   const q = query(
@@ -624,7 +624,7 @@ export async function getOrganizerVendors(organizerId: string): Promise<VendorDa
   return snap.docs.map(d => ({ id: d.id, ...d.data() } as VendorData));
 }
 
-// ─── Get Vendor Purchases ────────────────────────────────────────
+// ─── Get Reseller Purchases ────────────────────────────────────────
 
 export async function getVendorPurchases(vendorId: string): Promise<VendorPurchase[]> {
   const q = query(
@@ -633,10 +633,10 @@ export async function getVendorPurchases(vendorId: string): Promise<VendorPurcha
     orderBy('createdAt', 'desc')
   );
   const snap = await getDocs(q);
-  return snap.docs.map(d => ({ id: d.id, ...d.data() } as VendorPurchase));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as ResellerPurchase));
 }
 
-// ─── Get All Vendor Purchases for an Organizer ───────────────────
+// ─── Get All Reseller Purchases for an Organizer ───────────────────
 
 export async function getOrganizerVendorPurchases(organizerId: string): Promise<(VendorPurchase & { vendorId: string; vendorName: string })[]> {
   const q = query(
@@ -648,7 +648,7 @@ export async function getOrganizerVendorPurchases(organizerId: string): Promise<
   return snap.docs.map(d => ({ id: d.id, ...d.data() } as VendorPurchase & { vendorId: string; vendorName: string }));
 }
 
-// ─── Bulk Purchase (vendor buys tickets upfront) ─────────────────
+// ─── Bulk Purchase (reseller buys tickets upfront) ─────────────────
 
 export async function vendorBulkPurchase(params: {
   vendorId: string;
@@ -662,7 +662,7 @@ export async function vendorBulkPurchase(params: {
   sectionColor: string;
   qty: number;
   priceEach: number;
-}): Promise<VendorPurchase> {
+}): Promise<ResellerPurchase> {
   const totalPaid = params.qty * params.priceEach;
   const now = new Date();
   const purchaseDate = `${now.getDate()} ${['Jan','Fev','Mas','Avr','Me','Jen','Jiy','Out','Sep','Okt','Nov','Des'][now.getMonth()]}`;
@@ -673,7 +673,7 @@ export async function vendorBulkPurchase(params: {
     ticketCodes.push(generateTicketCode());
   }
 
-  // Save vendor tickets to event's tickets subcollection
+  // Save reseller tickets to event's tickets subcollection
   for (const code of ticketCodes) {
     const qrData = `ANB:${params.eventId}:${code}:${Date.now().toString(36)}`;
     await addDoc(collection(db, 'events', params.eventId, 'tickets'), {
@@ -733,7 +733,7 @@ export async function vendorBulkPurchase(params: {
   return { id: ref.id, ...purchaseDoc };
 }
 
-// ─── Update Vendor Status ────────────────────────────────────────
+// ─── Update Reseller Status ────────────────────────────────────────
 
 export async function updateVendorStatus(vendorId: string, status: 'active' | 'inactive' | 'pending') {
   await updateDoc(doc(db, 'vendors', vendorId), {
@@ -742,7 +742,7 @@ export async function updateVendorStatus(vendorId: string, status: 'active' | 'i
   });
 }
 
-// ─── Accept Vendor Invite (vendor side) ─────────────────────────
+// ─── Accept Reseller Invite (reseller side) ─────────────────────────
 
 export async function acceptVendorInvite(token: string, uid: string): Promise<VendorData | null> {
   const q = query(
@@ -752,10 +752,10 @@ export async function acceptVendorInvite(token: string, uid: string): Promise<Ve
   );
   const snap = await getDocs(q);
   if (snap.empty) return null;
-  const vendorDoc = snap.docs[0];
+  const resellerDoc = snap.docs[0];
   const now = new Date();
   const joinedDate = `${now.getDate()} ${['Jan','Fev','Mas','Avr','Me','Jen','Jiy','Out','Sep','Okt','Nov','Des'][now.getMonth()]} ${now.getFullYear()}`;
-  await updateDoc(vendorDoc.ref, {
+  await updateDoc(resellerDoc.ref, {
     uid,
     status: 'active',
     joinedDate,
@@ -766,7 +766,7 @@ export async function acceptVendorInvite(token: string, uid: string): Promise<Ve
 
 // ─── Get Bulk Pricing for an Event (from event sections) ─────────
 
-export async function getEventBulkPricing(eventId: string): Promise<VendorSectionPricing[]> {
+export async function getEventBulkPricing(eventId: string): Promise<ResellerSectionPricing[]> {
   const event = await getEvent(eventId);
   if (!event) return [];
   return event.sections.map(s => ({
@@ -794,7 +794,7 @@ export async function saveEventBulkTiers(
   );
   await updateDoc(eventRef, { sections, updatedAt: serverTimestamp() });
 }
-// ─── Get Vendor by Firebase Auth UID ────────────────────────────
+// ─── Get Reseller by Firebase Auth UID ────────────────────────────
 
 export async function getVendorByUid(uid: string): Promise<VendorData | null> {
   const q = query(collection(db, 'vendors'), where('uid', '==', uid), limit(1));
@@ -803,8 +803,8 @@ export async function getVendorByUid(uid: string): Promise<VendorData | null> {
   return { id: snap.docs[0].id, ...snap.docs[0].data() } as VendorData;
 }
 
-// ─── Vendor Sells a Ticket to a Customer ────────────────────────
-// Assigns the next available ticket from vendor's pool to a real buyer
+// ─── Reseller Sells a Ticket to a Customer ────────────────────────
+// Assigns the next available ticket from reseller's pool to a real buyer
 
 export async function vendorSellTicket(params: {
   purchaseId: string;
@@ -817,7 +817,7 @@ export async function vendorSellTicket(params: {
   const purchaseSnap = await getDoc(purchaseRef);
   if (!purchaseSnap.exists()) throw new Error('Purchase not found');
 
-  const purchase = purchaseSnap.data() as VendorPurchase;
+  const purchase = purchaseSnap.data() as ResellerPurchase;
   const available = purchase.qty - purchase.sold;
   if (params.qty > available) throw new Error('Not enough tickets');
 

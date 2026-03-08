@@ -54,9 +54,9 @@ function VendorJoinInner() {
     setSubmitting(true);
     try {
       const cleanPhone = phone.replace(/[^0-9]/g, '');
-      const email = `${cleanPhone}@vendor.anbyans.events`;
+      const email = `${cleanPhone}@reseller.anbyans.events`;
       const cred = await createUserWithEmailAndPassword(auth, email, pin);
-      await updateDoc(doc(db, 'vendors', invite.id), {
+      await updateDoc(doc(db, 'resellers', invite.id), {
         uid: cred.user.uid,
         name: name.trim(),
         phone: phone.trim(),
@@ -111,8 +111,8 @@ function VendorJoinInner() {
         <div className="w-full max-w-[420px]">
           <div className="text-center mb-8">
             <div className="text-5xl mb-3">🏪</div>
-            <h1 className="font-heading text-3xl tracking-wide mb-1">{L('KREYE KOT VANDE', 'CREATE VENDOR ACCOUNT', 'CREER UN COMPTE VENDEUR')}</h1>
-            <p className="text-xs text-gray-light">{L('Ou te envite kom vande sou Anbyans.', 'You were invited as a vendor on Anbyans.', 'Vous avez ete invite comme vendeur sur Anbyans.')}</p>
+            <h1 className="font-heading text-3xl tracking-wide mb-1">{L('KREYE KOT VANDE', 'CREATE RESELLER ACCOUNT', 'CREER UN COMPTE VENDEUR')}</h1>
+            <p className="text-xs text-gray-light">{L('Ou te envite kom vande sou Anbyans.', 'You were invited as a reseller on Anbyans.', 'Vous avez ete invite comme vendeur sur Anbyans.')}</p>
           </div>
           <div className="bg-dark-card border border-border rounded-2xl p-6 space-y-4">
             <div>
@@ -142,9 +142,9 @@ function VendorJoinInner() {
             {error && <p className="text-[11px] text-red">{error}</p>}
             <button onClick={handleSubmit} disabled={submitting}
               className={`w-full py-3 rounded-[10px] font-bold text-sm transition-all ${submitting ? 'bg-white/[0.04] text-gray-muted cursor-not-allowed' : 'bg-cyan text-dark hover:bg-white'}`}>
-              {submitting ? L('Ap kreye kot...', 'Creating account...', 'Creation du compte...') : L('Aktive Kot Vande', 'Activate Vendor Account', 'Activer le compte vendeur')}
+              {submitting ? L('Ap kreye kot...', 'Creating account...', 'Creation du compte...') : L('Aktive Kot Vande', 'Activate Reseller Account', 'Activer le compte vendeur')}
             </button>
-            <p className="text-[10px] text-gray-muted text-center">{L('PIN ou se modpas ou pou antre nan dashboard ou.', 'Your PIN is your password to access your vendor dashboard.', 'Votre PIN est votre mot de passe pour votre tableau de bord.')}</p>
+            <p className="text-[10px] text-gray-muted text-center">{L('PIN ou se modpas ou pou antre nan dashboard ou.', 'Your PIN is your password to access your reseller dashboard.', 'Votre PIN est votre mot de passe pour votre tableau de bord.')}</p>
           </div>
         </div>
       </div>

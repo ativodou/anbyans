@@ -12,7 +12,7 @@ import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from './firebase';
 
 // ─── Types ───────────────────────────────────────────────────────
-export type UserRole = 'fan' | 'organizer' | 'vendor' | 'admin';
+export type UserRole = 'fan' | 'organizer' | 'reseller' | 'admin';
 
 export interface UserProfile {
   uid: string;

@@ -6,7 +6,7 @@ import { useT } from '@/i18n';
 import { signUp, signIn, signInWithGoogle } from '@/lib/auth';
 import { useAuth } from '@/hooks/useAuth';
 
-export default function VendorAuth() {
+export default function ResellerAuth() {
   const router = useRouter();
   const { locale } = useT();
   const { user } = useAuth();
@@ -71,7 +71,7 @@ export default function VendorAuth() {
     try {
       await signUp(regEmail, regPass, {
         firstName, lastName, phone, city, state: state_, country,
-        role: 'vendor', businessName, payoutMethod, payoutDetails,
+        role: 'reseller', businessName, payoutMethod, payoutDetails,
       });
       setStep(3);
     } catch (err: any) {
@@ -84,7 +84,7 @@ export default function VendorAuth() {
   async function handleGoogleSignIn() {
     setError(''); setGoogleLoading(true);
     try {
-      await signInWithGoogle('vendor');
+      await signInWithGoogle('reseller');
       router.push('/vendor/dashboard');
     } catch (err: any) {
       if (err.code !== 'auth/popup-closed-by-user') setError(err.message);
@@ -100,7 +100,7 @@ export default function VendorAuth() {
         <div style={{ textAlign: 'center', maxWidth: 400 }}>
           <div style={{ fontSize: 64, marginBottom: 16 }}>&#x1F3EA;</div>
           <h1 style={{ color: '#fff', fontSize: 28, marginBottom: 8 }}>
-            {L('Byenveni, Vande!', 'Welcome, Vendor!', 'Bienvenue, Vendeur!')}
+            {L('Byenveni, Vande!', 'Welcome, Reseller!', 'Bienvenue, Vendeur!')}
           </h1>
           <p style={{ color: '#aaa', marginBottom: 32 }}>
             {L('Kont ou pare. Ale vann tike!', 'Account ready. Go sell tickets!', 'Compte pret. Vendez des billets!')}
@@ -118,7 +118,7 @@ export default function VendorAuth() {
       <div style={{ width: '100%', maxWidth: 460, background: '#12121a', border: '1px solid #1e1e2e', borderRadius: 16, padding: 32 }}>
         <div style={{ textAlign: 'center', marginBottom: 24 }}>
           <h2 style={{ color: '#a855f7', fontSize: 22, fontWeight: 800 }}>ANBYANS</h2>
-          <p style={{ color: '#666', fontSize: 13 }}>{L('Potay Vande', 'Vendor Portal', 'Portail Vendeur')}</p>
+          <p style={{ color: '#666', fontSize: 13 }}>{L('Potay Vande', 'Reseller Portal', 'Portail Vendeur')}</p>
         </div>
 
         <div style={{ display: 'flex', marginBottom: 24, borderRadius: 8, overflow: 'hidden', border: '1px solid #1e1e2e' }}>
@@ -275,7 +275,7 @@ export default function VendorAuth() {
             </div>
             <button type="submit" disabled={loading}
               style={{ width: '100%', padding: 14, borderRadius: 8, border: 'none', background: '#a855f7', color: '#fff', fontSize: 15, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.6 : 1 }}>
-              {loading ? L('Ap kreye...', 'Creating...', 'Creation...') : L('Kreye Kont Vande', 'Create Vendor Account', 'Creer un compte vendeur')}
+              {loading ? L('Ap kreye...', 'Creating...', 'Creation...') : L('Kreye Kont Vande', 'Create Reseller Account', 'Creer un compte vendeur')}
             </button>
           </form>
         )}

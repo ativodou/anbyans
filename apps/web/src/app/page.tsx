@@ -174,7 +174,7 @@ if (combined.length < 10) {
               <h3 className="font-heading text-xl tracking-wide mb-3">{t('landing_org_heading')}</h3>
               <div className="space-y-2.5">{ORG_KEYS.map(k => <p key={k} className="text-xs text-gray-light">{t(k)}</p>)}</div>
             </div>
-            {/* Vendor */}
+            {/* Reseller */}
             <div className="bg-dark-card border border-purple-border rounded-card p-5">
               <div className="flex items-center justify-between mb-4">
                 <span className="px-2.5 py-0.5 rounded-md text-[10px] font-bold border bg-purple-dim text-purple border-purple-border">🏪 {t('landing_vend_badge')}</span>

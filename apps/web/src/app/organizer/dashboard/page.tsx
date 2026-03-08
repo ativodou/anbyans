@@ -8,13 +8,13 @@ import { useState } from 'react';
    ══════════════════════════════════════════════════════════════════ */
 
 const EVENTS = [
-  { id:1, name:'Kompa Fest 2026', date:'15 Mars', status:'live', sold:842, cap:1200, revenue:22650, emoji:'🎶', vendors:3 },
-  { id:2, name:'DJ Stéphane Live', date:'22 Mars', status:'upcoming', sold:305, cap:500, revenue:10175, emoji:'🎧', vendors:2 },
-  { id:3, name:'Rara Lakay 2026', date:'5 Avr', status:'upcoming', sold:100, cap:2000, revenue:3500, emoji:'🥁', vendors:5 },
-  { id:4, name:'Gala Solidarite 2025', date:'12 Nov', status:'past', sold:280, cap:300, revenue:21000, emoji:'✨', vendors:1 },
+  { id:1, name:'Kompa Fest 2026', date:'15 Mars', status:'live', sold:842, cap:1200, revenue:22650, emoji:'🎶', resellers:3 },
+  { id:2, name:'DJ Stéphane Live', date:'22 Mars', status:'upcoming', sold:305, cap:500, revenue:10175, emoji:'🎧', resellers:2 },
+  { id:3, name:'Rara Lakay 2026', date:'5 Avr', status:'upcoming', sold:100, cap:2000, revenue:3500, emoji:'🥁', resellers:5 },
+  { id:4, name:'Gala Solidarite 2025', date:'12 Nov', status:'past', sold:280, cap:300, revenue:21000, emoji:'✨', resellers:1 },
 ];
 
-const VENDORS = [
+const RESELLERS = [
   { id:1, name:'Ti Jak Boutik', contact:'Jean-Marc Pierre', phone:'+509 3412 1111', city:'Pétion-Ville', events:2, assigned:80, sold:52, owed:780, status:'active' },
   { id:2, name:'Farmasi Lespwa', contact:'Marie Julien', phone:'+509 3412 2222', city:'Pòtoprens', events:1, assigned:50, sold:35, owed:525, status:'active' },
   { id:3, name:'Babo Barbershop', contact:'Roberto Charles', phone:'+509 3412 3333', city:'Delmas', events:2, assigned:60, sold:60, owed:0, status:'settled' },
@@ -23,19 +23,19 @@ const VENDORS = [
 ];
 
 const RECENT_SALES = [
-  { time:'2 min', vendor:'Ti Jak Boutik', event:'Kompa Fest 2026', qty:2, section:'VIP', amount:150 },
-  { time:'8 min', vendor:'Online', event:'Kompa Fest 2026', qty:1, section:'GA', amount:15 },
-  { time:'15 min', vendor:'Quick Stop PV', event:'DJ Stéphane Live', qty:3, section:'GA', amount:75 },
-  { time:'22 min', vendor:'Online', event:'Kompa Fest 2026', qty:2, section:'VVIP', amount:300 },
-  { time:'35 min', vendor:'Farmasi Lespwa', event:'Rara Lakay 2026', qty:4, section:'GA', amount:40 },
+  { time:'2 min', reseller:'Ti Jak Boutik', event:'Kompa Fest 2026', qty:2, section:'VIP', amount:150 },
+  { time:'8 min', reseller:'Online', event:'Kompa Fest 2026', qty:1, section:'GA', amount:15 },
+  { time:'15 min', reseller:'Quick Stop PV', event:'DJ Stéphane Live', qty:3, section:'GA', amount:75 },
+  { time:'22 min', reseller:'Online', event:'Kompa Fest 2026', qty:2, section:'VVIP', amount:300 },
+  { time:'35 min', reseller:'Farmasi Lespwa', event:'Rara Lakay 2026', qty:4, section:'GA', amount:40 },
 ];
 
-type Tab = 'dashboard' | 'events' | 'vendors' | 'revenue' | 'scanner' | 'settings';
+type Tab = 'dashboard' | 'events' | 'resellers' | 'revenue' | 'scanner' | 'settings';
 
 const NAV_ITEMS: { id: Tab; icon: string; label: string; badge?: number }[] = [
   { id:'dashboard', icon:'📊', label:'Dachbòd' },
   { id:'events', icon:'📅', label:'Evènman', badge:3 },
-  { id:'vendors', icon:'🏪', label:'Vandè', badge:5 },
+  { id:'resellers', icon:'🏪', label:'Revandè', badge:5 },
   { id:'revenue', icon:'💰', label:'Revni' },
   { id:'scanner', icon:'📱', label:'Eskanè' },
   { id:'settings', icon:'⚙️', label:'Paramèt' },
@@ -52,7 +52,7 @@ export default function OrganizerDashboardPage() {
 
   const totalRevenue = EVENTS.reduce((a, e) => a + e.revenue, 0);
   const totalSold = EVENTS.reduce((a, e) => a + e.sold, 0);
-  const totalVendorOwed = VENDORS.reduce((a, v) => a + v.owed, 0);
+  const totalResellerOwed = RESELLERS.reduce((a, v) => a + v.owed, 0);
 
   return (
     <div className="min-h-screen flex bg-dark">
@@ -93,7 +93,7 @@ export default function OrganizerDashboardPage() {
           <h1 className="font-heading text-xl tracking-wide flex-1">
             {tab === 'dashboard' && 'DACHBÒD'}
             {tab === 'events' && 'EVÈNMAN'}
-            {tab === 'vendors' && 'VANDÈ'}
+            {tab === 'resellers' && 'REVANDÈ'}
             {tab === 'revenue' && 'REVNI'}
             {tab === 'scanner' && 'ESKANÈ'}
             {tab === 'settings' && 'PARAMÈT'}
@@ -116,7 +116,7 @@ export default function OrganizerDashboardPage() {
                 { label:'REVNI TOTAL', value:`$${totalRevenue.toLocaleString()}`, change:'+18%', up:true },
                 { label:'TIKÈ VANN', value:totalSold.toLocaleString(), change:'+24%', up:true },
                 { label:'EVÈNMAN AKTIF', value:'3', change:'', up:true },
-                { label:'VANDÈ DWE', value:`$${totalVendorOwed.toLocaleString()}`, change:'', up:false },
+                { label:'REVANDÈ DWE', value:`$${totalResellerOwed.toLocaleString()}`, change:'', up:false },
               ].map((s, i) => (
                 <div key={i} className="bg-dark-card border border-border rounded-card p-4">
                   <p className="text-[10px] text-gray-muted uppercase tracking-widest mb-1.5">{s.label}</p>
@@ -132,9 +132,9 @@ export default function OrganizerDashboardPage() {
                 <span className="text-2xl">📅</span>
                 <div><p className="text-xs font-bold">Kreye Evènman</p><p className="text-[10px] text-gray-light">Kreye yon nouvo evènman ak seksyon tikè</p></div>
               </button>
-              <button onClick={() => { setTab('vendors'); setShowInvite(true); }} className="bg-dark-card border border-border rounded-card p-4 flex items-center gap-3 hover:border-orange-border hover:bg-dark-hover transition-all text-left">
+              <button onClick={() => { setTab('resellers'); setShowInvite(true); }} className="bg-dark-card border border-border rounded-card p-4 flex items-center gap-3 hover:border-orange-border hover:bg-dark-hover transition-all text-left">
                 <span className="text-2xl">🏪</span>
-                <div><p className="text-xs font-bold">Envite Vandè</p><p className="text-[10px] text-gray-light">Ajoute yon nouvo pwen vant fizik</p></div>
+                <div><p className="text-xs font-bold">Envite Revandè</p><p className="text-[10px] text-gray-light">Ajoute yon nouvo pwen vant fizik</p></div>
               </button>
               <Link href="/organizer/scanner" className="bg-dark-card border border-border rounded-card p-4 flex items-center gap-3 hover:border-orange-border hover:bg-dark-hover transition-all">
                 <span className="text-2xl">📱</span>
@@ -142,7 +142,7 @@ export default function OrganizerDashboardPage() {
               </Link>
               <button onClick={() => setTab('revenue')} className="bg-dark-card border border-border rounded-card p-4 flex items-center gap-3 hover:border-orange-border hover:bg-dark-hover transition-all text-left">
                 <span className="text-2xl">📈</span>
-                <div><p className="text-xs font-bold">Wè Rapò</p><p className="text-[10px] text-gray-light">Analiz vant, revni, ak pèfòmans vandè</p></div>
+                <div><p className="text-xs font-bold">Wè Rapò</p><p className="text-[10px] text-gray-light">Analiz vant, revni, ak pèfòmans revandè</p></div>
               </button>
             </div>
 
@@ -160,7 +160,7 @@ export default function OrganizerDashboardPage() {
                       <th className="text-[10px] text-gray-muted uppercase tracking-widest pb-2.5">Dat</th>
                       <th className="text-[10px] text-gray-muted uppercase tracking-widest pb-2.5">Estati</th>
                       <th className="text-[10px] text-gray-muted uppercase tracking-widest pb-2.5">Vant</th>
-                      <th className="text-[10px] text-gray-muted uppercase tracking-widest pb-2.5">Vandè</th>
+                      <th className="text-[10px] text-gray-muted uppercase tracking-widest pb-2.5">Revandè</th>
                       <th className="text-[10px] text-gray-muted uppercase tracking-widest pb-2.5">Revni</th>
                     </tr>
                   </thead>
@@ -184,7 +184,7 @@ export default function OrganizerDashboardPage() {
                               <span className="text-gray-light">{e.sold}/{e.cap}</span>
                             </div>
                           </td>
-                          <td className="text-xs text-gray-light">{e.vendors}</td>
+                          <td className="text-xs text-gray-light">{e.resellers}</td>
                           <td className="text-xs font-bold">${e.revenue.toLocaleString()}</td>
                         </tr>
                       );
@@ -203,7 +203,7 @@ export default function OrganizerDashboardPage() {
                     <span className="text-[10px] text-gray-muted w-12 flex-shrink-0">{s.time}</span>
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-semibold truncate">{s.event}</p>
-                      <p className="text-[10px] text-gray-light">{s.qty}× {s.section} · {s.vendor === 'Online' ? '🌐 Online' : `🏪 ${s.vendor}`}</p>
+                      <p className="text-[10px] text-gray-light">{s.qty}× {s.section} · {s.reseller === 'Online' ? '🌐 Online' : `🏪 ${s.reseller}`}</p>
                     </div>
                     <span className="font-heading text-lg text-green">${s.amount}</span>
                   </div>
@@ -212,20 +212,20 @@ export default function OrganizerDashboardPage() {
             </div>
           </>}
 
-          {/* ═══ VENDORS TAB ═══ */}
-          {tab === 'vendors' && <>
+          {/* ═══ RESELLERS TAB ═══ */}
+          {tab === 'resellers' && <>
             <div className="flex items-center justify-between mb-4">
-              <p className="text-xs text-gray-light">{VENDORS.length} vandè anrejistre</p>
+              <p className="text-xs text-gray-light">{RESELLERS.length} revandè anrejistre</p>
               <button onClick={() => setShowInvite(!showInvite)} className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-orange text-white text-xs font-bold hover:bg-orange/80 transition-all">
-                ➕ Envite Vandè
+                ➕ Envite Revandè
               </button>
             </div>
 
             {/* Invite Form */}
             {showInvite && (
               <div className="bg-dark-card border border-orange-border rounded-card p-5 mb-4">
-                <h3 className="font-heading text-lg tracking-wide mb-3">ENVITE YON NOUVO VANDÈ</h3>
-                <p className="text-xs text-gray-light mb-4">Vandè a ap resevwa yon lyen pou kreye kont li. Apre sa ou ka ba li tikè pou vann.</p>
+                <h3 className="font-heading text-lg tracking-wide mb-3">ENVITE YON NOUVO REVANDÈ</h3>
+                <p className="text-xs text-gray-light mb-4">Revandè a ap resevwa yon lyen pou kreye kont li. Apre sa ou ka ba li tikè pou vann.</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div><label className="block text-[11px] font-semibold text-gray-light mb-1.5">Non Biznis *</label><input className="w-full px-3.5 py-2.5 rounded-[10px] bg-white/[0.04] border border-border text-white text-[13px] outline-none focus:border-orange placeholder:text-gray-muted" placeholder="Ex: Ti Jak Boutik" /></div>
                   <div><label className="block text-[11px] font-semibold text-gray-light mb-1.5">Kontakt *</label><input className="w-full px-3.5 py-2.5 rounded-[10px] bg-white/[0.04] border border-border text-white text-[13px] outline-none focus:border-orange placeholder:text-gray-muted" placeholder="Non moun ki responsab" /></div>
@@ -247,9 +247,9 @@ export default function OrganizerDashboardPage() {
               </div>
             )}
 
-            {/* Vendor Cards */}
+            {/* Reseller Cards */}
             <div className="space-y-3">
-              {VENDORS.map(v => (
+              {RESELLERS.map(v => (
                 <div key={v.id} className="bg-dark-card border border-border rounded-card p-4 hover:border-white/[0.1] transition-all">
                   <div className="flex items-start gap-3">
                     <div className="w-10 h-10 rounded-lg bg-purple-dim border border-purple-border flex items-center justify-center text-lg flex-shrink-0">🏪</div>
@@ -307,7 +307,7 @@ export default function OrganizerDashboardPage() {
                               {e.status === 'live' ? '● AN DIRÈK' : e.status === 'upcoming' ? 'AP VINI' : 'PASE'}
                             </span>
                           </div>
-                          <p className="text-xs text-gray-light mt-0.5">📅 {e.date} · 🏪 {e.vendors} vandè</p>
+                          <p className="text-xs text-gray-light mt-0.5">📅 {e.date} · 🏪 {e.resellers} revandè</p>
                         </div>
                         <div className="text-right flex-shrink-0">
                           <p className="font-heading text-2xl">${e.revenue.toLocaleString()}</p>
@@ -338,19 +338,19 @@ export default function OrganizerDashboardPage() {
                   <p className="text-[10px] text-green mt-1">65% total</p>
                 </div>
                 <div className="bg-dark-card border border-border rounded-card p-4">
-                  <p className="text-[10px] text-gray-muted uppercase tracking-widest mb-1.5">VANT VANDÈ</p>
+                  <p className="text-[10px] text-gray-muted uppercase tracking-widest mb-1.5">VANT REVANDÈ</p>
                   <p className="font-heading text-3xl">${Math.round(totalRevenue * 0.35).toLocaleString()}</p>
                   <p className="text-[10px] text-orange mt-1">35% total</p>
                 </div>
                 <div className="bg-dark-card border border-border rounded-card p-4">
-                  <p className="text-[10px] text-gray-muted uppercase tracking-widest mb-1.5">VANDÈ DWE</p>
-                  <p className="font-heading text-3xl text-orange">${totalVendorOwed.toLocaleString()}</p>
+                  <p className="text-[10px] text-gray-muted uppercase tracking-widest mb-1.5">REVANDÈ DWE</p>
+                  <p className="font-heading text-3xl text-orange">${totalResellerOwed.toLocaleString()}</p>
                 </div>
               </div>
               <div className="bg-dark-card border border-border rounded-card p-5">
-                <h3 className="font-heading text-lg tracking-wide mb-3">BALANS VANDÈ</h3>
+                <h3 className="font-heading text-lg tracking-wide mb-3">BALANS REVANDÈ</h3>
                 <div className="space-y-2.5">
-                  {VENDORS.map(v => (
+                  {RESELLERS.map(v => (
                     <div key={v.id} className="flex items-center gap-3 py-2 border-b border-border last:border-0">
                       <span className="text-base">🏪</span>
                       <p className="text-xs font-semibold flex-1">{v.name}</p>
@@ -500,7 +500,7 @@ export default function OrganizerDashboardPage() {
                   <div><label className="block text-[10px] font-semibold text-gray-muted mb-1">$cashtag</label><input placeholder="$cashtag" className="w-full px-3 py-2 rounded-lg bg-white/[0.04] border border-border text-white text-[12px] outline-none focus:border-orange placeholder:text-gray-muted" /></div>
                 </div>
 
-                <p className="text-[10px] text-gray-muted mt-4 bg-white/[0.02] rounded-lg p-3">💡 Ou ka aktive plizyè metòd peman. Fan yo ap ka chwazi metòd yo prefere lè yo achte tikè. Peman vandè yo ap suiv metòd prensipal ou.</p>
+                <p className="text-[10px] text-gray-muted mt-4 bg-white/[0.02] rounded-lg p-3">💡 Ou ka aktive plizyè metòd peman. Fan yo ap ka chwazi metòd yo prefere lè yo achte tikè. Peman revandè yo ap suiv metòd prensipal ou.</p>
               </div>
 
               {/* Payout Preferences */}

@@ -13,7 +13,7 @@ export default function Navbar() {
   const L = (ht: string, en: string, fr: string) => ({ ht, en, fr }[locale]);
   const [menuOpen, setMenuOpen] = useState(false);
 
-  type Role = 'organizer' | 'vendor' | 'admin' | 'fan';
+  type Role = 'organizer' | 'reseller' | 'admin' | 'fan';
   const role = ((user as { role?: Role })?.role ?? 'fan');
   const displayName = (user as any)?.firstName || user?.email?.split('@')[0] || '';
   const initial = displayName.charAt(0).toUpperCase();
@@ -21,7 +21,7 @@ export default function Navbar() {
   // Role-based accent colors
   const accentMap: Record<string, string> = {
     organizer: '#f97316',
-    vendor: '#a855f7',
+    reseller: '#a855f7',
     admin: '#ef4444',
     fan: '#06b6d4',
   };
@@ -48,7 +48,7 @@ export default function Navbar() {
     );
   }
 
-  if (role === 'vendor') {
+  if (role === 'reseller') {
     links.push(
       { href: '/vendor/dashboard', label: L('Dachbod', 'Dashboard', 'Tableau de bord')! },
     );
@@ -74,7 +74,7 @@ export default function Navbar() {
 
  const roleLabelMap: Record<string, string | undefined> = {
     organizer: L('Promote', 'Organizer', 'Organisateur'),
-    vendor: L('Machann', 'Vendor', 'Vendeur'),
+    reseller: L('Machann', 'Reseller', 'Vendeur'),
     admin: L('Admin', 'Admin', 'Admin'),
     fan: L('Fan', 'Fan', 'Fan'),
   };
@@ -179,7 +179,7 @@ export default function Navbar() {
                         {L('Kreye Evenman', 'Create Event', 'Creer un evenement')}
                       </Link>
                       <Link href="/organizer/vendors" onClick={() => setMenuOpen(false)} style={{ display: 'block', padding: '8px 12px', borderRadius: 6, color: '#ccc', fontSize: 12, textDecoration: 'none' }}>
-                        {L('Jere Vande', 'Manage Vendors', 'Gerer les vendeurs')}
+                        {L('Jere Vande', 'Manage Resellers', 'Gerer les vendeurs')}
                       </Link>
                       <Link href="/organizer/scanner" onClick={() => setMenuOpen(false)} style={{ display: 'block', padding: '8px 12px', borderRadius: 6, color: '#ccc', fontSize: 12, textDecoration: 'none' }}>
                         {L('Eskane Tike', 'Scan Tickets', 'Scanner les billets')}
@@ -187,12 +187,12 @@ export default function Navbar() {
                     </>
                   )}
 
-                  {/* Vendor links */}
-                  {role === 'vendor' && (
+                  {/* Reseller links */}
+                  {role === 'reseller' && (
                     <>
                       <div style={{ borderTop: '1px solid #1e1e2e', margin: '4px 0' }} />
                       <div style={{ padding: '4px 12px', color: '#555', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 }}>
-                        {L('Machann', 'Vendor', 'Vendeur')}
+                        {L('Machann', 'Reseller', 'Vendeur')}
                       </div>
                       <Link href="/vendor/dashboard" onClick={() => setMenuOpen(false)} style={{ display: 'block', padding: '8px 12px', borderRadius: 6, color: '#ccc', fontSize: 12, textDecoration: 'none' }}>
                         {L('Dachbod', 'Dashboard', 'Tableau de bord')}
