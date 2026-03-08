@@ -1,4 +1,5 @@
 'use client';
+import QRCode from '@/components/QRCode';
 
 import Link from 'next/link';
 import { useState, useEffect, useCallback } from 'react';
@@ -199,14 +200,7 @@ export default function BuyTicketPage() {
             </div>
             <p className="text-xs text-gray-light">{L('Plas', 'Seats', 'Places')}: {seats.join(', ')} ({purchasedTickets.length} {purchasedTickets.length === 1 ? L('tikè', 'ticket', 'billet') : L('tikè', 'tickets', 'billets')})</p>
             <div className="mt-4 mb-2 flex justify-center">
-              <div className="grid grid-cols-[repeat(13,1fr)] gap-px w-[156px] h-[156px]" key={qrKey}>
-                {Array.from({ length: 169 }).map((_, i) => {
-                  const edge = i < 13 || i >= 156 || i % 13 === 0 || i % 13 === 12;
-                  const corner = (i < 39 && i % 13 < 3) || (i < 39 && i % 13 >= 10) || (i >= 130 && i < 156 && i % 13 < 3);
-                  const black = corner || edge || Math.random() > 0.55;
-                  return <div key={i} className={`${black ? 'bg-white' : 'bg-transparent'}`} />;
-                })}
-              </div>
+              <QRCode key={qrKey} data={`${ticket.qrData}:${qrKey}`} size={156} />
             </div>
             <p className="text-[10px] text-gray-muted">{L('QR kòd ap chanje chak', 'QR code changes every', 'Le QR code change toutes les')} {qrCountdown}s</p>
             <p className="text-xs font-bold mt-3">Ref: {ticket.ticketCode}</p>
