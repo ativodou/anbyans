@@ -2,9 +2,13 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useT } from '@/i18n';
 import LangSwitcher from '@/components/LangSwitcher';
+import { auth } from '@/lib/firebase';
+import { getVendorPurchases, VendorPurchase, getOrganizerVendors } from '@/lib/db';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 /* ══════════════════════════════════════════════════════════════════ */
 
@@ -45,11 +49,7 @@ const AVAILABLE_EVENTS: AvailableEvent[] = [
   ]},
 ];
 
-const OWNED: OwnedStock[] = [
-  { eventId:1, eventName:'Kompa Fest 2026', eventEmoji:'🎶', eventDate:{ht:'15 Mars',en:'Mar 15',fr:'15 mars'}, section:'VIP', sectionColor:'#FF6B35', qty:30, costEach:55, totalCost:1650, sold:22, purchaseDate:{ht:'10 Fev',en:'Feb 10',fr:'10 fév'} },
-  { eventId:1, eventName:'Kompa Fest 2026', eventEmoji:'🎶', eventDate:{ht:'15 Mars',en:'Mar 15',fr:'15 mars'}, section:'GA', sectionColor:'#00D4FF', qty:50, costEach:10, totalCost:500, sold:38, purchaseDate:{ht:'10 Fev',en:'Feb 10',fr:'10 fév'} },
-  { eventId:2, eventName:'DJ Stéphane Live', eventEmoji:'🎧', eventDate:{ht:'22 Mars',en:'Mar 22',fr:'22 mars'}, section:'GA', sectionColor:'#00D4FF', qty:30, costEach:20, totalCost:600, sold:8, purchaseDate:{ht:'15 Fev',en:'Feb 15',fr:'15 fév'} },
-];
+
 
 const RECENT_SALES = [
   { time:'5 min', event:'Kompa Fest 2026', section:'VIP', sectionColor:'#FF6B35', qty:1, sellPrice:75, costPrice:55, buyer:'Marie J.', phone:'+509 3412 8888' },
@@ -70,6 +70,23 @@ export default function VendorDashboardPage() {
     ({ ht, en, fr } as Record<typeof locale, string>)[locale];
   const byLocale = (value: LocalizedText) => value[locale as keyof LocalizedText];
   const [tab, setTab] = useState<Tab>('sell');
+  const [owned, setOwned] = useState<VendorPurchase[]>([]);
+  const [loadingData, setLoadingData] = useState(true);
+
+  useEffect(() => {
+    const user = auth.currentUser;
+    if (!user) return;
+    // Find vendor doc by uid
+    const q = query(collection(db, 'vendors'), where('uid', '==', user.uid));
+    getDocs(q).then(snap => {
+      if (snap.empty) { setLoadingData(false); return; }
+      const vendorId = snap.docs[0].id;
+      getVendorPurchases(vendorId).then(purchases => {
+        setOwned(purchases);
+        setLoadingData(false);
+      });
+    });
+  }, []);
 
   // Sell state
   const [sellStock, setSellStock] = useState(0);
@@ -88,20 +105,20 @@ export default function VendorDashboardPage() {
   const [buyComplete, setBuyComplete] = useState(false);
 
   // Calculations
-  const totalInvested = OWNED.reduce((a, b) => a + b.totalCost, 0);
-  const totalStock = OWNED.reduce((a, b) => a + b.qty, 0);
-  const totalSold = OWNED.reduce((a, b) => a + b.sold, 0);
+  const totalInvested = owned.reduce((a, b) => a + b.totalPaid, 0);
+  const totalStock = owned.reduce((a, b) => a + b.qty, 0);
+  const totalSold = owned.reduce((a, b) => a + b.sold, 0);
   const totalRemaining = totalStock - totalSold;
   const totalSalesRevenue = RECENT_SALES.reduce((a, s) => a + s.qty * s.sellPrice, 0);
   const totalSalesCost = RECENT_SALES.reduce((a, s) => a + s.qty * s.costPrice, 0);
   const totalProfit = totalSalesRevenue - totalSalesCost;
 
-  const currentStock = OWNED[sellStock];
+  const currentStock = owned[sellStock];
   const remaining = currentStock ? currentStock.qty - currentStock.sold : 0;
-  const suggestedPrice = currentStock ? Math.round(currentStock.costEach * 1.2) : 0;
+  const suggestedPrice = currentStock ? Math.round(currentStock.priceEach * 1.2) : 0;
   const actualSellPrice = Number(sellPrice) || suggestedPrice;
   const saleTotal = sellQty * actualSellPrice;
-  const saleProfit = sellQty * (actualSellPrice - (currentStock?.costEach || 0));
+  const saleProfit = sellQty * (actualSellPrice - (currentStock?.priceEach || 0));
 
   // Buy calculations
   const selectedEvent = AVAILABLE_EVENTS[buyEvent];
@@ -193,7 +210,7 @@ export default function VendorDashboardPage() {
                 <div>
                   <label className="block text-[11px] font-semibold text-gray-light mb-1.5">{t('vend_sell_select')} *</label>
                   <div className="space-y-2">
-                    {OWNED.map((s, i) => {
+                    {owned.map((s, i) => {
                       const rem = s.qty - s.sold;
                       if (rem <= 0) return null;
                       return (
@@ -206,12 +223,12 @@ export default function VendorDashboardPage() {
                             <span className="text-2xl">{s.eventEmoji}</span>
                             <div>
                               <p className="text-xs font-bold">{s.eventName}</p>
-                              <p className="text-[10px] text-gray-muted">📅 {byLocale(s.eventDate)} · <span style={{color:s.sectionColor}}>{s.section}</span></p>
+                              <p className="text-[10px] text-gray-muted">📅 {s.eventDate} · <span style={{color:s.sectionColor}}>{s.section}</span></p>
                             </div>
                           </div>
                           <div className="text-right">
                             <p className="text-xs font-bold">{rem} {t('vend_sell_remaining')}</p>
-                            <p className="text-[9px] text-gray-muted">{t('vend_sell_cost')}: ${s.costEach}/{L('tikè','ticket','billet')}</p>
+                            <p className="text-[9px] text-gray-muted">{t('vend_sell_cost')}: ${s.priceEach}/{L('tikè','ticket','billet')}</p>
                           </div>
                         </button>
                       );
@@ -233,7 +250,7 @@ export default function VendorDashboardPage() {
                     <label className="block text-[11px] font-semibold text-gray-light mb-1.5">{t('vend_sell_price')}</label>
                     <input type="number" value={sellPrice} onChange={e => setSellPrice(e.target.value)} placeholder={`Ex: ${suggestedPrice}`}
                       className="w-full px-3.5 py-3 rounded-[10px] bg-white/[0.04] border border-border text-white text-lg font-heading outline-none focus:border-purple placeholder:text-gray-muted" />
-                    <p className="text-[9px] text-gray-muted mt-1">{L('Ou te peye','You paid','Vous avez payé')} ${currentStock?.costEach}/{L('tikè','ticket','billet')} · {L('Pri online','Online price','Prix en ligne')}: ${OWNED[sellStock]?.eventId === 1 && OWNED[sellStock]?.section === 'VIP' ? '75' : OWNED[sellStock]?.section === 'GA' ? '15–25' : '—'}</p>
+                    <p className="text-[9px] text-gray-muted mt-1">{L('Ou te peye','You paid','Vous avez payé')} ${currentStock?.priceEach}/{L('tikè','ticket','billet')} · {L('Pri online','Online price','Prix en ligne')}: ${owned[sellStock]?.eventId === '1' && owned[sellStock]?.section === 'VIP' ? '75' : owned[sellStock]?.section === 'GA' ? '15–25' : '—'}</p>
                   </div>
                 </div>
 
@@ -441,7 +458,7 @@ export default function VendorDashboardPage() {
             </div>
 
             <div className="space-y-3">
-              {OWNED.map((s, i) => {
+              {owned.map((s, i) => {
                 const rem = s.qty - s.sold;
                 const pct = s.qty > 0 ? Math.round((s.sold / s.qty) * 100) : 0;
                 return (
@@ -451,7 +468,7 @@ export default function VendorDashboardPage() {
                         <span className="text-2xl">{s.eventEmoji}</span>
                         <div>
                           <p className="text-xs font-bold">{s.eventName}</p>
-                          <p className="text-[10px] text-gray-muted">📅 {byLocale(s.eventDate)} · {L('Achte','Bought','Acheté')} {byLocale(s.purchaseDate)}</p>
+                          <p className="text-[10px] text-gray-muted">📅 {s.eventDate} · {L('Achte','Bought','Acheté')} {s.purchaseDate}</p>
                         </div>
                       </div>
                       <span className="px-2 py-0.5 rounded text-[9px] font-bold border" style={{color:s.sectionColor, borderColor:s.sectionColor, background:s.sectionColor+'15'}}>{s.section}</span>
@@ -460,8 +477,8 @@ export default function VendorDashboardPage() {
                       <div><p className="text-[9px] text-gray-muted">{L('Achte','Bought','Acheté')}</p><p className="text-sm font-bold">{s.qty}</p></div>
                       <div><p className="text-[9px] text-gray-muted">{t('sold')}</p><p className="text-sm font-bold text-green">{s.sold}</p></div>
                       <div><p className="text-[9px] text-gray-muted">{t('remaining')}</p><p className={`text-sm font-bold ${rem <= 5 && rem > 0 ? 'text-orange' : ''}`}>{rem}{rem <= 5 && rem > 0 ? ' ⚠️' : ''}</p></div>
-                      <div><p className="text-[9px] text-gray-muted">{t('vend_sell_cost')}</p><p className="text-sm font-bold">${s.costEach}</p></div>
-                      <div><p className="text-[9px] text-gray-muted">{t('vend_inv_invested')}</p><p className="text-sm font-bold">${s.totalCost}</p></div>
+                      <div><p className="text-[9px] text-gray-muted">{t('vend_sell_cost')}</p><p className="text-sm font-bold">${s.priceEach}</p></div>
+                      <div><p className="text-[9px] text-gray-muted">{t('vend_inv_invested')}</p><p className="text-sm font-bold">${s.totalPaid}</p></div>
                     </div>
                     <div className="w-full h-1.5 bg-white/[0.06] rounded-full overflow-hidden mt-2.5"><div className="h-full bg-purple rounded-full" style={{width:`${pct}%`}} /></div>
                     <p className="text-[9px] text-gray-muted text-right mt-1">{pct}% {L('vann','sold','vendu')}</p>
