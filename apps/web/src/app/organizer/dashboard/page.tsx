@@ -189,7 +189,21 @@ export default function OrganizerDashboardPage() {
                       const pct = Math.round((e.sold / e.cap) * 100);
                       return (
                         <tr key={e.id} className="border-b border-border hover:bg-white/[0.015] cursor-pointer">
-                          <td className="py-3 pl-3"><span className="mr-2">{e.emoji}</span><span className="text-xs font-semibold">{e.name}</span></td>
+                          <td className="py-3 pl-3">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="mr-1">{e.emoji}</span>
+                              <span className="text-xs font-semibold">{e.name}</span>
+                              {e.isPrivate && (
+                                <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-orange/20 text-orange border border-orange/30">🔒 PRIVE</span>
+                              )}
+                              {e.isPrivate && e.privateToken && (
+                                <button onClick={ev => { ev.stopPropagation(); navigator.clipboard.writeText(`${window.location.origin}/e/${e.privateToken}`); }}
+                                  className="px-1.5 py-0.5 rounded text-[8px] font-bold border border-border text-gray-light hover:text-white hover:border-white/30 transition-all">
+                                  📋
+                                </button>
+                              )}
+                            </div>
+                          </td>
                           <td className="text-xs text-gray-light">{e.date}</td>
                           <td>
                             <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${
