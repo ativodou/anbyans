@@ -610,7 +610,7 @@ export async function inviteVendor(data: {
     updatedAt: serverTimestamp(),
   };
   const ref = await addDoc(collection(db, 'vendors'), vendorDoc);
-  return { id: ref.id, ...resellerDoc };
+  return { id: ref.id, ...vendorDoc };
 }
 
 // ─── Get Resellers by Organizer ────────────────────────────────────
