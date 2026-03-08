@@ -2,7 +2,11 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useAuth } from '@/hooks/useAuth';
+import { getOrganizerEvents, type EventData } from '@/lib/db';
+
+const EMOJIS = ['🎶','🎧','🥁','🎺','🎭','🎷','🎵','🎤','🪘','🎹'];
 
 /* ══════════════════════════════════════════════════════════════════
    DATA
@@ -48,12 +52,24 @@ const NAV_ITEMS: { id: Tab; icon: string; label: string; badge?: number }[] = [
 
 export default function OrganizerDashboardPage() {
   const router = useRouter();
+  const { user } = useAuth();
   const [tab, setTab] = useState<Tab>('dashboard');
   const [sideOpen, setSideOpen] = useState(false);
   const [showInvite, setShowInvite] = useState(false);
+  const [events, setEvents] = useState<EventData[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const totalRevenue = EVENTS.reduce((a, e) => a + e.revenue, 0);
-  const totalSold = EVENTS.reduce((a, e) => a + e.sold, 0);
+  useEffect(() => {
+    if (!user?.uid) return;
+    getOrganizerEvents(user.uid).then(evs => {
+      setEvents(evs);
+      setLoading(false);
+    }).catch(() => setLoading(false));
+  }, [user?.uid]);
+
+  const totalRevenue = events.reduce((a, e) => a + ((e as any).revenue || 0), 0);
+  const totalSold = events.reduce((a, e) => a + ((e as any).totalSold || 0), 0);
+  const activeEvents = events.filter(e => e.status === 'published' || e.status === 'live').length;
   const totalResellerOwed = RESELLERS.reduce((a, v) => a + v.owed, 0);
 
   return (
@@ -167,7 +183,11 @@ export default function OrganizerDashboardPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {EVENTS.map(e => {
+                    {loading ? (
+                      <tr><td colSpan={6} style={{textAlign:"center",padding:24,color:"#9ca3af"}}>Chaje...</td></tr>
+                    ) : events.length === 0 ? (
+                      <tr><td colSpan={6} style={{textAlign:"center",padding:24,color:"#9ca3af"}}>Pa gen evènman — <a href="/organizer/events/create" style={{color:"#f97316"}}>Kreye premye a</a></td></tr>
+                    ) : (events as any[]).map(e => {
                       const pct = Math.round((e.sold / e.cap) * 100);
                       return (
                         <tr key={e.id} className="border-b border-border hover:bg-white/[0.015] cursor-pointer">
@@ -238,7 +258,7 @@ export default function OrganizerDashboardPage() {
                     <label className="block text-[11px] font-semibold text-gray-light mb-1.5">Evènman *</label>
                     <select className="w-full px-3.5 py-2.5 rounded-[10px] bg-white/[0.04] border border-border text-white text-[13px] outline-none focus:border-orange">
                       <option className="bg-dark-card">Chwazi evènman...</option>
-                      {EVENTS.filter(e => e.status !== 'past').map(e => <option key={e.id} className="bg-dark-card">{e.emoji} {e.name}</option>)}
+                      {(events as any[]).filter(e => e.status !== 'past').map(e => <option key={e.id} className="bg-dark-card">{(e.emoji || '🎵')} {e.name}</option>)}
                     </select>
                   </div>
                 </div>
@@ -292,11 +312,11 @@ export default function OrganizerDashboardPage() {
           {tab === 'events' && (
             <div>
               <div className="flex items-center justify-between mb-4">
-                <p className="text-xs text-gray-light">{EVENTS.length} evènman</p>
+                <p className="text-xs text-gray-light">{events.length} evènman</p>
                 <Link href="/organizer/events/create" className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-orange text-white text-xs font-bold hover:bg-orange/80 transition-all">➕ Kreye Evènman</Link>
               </div>
               <div className="space-y-3">
-                {EVENTS.map(e => {
+                {(events as any[]).map(e => {
                   const pct = Math.round((e.sold / e.cap) * 100);
                   return (
                     <div key={e.id} className="bg-dark-card border border-border rounded-card p-4 hover:border-white/[0.1] transition-all">
