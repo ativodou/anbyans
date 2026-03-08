@@ -104,7 +104,7 @@ if (combined.length < 10) {
         {/* HERO */}
         <section className="text-center pt-20 pb-16 px-5">
           <h1 className="font-heading text-5xl sm:text-7xl tracking-wider">
-            ANBYANS <span className="bg-gradient-to-r from-cyan to-teal-400 bg-clip-text text-transparent">ENTERTAINMENT</span>
+            ANBYANS <span className="bg-gradient-to-r from-cyan to-teal-400 bg-clip-text text-transparent">EVENTS</span>
           </h1>
           <p className="text-gray-light text-sm sm:text-base italic mt-3 mb-8">{t('landing_tagline')}.</p>
           <div className="max-w-lg mx-auto flex bg-dark-card border border-border rounded-xl overflow-hidden focus-within:border-cyan transition-colors">
@@ -215,7 +215,7 @@ if (combined.length < 10) {
             </div>
           </div>
           <div className="border-t border-border pt-5 flex items-center justify-between">
-            <p className="text-[10px] text-gray-muted">© 2026 Anbyans Entertainment LLC. {t('footer_rights')}</p>
+            <p className="text-[10px] text-gray-muted">© 2026 Lavi Miyò LLC. {t('footer_rights')}</p>
             <div className="flex gap-3">
               {['📘','📸','🐦','▶️'].map((ic,i) => <span key={i} className="w-8 h-8 rounded-lg bg-white/[0.03] border border-border flex items-center justify-center text-xs">{ic}</span>)}
             </div>
