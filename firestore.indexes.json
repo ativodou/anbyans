@@ -1,13 +1,6 @@
 {
   "indexes": [
     {
-      "collectionGroup": "tickets",
-      "queryScope": "COLLECTION_GROUP",
-      "fields": [
-        { "fieldPath": "ticketCode", "order": "ASCENDING" }
-      ]
-    },
-    {
       "collectionGroup": "vendorPurchases",
       "queryScope": "COLLECTION",
       "fields": [
