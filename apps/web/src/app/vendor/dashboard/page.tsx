@@ -63,7 +63,7 @@ type Tab = 'sell' | 'buy' | 'inventory' | 'sales';
 
 /* ══════════════════════════════════════════════════════════════════ */
 
-export default function ResellerDashboardPage() {
+export default function VendorDashboardPage() {
   const router = useRouter();
   const { t, locale } = useT();
   const L = (ht: string, en: string, fr: string) =>

@@ -6,7 +6,7 @@ import { useT } from '@/i18n';
 import { signUp, signIn, signInWithGoogle } from '@/lib/auth';
 import { useAuth } from '@/hooks/useAuth';
 
-export default function ResellerAuth() {
+export default function VendorAuth() {
   const router = useRouter();
   const { locale } = useT();
   const { user } = useAuth();

@@ -35,7 +35,7 @@ export default function OrganizerResellersPage() {
   const { t } = useT();
 
   const [events, setEvents] = useState<EventData[]>([]);
-  const [resellers, setResellers] = useState<ResellerWithPurchases[]>([]);
+  const [resellers, setResellers] = useState<VendorWithPurchases[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -62,7 +62,7 @@ export default function OrganizerResellersPage() {
         getOrganizerVendors(user.uid),
         getOrganizerVendorPurchases(user.uid),
       ]);
-      const resellersWithPurchases: ResellerWithPurchases[] = resellerList.map(v => ({
+      const resellersWithPurchases: VendorWithPurchases[] = resellerList.map(v => ({
         ...v,
         purchases: purchaseList.filter(p => p.vendorId === v.id),
       }));
@@ -167,7 +167,7 @@ export default function OrganizerResellersPage() {
                 <p className="font-heading text-2xl">{totalPurchased}</p>
               </div>
               <div className="bg-dark-card border border-border rounded-card p-3.5">
-                <p className="text-[9px] text-gray-muted uppercase tracking-widest mb-1">{t('resellers_reseller_sold')}</p>
+                <p className="text-[9px] text-gray-muted uppercase tracking-widest mb-1">{t('resellers_vendor_sold')}</p>
                 <p className="font-heading text-2xl text-green">{totalSold} <span className="text-[10px] text-gray-muted font-body font-normal">({totalPurchased > 0 ? Math.round((totalSold/totalPurchased)*100) : 0}%)</span></p>
               </div>
               <div className="bg-dark-card border border-green rounded-card p-3.5">

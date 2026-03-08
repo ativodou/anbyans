@@ -314,7 +314,7 @@ const t = {
   resellers_bulk_pricing: { ht:'Pri Angwo', en:'Bulk Pricing', fr:'Prix de gros' },
   resellers_active: { ht:'Revandè Aktif', en:'Active Resellers', fr:'Vendeurs actifs' },
   resellers_purchased: { ht:'Tikè Achte pa Revandè', en:'Tickets Purchased by Resellers', fr:'Billets achetés par les vendeurs' },
-  resellers_reseller_sold: { ht:'Tikè Revandè Vann', en:'Tickets Resellers Sold', fr:'Billets vendus par les vendeurs' },
+  resellers_vendor_sold: { ht:'Tikè Revandè Vann', en:'Tickets Resellers Sold', fr:'Billets vendus par les vendeurs' },
   resellers_revenue: { ht:'Revni (Peye Davans)', en:'Revenue (Paid Upfront)', fr:'Revenu (Payé en avance)' },
   resellers_pricing_title: { ht:'PRI ANGWO PA EVÈNMAN', en:'BULK PRICING BY EVENT', fr:'PRIX DE GROS PAR ÉVÉNEMENT' },
   resellers_pricing_subtitle: { ht:'Fikse pri angwo pou revandè yo. Plis yo achte, mwens yo peye pa tikè. Revandè peye davans — pa gen dèt.', en:'Set bulk prices for resellers. The more they buy, the less they pay per ticket. Resellers pay upfront — no debt.', fr:"Fixez les prix de gros pour les vendeurs. Plus ils achètent, moins ils paient par billet. Les vendeurs paient d'avance — pas de dette." },
