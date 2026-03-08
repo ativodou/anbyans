@@ -555,7 +555,7 @@ export interface ResellerSectionPricing {
   available: number;
 }
 
-export interface ResellerPurchase {
+export interface VendorPurchase {
   id?: string;
   eventId: string;
   eventName: string;
@@ -591,7 +591,7 @@ export interface VendorData {
 
 // ─── Create / Invite Reseller ──────────────────────────────────────
 
-export async function inviteReseller(data: {
+export async function inviteVendor(data: {
   organizerId: string;
   name: string;
   contact: string;
@@ -633,7 +633,7 @@ export async function getVendorPurchases(vendorId: string): Promise<VendorPurcha
     orderBy('createdAt', 'desc')
   );
   const snap = await getDocs(q);
-  return snap.docs.map(d => ({ id: d.id, ...d.data() } as ResellerPurchase));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as VendorPurchase));
 }
 
 // ─── Get All Reseller Purchases for an Organizer ───────────────────
@@ -662,7 +662,7 @@ export async function vendorBulkPurchase(params: {
   sectionColor: string;
   qty: number;
   priceEach: number;
-}): Promise<ResellerPurchase> {
+}): Promise<VendorPurchase> {
   const totalPaid = params.qty * params.priceEach;
   const now = new Date();
   const purchaseDate = `${now.getDate()} ${['Jan','Fev','Mas','Avr','Me','Jen','Jiy','Out','Sep','Okt','Nov','Des'][now.getMonth()]}`;
@@ -817,7 +817,7 @@ export async function vendorSellTicket(params: {
   const purchaseSnap = await getDoc(purchaseRef);
   if (!purchaseSnap.exists()) throw new Error('Purchase not found');
 
-  const purchase = purchaseSnap.data() as ResellerPurchase;
+  const purchase = purchaseSnap.data() as VendorPurchase;
   const available = purchase.qty - purchase.sold;
   if (params.qty > available) throw new Error('Not enough tickets');
 

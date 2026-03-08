@@ -6,14 +6,14 @@ import { useAuth } from '@/hooks/useAuth';
 import { useT } from '@/i18n';
 import {
   getOrganizerEvents,
-  getOrganizerResellers,
-  getOrganizerResellerPurchases,
-  inviteReseller,
-  updateResellerStatus,
+  getOrganizerVendors,
+  getOrganizerVendorPurchases,
+  inviteVendor,
+  updateVendorStatus,
   saveEventBulkTiers,
   EventData,
   VendorData,
-  ResellerPurchase,
+  VendorPurchase,
   BulkTier,
 } from '@/lib/db';
 
@@ -59,8 +59,8 @@ export default function OrganizerResellersPage() {
     try {
       const [evList, resellerList, purchaseList] = await Promise.all([
         getOrganizerEvents(user.uid),
-        getOrganizerResellers(user.uid),
-        getOrganizerResellerPurchases(user.uid),
+        getOrganizerVendors(user.uid),
+        getOrganizerVendorPurchases(user.uid),
       ]);
       const resellersWithPurchases: ResellerWithPurchases[] = resellerList.map(v => ({
         ...v,
@@ -97,7 +97,7 @@ export default function OrganizerResellersPage() {
     setSaving(true);
     setInviteError('');
     try {
-      const reseller = await inviteReseller({ organizerId: user.uid, ...inviteForm });
+      const reseller = await inviteVendor({ organizerId: user.uid, ...inviteForm });
       const msg = encodeURIComponent(
         `Bonjou ${inviteForm.contact}! Ou envite kòm vandè sou Anbyans.\n\nKlike lyen sa a pou kreye kont ou:\n${window.location.origin}/vendor/join?token=${vendor.inviteToken}\n\nMèsi!`
       );
@@ -370,7 +370,7 @@ export default function OrganizerResellersPage() {
                           <div className="p-5 text-center">
                             <p className="text-xs text-gray-muted">{v.status === 'pending' ? 'Revandè sa a poko aksepte envitasyon an.' : 'Revandè sa a poko achte tikè angwo.'}</p>
                             {v.status === 'pending' && (
-                              <button onClick={async () => { await updateResellerStatus(v.id!, 'active'); await loadData(); }}
+                              <button onClick={async () => { await updateVendorStatus(v.id!, 'active'); await loadData(); }}
                                 className="mt-3 px-4 py-1.5 rounded-lg bg-green-dim border border-green text-green text-[10px] font-bold hover:bg-green hover:text-white transition-all">
                                 ✅ Manyèlman {t('active')}
                               </button>
