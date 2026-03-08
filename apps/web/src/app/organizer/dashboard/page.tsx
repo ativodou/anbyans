@@ -132,7 +132,7 @@ export default function OrganizerDashboardPage() {
                 <span className="text-2xl">📅</span>
                 <div><p className="text-xs font-bold">Kreye Evènman</p><p className="text-[10px] text-gray-light">Kreye yon nouvo evènman ak seksyon tikè</p></div>
               </button>
-              <button onClick={() => { setTab('resellers'); setShowInvite(true); }} className="bg-dark-card border border-border rounded-card p-4 flex items-center gap-3 hover:border-orange-border hover:bg-dark-hover transition-all text-left">
+              <button onClick={() => router.push('/organizer/vendors')} className="bg-dark-card border border-border rounded-card p-4 flex items-center gap-3 hover:border-orange-border hover:bg-dark-hover transition-all text-left">
                 <span className="text-2xl">🏪</span>
                 <div><p className="text-xs font-bold">Envite Revandè</p><p className="text-[10px] text-gray-light">Ajoute yon nouvo pwen vant fizik</p></div>
               </button>
