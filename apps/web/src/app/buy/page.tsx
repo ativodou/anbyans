@@ -162,8 +162,16 @@ function BuyTicketInner() {
     if (pay !== 'card') {
       setProcessing(true);
       try {
-        await purchaseTickets(ev.id, buyerName, buyerEmail, buyerPhone, sec.name, (sec as any).color ?? '#fff', seats, sec.price);
+        const tix = await purchaseTickets(ev.id, buyerName, buyerEmail, buyerPhone, sec.name, (sec as any).color ?? '#fff', seats, sec.price);
+        setPurchasedTickets(tix);
         setStep(6);
+        const codes = tix.map((t: any) => t.ticketCode).join(', ');
+        const msg = encodeURIComponent(L(
+          'Tikè ou a: ' + codes + ' - Evènman: ' + (ev.name ?? '') + ' - Metòd: ' + pay,
+          'Your ticket(s): ' + codes + ' - Event: ' + (ev.name ?? '') + ' - Method: ' + pay,
+          'Votre billet: ' + codes + ' - Événement: ' + (ev.name ?? '') + ' - Méthode: ' + pay
+        ));
+        window.open('https://wa.me/?text=' + msg, '_blank');
       } catch (e: any) {
         alert(L('Erè. Eseye anko.', 'Error. Try again.', 'Erreur.'));
       }
@@ -202,7 +210,7 @@ function BuyTicketInner() {
         buyerEmail,
         buyerPhone,
         sec.name,
-        sec.color,
+        (sec as any).color ?? '#fff',
         seats,
         sec.price,
       );
