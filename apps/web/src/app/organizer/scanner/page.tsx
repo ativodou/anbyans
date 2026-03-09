@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, Suspense } from 'react';
+import { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useT } from '@/i18n';
@@ -89,6 +89,11 @@ function ScannerPageInner() {
   const [manualCode, setManualCode] = useState('');
   const [showManual, setShowManual] = useState(false);
   const [lastScan, setLastScan] = useState<ScanRecord | null>(null);
+  const [cameraActive, setCameraActive] = useState(false);
+  const [cameraError, setCameraError] = useState('');
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const detectorRef = useRef<any>(null);
+  const rafRef = useRef<number>(0);
 
   // Online/offline tracking
   useEffect(() => {
@@ -292,6 +297,51 @@ function shareStaffPin(staff: DoorStaff) {
     }
     const t = tickets[Math.floor(Math.random() * tickets.length)];
     processTicketCode(t.ticketCode);
+  }
+
+  // ─── Camera ────────────────────────────────────────────────────
+
+  function stopCamera() {
+    if (videoRef.current && videoRef.current.srcObject) {
+      (videoRef.current.srcObject as MediaStream).getTracks().forEach(t => t.stop());
+      videoRef.current.srcObject = null;
+    }
+    cancelAnimationFrame(rafRef.current);
+    setCameraActive(false);
+  }
+
+  async function startCamera() {
+    setCameraError('');
+    if (!('BarcodeDetector' in window)) {
+      setCameraError('Navigatè sa a pa sipote eskan kamera. Itilize Chrome sou Android.');
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play();
+      }
+      detectorRef.current = new (window as any).BarcodeDetector({ formats: ['qr_code'] });
+      setCameraActive(true);
+      runScanLoop();
+    } catch {
+      setCameraError('Pa ka louvri kamera. Otorize akse kamera nan navigate a.');
+    }
+  }
+
+  function runScanLoop() {
+    rafRef.current = requestAnimationFrame(async () => {
+      if (!videoRef.current || !detectorRef.current || !videoRef.current.srcObject) return;
+      try {
+        const barcodes = await detectorRef.current.detect(videoRef.current);
+        if (barcodes.length > 0) {
+          processTicketCode(barcodes[0].rawValue as string);
+          await new Promise(r => setTimeout(r, 2000));
+        }
+      } catch {}
+      runScanLoop();
+    });
   }
 
   // ─── Sync ─────────────────────────────────────────────────────
@@ -662,10 +712,30 @@ function shareStaffPin(staff: DoorStaff) {
           </div>
         )}
 
+        {/* Camera view */}
+        {cameraActive && (
+          <div style={{ marginBottom: 16, position: 'relative' }}>
+            <video ref={videoRef} playsInline muted
+              style={{ width: '100%', borderRadius: 12, border: '2px solid #f97316', display: 'block', maxHeight: 300, objectFit: 'cover' }} />
+            <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: 180, height: 180, border: '2px solid #f97316', borderRadius: 12, pointerEvents: 'none', boxShadow: '0 0 0 9999px rgba(0,0,0,0.45)' }} />
+            <button onClick={stopCamera} style={{ position: 'absolute', top: 8, right: 8, padding: '6px 12px', borderRadius: 6, border: 'none', background: '#ef4444', color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+              ✕ {L('Femen', 'Close', 'Fermer')}
+            </button>
+          </div>
+        )}
+        {cameraError && (
+          <div style={{ background: '#2a0a0a', border: '1px solid #ef4444', borderRadius: 8, padding: '10px 14px', marginBottom: 16, color: '#ef4444', fontSize: 12, textAlign: 'center' }}>
+            {cameraError}
+          </div>
+        )}
+
         {/* Scan buttons */}
         <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-          <button onClick={simulateScan} style={{ ...btnOrange, flex: 1 }}>
-            📷 {lastScan ? L('Eskane Anko', 'Scan Again', 'Scanner encore') : L('Eskane QR Code', 'Scan QR Code', 'Scanner QR Code')}
+          <button onClick={cameraActive ? stopCamera : startCamera}
+            style={{ ...btnOrange, flex: 1, background: cameraActive ? '#ef4444' : '#f97316' }}>
+            {cameraActive
+              ? `⏹ ${L('Kanpe Eskane', 'Stop Scanning', 'Arreter')}`
+              : `📷 ${lastScan ? L('Eskane Anko', 'Scan Again', 'Scanner encore') : L('Eskane QR Code', 'Scan QR Code', 'Scanner QR Code')}`}
           </button>
           <button onClick={() => setShowManual(!showManual)}
             style={{ padding: '14px 20px', borderRadius: 8, border: '1px solid #1e1e2e', background: 'transparent', color: '#888', cursor: 'pointer', fontSize: 16 }}>
