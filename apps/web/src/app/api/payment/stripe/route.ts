@@ -6,7 +6,8 @@ export const runtime = "nodejs";
 export async function POST(req: NextRequest) {
   try {
     const Stripe = (await import("stripe")).default;
-    const secretKey = (process.env.STRIPE_SECRET_KEY ?? "").trim().replace(/[\r\n\t]/g, "");
+    const raw = process.env.STRIPE_SECRET_KEY ?? "";
+    const secretKey = raw.replace(/[^a-zA-Z0-9_]/g, "");
     const stripe = new Stripe(secretKey);
     const { amount, currency = "usd", eventName, seats } = await req.json();
     const paymentIntent = await stripe.paymentIntents.create({
