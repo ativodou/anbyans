@@ -61,6 +61,7 @@ function BuyTicketInner() {
   const [promoCode, setPromoCode] = useState('');
   const [promoMsg, setPromoMsg] = useState('');
   const [processing, setProcessing] = useState(false);
+  const [showPayInstructions, setShowPayInstructions] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
   const stripeHook = useStripe();
   const elements = useElements();
@@ -158,24 +159,9 @@ function BuyTicketInner() {
 
   const doPayment = async () => {
     if (!ev?.id || !sec) return;
-    // Non-card: save pending order directly
+    // Non-card: show payment instructions first
     if (pay !== 'card') {
-      setProcessing(true);
-      try {
-        const tix = await purchaseTickets(ev.id, buyerName, buyerEmail, buyerPhone, sec.name, (sec as any).color ?? '#fff', seats, sec.price);
-        setPurchasedTickets(tix);
-        setStep(6);
-        const codes = tix.map((t: any) => t.ticketCode).join(', ');
-        const msg = encodeURIComponent(L(
-          'Tikè ou a: ' + codes + ' - Evènman: ' + (ev.name ?? '') + ' - Metòd: ' + pay,
-          'Your ticket(s): ' + codes + ' - Event: ' + (ev.name ?? '') + ' - Method: ' + pay,
-          'Votre billet: ' + codes + ' - Événement: ' + (ev.name ?? '') + ' - Méthode: ' + pay
-        ));
-        window.open('https://wa.me/?text=' + msg, '_blank');
-      } catch (e: any) {
-        alert(L('Erè. Eseye anko.', 'Error. Try again.', 'Erreur.'));
-      }
-      setProcessing(false);
+      setShowPayInstructions(true);
       return;
     }
     if (!stripeHook || !elements) {
@@ -221,6 +207,62 @@ function BuyTicketInner() {
       alert(err instanceof Error ? err.message : L('Ere. Eseye ankò.', 'Error. Try again.', 'Erreur.'));
     }
     setProcessing(false);
+  };
+
+  const confirmPayment = async () => {
+    if (!ev?.id || !sec) return;
+    setProcessing(true);
+    try {
+      const tix = await purchaseTickets(ev.id, buyerName, buyerEmail, buyerPhone, sec.name, (sec as any).color ?? '#fff', seats, sec.price);
+      setPurchasedTickets(tix);
+      setShowPayInstructions(false);
+      setStep(6);
+      const codes = tix.map((t: any) => t.ticketCode).join(', ');
+      const msg = encodeURIComponent(L(
+        'Tikè ou a: ' + codes + ' - Evènman: ' + (ev.name ?? '') + ' - Metòd: ' + pay,
+        'Your ticket(s): ' + codes + ' - Event: ' + (ev.name ?? '') + ' - Method: ' + pay,
+        'Votre billet: ' + codes + ' - Evenement: ' + (ev.name ?? '') + ' - Methode: ' + pay
+      ));
+      window.open('https://wa.me/?text=' + msg, '_blank');
+    } catch (e: any) {
+      alert(L('Erè. Eseye anko.', 'Error. Try again.', 'Erreur.'));
+    }
+    setProcessing(false);
+  };
+
+  const getDeepLink = () => {
+    const amount = sec ? (sec.price * seats.length).toFixed(2) : '0';
+    const note = encodeURIComponent((ev?.name ?? 'Tike Anbyans'));
+    const orgPhone = (ev as any)?.organizerPhone ?? '';
+    const orgPaypal = (ev as any)?.paypalMe ?? '';
+    const orgCashapp = (ev as any)?.cashappTag ?? '';
+    const orgZelle = (ev as any)?.zelleInfo ?? orgPhone;
+    switch (pay) {
+      case 'moncash':
+      case 'natcash':
+        return orgPhone ? `tel:${orgPhone}` : null;
+      case 'paypal':
+        return orgPaypal ? `https://paypal.me/${orgPaypal}/${amount}` : 'https://paypal.com';
+      case 'cashapp':
+        return orgCashapp ? `https://cash.app/$${orgCashapp}/${amount}` : 'https://cash.app';
+      case 'zelle':
+        return `https://enroll.zellepay.com/qr-codes?data=${encodeURIComponent(JSON.stringify({token:orgZelle,amount,memo:note}))}`;
+      default:
+        return null;
+    }
+  };
+
+  const getPayInstructions = () => {
+    const amount = sec ? (sec.price * seats.length).toFixed(2) : '0';
+    const orgPhone = (ev as any)?.organizerPhone ?? '';
+    switch (pay) {
+      case 'moncash': return { icon: '📱', title: 'MonCash', line1: L('Voye $' + amount + ' sou:', 'Send $' + amount + ' to:', 'Envoyez $' + amount + ' à:'), line2: orgPhone || L('Nimewo òganizatè a', "Organizer's number", "Numéro de l'organisateur") };
+      case 'natcash': return { icon: '💚', title: 'Natcash', line1: L('Voye $' + amount + ' sou:', 'Send $' + amount + ' to:', 'Envoyez $' + amount + ' à:'), line2: orgPhone || L('Nimewo òganizatè a', "Organizer's number", "Numéro de l'organisateur") };
+      case 'zelle': return { icon: '⚡', title: 'Zelle', line1: L('Voye $' + amount + ' sou:', 'Send $' + amount + ' to:', 'Envoyez $' + amount + ' à:'), line2: (ev as any)?.zelleInfo || orgPhone || 'Zelle' };
+      case 'paypal': return { icon: '🅿️', title: 'PayPal', line1: L('Voye $' + amount + ' sou:', 'Send $' + amount + ' to:', 'Envoyez $' + amount + ' à:'), line2: (ev as any)?.paypalMe ? 'paypal.me/' + (ev as any).paypalMe : 'PayPal' };
+      case 'cashapp': return { icon: '💲', title: 'Cash App', line1: L('Voye $' + amount + ' sou:', 'Send $' + amount + ' to:', 'Envoyez $' + amount + ' à:'), line2: (ev as any)?.cashappTag ? '$' + (ev as any).cashappTag : 'Cash App' };
+      default: return { icon: '💵', title: 'Cash', line1: L('Peye nan pòt la', 'Pay at the door', "Payez à l'entrée"), line2: '' };
+    }
   };
 
   const goNext = () => {
@@ -595,6 +637,40 @@ function BuyTicketInner() {
           </div>
         )}
       </div>
+
+      {/* ════════════ Pay Instructions Modal ════════════ */}
+      {showPayInstructions && sec && (() => {
+        const info = getPayInstructions();
+        const link = getDeepLink();
+        const amount = (sec.price * seats.length).toFixed(2);
+        return (
+          <div className="fixed inset-0 z-[60] bg-black/80 flex items-end justify-center p-4">
+            <div className="bg-dark-card border border-border rounded-2xl w-full max-w-md p-6 flex flex-col gap-4">
+              <div className="text-center">
+                <div className="text-4xl mb-2">{info.icon}</div>
+                <h3 className="font-heading text-xl">{info.title}</h3>
+                <p className="text-gray-light text-sm mt-1">{info.line1}</p>
+                <p className="font-bold text-lg text-cyan mt-1">{info.line2}</p>
+                <p className="text-2xl font-bold mt-2">${amount}</p>
+              </div>
+              {link && (
+                <a href={link} target="_blank" rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 bg-cyan text-dark font-bold py-3 rounded-xl text-sm">
+                  {L('Ouvri ' + info.title, 'Open ' + info.title, 'Ouvrir ' + info.title)} →
+                </a>
+              )}
+              <button onClick={confirmPayment} disabled={processing}
+                className="flex items-center justify-center gap-2 bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white font-bold py-3 rounded-xl text-sm">
+                {processing ? '...' : L('✓ Mwen Peye — Kreye Tikè Mwen', '✓ I Paid — Get My Ticket', '✓ J'ai Payé — Mon Billet')}
+              </button>
+              <button onClick={() => setShowPayInstructions(false)}
+                className="text-gray-light text-sm text-center py-2">
+                {L('Tounen', 'Go Back', 'Retour')}
+              </button>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ════════════ Bottom Bar ════════════ */}
       <div className="fixed bottom-0 left-0 right-0 z-50 bg-dark border-t border-border px-5 py-3">
