@@ -162,7 +162,7 @@ function BuyTicketInner() {
     if (pay !== 'card') {
       setProcessing(true);
       try {
-        await purchaseTickets(ev.id, buyerName, buyerEmail, buyerPhone, sec.name, sec.color ?? '#fff', seats.length, sec.price * seats.length);
+        await purchaseTickets(ev.id, buyerName, buyerEmail, buyerPhone, sec.name, (sec as any).color ?? '#fff', seats.length, sec.price * seats.length);
         setStep(6);
       } catch (e: any) {
         alert(L('Erè. Eseye anko.', 'Error. Try again.', 'Erreur.'));
