@@ -158,6 +158,18 @@ function BuyTicketInner() {
 
   const doPayment = async () => {
     if (!ev?.id || !sec) return;
+    // Non-card: save pending order directly
+    if (pay !== 'card') {
+      setProcessing(true);
+      try {
+        await purchaseTickets(ev.id, buyerName, buyerEmail, buyerPhone, sec.name, sec.color ?? '#fff', seats.length, sec.price * seats.length);
+        setStep(6);
+      } catch (e: any) {
+        alert(L('Erè. Eseye anko.', 'Error. Try again.', 'Erreur.'));
+      }
+      setProcessing(false);
+      return;
+    }
     if (!stripeHook || !elements) {
       alert(L('Stripe pa chaje. Eseye anko.', 'Stripe not loaded. Try again.', 'Stripe non charge.'));
       return;
