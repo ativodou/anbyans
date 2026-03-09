@@ -16,6 +16,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ clientSecret: paymentIntent.client_secret });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Unknown error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const code = (err as any)?.code ?? null;
+    const type = (err as any)?.type ?? null;
+    const raw = (err as any)?.raw ?? null;
+    console.error("STRIPE ERROR:", { message, code, type, raw });
+    return NextResponse.json({ error: message, code, type }, { status: 500 });
   }
 }
