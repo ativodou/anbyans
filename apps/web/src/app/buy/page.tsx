@@ -661,7 +661,7 @@ function BuyTicketInner() {
               )}
               <button onClick={confirmPayment} disabled={processing}
                 className="flex items-center justify-center gap-2 bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white font-bold py-3 rounded-xl text-sm">
-                {processing ? '...' : L('✓ Mwen Peye — Kreye Tikè Mwen', '✓ I Paid — Get My Ticket', '✓ J'ai Payé — Mon Billet')}
+                {processing ? '...' : L('✓ Mwen Peye — Kreye Tikè Mwen', '✓ I Paid — Get My Ticket', '✓ Mwen Peye — Mon Billet')}
               </button>
               <button onClick={() => setShowPayInstructions(false)}
                 className="text-gray-light text-sm text-center py-2">
