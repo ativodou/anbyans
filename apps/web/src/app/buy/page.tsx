@@ -2,6 +2,7 @@
 import QRCode from '@/components/QRCode';
 
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useState, useEffect, useCallback } from 'react';
 import { useT } from '@/i18n';
 import { useAuth } from '@/hooks/useAuth';
@@ -32,6 +33,7 @@ export default function BuyTicketPage() {
   const { t, locale } = useT();
   const { user } = useAuth();
   const L = (ht: string, en: string, fr: string) => ({ ht, en, fr }[locale as 'ht' | 'en' | 'fr']);
+  const searchParams = useSearchParams();
 
   const STEP_LABELS = [
     L('Chwazi Evènman', 'Choose Event', 'Choisir un événement'),
@@ -78,6 +80,20 @@ export default function BuyTicketPage() {
       setLoading(false);
     })();
   }, []);
+
+  // Auto-select event from URL ?event=ID
+  useEffect(() => {
+    const eventId = searchParams.get('event');
+    if (eventId && events.length > 0 && step === 1) {
+      const found = events.find(e => e.id === eventId);
+      if (found) {
+        setEv(found);
+        setSec(null);
+        setSeats([]);
+        setStep(2);
+      }
+    }
+  }, [events, searchParams]);
 
   // Pre-fill buyer info from auth
   useEffect(() => {
