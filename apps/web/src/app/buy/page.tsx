@@ -7,6 +7,8 @@ import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useT } from '@/i18n';
 import { useAuth } from '@/hooks/useAuth';
 import LangSwitcher from '@/components/LangSwitcher';
+import { loadStripe } from '@stripe/stripe-js';
+import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import {
   getPublishedEvents,
   purchaseTickets,
@@ -28,6 +30,8 @@ function seatGrid(capacity: number): { rows: number; cols: number } {
 }
 
 // ─── Component ───────────────────────────────────────────────────
+
+const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY as string);
 
 function BuyTicketInner() {
   const { t, locale } = useT();
@@ -58,6 +62,8 @@ function BuyTicketInner() {
   const [promoMsg, setPromoMsg] = useState('');
   const [processing, setProcessing] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
+  const stripeHook = useStripe();
+  const elements = useElements();
   const [purchasedTickets, setPurchasedTickets] = useState<TicketData[]>([]);
   const [holdTime, setHoldTime] = useState(600);
   const [qrKey, setQrKey] = useState(0);
@@ -152,8 +158,32 @@ function BuyTicketInner() {
 
   const doPayment = async () => {
     if (!ev?.id || !sec) return;
+    if (!stripeHook || !elements) {
+      alert(L('Stripe pa chaje. Eseye anko.', 'Stripe not loaded. Try again.', 'Stripe non charge.'));
+      return;
+    }
+    const card = elements.getElement(CardElement);
+    if (!card) return;
     setProcessing(true);
     try {
+      // 1. Create PaymentIntent
+      const totalAmount = sec.price * seats.length;
+      const res = await fetch('/api/payment/stripe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount: totalAmount, eventName: ev.name, seats: seats.length }),
+      });
+      const { clientSecret, error: apiError } = await res.json();
+      if (apiError) throw new Error(apiError);
+
+      // 2. Confirm card payment
+      const { error: stripeError, paymentIntent } = await stripeHook.confirmCardPayment(clientSecret, {
+        payment_method: { card },
+      });
+      if (stripeError) throw new Error(stripeError.message);
+      if (paymentIntent?.status !== 'succeeded') throw new Error('Payment not confirmed');
+
+      // 3. Create tickets in Firestore
       const tickets = await purchaseTickets(
         ev.id,
         buyerName || 'Guest',
@@ -168,7 +198,7 @@ function BuyTicketInner() {
       setConfirmed(true);
     } catch (err) {
       console.error('Purchase failed:', err);
-      alert(L('Ere. Eseye ankò.', 'Error. Try again.', 'Erreur. Réessayez.'));
+      alert(err instanceof Error ? err.message : L('Ere. Eseye ankò.', 'Error. Try again.', 'Erreur.'));
     }
     setProcessing(false);
   };
@@ -536,6 +566,12 @@ function BuyTicketInner() {
                 </div>
               ))}
             </div>
+            {pay === 'card' && (
+              <div className="mt-4 p-4 bg-dark-card border border-cyan rounded-card">
+                <p className="text-xs text-gray-light mb-3">💳 {L('Antre enfòmasyon kat ou a', 'Enter your card details', 'Entrez les details de votre carte')}</p>
+                <CardElement options={{ style: { base: { fontSize: '16px', color: '#ffffff', '::placeholder': { color: '#666' } } } }} />
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -565,8 +601,10 @@ function BuyTicketInner() {
 
 export default function BuyTicketPage() {
   return (
+    <Elements stripe={stripePromise}>
     <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="w-10 h-10 border-4 border-cyan border-t-transparent rounded-full animate-spin" /></div>}>
       <BuyTicketInner />
     </Suspense>
+    </Elements>
   );
 }
