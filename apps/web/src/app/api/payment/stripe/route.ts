@@ -1,12 +1,11 @@
-import Stripe from "stripe";
 import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string);
-
 export async function POST(req: NextRequest) {
   try {
+    const Stripe = (await import("stripe")).default;
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string);
     const { amount, currency = "usd", eventName, seats } = await req.json();
     const paymentIntent = await stripe.paymentIntents.create({
       amount: Math.round(amount * 100),
