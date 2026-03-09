@@ -3,7 +3,7 @@ import QRCode from '@/components/QRCode';
 
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useT } from '@/i18n';
 import { useAuth } from '@/hooks/useAuth';
 import LangSwitcher from '@/components/LangSwitcher';
@@ -29,7 +29,7 @@ function seatGrid(capacity: number): { rows: number; cols: number } {
 
 // ─── Component ───────────────────────────────────────────────────
 
-export default function BuyTicketPage() {
+function BuyTicketInner() {
   const { t, locale } = useT();
   const { user } = useAuth();
   const L = (ht: string, en: string, fr: string) => ({ ht, en, fr }[locale as 'ht' | 'en' | 'fr']);
@@ -560,5 +560,13 @@ export default function BuyTicketPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function BuyTicketPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="w-10 h-10 border-4 border-cyan border-t-transparent rounded-full animate-spin" /></div>}>
+      <BuyTicketInner />
+    </Suspense>
   );
 }
