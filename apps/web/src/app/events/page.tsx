@@ -157,7 +157,7 @@ export default function BrowseEvents() {
         {!loading && filtered.length > 0 && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
             {filtered.map(event => (
-              <Link key={event.id} href={`/buy?event=${event.id}`} style={{ textDecoration: 'none' }}>
+              <Link key={event.id} href={`/events/${event.id}`} style={{ textDecoration: 'none' }}>
                 <div style={{
                   background: '#12121a', border: '1px solid #1e1e2e', borderRadius: 12, overflow: 'hidden',
                   cursor: 'pointer', transition: 'border-color .2s',
