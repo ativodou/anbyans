@@ -61,6 +61,7 @@ function BuyTicketInner() {
   const [promoCode, setPromoCode] = useState('');
   const [promoMsg, setPromoMsg] = useState('');
   const [processing, setProcessing] = useState(false);
+  const [cardReady, setCardReady] = useState(false);
   const [showPayInstructions, setShowPayInstructions] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
   const stripeHook = useStripe();
@@ -169,7 +170,11 @@ function BuyTicketInner() {
       return;
     }
     const card = elements.getElement(CardElement);
-    if (!card) return;
+    if (!card || !cardReady) {
+      alert(L('Kat la poko prè. Tann yon moman.', 'Card not ready yet. Please wait.', 'Carte pas encore prête.'));
+      setProcessing(false);
+      return;
+    }
     setProcessing(true);
     try {
       // 1. Create PaymentIntent
@@ -630,7 +635,7 @@ function BuyTicketInner() {
             </div>
             <div style={{ visibility: pay === 'card' ? 'visible' : 'hidden', height: pay === 'card' ? 'auto' : '0', overflow: 'hidden', marginTop: pay === 'card' ? '' : '0', padding: pay === 'card' ? '' : '0' }} className="mt-4 p-4 bg-dark-card border border-cyan rounded-card">
                 <p className="text-xs text-gray-light mb-3">💳 {L('Antre enfòmasyon kat ou a', 'Enter your card details', 'Entrez les details de votre carte')}</p>
-                <CardElement options={{ style: { base: { fontSize: '16px', color: '#ffffff', '::placeholder': { color: '#666' } } } }} />
+                <CardElement onReady={() => setCardReady(true)} options={{ style: { base: { fontSize: '16px', color: '#ffffff', '::placeholder': { color: '#666' } } } }} />
               </div>
           </div>
         )}
