@@ -69,7 +69,7 @@ const StripePaymentForm = forwardRef<
     },
   }), [stripe, elements]);
 
-  return <PaymentElement options={{ layout: 'tabs' }} onReady={onReady} />;
+  return <PaymentElement options={{ layout: 'tabs', wallets: { applePay: 'never', googlePay: 'never' } }} onReady={onReady} />;
 });
 StripePaymentForm.displayName = 'StripePaymentForm';
 
