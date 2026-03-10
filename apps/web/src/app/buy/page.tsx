@@ -671,7 +671,7 @@ function BuyTicketInner() {
                 </div>
               ))}
             </div>
-    <div style={{ display: pay === 'card' ? 'block' : 'none' }} className="mt-4 p-4 bg-dark-card border border-cyan rounded-card">
+    <div style={{ visibility: pay === 'card' ? 'visible' : 'hidden', position: pay === 'card' ? 'relative' : 'absolute', height: pay === 'card' ? 'auto' : '1px', overflow: 'hidden' }} className="mt-4 p-4 bg-dark-card border border-cyan rounded-card">
         <p className="text-xs text-gray-light mb-3">💳 {L('Antre enfòmasyon kat ou a', 'Enter your card details', 'Entrez les details de votre carte')}</p>
         <div ref={cardDivRef} className="p-2 rounded bg-surface" />
       </div>
