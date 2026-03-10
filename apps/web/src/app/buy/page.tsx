@@ -221,6 +221,41 @@ function BuyTicketInner() {
   const doPayment = async () => {
     if (!ev?.id || !sec) return;
 
+    // ── MonCash / Natcash — real API redirect ──────────────────────
+    if (pay === 'moncash' || pay === 'natcash') {
+      setProcessing(true);
+      try {
+        const orderId = `ANB-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+        // Save pending order to sessionStorage so /buy/moncash-return can restore it
+        const pending = {
+          eventId: ev.id, eventName: ev.name,
+          buyerName: buyerName || 'Guest', buyerEmail, buyerPhone,
+          section: sec.name, sectionColor: (sec as any).color ?? '#fff',
+          seats, pricePerSeat: sec.price, orderId,
+        };
+        sessionStorage.setItem('moncash_pending_order', JSON.stringify(pending));
+
+        const res = await fetch('/api/payment/moncash', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ amount: total.toFixed(2), orderId }),
+        });
+        const data = await res.json();
+        if (data.error || !data.redirectUrl) {
+          alert(data.error ?? L('Erè MonCash API.', 'MonCash API error.', 'Erreur MonCash API.'));
+          setProcessing(false);
+          return;
+        }
+        // Redirect to MonCash payment page
+        window.location.href = data.redirectUrl;
+      } catch (err) {
+        alert(err instanceof Error ? err.message : L('Erè. Eseye ankò.', 'Error. Try again.', 'Erreur.'));
+        setProcessing(false);
+      }
+      return;
+    }
+
+    // ── Other manual methods (Zelle, PayPal, Cash…) ───────────────
     if (pay !== 'card') { setShowPayInstructions(true); return; }
 
     const stripeForm = stripeFormRef.current;

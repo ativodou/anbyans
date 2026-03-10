@@ -77,8 +77,6 @@ export interface EventData {
   totalSold: number;
   revenue: number;
   platformFee: number;
-  isPrivate?: boolean;
-  privateToken?: string;
   createdAt: any;
   updatedAt: any;
 }
@@ -178,16 +176,6 @@ export async function getPublishedEvents(): Promise<EventData[]> {
   const events = snap.docs.map(d => ({ id: d.id, ...d.data() } as EventData));
   events.sort((a, b) => (a.startDate || '').localeCompare(b.startDate || ''));
   return events;
-}
-
-// ─── Get Private Event by Token ──────────────────────────────────
-
-export async function getEventByPrivateToken(token: string): Promise<EventData | null> {
-  const q = query(collection(db, 'events'), where('privateToken', '==', token));
-  const snap = await getDocs(q);
-  if (snap.empty) return null;
-  const d = snap.docs[0];
-  return { id: d.id, ...d.data() } as EventData;
 }
 
 // ─── Get Events by Organizer ─────────────────────────────────────
@@ -567,7 +555,7 @@ export interface ResellerSectionPricing {
   available: number;
 }
 
-export interface VendorPurchase {
+export interface ResellerPurchase {
   id?: string;
   eventId: string;
   eventName: string;
@@ -603,7 +591,7 @@ export interface VendorData {
 
 // ─── Create / Invite Reseller ──────────────────────────────────────
 
-export async function inviteVendor(data: {
+export async function inviteReseller(data: {
   organizerId: string;
   name: string;
   contact: string;
@@ -638,26 +626,26 @@ export async function getOrganizerVendors(organizerId: string): Promise<VendorDa
 
 // ─── Get Reseller Purchases ────────────────────────────────────────
 
-export async function getVendorPurchases(vendorId: string): Promise<VendorPurchase[]> {
+export async function getVendorPurchases(vendorId: string): Promise<ResellerPurchase[]> {
   const q = query(
     collection(db, 'vendorPurchases'),
     where('vendorId', '==', vendorId),
     orderBy('createdAt', 'desc')
   );
   const snap = await getDocs(q);
-  return snap.docs.map(d => ({ id: d.id, ...d.data() } as VendorPurchase));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as ResellerPurchase));
 }
 
 // ─── Get All Reseller Purchases for an Organizer ───────────────────
 
-export async function getOrganizerVendorPurchases(organizerId: string): Promise<(VendorPurchase & { vendorId: string; vendorName: string })[]> {
+export async function getOrganizerVendorPurchases(organizerId: string): Promise<(ResellerPurchase & { vendorId: string; vendorName: string })[]> {
   const q = query(
     collection(db, 'vendorPurchases'),
     where('organizerId', '==', organizerId),
     orderBy('createdAt', 'desc')
   );
   const snap = await getDocs(q);
-  return snap.docs.map(d => ({ id: d.id, ...d.data() } as VendorPurchase & { vendorId: string; vendorName: string }));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as ResellerPurchase & { vendorId: string; vendorName: string }));
 }
 
 // ─── Bulk Purchase (reseller buys tickets upfront) ─────────────────
@@ -674,7 +662,7 @@ export async function vendorBulkPurchase(params: {
   sectionColor: string;
   qty: number;
   priceEach: number;
-}): Promise<VendorPurchase> {
+}): Promise<ResellerPurchase> {
   const totalPaid = params.qty * params.priceEach;
   const now = new Date();
   const purchaseDate = `${now.getDate()} ${['Jan','Fev','Mas','Avr','Me','Jen','Jiy','Out','Sep','Okt','Nov','Des'][now.getMonth()]}`;
@@ -829,7 +817,7 @@ export async function vendorSellTicket(params: {
   const purchaseSnap = await getDoc(purchaseRef);
   if (!purchaseSnap.exists()) throw new Error('Purchase not found');
 
-  const purchase = purchaseSnap.data() as VendorPurchase;
+  const purchase = purchaseSnap.data() as ResellerPurchase;
   const available = purchase.qty - purchase.sold;
   if (params.qty > available) throw new Error('Not enough tickets');
 
