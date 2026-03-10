@@ -3,7 +3,7 @@ import QRCode from '@/components/QRCode';
 
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { useState, useRef, useEffect, useCallback, Suspense } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useT } from '@/i18n';
 import { useAuth } from '@/hooks/useAuth';
 import LangSwitcher from '@/components/LangSwitcher';
@@ -62,7 +62,6 @@ function BuyTicketInner() {
   const [promoMsg, setPromoMsg] = useState('');
   const [processing, setProcessing] = useState(false);
   const [cardReady, setCardReady] = useState(false);
-  const cardRef = useRef<any>(null);
   const [showPayInstructions, setShowPayInstructions] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
   const stripeHook = useStripe();
@@ -170,9 +169,9 @@ function BuyTicketInner() {
       alert(L('Stripe pa chaje. Eseye anko.', 'Stripe not loaded. Try again.', 'Stripe non charge.'));
       return;
     }
-    const card = cardRef.current;
-    if (!card || !cardReady) {
-      alert(L('Kat la poko prè. Tann yon moman.', 'Card not ready yet. Please wait.', 'Carte pas encore prête.'));
+    const card = elements.getElement(CardElement);
+    if (!card) {
+      alert(L('Kat la poko prè. Eseye anko.', 'Card not ready. Try again.', 'Carte non prête.'));
       setProcessing(false);
       return;
     }
@@ -188,9 +187,16 @@ function BuyTicketInner() {
       const { clientSecret, error: apiError } = await res.json();
       if (apiError) throw new Error(apiError);
 
-      // 2. Confirm card payment
+      // 2. Create payment method first (avoids element re-access error)
+      const { paymentMethod, error: pmError } = await stripeHook.createPaymentMethod({
+        type: 'card',
+        card,
+      });
+      if (pmError) throw new Error(pmError.message);
+
+      // 3. Confirm with payment method ID (not card element reference)
       const { error: stripeError, paymentIntent } = await stripeHook.confirmCardPayment(clientSecret, {
-        payment_method: { card },
+        payment_method: paymentMethod.id,
       });
       if (stripeError) throw new Error(stripeError.message);
       if (paymentIntent?.status !== 'succeeded') throw new Error('Payment not confirmed');
@@ -281,7 +287,10 @@ function BuyTicketInner() {
     if (step > 1) setStep(step - 1);
   };
 
-  const canNext = step === 1 ? !!ev : step === 2 ? !!sec : step === 3 ? seats.length > 0 : step === 4 ? !!buyerPhone.trim() : !!pay;
+  // Reset card ready when payment method changes
+  useEffect(() => { setCardReady(false); }, [pay]);
+
+  const canNext = step === 1 ? !!ev : step === 2 ? !!sec : step === 3 ? seats.length > 0 : step === 4 ? !!buyerPhone.trim() : (pay === 'card' ? cardReady : !!pay);
 
   const perSeat = L('pa plas', 'per seat', 'par place');
   const availOf = L('disponib sou', 'available of', 'disponible sur');
