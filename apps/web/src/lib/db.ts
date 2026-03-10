@@ -81,6 +81,9 @@ export interface EventData {
   privateToken?: string;
   privateMode?: 'rsvp' | 'kotizasyon' | 'paid';
   suggestedAmount?: number;
+  // Floor plan — prèt pou Seats.io ak Firebase Storage
+  floorPlanUrl?: string;
+  seatsioChartKey?: string;
   createdAt: any;
   updatedAt: any;
 }
