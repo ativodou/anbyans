@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useT } from '@/i18n';
-import { verifyTicketByCode, initiateTransfer, type TicketData, type EventData } from '@/lib/db';
+import { verifyTicketByCode, initiateTransfer, requestRefund, type TicketData, type EventData } from '@/lib/db';
 
 function getQrWindow(): number {
   return Math.floor(Date.now() / 15000);
@@ -31,6 +31,10 @@ export default function TicketPage() {
   const [transferPhone, setTransferPhone] = useState('');
   const [transferring, setTransferring] = useState(false);
   const [transferDone, setTransferDone] = useState(false);
+  const [showRefund, setShowRefund] = useState(false);
+  const [refundReason, setRefundReason] = useState('');
+  const [refunding, setRefunding] = useState(false);
+  const [refundDone, setRefundDone] = useState(false);
 
   useEffect(() => {
     if (!code) return;
@@ -266,6 +270,23 @@ ${acceptUrl}`
     setTransferring(false);
   };
 
+
+  async function handleRefund() {
+    if (!ticket || !event || !refundReason.trim()) return;
+    setRefunding(true);
+    try {
+      await requestRefund(
+        ticket.eventId, event.name, ticket.id!, ticket.ticketCode,
+        ticket.buyerName, ticket.buyerPhone, refundReason,
+        ticket.price, ticket.section
+      );
+      setRefundDone(true);
+      setShowRefund(false);
+    } catch (e) {
+      alert(L('Erè — eseye ankò.', 'Error — please try again.', 'Erreur — réessayez.'));
+    }
+    setRefunding(false);
+  }
   return (
     <div style={{ minHeight: '100vh', background: '#0a0a0f', color: '#fff' }}>
       <canvas ref={canvasRef} style={{ display: 'none' }} />
@@ -397,6 +418,23 @@ ${acceptUrl}`
               }}
             >
               🔄 {L('Transfere', 'Transfer', 'Transférer')}
+            </button>
+          )}
+          {ticket?.status === 'refunded' && refundDone && (
+            <span style={{ padding: '12px 20px', color: '#22c55e', fontSize: 13, fontWeight: 700 }}>
+              ✅ {L('Demann ranbousman voye!', 'Refund request sent!', 'Demande envoyée!')}
+            </span>
+          )}
+          {event?.status === 'ended' && ticket?.status === 'used' && !refundDone && (
+            <button
+              onClick={() => setShowRefund(true)}
+              style={{
+                padding: '12px 20px', borderRadius: 10, background: 'transparent',
+                color: '#ef4444', fontWeight: 700, fontSize: 13,
+                border: '1px solid #ef4444', cursor: 'pointer',
+              }}
+            >
+              💸 {L('Mande Ranbousman', 'Request Refund', 'Demander Remboursement')}
             </button>
           )}
           {transferDone && (

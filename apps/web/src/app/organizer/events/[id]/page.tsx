@@ -1,18 +1,19 @@
 'use client';
-import { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import React, { useState, useEffect } from 'react';
+import React, { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useT } from '@/i18n';
-import { useAuth } from '@/hooks/useAuth';
-import {
+import React, { useT } from '@/i18n';
+import React, { useAuth } from '@/hooks/useAuth';
+import React, {
   getEvent, updateEvent, deleteEvent,
   getDoorStaff, addDoorStaff, removeDoorStaff,
   type EventData, type DoorStaff,
+  getRefundRequests, approveRefund, denyRefund, type RefundRequest,
 } from '@/lib/db';
-import { collectionGroup, query, where, getDocs } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import React, { collectionGroup, query, where, getDocs } from 'firebase/firestore';
+import React, { db } from '@/lib/firebase';
 
-type Tab = 'overview' | 'sections' | 'staff' | 'settings';
+type Tab = 'overview' | 'sections' | 'attendees' | 'refunds' | 'staff' | 'settings';
 
 export default function EventDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -27,6 +28,13 @@ export default function EventDetailPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+
+  // Refunds
+  const [refunds, setRefunds] = useState<RefundRequest[]>([]);
+
+  // Attendees
+  const [attendees, setAttendees] = useState<any[]>([]);
+  const [attendeeSearch, setAttendeeSearch] = useState('');
 
   // Staff
   const [staff, setStaff] = useState<DoorStaff[]>([]);
@@ -67,12 +75,15 @@ export default function EventDetailPage() {
       const staffList = await getDoorStaff(id);
       setStaff(staffList);
 
-      // Load ticket stats from Firestore
+      // Load tickets + attendees
       const q = query(collectionGroup(db, 'tickets'), where('eventId', '==', id));
       const snap = await getDocs(q);
       setTicketCount(snap.size);
       const rev = snap.docs.reduce((sum, d) => sum + (d.data().price || 0), 0);
       setRevenue(rev);
+      const attendeeList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      attendeeList.sort((a: any, b: any) => (b.purchasedAt?.seconds || 0) - (a.purchasedAt?.seconds || 0));
+      setAttendees(attendeeList);
     } catch (err) {
       console.error(err);
     }
@@ -170,6 +181,8 @@ export default function EventDetailPage() {
   const tabs: { key: Tab; label: string }[] = [
     { key: 'overview', label: L('Rezime', 'Overview', 'Résumé') },
     { key: 'sections', label: L('Seksyon', 'Sections', 'Sections') },
+    { key: 'attendees', label: L('Moun', 'Attendees', 'Participants') },
+    { key: 'refunds', label: `${L('Ranbousman', 'Refunds', 'Remboursements')}${refunds.filter(r=>r.status==='pending').length > 0 ? ' 🔴' : ''}` },
     { key: 'staff', label: L('Staff', 'Staff', 'Staff') },
     { key: 'settings', label: L('Paramèt', 'Settings', 'Paramètres') },
   ];
@@ -337,7 +350,148 @@ export default function EventDetailPage() {
           </div>
         )}
 
-        {/* ── STAFF ── */}
+        {/* ── ATTENDEES ── */}
+        {tab === 'attendees' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {/* Search */}
+            <input
+              value={attendeeSearch}
+              onChange={e => setAttendeeSearch(e.target.value)}
+              placeholder={L('Chèche pa non, email, telefòn...', 'Search by name, email, phone...', 'Chercher par nom, email, téléphone...')}
+              style={{ width: '100%', padding: 12, borderRadius: 10, border: '1px solid #1e1e2e', background: '#12121a', color: '#fff', fontSize: 13, boxSizing: 'border-box' }}
+            />
+
+            {/* Export CSV button */}
+            <button
+              onClick={() => {
+                const rows = [['Non', 'Email', 'Telefòn', 'Seksyon', 'Plas', 'Pri', 'Status', 'Kòd Tikè']];
+                attendees.forEach((a: any) => rows.push([a.buyerName, a.buyerEmail, a.buyerPhone, a.section, a.seat, a.price, a.status, a.ticketCode]));
+                const csv = rows.map(r => r.map(v => `"${v ?? ''}"`).join(',')).join('
+');
+                const blob = new Blob([csv], { type: 'text/csv' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a'); a.href = url; a.download = `${event?.name}-attendees.csv`; a.click();
+              }}
+              style={{ padding: '8px 16px', borderRadius: 8, background: 'transparent', border: '1px solid #1e1e2e', color: '#888', fontSize: 12, fontWeight: 700, cursor: 'pointer', alignSelf: 'flex-end' }}
+            >
+              📥 {L('Ekspòte CSV', 'Export CSV', 'Exporter CSV')}
+            </button>
+
+            {/* Stats */}
+            <div style={{ display: 'flex', gap: 12 }}>
+              {['valid', 'used', 'cancelled'].map(s => {
+                const count = attendees.filter((a: any) => a.status === s).length;
+                const colors: Record<string, string> = { valid: '#22c55e', used: '#f97316', cancelled: '#ef4444' };
+                const labels: Record<string, string> = { valid: L('Valid', 'Valid', 'Valide'), used: L('Itilize', 'Used', 'Utilisé'), cancelled: L('Anile', 'Cancelled', 'Annulé') };
+                return (
+                  <div key={s} style={{ flex: 1, background: '#12121a', border: `1px solid ${colors[s]}30`, borderRadius: 10, padding: '12px 10px', textAlign: 'center' }}>
+                    <div style={{ fontSize: 20, fontWeight: 800, color: colors[s] }}>{count}</div>
+                    <div style={{ fontSize: 10, color: '#888', marginTop: 2 }}>{labels[s]}</div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* List */}
+            {attendees
+              .filter((a: any) => {
+                if (!attendeeSearch.trim()) return true;
+                const q = attendeeSearch.toLowerCase();
+                return (a.buyerName || '').toLowerCase().includes(q) ||
+                       (a.buyerEmail || '').toLowerCase().includes(q) ||
+                       (a.buyerPhone || '').toLowerCase().includes(q) ||
+                       (a.ticketCode || '').toLowerCase().includes(q);
+              })
+              .map((a: any) => {
+                const statusColors: Record<string, string> = { valid: '#22c55e', used: '#f97316', cancelled: '#ef4444', pending_transfer: '#f59e0b' };
+                const sc = statusColors[a.status] || '#888';
+                return (
+                  <div key={a.id} style={{ background: '#12121a', border: '1px solid #1e1e2e', borderRadius: 12, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div style={{ width: 4, height: 44, borderRadius: 4, background: a.sectionColor || '#555', flexShrink: 0 }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 700, fontSize: 14 }}>{a.buyerName}</div>
+                      <div style={{ color: '#888', fontSize: 11, marginTop: 2 }}>{a.buyerPhone} {a.buyerEmail ? `· ${a.buyerEmail}` : ''}</div>
+                      <div style={{ color: '#555', fontSize: 10, marginTop: 2 }}>
+                        {a.section} · {L('Plas', 'Seat', 'Place')} {a.seat} · <span style={{ fontFamily: 'monospace' }}>{a.ticketCode}</span>
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                      <div style={{ fontWeight: 700, fontSize: 13, color: '#f97316' }}>${a.price}</div>
+                      <span style={{ padding: '2px 8px', borderRadius: 4, fontSize: 9, fontWeight: 800, background: sc + '20', color: sc }}>
+                        {a.status?.toUpperCase()}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })
+            }
+
+            {attendees.length === 0 && (
+              <p style={{ color: '#888', textAlign: 'center', padding: 40 }}>{L('Pa gen moun ankò.', 'No attendees yet.', 'Aucun participant.')}</p>
+            )}
+          </div>
+        )}
+
+        {/* ── REFUNDS ── */}
+        {tab === 'refunds' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {refunds.length === 0 && (
+              <p style={{ color: '#888', textAlign: 'center', padding: 40 }}>{L('Pa gen demann ranbousman.', 'No refund requests.', 'Aucune demande de remboursement.')}</p>
+            )}
+            {refunds.sort((a,b) => (b.requestedAt?.seconds||0)-(a.requestedAt?.seconds||0)).map(r => {
+              const isPending = r.status === 'pending';
+              const statusColor = r.status === 'approved' ? '#22c55e' : r.status === 'denied' ? '#ef4444' : '#f59e0b';
+              return (
+                <div key={r.id} style={{ background: '#12121a', border: `1px solid ${isPending ? '#f59e0b44' : '#1e1e2e'}`, borderRadius: 12, padding: '16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 700, fontSize: 14 }}>{r.buyerName}</div>
+                      <div style={{ color: '#888', fontSize: 11, marginTop: 2 }}>{r.buyerPhone} · {r.section} · <span style={{ fontFamily: 'monospace' }}>{r.ticketCode}</span></div>
+                      <div style={{ color: '#666', fontSize: 12, marginTop: 6, fontStyle: 'italic' }}>"{r.reason}"</div>
+                    </div>
+                    <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                      <div style={{ fontWeight: 800, fontSize: 16, color: '#f97316' }}>${r.amount}</div>
+                      <span style={{ padding: '2px 8px', borderRadius: 4, fontSize: 9, fontWeight: 800, background: statusColor + '20', color: statusColor }}>
+                        {r.status.toUpperCase()}
+                      </span>
+                    </div>
+                  </div>
+                  {r.status === 'denied' && r.denialNote && (
+                    <div style={{ padding: '8px 12px', background: '#ef444415', borderRadius: 8, color: '#ef4444', fontSize: 11 }}>
+                      🚫 {r.denialNote}
+                    </div>
+                  )}
+                  {isPending && (
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button
+                        onClick={async () => {
+                          if (!confirm(L('Apwouve ranbousman $' + r.amount + '?', 'Approve $' + r.amount + ' refund?', 'Approuver?'))) return;
+                          await approveRefund(r.id!, r.eventId, r.ticketId);
+                          setRefunds(prev => prev.map(x => x.id === r.id ? {...x, status: 'approved'} : x));
+                        }}
+                        style={{ flex: 1, padding: '10px', borderRadius: 8, background: '#22c55e20', border: '1px solid #22c55e44', color: '#22c55e', fontWeight: 700, fontSize: 12, cursor: 'pointer' }}
+                      >
+                        ✅ {L('Apwouve', 'Approve', 'Approuver')}
+                      </button>
+                      <button
+                        onClick={async () => {
+                          const note = prompt(L('Rezon refize a (opsyonèl):', 'Reason for denial (optional):', 'Raison du refus:')) ?? '';
+                          await denyRefund(r.id!, r.eventId, r.ticketId, note);
+                          setRefunds(prev => prev.map(x => x.id === r.id ? {...x, status: 'denied', denialNote: note} : x));
+                        }}
+                        style={{ flex: 1, padding: '10px', borderRadius: 8, background: '#ef444420', border: '1px solid #ef444444', color: '#ef4444', fontWeight: 700, fontSize: 12, cursor: 'pointer' }}
+                      >
+                        🚫 {L('Refize', 'Deny', 'Refuser')}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* ── STAFF ── */
         {tab === 'staff' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             {/* Add staff */}

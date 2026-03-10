@@ -956,3 +956,72 @@ export async function vendorSellTicket(params: {
   await updateDoc(purchaseRef, { sold: purchase.sold + params.qty });
   return assignedCodes;
 }
+
+// ─── Refund Requests ─────────────────────────────────────────────────────────
+
+export interface RefundRequest {
+  id?: string;
+  eventId: string;
+  eventName: string;
+  ticketId: string;
+  ticketCode: string;
+  buyerName: string;
+  buyerPhone: string;
+  reason: string;
+  amount: number;
+  section: string;
+  status: 'pending' | 'approved' | 'denied';
+  denialNote?: string;
+  requestedAt: any;
+  resolvedAt?: any;
+}
+
+export async function requestRefund(
+  eventId: string,
+  eventName: string,
+  ticketId: string,
+  ticketCode: string,
+  buyerName: string,
+  buyerPhone: string,
+  reason: string,
+  amount: number,
+  section: string
+): Promise<string> {
+  const ref = doc(collection(db, 'refundRequests'));
+  const data: RefundRequest = {
+    id: ref.id, eventId, eventName, ticketId, ticketCode,
+    buyerName, buyerPhone, reason, amount, section,
+    status: 'pending', requestedAt: serverTimestamp(),
+  };
+  await setDoc(ref, data);
+  // Mark ticket as refund pending
+  await updateDoc(doc(db, 'events', eventId, 'tickets', ticketId), {
+    status: 'refunded',
+    refundRequestId: ref.id,
+  });
+  return ref.id;
+}
+
+export async function getRefundRequests(eventId: string): Promise<RefundRequest[]> {
+  const q = query(collection(db, 'refundRequests'), where('eventId', '==', eventId));
+  const snap = await getDocs(q);
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as RefundRequest));
+}
+
+export async function approveRefund(requestId: string, eventId: string, ticketId: string): Promise<void> {
+  await updateDoc(doc(db, 'refundRequests', requestId), {
+    status: 'approved', resolvedAt: serverTimestamp(),
+  });
+  await updateDoc(doc(db, 'events', eventId, 'tickets', ticketId), {
+    status: 'refunded',
+  });
+}
+
+export async function denyRefund(requestId: string, eventId: string, ticketId: string, denialNote: string): Promise<void> {
+  await updateDoc(doc(db, 'refundRequests', requestId), {
+    status: 'denied', denialNote, resolvedAt: serverTimestamp(),
+  });
+  await updateDoc(doc(db, 'events', eventId, 'tickets', ticketId), {
+    status: 'used',
+  });
+}
