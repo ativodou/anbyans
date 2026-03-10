@@ -79,6 +79,8 @@ export interface EventData {
   platformFee: number;
   isPrivate?: boolean;
   privateToken?: string;
+  privateMode?: 'rsvp' | 'kotizasyon' | 'paid';
+  suggestedAmount?: number;
   createdAt: any;
   updatedAt: any;
 }

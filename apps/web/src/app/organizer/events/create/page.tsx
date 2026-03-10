@@ -25,6 +25,8 @@ export default function CreateEvent() {
   const [ageRestriction, setAgeRestriction] = useState('all');
   const [showRestrictions, setShowRestrictions] = useState(false);
   const [isPrivate, setIsPrivate] = useState(false);
+  const [privateMode, setPrivateMode] = useState<'rsvp' | 'kotizasyon' | 'paid'>('rsvp');
+  const [suggestedAmount, setSuggestedAmount] = useState(0);
   const privateTokenRef = useRef('');
   const [restrictions, setRestrictions] = useState<EventRestriction>({
     dressCode: '', foodDrink: '', cameras: '', bags: '', security: '', accessibility: '', health: '',
@@ -114,6 +116,7 @@ export default function CreateEvent() {
         status,
         organizerId: user.uid,
         organizerName: user.email || '',
+        ...(isPrivate && { privateMode, suggestedAmount: privateMode === 'kotizasyon' ? suggestedAmount : 0 }),
         totalCapacity: sections.reduce((sum, s) => sum + s.capacity, 0),
       });
       setCreatedId(eventId);
@@ -127,7 +130,7 @@ export default function CreateEvent() {
     switch (step) {
       case 1: return name.trim() && category;
       case 2: return startDate && startTime && (venueMode === 'known' ? selectedVenueIdx >= 0 : customVenue.name);
-      case 3: return sections.length > 0 && sections.every(s => s.name && s.capacity > 0 && s.price >= 0);
+      case 3: return isPrivate && privateMode !== 'paid' ? true : sections.length > 0 && sections.every(s => s.name && s.capacity > 0 && s.price >= 0);
       case 4: return true;
       case 5: return true;
       case 6: return true;
@@ -477,8 +480,57 @@ export default function CreateEvent() {
         {step === 3 && (
           <div style={cardStyle}>
             <h2 style={{ color: '#fff', fontSize: 18, marginBottom: 20 }}>
-              {L('Seksyon & Plas', 'Sections & Seating', 'Sections & Places')}
+              {isPrivate ? L('Tip Evènman Privé', 'Private Event Type', 'Type Privé') : L('Seksyon & Plas', 'Sections & Seating', 'Sections & Places')}
             </h2>
+
+            {/* Private mode selector */}
+            {isPrivate && (
+              <div style={{ marginBottom: 24 }}>
+                <p style={{ color: '#888', fontSize: 13, marginBottom: 14 }}>
+                  {L('Ki jan ou vle jere evènman privé sa?', 'How do you want to manage this private event?', 'Comment gérer cet événement privé?')}
+                </p>
+                {([
+                  { key: 'rsvp', icon: '✋', title: 'RSVP Gratis', sub: L('Konfime prezans sèlman, pa gen pèman.', 'Confirm attendance only, no payment.', 'Confirmer présence, pas de paiement.') },
+                  { key: 'kotizasyon', icon: '🤝', title: L('Kotizasyon', 'Contribution', 'Cotisation'), sub: L('Moun bay sa yo vle (montant sujere opsyonèl).', 'People give what they want (optional suggested amount).', 'Chacun donne ce qu'il veut.') },
+                  { key: 'paid', icon: '🎫', title: L('Tikè Peye', 'Paid Tickets', 'Billets Payants'), sub: L('Tankou evènman piblik — seksyon ak pri.', 'Like public events — sections with prices.', 'Comme événements publics.') },
+                ] as { key: 'rsvp' | 'kotizasyon' | 'paid'; icon: string; title: string; sub: string }[]).map(opt => (
+                  <div key={opt.key} onClick={() => setPrivateMode(opt.key)} style={{
+                    display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px',
+                    border: `1px solid ${privateMode === opt.key ? '#f97316' : '#1e1e2e'}`,
+                    borderRadius: 10, cursor: 'pointer', marginBottom: 10,
+                    background: privateMode === opt.key ? '#1a0a00' : 'transparent',
+                  }}>
+                    <div style={{ fontSize: 24, flexShrink: 0 }}>{opt.icon}</div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 700, fontSize: 14, color: privateMode === opt.key ? '#f97316' : '#fff' }}>{opt.title}</div>
+                      <div style={{ color: '#666', fontSize: 12, marginTop: 2 }}>{opt.sub}</div>
+                    </div>
+                    <div style={{ width: 18, height: 18, borderRadius: '50%', border: `2px solid ${privateMode === opt.key ? '#f97316' : '#333'}`, background: privateMode === opt.key ? '#f97316' : 'transparent', flexShrink: 0 }} />
+                  </div>
+                ))}
+
+                {privateMode === 'kotizasyon' && (
+                  <div style={{ marginTop: 16, padding: 16, border: '1px solid #1e1e2e', borderRadius: 10 }}>
+                    <label style={{ color: '#888', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, display: 'block', marginBottom: 8 }}>
+                      {L('Montant Sujere ($) — Opsyonèl', 'Suggested Amount ($) — Optional', 'Montant Suggéré ($) — Optionnel')}
+                    </label>
+                    <input
+                      type="number" min="0" value={suggestedAmount || ''}
+                      onChange={e => setSuggestedAmount(parseFloat(e.target.value) || 0)}
+                      placeholder="0"
+                      style={{ width: 140, padding: 10, borderRadius: 8, border: '1px solid #1e1e2e', background: '#0a0a0f', color: '#fff', fontSize: 16, fontWeight: 700 }}
+                    />
+                    <p style={{ color: '#555', fontSize: 11, marginTop: 8 }}>
+                      {L('Kite 0 pou gratis konplètman.', 'Leave 0 for completely free.', 'Laisser 0 pour gratuit.')}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Show sections only for paid or public events */}
+            {(!isPrivate || privateMode === 'paid') && (
+              <>
             <p style={{ color: '#888', fontSize: 13, marginBottom: 16 }}>
               {L('Defini seksyon yo ak pri.', 'Define sections and pricing.', 'Definissez les sections et les prix.')}
             </p>
@@ -529,6 +581,8 @@ export default function CreateEvent() {
                 <span style={{ color: '#fff', fontWeight: 700 }}>{sections.reduce((sum, s) => sum + s.capacity, 0).toLocaleString()}</span>
               </div>
             </div>
+              </>
+            )}
           </div>
         )}
 
