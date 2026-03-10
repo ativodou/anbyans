@@ -31,6 +31,13 @@ function seatGrid(capacity: number): { rows: number; cols: number } {
 // ─── Component ───────────────────────────────────────────────────
 
 const STRIPE_PK = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY as string;
+let _stripePromise: Promise<any> | null = null;
+function getStripePromise() {
+  if (!_stripePromise) {
+    _stripePromise = import('@stripe/stripe-js').then(m => m.loadStripe(STRIPE_PK));
+  }
+  return _stripePromise;
+}
 
 function BuyTicketInner() {
   const { t, locale } = useT();
@@ -664,12 +671,10 @@ function BuyTicketInner() {
                 </div>
               ))}
             </div>
-    {pay === 'card' && (
-      <div className="mt-4 p-4 bg-dark-card border border-cyan rounded-card">
+    <div style={{ display: pay === 'card' ? 'block' : 'none' }} className="mt-4 p-4 bg-dark-card border border-cyan rounded-card">
         <p className="text-xs text-gray-light mb-3">💳 {L('Antre enfòmasyon kat ou a', 'Enter your card details', 'Entrez les details de votre carte')}</p>
         <div ref={cardDivRef} className="p-2 rounded bg-surface" />
       </div>
-    )}
   </div>
 )}
       </div>
