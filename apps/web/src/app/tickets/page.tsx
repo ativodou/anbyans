@@ -6,7 +6,7 @@ import { useT } from '@/i18n';
 import { useAuth } from '@/hooks/useAuth';
 import { collection, query, where, getDocs, collectionGroup } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { getEvent, type TicketData, type EventData } from '@/lib/db';
+import { getEvent, initiateTransfer, cancelTransfer, type TicketData, type EventData } from '@/lib/db';
 
 interface TicketWithEvent extends TicketData {
   event?: EventData;
@@ -20,6 +20,13 @@ export default function MyTicketsPage() {
   const [tickets, setTickets] = useState<TicketWithEvent[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
+
+  // Transfer modal
+  const [transferTicket, setTransferTicket] = useState<TicketWithEvent | null>(null);
+  const [transferName, setTransferName] = useState('');
+  const [transferPhone, setTransferPhone] = useState('');
+  const [transferring, setTransferring] = useState(false);
+  const [transferDone, setTransferDone] = useState<{token: string; ticket: TicketWithEvent} | null>(null);
 
   // Guest lookup
   const [phone, setPhone] = useState('');
@@ -98,6 +105,54 @@ export default function MyTicketsPage() {
   // Show guest lookup if not logged in and haven't searched yet
   const showGuestLookup = !authLoading && !user && !searched;
   const showResults = searched || (user && !authLoading);
+
+  const handleTransfer = async () => {
+    if (!transferTicket?.id || !transferTicket.eventId) return;
+    if (!transferName.trim() || !transferPhone.trim()) return;
+    setTransferring(true);
+    try {
+      const token = await initiateTransfer(
+        transferTicket.eventId,
+        transferTicket.id,
+        transferName.trim(),
+        transferPhone.trim(),
+      );
+      // Send WhatsApp to recipient
+      const eventName = transferTicket.event?.name ?? 'evènman nan';
+      const acceptUrl = `https://anbyans.events/transfer/${token}`;
+      const msg = encodeURIComponent(
+        `🎫 ${transferTicket.buyerName} ap transfere yon tikè ba ou pou ${eventName}!
+
+Klike lyen sa pou aksepte tikè a (ekspire nan 24è):
+${acceptUrl}`
+      );
+      window.open(`https://wa.me/${transferPhone.trim().replace(/\D/g,'')}?text=${msg}`, '_blank');
+      // Update local state
+      setTickets(prev => prev.map(t =>
+        t.id === transferTicket.id ? { ...t, status: 'pending_transfer' as any, transferToken: token } : t
+      ));
+      setTransferDone({ token, ticket: transferTicket });
+      setTransferTicket(null);
+      setTransferName('');
+      setTransferPhone('');
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Erè. Eseye ankò.');
+    }
+    setTransferring(false);
+  };
+
+  const handleCancelTransfer = async (t: TicketWithEvent) => {
+    if (!t.id || !t.eventId || !t.transferToken) return;
+    if (!confirm(L('Anile transfè a?', 'Cancel this transfer?', 'Annuler ce transfert?'))) return;
+    try {
+      await cancelTransfer(t.eventId, t.id, t.transferToken);
+      setTickets(prev => prev.map(tk =>
+        tk.id === t.id ? { ...tk, status: 'valid', transferToken: undefined } : tk
+      ));
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Erè.');
+    }
+  };
 
   return (
     <div style={{ minHeight: '100vh', background: '#0a0a0f', color: '#fff' }}>
@@ -212,41 +267,72 @@ export default function MyTicketsPage() {
             {tickets.map(t => {
               const isValid = t.status === 'valid';
               const isUsed = t.status === 'used';
-              const statusColor = isValid ? '#22c55e' : isUsed ? '#f97316' : '#ef4444';
-              const statusLabel = isValid ? L('Valid', 'Valid', 'Valide') : isUsed ? L('Itilize', 'Used', 'Utilisé') : L('Anile', 'Cancelled', 'Annulé');
+              const isPending = t.status === 'pending_transfer';
+              const statusColor = isValid ? '#22c55e' : isUsed ? '#f97316' : isPending ? '#f59e0b' : '#ef4444';
+              const statusLabel = isValid ? L('Valid', 'Valid', 'Valide') : isUsed ? L('Itilize', 'Used', 'Utilisé') : isPending ? L('Transfè...', 'Transferring...', 'Transfert...') : L('Anile', 'Cancelled', 'Annulé');
 
               return (
-                <Link
-                  key={t.id}
-                  href={`/ticket/${t.ticketCode}`}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 14,
-                    background: '#12121a', border: '1px solid #1e1e2e', borderRadius: 12,
-                    padding: 16, textDecoration: 'none', color: '#fff',
-                  }}
-                >
-                  <div style={{ width: 4, height: 48, borderRadius: 4, background: t.sectionColor || '#555', flexShrink: 0 }} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 700, fontSize: 15 }}>{t.event?.name || L('Evènman', 'Event', 'Événement')}</div>
-                    <div style={{ color: '#888', fontSize: 11, marginTop: 2 }}>
-                      {t.section} · {L('Plas', 'Seat', 'Place')} {t.seat}
-                    </div>
-                    {t.event && (
-                      <div style={{ color: '#555', fontSize: 10, marginTop: 2 }}>
-                        📅 {t.event.startDate} · 🕐 {t.event.startTime}
+                <div key={t.id} style={{ background: '#12121a', border: '1px solid #1e1e2e', borderRadius: 12, overflow: 'hidden' }}>
+                  <Link
+                    href={`/ticket/${t.ticketCode}`}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 14,
+                      padding: 16, textDecoration: 'none', color: '#fff',
+                    }}
+                  >
+                    <div style={{ width: 4, height: 48, borderRadius: 4, background: t.sectionColor || '#555', flexShrink: 0 }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 700, fontSize: 15 }}>{t.event?.name || L('Evènman', 'Event', 'Événement')}</div>
+                      <div style={{ color: '#888', fontSize: 11, marginTop: 2 }}>
+                        {t.section} · {L('Plas', 'Seat', 'Place')} {t.seat}
                       </div>
-                    )}
-                  </div>
-                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                    <span style={{
-                      padding: '3px 8px', borderRadius: 4, fontSize: 9, fontWeight: 800,
-                      background: statusColor + '20', color: statusColor,
-                    }}>
-                      {statusLabel}
-                    </span>
-                    <div style={{ color: '#333', fontSize: 18, marginTop: 4 }}>→</div>
-                  </div>
-                </Link>
+                      {t.event && (
+                        <div style={{ color: '#555', fontSize: 10, marginTop: 2 }}>
+                          📅 {t.event.startDate} · 🕐 {t.event.startTime}
+                        </div>
+                      )}
+                    </div>
+                    <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                      <span style={{
+                        padding: '3px 8px', borderRadius: 4, fontSize: 9, fontWeight: 800,
+                        background: statusColor + '20', color: statusColor,
+                      }}>
+                        {statusLabel}
+                      </span>
+                      <div style={{ color: '#333', fontSize: 18, marginTop: 4 }}>→</div>
+                    </div>
+                  </Link>
+                  {/* Transfer / Cancel buttons */}
+                  {isValid && (
+                    <div style={{ borderTop: '1px solid #1e1e2e', padding: '10px 16px' }}>
+                      <button
+                        onClick={() => setTransferTicket(t)}
+                        style={{
+                          width: '100%', padding: '8px 0', borderRadius: 8, border: '1px solid #6366f1',
+                          background: 'transparent', color: '#6366f1', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                        }}
+                      >
+                        🔄 {L('Transfere Tikè Sa', 'Transfer This Ticket', 'Transférer ce Billet')}
+                      </button>
+                    </div>
+                  )}
+                  {isPending && t.transferToken && (
+                    <div style={{ borderTop: '1px solid #1e1e2e', padding: '10px 16px', display: 'flex', gap: 8 }}>
+                      <span style={{ flex: 1, fontSize: 11, color: '#f59e0b', alignSelf: 'center' }}>
+                        ⏳ {L('Ap tann akseptasyon...', 'Awaiting acceptance...', 'En attente...')}
+                      </span>
+                      <button
+                        onClick={() => handleCancelTransfer(t)}
+                        style={{
+                          padding: '6px 12px', borderRadius: 8, border: '1px solid #ef4444',
+                          background: 'transparent', color: '#ef4444', fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                        }}
+                      >
+                        {L('Anile', 'Cancel', 'Annuler')}
+                      </button>
+                    </div>
+                  )}
+                </div>
               );
             })}
 
@@ -266,6 +352,84 @@ export default function MyTicketsPage() {
           </div>
         )}
       </div>
+      {/* ── Transfer Modal ── */}
+      {transferTicket && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(0,0,0,0.85)',
+          display: 'flex', alignItems: 'flex-end', justifyContent: 'center', padding: 16,
+        }}>
+          <div style={{ background: '#12121a', border: '1px solid #1e1e2e', borderRadius: 20, width: '100%', maxWidth: 480, padding: 24 }}>
+            <h3 style={{ fontSize: 18, fontWeight: 800, marginBottom: 4 }}>
+              🔄 {L('Transfere Tikè', 'Transfer Ticket', 'Transférer le Billet')}
+            </h3>
+            <p style={{ color: '#888', fontSize: 12, marginBottom: 20 }}>
+              {transferTicket.event?.name} · {transferTicket.section} · {L('Plas', 'Seat', 'Place')} {transferTicket.seat}
+            </p>
+
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ color: '#888', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, display: 'block', marginBottom: 6 }}>
+                {L('Non Moun Nan', 'Recipient Name', 'Nom du destinataire')}
+              </label>
+              <input
+                value={transferName}
+                onChange={e => setTransferName(e.target.value)}
+                placeholder={L('Non konplè', 'Full name', 'Nom complet')}
+                style={{
+                  width: '100%', padding: 12, borderRadius: 8,
+                  border: '1px solid #1e1e2e', background: '#0a0a0f',
+                  color: '#fff', fontSize: 15, boxSizing: 'border-box',
+                }}
+              />
+            </div>
+
+            <div style={{ marginBottom: 20 }}>
+              <label style={{ color: '#888', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, display: 'block', marginBottom: 6 }}>
+                {L('Nimewo WhatsApp Moun Nan', 'Recipient WhatsApp Number', 'Numéro WhatsApp du destinataire')}
+              </label>
+              <input
+                value={transferPhone}
+                onChange={e => setTransferPhone(e.target.value)}
+                placeholder="+50934120000"
+                type="tel"
+                style={{
+                  width: '100%', padding: 12, borderRadius: 8,
+                  border: '1px solid #1e1e2e', background: '#0a0a0f',
+                  color: '#fff', fontSize: 15, boxSizing: 'border-box',
+                }}
+              />
+            </div>
+
+            <p style={{ color: '#555', fontSize: 11, marginBottom: 16 }}>
+              ⚠️ {L('Tikè a ap bloke pandan 24è jouk moun nan aksepte. Si li pa aksepte, tikè a retounen ba ou.', 'The ticket will be locked for 24h until accepted. If not accepted, it returns to you.', 'Le billet sera bloqué 24h jusqu'à acceptation.')}
+            </p>
+
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button
+                onClick={() => { setTransferTicket(null); setTransferName(''); setTransferPhone(''); }}
+                style={{
+                  flex: 1, padding: 12, borderRadius: 10, border: '1px solid #1e1e2e',
+                  background: 'transparent', color: '#888', fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                }}
+              >
+                {L('Tounen', 'Back', 'Retour')}
+              </button>
+              <button
+                onClick={handleTransfer}
+                disabled={!transferName.trim() || !transferPhone.trim() || transferring}
+                style={{
+                  flex: 2, padding: 12, borderRadius: 10, border: 'none',
+                  background: transferName.trim() && transferPhone.trim() ? '#6366f1' : '#333',
+                  color: transferName.trim() && transferPhone.trim() ? '#fff' : '#666',
+                  fontSize: 13, fontWeight: 700,
+                  cursor: transferName.trim() && transferPhone.trim() ? 'pointer' : 'not-allowed',
+                }}
+              >
+                {transferring ? '...' : `🔄 ${L('Voye Transfè', 'Send Transfer', 'Envoyer le transfert')}`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

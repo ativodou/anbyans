@@ -55,8 +55,6 @@ export interface EventVenue {
 }
 
 export interface EventData {
-  isPrivate?: boolean;
-  privateToken?: string;
   id?: string;
   name: string;
   description: string;
@@ -79,6 +77,8 @@ export interface EventData {
   totalSold: number;
   revenue: number;
   platformFee: number;
+  isPrivate?: boolean;
+  privateToken?: string;
   createdAt: any;
   updatedAt: any;
 }
@@ -115,10 +115,15 @@ export interface TicketData {
   ticketCode: string;
   qrData: string;
   buyerPin?: string;
-  status: 'valid' | 'used' | 'cancelled' | 'refunded';
+  status: 'valid' | 'used' | 'cancelled' | 'refunded' | 'pending_transfer';
   usedAt?: any;
   usedBy?: string;
   purchasedAt: any;
+  // Transfer fields
+  transferToken?: string;
+  transferToName?: string;
+  transferToPhone?: string;
+  transferExpiry?: any;
 }
 
 // ─── Offline Ticket (for scanner download) ───────────────────────
@@ -178,6 +183,107 @@ export async function getPublishedEvents(): Promise<EventData[]> {
   const events = snap.docs.map(d => ({ id: d.id, ...d.data() } as EventData));
   events.sort((a, b) => (a.startDate || '').localeCompare(b.startDate || ''));
   return events;
+}
+
+// ─── Get Private Event by Token ──────────────────────────────────
+
+// ─── Ticket Transfer ─────────────────────────────────────────────
+
+export async function initiateTransfer(
+  eventId: string,
+  ticketId: string,
+  transferToName: string,
+  transferToPhone: string,
+): Promise<string> {
+  const transferToken = Math.random().toString(36).slice(2, 10).toUpperCase() +
+                        Math.random().toString(36).slice(2, 10).toUpperCase();
+  const expiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h
+
+  const ticketRef = doc(db, 'events', eventId, 'tickets', ticketId);
+  await updateDoc(ticketRef, {
+    status: 'pending_transfer',
+    transferToken,
+    transferToName,
+    transferToPhone,
+    transferExpiry: expiry,
+  });
+
+  // Also store in top-level transfers collection for easy lookup by token
+  await setDoc(doc(db, 'transfers', transferToken), {
+    eventId,
+    ticketId,
+    transferToName,
+    transferToPhone,
+    createdAt: new Date(),
+    expiry,
+    status: 'pending',
+  });
+
+  return transferToken;
+}
+
+export async function getTransferByToken(token: string): Promise<{
+  eventId: string; ticketId: string; transferToName: string;
+  transferToPhone: string; expiry: Date; status: string;
+} | null> {
+  const snap = await getDoc(doc(db, 'transfers', token));
+  if (!snap.exists()) return null;
+  const d = snap.data();
+  return {
+    eventId: d.eventId,
+    ticketId: d.ticketId,
+    transferToName: d.transferToName,
+    transferToPhone: d.transferToPhone,
+    expiry: d.expiry?.toDate?.() ?? new Date(d.expiry),
+    status: d.status,
+  };
+}
+
+export async function acceptTransfer(token: string): Promise<void> {
+  const transfer = await getTransferByToken(token);
+  if (!transfer) throw new Error('Transfè pa jwenn.');
+  if (transfer.status !== 'pending') throw new Error('Transfè sa deja itilize.');
+  if (new Date() > transfer.expiry) throw new Error('Transfè a ekspire.');
+
+  const ticketRef = doc(db, 'events', transfer.eventId, 'tickets', transfer.ticketId);
+  const ticketSnap = await getDoc(ticketRef);
+  if (!ticketSnap.exists()) throw new Error('Tikè pa jwenn.');
+
+  const newPin = Math.floor(1000 + Math.random() * 9000).toString();
+
+  await updateDoc(ticketRef, {
+    buyerName: transfer.transferToName,
+    buyerPhone: transfer.transferToPhone,
+    buyerEmail: '',
+    buyerPin: newPin,
+    status: 'valid',
+    transferToken: null,
+    transferToName: null,
+    transferToPhone: null,
+    transferExpiry: null,
+  });
+
+  await updateDoc(doc(db, 'transfers', token), { status: 'accepted' });
+}
+
+export async function cancelTransfer(eventId: string, ticketId: string, token: string): Promise<void> {
+  const ticketRef = doc(db, 'events', eventId, 'tickets', ticketId);
+  await updateDoc(ticketRef, {
+    status: 'valid',
+    transferToken: null,
+    transferToName: null,
+    transferToPhone: null,
+    transferExpiry: null,
+  });
+  await updateDoc(doc(db, 'transfers', token), { status: 'cancelled' });
+}
+
+export async function getEventByPrivateToken(token: string): Promise<EventData | null> {
+  const q = query(collection(db, 'events'), where('privateToken', '==', token));
+  const snap = await getDocs(q);
+  if (snap.empty) return null;
+  const d = snap.docs[0];
+  return { id: d.id, ...d.data() } as EventData;
 }
 
 // ─── Get Events by Organizer ─────────────────────────────────────
@@ -557,7 +663,7 @@ export interface ResellerSectionPricing {
   available: number;
 }
 
-export interface ResellerPurchase {
+export interface VendorPurchase {
   id?: string;
   eventId: string;
   eventName: string;
@@ -593,7 +699,7 @@ export interface VendorData {
 
 // ─── Create / Invite Reseller ──────────────────────────────────────
 
-export async function inviteReseller(data: {
+export async function inviteVendor(data: {
   organizerId: string;
   name: string;
   contact: string;
@@ -628,26 +734,26 @@ export async function getOrganizerVendors(organizerId: string): Promise<VendorDa
 
 // ─── Get Reseller Purchases ────────────────────────────────────────
 
-export async function getVendorPurchases(vendorId: string): Promise<ResellerPurchase[]> {
+export async function getVendorPurchases(vendorId: string): Promise<VendorPurchase[]> {
   const q = query(
     collection(db, 'vendorPurchases'),
     where('vendorId', '==', vendorId),
     orderBy('createdAt', 'desc')
   );
   const snap = await getDocs(q);
-  return snap.docs.map(d => ({ id: d.id, ...d.data() } as ResellerPurchase));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as VendorPurchase));
 }
 
 // ─── Get All Reseller Purchases for an Organizer ───────────────────
 
-export async function getOrganizerVendorPurchases(organizerId: string): Promise<(ResellerPurchase & { vendorId: string; vendorName: string })[]> {
+export async function getOrganizerVendorPurchases(organizerId: string): Promise<(VendorPurchase & { vendorId: string; vendorName: string })[]> {
   const q = query(
     collection(db, 'vendorPurchases'),
     where('organizerId', '==', organizerId),
     orderBy('createdAt', 'desc')
   );
   const snap = await getDocs(q);
-  return snap.docs.map(d => ({ id: d.id, ...d.data() } as ResellerPurchase & { vendorId: string; vendorName: string }));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as VendorPurchase & { vendorId: string; vendorName: string }));
 }
 
 // ─── Bulk Purchase (reseller buys tickets upfront) ─────────────────
@@ -664,7 +770,7 @@ export async function vendorBulkPurchase(params: {
   sectionColor: string;
   qty: number;
   priceEach: number;
-}): Promise<ResellerPurchase> {
+}): Promise<VendorPurchase> {
   const totalPaid = params.qty * params.priceEach;
   const now = new Date();
   const purchaseDate = `${now.getDate()} ${['Jan','Fev','Mas','Avr','Me','Jen','Jiy','Out','Sep','Okt','Nov','Des'][now.getMonth()]}`;
@@ -819,7 +925,7 @@ export async function vendorSellTicket(params: {
   const purchaseSnap = await getDoc(purchaseRef);
   if (!purchaseSnap.exists()) throw new Error('Purchase not found');
 
-  const purchase = purchaseSnap.data() as ResellerPurchase;
+  const purchase = purchaseSnap.data() as VendorPurchase;
   const available = purchase.qty - purchase.sold;
   if (params.qty > available) throw new Error('Not enough tickets');
 
@@ -846,6 +952,97 @@ export async function vendorSellTicket(params: {
   return assignedCodes;
 }
 
+// ─── Ticket Transfer ─────────────────────────────────────────────
+
+export async function initiateTransfer(
+  eventId: string,
+  ticketId: string,
+  transferToName: string,
+  transferToPhone: string,
+): Promise<string> {
+  const transferToken = Math.random().toString(36).slice(2, 10).toUpperCase() +
+                        Math.random().toString(36).slice(2, 10).toUpperCase();
+  const expiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h
+
+  const ticketRef = doc(db, 'events', eventId, 'tickets', ticketId);
+  await updateDoc(ticketRef, {
+    status: 'pending_transfer',
+    transferToken,
+    transferToName,
+    transferToPhone,
+    transferExpiry: expiry,
+  });
+
+  // Also store in top-level transfers collection for easy lookup by token
+  await setDoc(doc(db, 'transfers', transferToken), {
+    eventId,
+    ticketId,
+    transferToName,
+    transferToPhone,
+    createdAt: new Date(),
+    expiry,
+    status: 'pending',
+  });
+
+  return transferToken;
+}
+
+export async function getTransferByToken(token: string): Promise<{
+  eventId: string; ticketId: string; transferToName: string;
+  transferToPhone: string; expiry: Date; status: string;
+} | null> {
+  const snap = await getDoc(doc(db, 'transfers', token));
+  if (!snap.exists()) return null;
+  const d = snap.data();
+  return {
+    eventId: d.eventId,
+    ticketId: d.ticketId,
+    transferToName: d.transferToName,
+    transferToPhone: d.transferToPhone,
+    expiry: d.expiry?.toDate?.() ?? new Date(d.expiry),
+    status: d.status,
+  };
+}
+
+export async function acceptTransfer(token: string): Promise<void> {
+  const transfer = await getTransferByToken(token);
+  if (!transfer) throw new Error('Transfè pa jwenn.');
+  if (transfer.status !== 'pending') throw new Error('Transfè sa deja itilize.');
+  if (new Date() > transfer.expiry) throw new Error('Transfè a ekspire.');
+
+  const ticketRef = doc(db, 'events', transfer.eventId, 'tickets', transfer.ticketId);
+  const ticketSnap = await getDoc(ticketRef);
+  if (!ticketSnap.exists()) throw new Error('Tikè pa jwenn.');
+
+  const newPin = Math.floor(1000 + Math.random() * 9000).toString();
+
+  await updateDoc(ticketRef, {
+    buyerName: transfer.transferToName,
+    buyerPhone: transfer.transferToPhone,
+    buyerEmail: '',
+    buyerPin: newPin,
+    status: 'valid',
+    transferToken: null,
+    transferToName: null,
+    transferToPhone: null,
+    transferExpiry: null,
+  });
+
+  await updateDoc(doc(db, 'transfers', token), { status: 'accepted' });
+}
+
+export async function cancelTransfer(eventId: string, ticketId: string, token: string): Promise<void> {
+  const ticketRef = doc(db, 'events', eventId, 'tickets', ticketId);
+  await updateDoc(ticketRef, {
+    status: 'valid',
+    transferToken: null,
+    transferToName: null,
+    transferToPhone: null,
+    transferExpiry: null,
+  });
+  await updateDoc(doc(db, 'transfers', token), { status: 'cancelled' });
+}
+
 export async function getEventByPrivateToken(token: string): Promise<EventData | null> {
   const q = query(collection(db, 'events'), where('privateToken', '==', token), limit(1));
   const snap = await getDocs(q);
@@ -853,5 +1050,3 @@ export async function getEventByPrivateToken(token: string): Promise<EventData |
   const doc = snap.docs[0];
   return { id: doc.id, ...doc.data() } as EventData;
 }
-
-export type VendorPurchase = ResellerPurchase;
