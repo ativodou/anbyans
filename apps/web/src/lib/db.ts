@@ -1,5 +1,6 @@
 import {
   collection,
+  collectionGroup,
   doc,
   addDoc,
   setDoc,
@@ -85,6 +86,7 @@ export interface EventData {
 export interface DoorStaff {
   id?: string;
   staffName: string;
+  phone: string;
   pin: string;
   deviceId: string | null;
   activated: boolean;
@@ -110,6 +112,7 @@ export interface TicketData {
   price: number;
   ticketCode: string;
   qrData: string;
+  buyerPin?: string;
   status: 'valid' | 'used' | 'cancelled' | 'refunded';
   usedAt?: any;
   usedBy?: string;
@@ -181,7 +184,6 @@ export async function getOrganizerEvents(organizerId: string): Promise<EventData
   const q = query(
     collection(db, 'events'),
     where('organizerId', '==', organizerId),
-    orderBy('createdAt', 'desc')
   );
   const snap = await getDocs(q);
   return snap.docs.map(d => ({ id: d.id, ...d.data() } as EventData));
@@ -225,10 +227,11 @@ function generateDeviceId(): string {
 
 // ─── Add Door Staff (organizer) ──────────────────────────────────
 
-export async function addDoorStaff(eventId: string, staffName: string): Promise<DoorStaff> {
+export async function addDoorStaff(eventId: string, staffName: string, phone: string = ''): Promise<DoorStaff> {
   const pin = generatePin();
   const staffData: Omit<DoorStaff, 'id'> = {
     staffName,
+    phone,
     pin,
     deviceId: null,
     activated: false,
@@ -424,7 +427,100 @@ export async function syncOfflineScans(
 }
 
 // ─── Known Venues (seeded data) ──────────────────────────────────
+// ─── Verify Ticket by Code (public) ─────────────────────────────
 
+export async function verifyTicketByCode(ticketCode: string): Promise<{
+  valid: boolean;
+  ticket?: TicketData;
+  event?: EventData;
+  error?: string;
+}> {
+  try {
+    const q = query(
+      collectionGroup(db, 'tickets'),
+      where('ticketCode', '==', ticketCode.trim().toUpperCase()),
+      limit(1)
+    );
+    const snap = await getDocs(q);
+    if (snap.empty) return { valid: false, error: 'Ticket not found' };
+
+    const ticketDoc = snap.docs[0];
+    const ticket = { id: ticketDoc.id, ...ticketDoc.data() } as TicketData;
+
+    // Get the parent event
+    const eventId = ticket.eventId || ticketDoc.ref.parent.parent?.id;
+    let event: EventData | null = null;
+    if (eventId) {
+      event = await getEvent(eventId);
+    }
+
+    return { valid: true, ticket, event: event || undefined };
+  } catch (err) {
+    console.error('Verify error:', err);
+    return { valid: false, error: 'Verification failed' };
+  }
+}
+// ─── Purchase Tickets (creates ticket docs) ──────────────────────
+
+function generateTicketCode(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = 'ANB-';
+  for (let i = 0; i < 8; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  return code;
+}
+
+function generateBuyerPin(): string {
+  return String(Math.floor(1000 + Math.random() * 9000));
+}
+export async function purchaseTickets(
+  eventId: string,
+  buyerName: string,
+  buyerEmail: string,
+  buyerPhone: string,
+  section: string,
+  sectionColor: string,
+  seats: string[],
+  pricePerSeat: number,
+  buyerPin?: string,
+): Promise<TicketData[]> {
+  const tickets: TicketData[] = [];
+
+  for (const seat of seats) {
+    const ticketCode = generateTicketCode();
+    const qrData = `ANB:${eventId}:${ticketCode}:${Date.now().toString(36)}`;
+    const ticketDoc: Omit<TicketData, 'id'> = {
+      eventId,
+      buyerName,
+      buyerEmail,
+      buyerPhone,
+      section,
+      sectionColor,
+      seat,
+      price: pricePerSeat,
+      ticketCode,
+      qrData,
+     buyerPin: buyerPin || generateBuyerPin(),
+      status: 'valid',
+      purchasedAt: serverTimestamp(),
+    };
+    const ref = await addDoc(collection(db, 'events', eventId, 'tickets'), ticketDoc);
+    tickets.push({ id: ref.id, ...ticketDoc });
+  }
+
+  // Update event sold count and revenue
+  const eventRef = doc(db, 'events', eventId);
+  const eventSnap = await getDoc(eventRef);
+  if (eventSnap.exists()) {
+    const data = eventSnap.data();
+    await updateDoc(eventRef, {
+      totalSold: (data.totalSold || 0) + seats.length,
+      revenue: (data.revenue || 0) + (seats.length * pricePerSeat),
+      updatedAt: serverTimestamp(),
+    });
+  }
+
+  return tickets;
+}
 export const KNOWN_VENUES: EventVenue[] = [
   { name: 'Karibe Hotel', address: 'Juvenat 7, Petion-Ville', city: 'Petion-Ville', country: 'Haiti', gps: { lat: 18.5135, lng: -72.2896 }, capacity: 2000 },
   { name: 'Champ de Mars', address: 'Champ de Mars, Port-au-Prince', city: 'Port-au-Prince', country: 'Haiti', gps: { lat: 18.5458, lng: -72.3387 }, capacity: 10000 },
@@ -441,3 +537,317 @@ export const KNOWN_VENUES: EventVenue[] = [
   { name: 'Place des Arts Montreal', address: '175 Rue Sainte-Catherine O, Montreal', city: 'Montreal', country: 'Canada', gps: { lat: 45.5076, lng: -73.5663 }, capacity: 3000 },
   { name: 'Zenith Paris', address: '211 Avenue Jean Jaures, Paris', city: 'Paris', country: 'France', gps: { lat: 48.8935, lng: 2.3935 }, capacity: 6300 },
 ];
+// ═══════════════════════════════════════════════════════════════════
+// RESELLER MANAGEMENT
+// ═══════════════════════════════════════════════════════════════════
+
+export interface BulkTier {
+  minQty: number;
+  maxQty: number | null;
+  priceEach: number;
+}
+
+export interface ResellerSectionPricing {
+  section: string;
+  sectionColor: string;
+  onlinePrice: number;
+  bulkTiers: BulkTier[];
+  available: number;
+}
+
+export interface ResellerPurchase {
+  id?: string;
+  eventId: string;
+  eventName: string;
+  eventEmoji: string;
+  eventDate: string;
+  section: string;
+  sectionColor: string;
+  qty: number;
+  priceEach: number;
+  totalPaid: number;
+  sold: number;
+  purchaseDate: string;
+  ticketCodes: string[];
+  createdAt: any;
+}
+
+export interface VendorData {
+  id?: string;
+  uid?: string;           // Firebase Auth UID (set when reseller accepts invite)
+  organizerId: string;    // which organizer invited them
+  name: string;
+  contact: string;
+  phone: string;
+  city: string;
+  payMethod: string;
+  payAccount: string;
+  status: 'active' | 'inactive' | 'pending';
+  joinedDate: string;
+  inviteToken?: string;   // random token sent via WhatsApp link
+  createdAt: any;
+  updatedAt: any;
+}
+
+// ─── Create / Invite Reseller ──────────────────────────────────────
+
+export async function inviteReseller(data: {
+  organizerId: string;
+  name: string;
+  contact: string;
+  phone: string;
+  city: string;
+  payMethod: string;
+}): Promise<VendorData> {
+  const token = Math.random().toString(36).slice(2, 10).toUpperCase();
+  const vendorDoc: Omit<VendorData, 'id'> = {
+    ...data,
+    payAccount: data.phone,
+    status: 'pending',
+    joinedDate: '—',
+    inviteToken: token,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  };
+  const ref = await addDoc(collection(db, 'vendors'), vendorDoc);
+  return { id: ref.id, ...vendorDoc };
+}
+
+// ─── Get Resellers by Organizer ────────────────────────────────────
+
+export async function getOrganizerVendors(organizerId: string): Promise<VendorData[]> {
+  const q = query(
+    collection(db, 'vendors'),
+    where('organizerId', '==', organizerId)
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as VendorData));
+}
+
+// ─── Get Reseller Purchases ────────────────────────────────────────
+
+export async function getVendorPurchases(vendorId: string): Promise<ResellerPurchase[]> {
+  const q = query(
+    collection(db, 'vendorPurchases'),
+    where('vendorId', '==', vendorId),
+    orderBy('createdAt', 'desc')
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as ResellerPurchase));
+}
+
+// ─── Get All Reseller Purchases for an Organizer ───────────────────
+
+export async function getOrganizerVendorPurchases(organizerId: string): Promise<(ResellerPurchase & { vendorId: string; vendorName: string })[]> {
+  const q = query(
+    collection(db, 'vendorPurchases'),
+    where('organizerId', '==', organizerId),
+    orderBy('createdAt', 'desc')
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as ResellerPurchase & { vendorId: string; vendorName: string }));
+}
+
+// ─── Bulk Purchase (reseller buys tickets upfront) ─────────────────
+
+export async function vendorBulkPurchase(params: {
+  vendorId: string;
+  vendorName: string;
+  organizerId: string;
+  eventId: string;
+  eventName: string;
+  eventEmoji: string;
+  eventDate: string;
+  section: string;
+  sectionColor: string;
+  qty: number;
+  priceEach: number;
+}): Promise<ResellerPurchase> {
+  const totalPaid = params.qty * params.priceEach;
+  const now = new Date();
+  const purchaseDate = `${now.getDate()} ${['Jan','Fev','Mas','Avr','Me','Jen','Jiy','Out','Sep','Okt','Nov','Des'][now.getMonth()]}`;
+
+  // Generate ticket codes for each ticket in the batch
+  const ticketCodes: string[] = [];
+  for (let i = 0; i < params.qty; i++) {
+    ticketCodes.push(generateTicketCode());
+  }
+
+  // Save reseller tickets to event's tickets subcollection
+  for (const code of ticketCodes) {
+    const qrData = `ANB:${params.eventId}:${code}:${Date.now().toString(36)}`;
+    await addDoc(collection(db, 'events', params.eventId, 'tickets'), {
+      eventId: params.eventId,
+      buyerName: `Vandè: ${params.vendorName}`,
+      buyerEmail: '',
+      buyerPhone: '',
+      section: params.section,
+      sectionColor: params.sectionColor,
+      seat: 'GA',
+      price: params.priceEach,
+      ticketCode: code,
+      qrData,
+      buyerPin: generateBuyerPin(),
+      status: 'valid',
+      vendorId: params.vendorId,
+      vendorName: params.vendorName,
+      isVendorTicket: true,
+      purchasedAt: serverTimestamp(),
+    });
+  }
+
+  // Save purchase record
+  const purchaseDoc = {
+    vendorId: params.vendorId,
+    vendorName: params.vendorName,
+    organizerId: params.organizerId,
+    eventId: params.eventId,
+    eventName: params.eventName,
+    eventEmoji: params.eventEmoji,
+    eventDate: params.eventDate,
+    section: params.section,
+    sectionColor: params.sectionColor,
+    qty: params.qty,
+    priceEach: params.priceEach,
+    totalPaid,
+    sold: 0,
+    purchaseDate,
+    ticketCodes,
+    createdAt: serverTimestamp(),
+  };
+
+  const ref = await addDoc(collection(db, 'vendorPurchases'), purchaseDoc);
+
+  // Update event totalSold + revenue
+  const eventRef = doc(db, 'events', params.eventId);
+  const eventSnap = await getDoc(eventRef);
+  if (eventSnap.exists()) {
+    const data = eventSnap.data();
+    await updateDoc(eventRef, {
+      totalSold: (data.totalSold || 0) + params.qty,
+      revenue: (data.revenue || 0) + totalPaid,
+      updatedAt: serverTimestamp(),
+    });
+  }
+
+  return { id: ref.id, ...purchaseDoc };
+}
+
+// ─── Update Reseller Status ────────────────────────────────────────
+
+export async function updateVendorStatus(vendorId: string, status: 'active' | 'inactive' | 'pending') {
+  await updateDoc(doc(db, 'vendors', vendorId), {
+    status,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+// ─── Accept Reseller Invite (reseller side) ─────────────────────────
+
+export async function acceptVendorInvite(token: string, uid: string): Promise<VendorData | null> {
+  const q = query(
+    collection(db, 'vendors'),
+    where('inviteToken', '==', token),
+    limit(1)
+  );
+  const snap = await getDocs(q);
+  if (snap.empty) return null;
+  const resellerDoc = snap.docs[0];
+  const now = new Date();
+  const joinedDate = `${now.getDate()} ${['Jan','Fev','Mas','Avr','Me','Jen','Jiy','Out','Sep','Okt','Nov','Des'][now.getMonth()]} ${now.getFullYear()}`;
+  await updateDoc(resellerDoc.ref, {
+    uid,
+    status: 'active',
+    joinedDate,
+    updatedAt: serverTimestamp(),
+  });
+  return { id: resellerDoc.id, ...resellerDoc.data(), uid, status: 'active', joinedDate } as VendorData;
+}
+
+// ─── Get Bulk Pricing for an Event (from event sections) ─────────
+
+export async function getEventBulkPricing(eventId: string): Promise<ResellerSectionPricing[]> {
+  const event = await getEvent(eventId);
+  if (!event) return [];
+  return event.sections.map(s => ({
+    section: s.name,
+    sectionColor: s.color,
+    onlinePrice: s.price,
+    available: s.capacity - s.sold,
+    bulkTiers: (s as any).bulkTiers || [],
+  }));
+}
+
+// ─── Save Bulk Tiers to Event Section ────────────────────────────
+
+export async function saveEventBulkTiers(
+  eventId: string,
+  sectionName: string,
+  tiers: BulkTier[]
+) {
+  const eventRef = doc(db, 'events', eventId);
+  const snap = await getDoc(eventRef);
+  if (!snap.exists()) return;
+  const data = snap.data();
+  const sections = (data.sections || []).map((s: any) =>
+    s.name === sectionName ? { ...s, bulkTiers: tiers } : s
+  );
+  await updateDoc(eventRef, { sections, updatedAt: serverTimestamp() });
+}
+// ─── Get Reseller by Firebase Auth UID ────────────────────────────
+
+export async function getVendorByUid(uid: string): Promise<VendorData | null> {
+  const q = query(collection(db, 'vendors'), where('uid', '==', uid), limit(1));
+  const snap = await getDocs(q);
+  if (snap.empty) return null;
+  return { id: snap.docs[0].id, ...snap.docs[0].data() } as VendorData;
+}
+
+// ─── Reseller Sells a Ticket to a Customer ────────────────────────
+// Assigns the next available ticket from reseller's pool to a real buyer
+
+export async function vendorSellTicket(params: {
+  purchaseId: string;
+  eventId: string;
+  buyerName: string;
+  buyerPhone: string;
+  qty: number;
+}): Promise<string[]> {
+  const purchaseRef = doc(db, 'vendorPurchases', params.purchaseId);
+  const purchaseSnap = await getDoc(purchaseRef);
+  if (!purchaseSnap.exists()) throw new Error('Purchase not found');
+
+  const purchase = purchaseSnap.data() as ResellerPurchase;
+  const available = purchase.qty - purchase.sold;
+  if (params.qty > available) throw new Error('Not enough tickets');
+
+  const assignedCodes = purchase.ticketCodes.slice(purchase.sold, purchase.sold + params.qty);
+
+  for (const code of assignedCodes) {
+    const ticketsQ = query(
+      collection(db, 'events', params.eventId, 'tickets'),
+      where('ticketCode', '==', code),
+      limit(1)
+    );
+    const ticketSnap = await getDocs(ticketsQ);
+    if (!ticketSnap.empty) {
+      await updateDoc(ticketSnap.docs[0].ref, {
+        buyerName: params.buyerName,
+        buyerPhone: params.buyerPhone,
+        isVendorSold: true,
+        status: 'valid',
+      });
+    }
+  }
+
+  await updateDoc(purchaseRef, { sold: purchase.sold + params.qty });
+  return assignedCodes;
+}
+
+export async function getEventByPrivateToken(token: string): Promise<EventData | null> {
+  const q = query(collection(db, 'events'), where('privateToken', '==', token), limit(1));
+  const snap = await getDocs(q);
+  if (snap.empty) return null;
+  const doc = snap.docs[0];
+  return { id: doc.id, ...doc.data() } as EventData;
+}
