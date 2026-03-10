@@ -120,7 +120,7 @@ export default function TransferAcceptPage() {
             <div style={{ color: '#888', fontSize: 12, marginTop: 4 }}>
               📅 {event.startDate} &nbsp;·&nbsp; 🕐 {event.startTime}
             </div>
-            {event.venue && <div style={{ color: '#888', fontSize: 12, marginTop: 2 }}>📍 {event.venue}</div>}
+            {event.venue?.name && <div style={{ color: '#888', fontSize: 12, marginTop: 2 }}>📍 {event.venue.name}</div>}
           </div>
         )}
 
