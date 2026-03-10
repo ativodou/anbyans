@@ -8,7 +8,7 @@ import {
   getOrganizerEvents,
   getOrganizerVendors,
   getOrganizerVendorPurchases,
-  inviteReseller,
+  inviteVendor,
   updateVendorStatus,
   saveEventBulkTiers,
   EventData,
@@ -97,7 +97,7 @@ export default function OrganizerResellersPage() {
     setSaving(true);
     setInviteError('');
     try {
-      const reseller = await inviteReseller({ organizerId: user.uid, ...inviteForm });
+      const reseller = await inviteVendor({ organizerId: user.uid, ...inviteForm });
       const msg = encodeURIComponent(
         `Bonjou ${inviteForm.contact}! Ou envite kòm vandè sou Anbyans.\n\nKlike lyen sa a pou kreye kont ou:\n${window.location.origin}/vendor/join?token=${reseller.inviteToken}\n\nMèsi!`
       );
