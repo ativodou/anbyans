@@ -853,3 +853,5 @@ export async function getEventByPrivateToken(token: string): Promise<EventData |
   const doc = snap.docs[0];
   return { id: doc.id, ...doc.data() } as EventData;
 }
+
+export type VendorPurchase = ResellerPurchase;
