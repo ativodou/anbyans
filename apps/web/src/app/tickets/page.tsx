@@ -173,7 +173,7 @@ ${acceptUrl}`
         </h1>
         <p style={{ color: '#888', fontSize: 13, marginBottom: 24 }}>
           {user
-            ? L('Tout tikè ou achte nan Anbyans.', 'All tickets you\'ve purchased on Anbyans.', 'Tous les billets que vous avez achetés sur Anbyans.')
+            ? L("Tout tikè ou achte nan Anbyans.", "All tickets you've purchased on Anbyans.", "Tous les billets que vous avez achetés sur Anbyans.")
             : L('Antre nimewo telefòn ou ak PIN ou pou wè tikè ou yo.', 'Enter your phone number and PIN to see your tickets.', 'Entrez votre numéro de téléphone et votre PIN pour voir vos billets.')
           }
         </p>
@@ -235,7 +235,7 @@ ${acceptUrl}`
               <p style={{ color: '#ef4444', fontSize: 12, marginTop: 10, textAlign: 'center' }}>{guestError}</p>
             )}
             <p style={{ color: '#555', fontSize: 10, marginTop: 12, textAlign: 'center' }}>
-              {L('Ou te resevwa PIN ou nan WhatsApp lè ou te achte tikè a.', 'You received your PIN via WhatsApp when you purchased your ticket.', 'Vous avez reçu votre PIN via WhatsApp lors de l\'achat de votre billet.')}
+              {L("Ou te resevwa PIN ou nan WhatsApp lè ou te achte tikè a.", "You received your PIN via WhatsApp when you purchased your ticket.", "Vous avez reçu votre PIN via WhatsApp lors de l'achat de votre billet.")}
             </p>
           </div>
         )}
@@ -254,7 +254,7 @@ ${acceptUrl}`
           <div style={{ textAlign: 'center', padding: 40 }}>
             <div style={{ fontSize: 48, marginBottom: 12 }}>🎭</div>
             <p style={{ color: '#888', fontSize: 14, marginBottom: 20 }}>
-              {L('Ou pa gen tikè ankò.', 'You don\'t have any tickets yet.', 'Vous n\'avez pas encore de billets.')}
+              {L("Ou pa gen tikè ankò.", "You don't have any tickets yet.", "Vous n'avez pas encore de billets.")}
             </p>
             <Link href="/buy" style={{ padding: '12px 24px', borderRadius: 10, background: '#06b6d4', color: '#000', fontWeight: 700, fontSize: 14, textDecoration: 'none' }}>
               🎫 {L('Achte Tikè', 'Buy Tickets', 'Acheter des Billets')}
@@ -400,7 +400,7 @@ ${acceptUrl}`
             </div>
 
             <p style={{ color: '#555', fontSize: 11, marginBottom: 16 }}>
-              ⚠️ {L('Tikè a ap bloke pandan 24è jouk moun nan aksepte. Si li pa aksepte, tikè a retounen ba ou.', 'The ticket will be locked for 24h until accepted. If not accepted, it returns to you.', 'Le billet sera bloqué 24h jusqu'à acceptation.')}
+              ⚠️ {L('Tikè a ap bloke pandan 24è jouk moun nan aksepte. Si li pa aksepte, tikè a retounen ba ou.', 'The ticket will be locked for 24h until accepted. If not accepted, it returns to you.', "Le billet sera bloqué 24h jusqu'à acceptation.")}
             </p>
 
             <div style={{ display: 'flex', gap: 10 }}>
