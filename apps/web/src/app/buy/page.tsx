@@ -698,6 +698,7 @@ function BuyTicketInner() {
                     mode: 'payment',
                     amount: Math.max(50, Math.round(total * 100)),
                     currency: 'usd',
+                    paymentMethodTypes: ['card'],
                     appearance: {
                       theme: 'night',
                       variables: { colorPrimary: '#06b6d4', colorBackground: '#111827', borderRadius: '10px' },
