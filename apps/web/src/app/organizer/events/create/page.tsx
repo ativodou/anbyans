@@ -491,7 +491,7 @@ export default function CreateEvent() {
                 </p>
                 {([
                   { key: 'rsvp', icon: '✋', title: 'RSVP Gratis', sub: L('Konfime prezans sèlman, pa gen pèman.', 'Confirm attendance only, no payment.', 'Confirmer présence, pas de paiement.') },
-                  { key: 'kotizasyon', icon: '🤝', title: L('Kotizasyon', 'Contribution', 'Cotisation'), sub: L('Moun bay sa yo vle (montant sujere opsyonèl).', 'People give what they want (optional suggested amount).', 'Chacun donne ce qu'il veut.') },
+                  { key: 'kotizasyon', icon: '🤝', title: L('Kotizasyon', 'Contribution', 'Cotisation'), sub: L('Moun bay sa yo vle (montant sujere opsyonèl).', 'People give what they want (optional suggested amount).', "Chacun donne ce qu'il veut.") },
                   { key: 'paid', icon: '🎫', title: L('Tikè Peye', 'Paid Tickets', 'Billets Payants'), sub: L('Tankou evènman piblik — seksyon ak pri.', 'Like public events — sections with prices.', 'Comme événements publics.') },
                 ] as { key: 'rsvp' | 'kotizasyon' | 'paid'; icon: string; title: string; sub: string }[]).map(opt => (
                   <div key={opt.key} onClick={() => setPrivateMode(opt.key)} style={{
