@@ -3,7 +3,7 @@ import QRCode from '@/components/QRCode';
 
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { useState, useEffect, useCallback, Suspense } from 'react';
+import { useState, useRef, useEffect, useCallback, Suspense } from 'react';
 import { useT } from '@/i18n';
 import { useAuth } from '@/hooks/useAuth';
 import LangSwitcher from '@/components/LangSwitcher';
@@ -62,6 +62,7 @@ function BuyTicketInner() {
   const [promoMsg, setPromoMsg] = useState('');
   const [processing, setProcessing] = useState(false);
   const [cardReady, setCardReady] = useState(false);
+  const cardRef = useRef<any>(null);
   const [showPayInstructions, setShowPayInstructions] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
   const stripeHook = useStripe();
@@ -169,7 +170,7 @@ function BuyTicketInner() {
       alert(L('Stripe pa chaje. Eseye anko.', 'Stripe not loaded. Try again.', 'Stripe non charge.'));
       return;
     }
-    const card = elements.getElement(CardElement);
+    const card = cardRef.current;
     if (!card || !cardReady) {
       alert(L('Kat la poko prè. Tann yon moman.', 'Card not ready yet. Please wait.', 'Carte pas encore prête.'));
       setProcessing(false);
@@ -635,7 +636,7 @@ function BuyTicketInner() {
             </div>
             <div style={{ visibility: pay === 'card' ? 'visible' : 'hidden', height: pay === 'card' ? 'auto' : '0', overflow: 'hidden', marginTop: pay === 'card' ? '' : '0', padding: pay === 'card' ? '' : '0' }} className="mt-4 p-4 bg-dark-card border border-cyan rounded-card">
                 <p className="text-xs text-gray-light mb-3">💳 {L('Antre enfòmasyon kat ou a', 'Enter your card details', 'Entrez les details de votre carte')}</p>
-                <CardElement onReady={() => setCardReady(true)} options={{ style: { base: { fontSize: '16px', color: '#ffffff', '::placeholder': { color: '#666' } } } }} />
+                <CardElement onReady={(el) => { cardRef.current = el; setCardReady(true); }} options={{ style: { base: { fontSize: '16px', color: '#ffffff', '::placeholder': { color: '#666' } } } }} />
               </div>
           </div>
         )}
