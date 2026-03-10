@@ -55,6 +55,8 @@ export interface EventVenue {
 }
 
 export interface EventData {
+  isPrivate?: boolean;
+  privateToken?: string;
   id?: string;
   name: string;
   description: string;
