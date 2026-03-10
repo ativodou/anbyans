@@ -72,30 +72,22 @@ function BuyTicketInner() {
   // Mount vanilla Stripe card element
   useEffect(() => {
     if (pay !== 'card') return;
-    let mounted = true;
-    (async () => {
-      const { loadStripe } = await import('@stripe/stripe-js');
-      const stripe = await loadStripe(STRIPE_PK);
-      if (!stripe || !mounted) return;
-      stripeRef.current = stripe;
-      const els = stripe.elements();
-      const card = els.create('card', {
-        style: { base: { fontSize: '16px', color: '#ffffff', '::placeholder': { color: '#666' } } },
-      });
-      if (cardDivRef.current && !cardElemRef.current) {
-        card.mount(cardDivRef.current);
+    if (cardElemRef.current) return; // already mounted
+    import('@stripe/stripe-js').then(({ loadStripe }) => {
+      loadStripe(STRIPE_PK).then(stripe => {
+        if (!stripe || cardElemRef.current) return;
+        stripeRef.current = stripe;
+        const els = stripe.elements();
+        const card = els.create('card', {
+          style: { base: { fontSize: '16px', color: '#ffffff', '::placeholder': { color: '#666' } } },
+        });
         cardElemRef.current = card;
-        card.on('ready', () => setCardReady(true));
-      }
-    })();
-    return () => {
-      mounted = false;
-      if (cardElemRef.current) {
-        cardElemRef.current.destroy();
-        cardElemRef.current = null;
-        setCardReady(false);
-      }
-    };
+        if (cardDivRef.current) {
+          card.mount(cardDivRef.current);
+          card.on('ready', () => setCardReady(true));
+        }
+      });
+    });
   }, [pay]);
   const [showPayInstructions, setShowPayInstructions] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
@@ -671,7 +663,7 @@ function BuyTicketInner() {
                 </div>
               ))}
             </div>
-    <div style={{ visibility: pay === 'card' ? 'visible' : 'hidden', position: pay === 'card' ? 'relative' : 'absolute', height: pay === 'card' ? 'auto' : '1px', overflow: 'hidden' }} className="mt-4 p-4 bg-dark-card border border-cyan rounded-card">
+    <div style={{ display: pay === 'card' ? 'block' : 'none' }} className="mt-4 p-4 bg-dark-card border border-cyan rounded-card">
         <p className="text-xs text-gray-light mb-3">💳 {L('Antre enfòmasyon kat ou a', 'Enter your card details', 'Entrez les details de votre carte')}</p>
         <div ref={cardDivRef} className="p-2 rounded bg-surface" />
       </div>
