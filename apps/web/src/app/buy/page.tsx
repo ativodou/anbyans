@@ -3,10 +3,12 @@ import QRCode from '@/components/QRCode';
 
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { useState, useEffect, useCallback, Suspense, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, Suspense, forwardRef, useImperativeHandle } from 'react';
 import { useT } from '@/i18n';
 import { useAuth } from '@/hooks/useAuth';
 import LangSwitcher from '@/components/LangSwitcher';
+import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
+import { loadStripe } from '@stripe/stripe-js';
 
 import {
   getPublishedEvents,
@@ -28,16 +30,50 @@ function seatGrid(capacity: number): { rows: number; cols: number } {
   return { rows, cols };
 }
 
-// ─── Component ───────────────────────────────────────────────────
+// ─── Stripe ──────────────────────────────────────────────────────
 
-const STRIPE_PK = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY as string;
-let _stripePromise: Promise<any> | null = null;
-function getStripePromise() {
-  if (!_stripePromise) {
-    _stripePromise = import('@stripe/stripe-js').then(m => m.loadStripe(STRIPE_PK));
-  }
-  return _stripePromise;
-}
+const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY as string);
+
+// ─── Stripe Payment Form (must live inside <Elements>) ───────────
+
+// ─── Stripe TRUE deferred pattern ────────────────────────────────
+// <Elements> gets mode/amount/currency — NO clientSecret.
+// clientSecret is fetched ONLY at payment time, passed into submit().
+// This avoids the "mixed pattern" error ("A processing error occurred").
+type StripeFormHandle = { submit: (clientSecret: string) => Promise<{ ok: boolean; error?: string }> };
+
+const StripePaymentForm = forwardRef<
+  StripeFormHandle,
+  { onReady: () => void; onUnready: () => void }
+>(({ onReady, onUnready }: { onReady: () => void; onUnready: () => void }, ref) => {
+  const stripe = useStripe();
+  const elements = useElements();
+
+  useEffect(() => () => { onUnready(); }, []);
+
+  useImperativeHandle(ref, () => ({
+    submit: async (clientSecret: string) => {
+      if (!stripe || !elements) return { ok: false, error: 'Stripe pa chaje. Eseye anko.' };
+      // Step 1 – validate + serialise card data (deferred: no PI lookup yet)
+      const { error: submitError } = await elements.submit();
+      if (submitError) return { ok: false, error: submitError.message ?? 'Enfòmasyon kat pa valid.' };
+      // Step 2 – deferred pattern: MUST pass both elements + clientSecret
+      const { error } = await stripe.confirmPayment({
+        elements,
+        clientSecret,
+        confirmParams: { return_url: window.location.href },
+        redirect: 'if_required',
+      });
+      if (error) return { ok: false, error: error.message ?? 'Peman echwe.' };
+      return { ok: true };
+    },
+  }), [stripe, elements]);
+
+  return <PaymentElement options={{ layout: 'tabs' }} onReady={onReady} />;
+});
+StripePaymentForm.displayName = 'StripePaymentForm';
+
+// ─── Component ───────────────────────────────────────────────────
 
 function BuyTicketInner() {
   const { t, locale } = useT();
@@ -67,33 +103,14 @@ function BuyTicketInner() {
   const [promoCode, setPromoCode] = useState('');
   const [promoMsg, setPromoMsg] = useState('');
   const [processing, setProcessing] = useState(false);
-  const [cardReady, setCardReady] = useState(false);
+  const [stripeProcessing, setStripeProcessing] = useState(false); // card-only: keeps <Elements> mounted
 
-  // Mount vanilla Stripe card element
-  useEffect(() => {
-    if (pay !== 'card') return;
-    if (cardElemRef.current) return; // already mounted
-    import('@stripe/stripe-js').then(({ loadStripe }) => {
-      loadStripe(STRIPE_PK).then(stripe => {
-        if (!stripe || cardElemRef.current) return;
-        stripeRef.current = stripe;
-        const els = stripe.elements();
-        const card = els.create('card', {
-          style: { base: { fontSize: '16px', color: '#ffffff', '::placeholder': { color: '#666' } } },
-        });
-        cardElemRef.current = card;
-        if (cardDivRef.current) {
-          card.mount(cardDivRef.current);
-          card.on('ready', () => setCardReady(true));
-        }
-      });
-    });
-  }, [pay]);
+  // Stripe
+  const [paymentElementReady, setPaymentElementReady] = useState(false);
+  const stripeFormRef = useRef<StripeFormHandle | null>(null);
+
   const [showPayInstructions, setShowPayInstructions] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
-  const stripeRef = useRef<any>(null);
-  const cardElemRef = useRef<any>(null);
-  const cardDivRef = useRef<HTMLDivElement>(null);
   const [purchasedTickets, setPurchasedTickets] = useState<TicketData[]>([]);
   const [holdTime, setHoldTime] = useState(600);
   const [qrKey, setQrKey] = useState(0);
@@ -155,6 +172,8 @@ function BuyTicketInner() {
     return () => clearInterval(ti);
   }, [confirmed]);
 
+
+
   // Calculations
   const calcTotal = useCallback(() => {
     if (!sec || seats.length === 0) return { sub: 0, fee: 0, disc: 0, total: 0 };
@@ -170,7 +189,6 @@ function BuyTicketInner() {
 
   const applyPromo = () => {
     const code = promoCode.trim().toUpperCase();
-    // Check event promos
     const eventPromo = ev?.promos?.find(p => p.code === code);
     if (eventPromo) {
       const discount = eventPromo.type === 'percent' ? eventPromo.discount / 100 : 0;
@@ -188,40 +206,42 @@ function BuyTicketInner() {
 
   const doPayment = async () => {
     if (!ev?.id || !sec) return;
-    // Non-card: show payment instructions first
-    if (pay !== 'card') {
-      setShowPayInstructions(true);
+
+    if (pay !== 'card') { setShowPayInstructions(true); return; }
+
+    const stripeForm = stripeFormRef.current;
+    if (!stripeForm) {
+      alert(L('Stripe pa chaje. Eseye anko.', 'Stripe not loaded. Try again.', 'Stripe non chargé.'));
       return;
     }
-    if (!stripeRef.current || !cardElemRef.current) {
-      alert(L('Stripe pa chaje. Eseye anko.', 'Stripe not loaded. Try again.', 'Stripe non charge.'));
-      return;
-    }
-    setProcessing(true);
+
+    // Use stripeProcessing (NOT processing) so <Elements>/<StripePaymentForm>
+    // stay mounted — full-screen spinner would unmount them, killing stripe/elements
+    setStripeProcessing(true);
     try {
-      // 1. Create PaymentIntent
-      const totalAmount = sec.price * seats.length;
+      // 1. Fetch PaymentIntent clientSecret at payment time (true deferred pattern)
       const res = await fetch('/api/payment/stripe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: totalAmount, eventName: ev.name, seats: seats.length }),
+        body: JSON.stringify({ amount: Math.round(total * 100) / 100, eventName: ev.name, seats: seats.length }),
       });
       const { clientSecret, error: apiError } = await res.json();
-      if (apiError) throw new Error(apiError);
+      if (apiError || !clientSecret) {
+        alert(apiError ?? L('Erè Stripe API.', 'Stripe API error.', 'Erreur Stripe API.'));
+        setStripeProcessing(false);
+        return;
+      }
 
-      // 2. Tokenize card first, then confirm
-      const { paymentMethod, error: pmError } = await stripeRef.current.createPaymentMethod({
-        type: 'card',
-        card: cardElemRef.current,
-      });
-      if (pmError) throw new Error(pmError.message);
-      const { error: stripeError, paymentIntent } = await stripeRef.current.confirmCardPayment(clientSecret, {
-        payment_method: paymentMethod.id,
-      });
-      if (stripeError) throw new Error(stripeError.message);
-      if (paymentIntent?.status !== 'succeeded') throw new Error('Payment not confirmed');
+      // 2. elements.submit() + stripe.confirmPayment({ clientSecret }) inside
+      const result = await stripeForm.submit(clientSecret);
+      if (!result.ok) {
+        alert(result.error ?? L('Ere. Eseye ankò.', 'Error. Try again.', 'Erreur.'));
+        setStripeProcessing(false);
+        return;
+      }
 
-      // 3. Create tickets in Firestore
+      // 3. Stripe OK — write tickets to Firestore
+      setProcessing(true); // now safe to show full-screen spinner (Stripe done)
       const tickets = await purchaseTickets(
         ev.id,
         buyerName || 'Guest',
@@ -235,9 +255,10 @@ function BuyTicketInner() {
       setPurchasedTickets(tickets);
       setConfirmed(true);
     } catch (err) {
-      console.error('Purchase failed:', err);
+      console.error('[doPayment] error:', err);
       alert(err instanceof Error ? err.message : L('Ere. Eseye ankò.', 'Error. Try again.', 'Erreur.'));
     }
+    setStripeProcessing(false);
     setProcessing(false);
   };
 
@@ -307,10 +328,12 @@ function BuyTicketInner() {
     if (step > 1) setStep(step - 1);
   };
 
-  // Reset card ready when payment method changes
-  useEffect(() => { setCardReady(false); }, [pay]);
-
-  const canNext = step === 1 ? !!ev : step === 2 ? !!sec : step === 3 ? seats.length > 0 : step === 4 ? !!buyerPhone.trim() : (pay === 'card' ? cardReady : !!pay);
+  const canNext =
+    step === 1 ? !!ev :
+    step === 2 ? !!sec :
+    step === 3 ? seats.length > 0 :
+    step === 4 ? !!buyerPhone.trim() :
+    pay === 'card' ? (paymentElementReady && !stripeProcessing) : !!pay;
 
   const perSeat = L('pa plas', 'per seat', 'par place');
   const availOf = L('disponib sou', 'available of', 'disponible sur');
@@ -330,7 +353,7 @@ function BuyTicketInner() {
         <div className="w-full max-w-[420px] text-center">
           <div className="text-6xl mb-4">🎉</div>
           <h2 className="font-heading text-3xl tracking-wide mb-1">{L('TIKÈ OU PARE!', 'YOUR TICKET IS READY!', 'VOTRE BILLET EST PRÊT !')}</h2>
-          <p className="text-xs text-gray-light mb-6">{L('Prezante QR kòd sa a nan antre a.', 'Show this QR code at the entrance.', 'Présentez ce QR code à l\'entrée.')}</p>
+          <p className="text-xs text-gray-light mb-6">{L('Prezante QR kòd sa a nan antre a.', 'Show this QR code at the entrance.', "Présentez ce QR code à l'entrée.")}</p>
           <div className="bg-dark-card border border-border rounded-2xl p-6 relative">
             <div className="absolute top-1/2 -left-2.5 w-5 h-5 rounded-full bg-dark" />
             <div className="absolute top-1/2 -right-2.5 w-5 h-5 rounded-full bg-dark" />
@@ -351,7 +374,7 @@ function BuyTicketInner() {
           </div>
           <p className="text-sm text-cyan font-bold text-center mt-6 mb-2">👇 {L('Klike pou resevwa tikè ou sou WhatsApp', 'Click to receive your ticket on WhatsApp', 'Cliquez pour recevoir votre billet sur WhatsApp')}</p>
           <div className="flex gap-2.5 justify-center">
-<Link href="/events" className="px-5 py-3 rounded-lg bg-cyan text-dark font-bold text-sm hover:bg-white transition-all">🎫 {L('Wè Plis Evènman', 'See More Events', 'Voir plus d\'événements')}</Link>
+<Link href="/events" className="px-5 py-3 rounded-lg bg-cyan text-dark font-bold text-sm hover:bg-white transition-all">🎫 {L('Wè Plis Evènman', 'See More Events', "Voir plus d'événements")}</Link>
 <button onClick={() => {
   const phone = buyerPhone.replace(/[^0-9]/g, '');
   const ticketUrl = `${window.location.origin}/ticket/${purchasedTickets[0]?.ticketCode}`;
@@ -373,7 +396,9 @@ function BuyTicketInner() {
   // PROCESSING
   // ═══════════════════════════════════════════════════════════════
 
-  if (processing) {
+  // Full-screen spinner only for non-card payments (MonCash, Zelle, etc.)
+  // Card uses stripeProcessing so <Elements> stays mounted during Stripe calls
+  if (processing && pay !== 'card') {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4">
         <div className="w-12 h-12 border-4 border-cyan border-t-transparent rounded-full animate-spin" />
@@ -519,7 +544,6 @@ function BuyTicketInner() {
             {(() => {
               const { rows, cols } = seatGrid(sec.capacity);
               const soldCount = sec.sold || 0;
-              // Generate "taken" seats deterministically from sold count
               const takenSet = new Set<number>();
               let seed = sec.name.length * 7 + sec.capacity;
               for (let i = 0; i < soldCount && i < sec.capacity; i++) {
@@ -648,7 +672,7 @@ function BuyTicketInner() {
                 { id: 'zelle', icon: '⚡', name: 'Zelle', desc: L('Peye ak Zelle', 'Pay with Zelle', 'Payer avec Zelle') },
                 { id: 'paypal', icon: '🅿️', name: 'PayPal', desc: L('Peye ak PayPal', 'Pay with PayPal', 'Payer avec PayPal') },
                 { id: 'cashapp', icon: '💲', name: 'Cash App', desc: L('Peye ak Cash App', 'Pay with Cash App', 'Payer avec Cash App') },
-                { id: 'cash', icon: '💵', name: L('Kach', 'Cash', 'Espèces'), desc: L('Peye nan pot la', 'Pay at the door', 'Payer à l\'entrée') },
+                { id: 'cash', icon: '💵', name: L('Kach', 'Cash', 'Espèces'), desc: L('Peye nan pot la', 'Pay at the door', "Payer à l'entrée") },
               ].map(m => (
                 <div key={m.id} onClick={() => setPay(m.id)}
                   className={`flex items-center gap-3.5 bg-dark-card border rounded-card p-4 cursor-pointer transition-all ${pay === m.id ? 'border-cyan bg-cyan-dim' : 'border-border hover:border-white/[0.12]'}`}>
@@ -663,12 +687,39 @@ function BuyTicketInner() {
                 </div>
               ))}
             </div>
-    <div style={{ display: pay === 'card' ? 'block' : 'none' }} className="mt-4 p-4 bg-dark-card border border-cyan rounded-card">
-        <p className="text-xs text-gray-light mb-3">💳 {L('Antre enfòmasyon kat ou a', 'Enter your card details', 'Entrez les details de votre carte')}</p>
-        <div ref={cardDivRef} className="p-2 rounded bg-surface" />
-      </div>
-  </div>
-)}
+
+            {/* ── Card: Elements with deferred mode (NO clientSecret here) ── */}
+            {pay === 'card' && (
+              <div className="mt-4 p-4 bg-dark-card border border-cyan rounded-card">
+                <p className="text-xs text-gray-light mb-3">💳 {L('Antre enfòmasyon kat ou a', 'Enter your card details', 'Entrez les détails de votre carte')}</p>
+                <Elements
+                  stripe={stripePromise}
+                  options={{
+                    mode: 'payment',
+                    amount: Math.max(50, Math.round(total * 100)),
+                    currency: 'usd',
+                    appearance: {
+                      theme: 'night',
+                      variables: { colorPrimary: '#06b6d4', colorBackground: '#111827', borderRadius: '10px' },
+                    },
+                  }}
+                >
+                  {!paymentElementReady && (
+                    <div className="flex items-center gap-2 py-4 justify-center">
+                      <div className="w-5 h-5 border-2 border-cyan border-t-transparent rounded-full animate-spin" />
+                      <span className="text-xs text-gray-light">{L('Ap chaje fòm kat...', 'Loading card form...', 'Chargement du formulaire...')}</span>
+                    </div>
+                  )}
+                  <StripePaymentForm
+                    ref={stripeFormRef}
+                    onReady={() => setPaymentElementReady(true)}
+                    onUnready={() => setPaymentElementReady(false)}
+                  />
+                </Elements>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* ════════════ Pay Instructions Modal ════════════ */}
@@ -720,7 +771,7 @@ function BuyTicketInner() {
           )}
           <button onClick={goNext} disabled={!canNext}
             className={`px-6 py-2.5 rounded-[10px] font-bold text-sm transition-all ${step === 5 ? (canNext ? 'bg-green text-white hover:bg-green/80' : 'bg-white/[0.04] text-gray-muted cursor-not-allowed') : (canNext ? 'bg-cyan text-dark hover:bg-white' : 'bg-white/[0.04] text-gray-muted cursor-not-allowed')}`}>
-            {step === 5 ? `🔒 ${L('Peye', 'Pay', 'Payer')} $${total.toFixed(2)}` : step === 3 ? L('Revize →', 'Review →', 'Réviser →') : L('Kontinye →', 'Continue →', 'Continuer →')}
+            {step === 5 ? (stripeProcessing ? <span className="flex items-center gap-2"><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline-block" />Ap trete...</span> : `🔒 ${L('Peye', 'Pay', 'Payer')} $${total.toFixed(2)}`) : step === 3 ? L('Revize →', 'Review →', 'Réviser →') : L('Kontinye →', 'Continue →', 'Continuer →')}
           </button>
         </div>
       </div>
