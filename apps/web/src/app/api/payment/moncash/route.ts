@@ -15,12 +15,14 @@ async function getToken(): Promise<string> {
   const clientSecret = process.env.MONCASH_CLIENT_SECRET!;
   const credentials  = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
 
-  const res = await fetch(`${host()}/oauth/token?scope=read,write&grant_type=client_credentials`, {
+  const res = await fetch(`${host()}/oauth/token`, {
     method: 'POST',
     headers: {
       Authorization: `Basic ${credentials}`,
+      'Content-Type': 'application/x-www-form-urlencoded',
       Accept: 'application/json',
     },
+    body: 'scope=read,write&grant_type=client_credentials',
   });
   if (!res.ok) {
     const text = await res.text();
