@@ -7,7 +7,7 @@ import { useState, useEffect, useCallback, useRef, Suspense, forwardRef, useImpe
 import { useT } from '@/i18n';
 import { useAuth } from '@/hooks/useAuth';
 import LangSwitcher from '@/components/LangSwitcher';
-import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
+import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { loadStripe } from '@stripe/stripe-js';
 
 import {
@@ -54,22 +54,36 @@ const StripePaymentForm = forwardRef<
   useImperativeHandle(ref, () => ({
     submit: async (clientSecret: string) => {
       if (!stripe || !elements) return { ok: false, error: 'Stripe pa chaje. Eseye anko.' };
-      // Step 1 – validate + serialise card data (deferred: no PI lookup yet)
-      const { error: submitError } = await elements.submit();
-      if (submitError) return { ok: false, error: submitError.message ?? 'Enfòmasyon kat pa valid.' };
-      // Step 2 – deferred pattern: MUST pass both elements + clientSecret
-      const { error } = await stripe.confirmPayment({
-        elements,
-        clientSecret,
-        confirmParams: { return_url: window.location.href },
-        redirect: 'if_required',
+      const cardElement = elements.getElement(CardElement);
+      if (!cardElement) return { ok: false, error: 'Fòm kat pa disponib.' };
+      // Confirm directly with card element — no wallet button, no Apple Pay
+      const { error, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
+        payment_method: { card: cardElement },
       });
       if (error) return { ok: false, error: error.message ?? 'Peman echwe.' };
+      if (paymentIntent?.status !== 'succeeded') return { ok: false, error: 'Peman pa konplete.' };
       return { ok: true };
     },
   }), [stripe, elements]);
 
-  return <PaymentElement options={{ layout: 'tabs', wallets: { applePay: 'never', googlePay: 'never' } }} onReady={onReady} />;
+  const cardStyle = {
+    style: {
+      base: {
+        color: '#f9fafb',
+        fontFamily: 'Inter, sans-serif',
+        fontSize: '16px',
+        '::placeholder': { color: '#6b7280' },
+        iconColor: '#06b6d4',
+      },
+      invalid: { color: '#ef4444', iconColor: '#ef4444' },
+    },
+  };
+
+  return (
+    <div className="p-3 rounded-[10px] border border-border bg-[#111827]">
+      <CardElement options={cardStyle} onReady={onReady} />
+    </div>
+  );
 });
 StripePaymentForm.displayName = 'StripePaymentForm';
 
@@ -698,7 +712,6 @@ function BuyTicketInner() {
                     mode: 'payment',
                     amount: Math.max(50, Math.round(total * 100)),
                     currency: 'usd',
-                    paymentMethodTypes: ['card'],
                     appearance: {
                       theme: 'night',
                       variables: { colorPrimary: '#06b6d4', colorBackground: '#111827', borderRadius: '10px' },
