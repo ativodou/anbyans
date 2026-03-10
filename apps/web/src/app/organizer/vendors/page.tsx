@@ -13,12 +13,12 @@ import {
   saveEventBulkTiers,
   EventData,
   VendorData,
-  ResellerPurchase,
+  VendorPurchase,
   BulkTier,
 } from '@/lib/db';
 
 type VendorWithPurchases = VendorData & {
-  purchases: (ResellerPurchase & { vendorId: string; vendorName: string })[];
+  purchases: (VendorPurchase & { vendorId: string; vendorName: string })[];
 };
 
 const fmtTier = (t: { minQty: number; maxQty: number | null }) =>
