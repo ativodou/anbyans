@@ -40,7 +40,7 @@ const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY 
 // <Elements> gets mode/amount/currency — NO clientSecret.
 // clientSecret is fetched ONLY at payment time, passed into submit().
 // This avoids the "mixed pattern" error ("A processing error occurred").
-type StripeFormHandle = { submit: (clientSecret: string) => Promise<{ ok: boolean; error?: string }> };
+type StripeFormHandle = { submit: (clientSecret: string) => Promise<{ ok: boolean; error?: string; paymentIntentId?: string }> };
 
 const StripePaymentForm = forwardRef<
   StripeFormHandle,
