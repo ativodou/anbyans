@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, memo } from 'react';
 import { useT } from '@/i18n';
 import LangSwitcher from '@/components/LangSwitcher';
 import { getPublishedEvents } from '@/lib/db';
@@ -24,11 +24,43 @@ const GENRES = [
   { label: 'Rasin', emoji: '🪘' },  { label: 'Gospel', emoji: '🙏' },
 ];
 
+
 type GalleryItem = {
   title: string; venue: string; date: string; emoji: string;
   price: number; live: boolean; imageUrl?: string;
   source: 'anbyans' | 'ticketmaster';
 };
+
+const EventGallery = memo(function EventGallery({ items }: { items: GalleryItem[] }) {
+  const list = items.length >= 8 ? items : [...items, ...items];
+  return (
+    <section className="relative overflow-hidden py-4 mb-8">
+      <div className="flex gap-4 px-5 animate-scroll hover:[animation-play-state:paused]">
+        {list.map((ev, i) => (
+          <a key={i} href="/events"
+            className="flex-shrink-0 w-[200px] bg-dark-card border border-border rounded-card overflow-hidden hover:border-white/[0.12] transition-all group"
+            style={{ textDecoration: 'none' }}>
+            <div className="h-24 bg-gradient-to-br from-[#1a1a2e] to-[#16213e] flex items-center justify-center text-4xl relative overflow-hidden">
+              {ev.imageUrl
+                ? <img src={ev.imageUrl} alt={ev.title} className="w-full h-full object-cover" />
+                : ev.emoji}
+              {ev.live && <span className="absolute top-2 left-2 bg-red text-white text-[8px] font-bold px-1.5 py-0.5 rounded-md">● LIVE</span>}
+              {ev.source === 'ticketmaster' && <span className="absolute bottom-1 right-1 bg-black/60 text-[8px] text-gray-400 px-1 rounded">TM</span>}
+            </div>
+            <div className="p-3">
+              <p className="text-xs font-bold truncate group-hover:text-cyan transition-colors">{ev.title}</p>
+              <p className="text-[10px] text-gray-light mt-0.5 truncate">📍 {ev.venue}</p>
+              <div className="flex items-center justify-between mt-2">
+                <span className="text-[10px] text-gray-muted">📅 {ev.date}</span>
+                <span className="font-heading text-base">{ev.price > 0 ? `$${ev.price}` : 'Free'}</span>
+              </div>
+            </div>
+          </a>
+        ))}
+      </div>
+    </section>
+  );
+});
 
 export default function LandingPage() {
   const router = useRouter();
@@ -134,32 +166,7 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* GALLERY SCROLL */}
-        <section className="relative overflow-hidden py-4 mb-8">
-          <div className="flex gap-4 px-5 animate-scroll hover:[animation-play-state:paused]">
-            {[...(gallery.length >= 8 ? gallery : [...gallery, ...gallery])].map((ev, i) => (
-              <Link key={i} href="/events"
-                className="flex-shrink-0 w-[200px] bg-dark-card border border-border rounded-card overflow-hidden hover:border-white/[0.12] transition-all group"
-                style={{ textDecoration: 'none' }}>
-                <div className="h-24 bg-gradient-to-br from-[#1a1a2e] to-[#16213e] flex items-center justify-center text-4xl relative overflow-hidden">
-                  {ev.imageUrl
-                    ? <img src={ev.imageUrl} alt={ev.title} className="w-full h-full object-cover" />
-                    : ev.emoji}
-                  {ev.live && <span className="absolute top-2 left-2 bg-red text-white text-[8px] font-bold px-1.5 py-0.5 rounded-md">● LIVE</span>}
-                  {ev.source === 'ticketmaster' && <span className="absolute bottom-1 right-1 bg-black/60 text-[8px] text-gray-400 px-1 rounded">TM</span>}
-                </div>
-                <div className="p-3">
-                  <p className="text-xs font-bold truncate group-hover:text-cyan transition-colors">{ev.title}</p>
-                  <p className="text-[10px] text-gray-light mt-0.5 truncate">📍 {ev.venue}</p>
-                  <div className="flex items-center justify-between mt-2">
-                    <span className="text-[10px] text-gray-muted">📅 {ev.date}</span>
-                    <span className="font-heading text-base">{ev.price > 0 ? `$${ev.price}` : 'Free'}</span>
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </section>
+        <EventGallery items={gallery} />
 
         {/* PRIVATE EVENT BUTTON */}
         <div style={{ textAlign: 'center', padding: '8px 0 32px' }}>
