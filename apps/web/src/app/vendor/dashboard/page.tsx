@@ -696,13 +696,21 @@ export default function VendorDashboardPage() {
             </div>
             <p style={{ color: '#666', fontSize: 12, marginBottom: 14 }}>{L('Chwazi metòd peman:', 'Choose payment method:', 'Choisissez le mode de paiement :')}</p>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, maxWidth: 360, margin: '0 auto 16px' }}>
-              {['📱 MonCash', '💚 Natcash', '💳 Card', '⚡ Zelle', '💲 Cash App', '🅿️ PayPal'].map(m => (
+              {['📱 MonCash', '💚 Natcash', '⚡ Zelle', '💲 Cash App', '🅿️ PayPal'].map(m => (
                 <button key={m} onClick={handleConfirmBuy} disabled={buyLoading}
                   style={{ padding: '10px 6px', borderRadius: 10, border: '1px solid #1e1e2e', background: 'none', color: '#ccc', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
                   {m}
                 </button>
               ))}
+              {vendor?.trusted && (
+                <button onClick={handleConfirmBuy} disabled={buyLoading}
+                  style={{ padding: '10px 6px', borderRadius: 10, border: '1px solid #22c55e', background: '#22c55e15', color: '#22c55e', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                  💳 {L('Kat Kredi', 'Credit Card', 'Carte')}
+                  <span style={{ display: 'block', fontSize: 8, color: '#22c55e99', marginTop: 2 }}>✓ Trusted</span>
+                </button>
+              )}
             </div>
+
             {buyError && <p style={{ color: '#ef4444', fontSize: 12, marginBottom: 10 }}>{buyError}</p>}
             <button onClick={() => setShowBuyConfirm(false)} style={{ color: '#555', background: 'none', border: 'none', cursor: 'pointer', fontSize: 12 }}>
               ← {L('Retounen', 'Back', 'Retour')}

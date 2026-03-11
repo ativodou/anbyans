@@ -715,6 +715,7 @@ export interface VendorData {
   status: 'active' | 'inactive' | 'pending';
   joinedDate: string;
   inviteToken?: string;   // random token sent via WhatsApp link
+  trusted?: boolean;      // admin/organizer grants credit card access
   createdAt: any;
   updatedAt: any;
 }
@@ -864,6 +865,10 @@ export async function vendorBulkPurchase(params: {
 }
 
 // ─── Update Reseller Status ────────────────────────────────────────
+
+export async function updateVendorTrusted(vendorId: string, trusted: boolean) {
+  await updateDoc(doc(db, 'vendors', vendorId), { trusted, updatedAt: serverTimestamp() });
+}
 
 export async function updateVendorStatus(vendorId: string, status: 'active' | 'inactive' | 'pending') {
   await updateDoc(doc(db, 'vendors', vendorId), {

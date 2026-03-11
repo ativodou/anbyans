@@ -10,6 +10,7 @@ import {
   getOrganizerVendorPurchases,
   inviteVendor,
   updateVendorStatus,
+  updateVendorTrusted,
   saveEventBulkTiers,
   EventData,
   VendorData,
@@ -350,6 +351,11 @@ export default function OrganizerResellersPage() {
                             <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase ${v.status === 'active' ? 'bg-green-dim text-green' : v.status === 'pending' ? 'bg-yellow-dim text-yellow' : 'bg-white/[0.05] text-gray-muted'}`}>
                               {v.status === 'active' ? t('active').toUpperCase() : v.status === 'pending' ? t('pending').toUpperCase() : t('inactive').toUpperCase()}
                             </span>
+                            {(v as any).trusted && (
+                              <span className="px-1.5 py-0.5 rounded text-[8px] font-bold uppercase bg-cyan/10 text-cyan border border-cyan/30">
+                                ✓ Trusted
+                              </span>
+                            )}
                           </div>
                           <p className="text-[11px] text-gray-light">{v.contact} · 📍 {v.city} · {v.phone}</p>
                           <p className="text-[10px] text-gray-muted mt-0.5">{v.payMethod} — {v.payAccount} · {t('resellers_since')} {v.joinedDate}</p>
@@ -422,6 +428,13 @@ export default function OrganizerResellersPage() {
                               <div><span className="text-[9px] text-gray-muted uppercase">{t('total')} {t('resellers_bought')}:</span> <span className="text-xs font-bold">{vTotalQty}</span></div>
                               <div><span className="text-[9px] text-gray-muted uppercase">{t('total')} {t('sold')}:</span> <span className="text-xs font-bold text-green">{vTotalSold}</span></div>
                               <div><span className="text-[9px] text-green uppercase font-bold">💰 {t('resellers_paid_upfront')}:</span> <span className="text-xs font-bold text-green">${vTotalPaid.toLocaleString()}</span></div>
+                              <div className="ml-auto">
+                                <button
+                                  onClick={async (e) => { e.stopPropagation(); await updateVendorTrusted(v.id!, !(v as any).trusted); await loadData(); }}
+                                  className={`px-3 py-1 rounded-lg text-[10px] font-bold border transition-all ${(v as any).trusted ? 'border-cyan/50 text-cyan bg-cyan/10 hover:bg-red/10 hover:text-red hover:border-red/50' : 'border-border text-gray-muted hover:border-cyan/50 hover:text-cyan hover:bg-cyan/10'}`}>
+                                  {(v as any).trusted ? '✓ Trusted · Retire' : '+ Mete Trusted (💳 kat)'}
+                                </button>
+                              </div>
                             </div>
                           </div>
                         )}
