@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useT } from '@/i18n';
 import {
@@ -37,6 +38,8 @@ const sectionColors: Record<string, string> = {
 export default function OrganizerResellersPage() {
   const { user } = useAuth();
   const { t } = useT();
+  const router = useRouter();
+  const [sideOpen, setSideOpen] = useState(false);
 
   const [events, setEvents] = useState<EventData[]>([]);
   const [resellers, setResellers] = useState<VendorWithPurchases[]>([]);
@@ -141,12 +144,48 @@ export default function OrganizerResellersPage() {
   };
   const pricingEvent = events[pricingEventIdx] ?? null;
 
+  const NAV = [
+    { id: 'dashboard', icon: '📊', label: 'Dachbòd', href: '/organizer/dashboard' },
+    { id: 'events', icon: '📅', label: 'Evènman', href: '/organizer/dashboard' },
+    { id: 'resellers', icon: '🏪', label: 'Revandè', href: '/organizer/vendors' },
+    { id: 'revenue', icon: '💰', label: 'Revni', href: '/organizer/dashboard' },
+    { id: 'analytics', icon: '📈', label: 'Analytics', href: '/organizer/dashboard' },
+    { id: 'scanner', icon: '📱', label: 'Eskanè', href: '/organizer/scanner' },
+    { id: 'settings', icon: '⚙️', label: 'Paramèt', href: '/organizer/dashboard' },
+  ];
+  const initials = user?.displayName?.split(' ').map(w=>w[0]).join('').toUpperCase() || 'O';
+
   return (
-    <div className="min-h-screen flex flex-col bg-dark">
-      <nav className="sticky top-0 z-30 bg-dark border-b border-border px-5">
-        <div className="max-w-[1200px] mx-auto flex items-center h-14 gap-3">
-          <Link href="/organizer/dashboard" className="text-gray-light text-xs hover:text-white transition-colors">← {t('dashboard')}</Link>
-          <div className="w-px h-5 bg-border" />
+    <div className="min-h-screen flex bg-dark">
+      {/* SIDEBAR */}
+      <aside className={`fixed inset-y-0 left-0 z-40 w-[220px] bg-dark-card border-r border-border flex flex-col transition-transform md:translate-x-0 md:static ${sideOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <nav className="flex-1 py-3 px-3 overflow-y-auto">
+          <p className="text-[9px] font-bold uppercase tracking-widest text-gray-muted px-3 mb-2">Jeneral</p>
+          {NAV.map(n => (
+            <button key={n.id} onClick={() => { router.push(n.href); setSideOpen(false); }}
+              className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-[12.5px] mb-0.5 transition-all ${n.id === 'resellers' ? 'bg-orange-dim text-orange font-semibold' : 'text-gray-light hover:bg-dark-hover hover:text-white'}`}>
+              <span className="text-base w-5 text-center">{n.icon}</span>
+              {n.label}
+            </button>
+          ))}
+        </nav>
+        <div className="p-4 border-t border-border flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-full bg-orange flex items-center justify-center text-sm font-bold text-white">{initials}</div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[11px] font-semibold truncate">{user?.displayName || user?.email}</p>
+            <p className="text-[9px] text-gray-muted">Pwomote</p>
+          </div>
+          <button onClick={() => router.push('/')} className="text-gray-muted hover:text-red text-sm">🚪</button>
+        </div>
+      </aside>
+
+      {sideOpen && <div className="fixed inset-0 bg-black/50 z-30 md:hidden" onClick={() => setSideOpen(false)} />}
+
+      {/* MAIN */}
+      <div className="flex-1 flex flex-col min-h-screen overflow-hidden">
+      <nav className="sticky top-0 z-20 bg-dark border-b border-border px-5">
+        <div className="max-w-full mx-auto flex items-center h-14 gap-3">
+          <button onClick={() => setSideOpen(true)} className="md:hidden text-xl">☰</button>
           <span className="font-heading text-lg tracking-wide flex-1">{t('resellers_title')}</span>
           {saving && <span className="text-[10px] text-orange animate-pulse">Ap {t('save').toLowerCase()}…</span>}
           <button onClick={() => setShowPricing(!showPricing)} className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-orange-border text-orange text-xs font-bold hover:bg-orange hover:text-white transition-all">
@@ -496,6 +535,7 @@ export default function OrganizerResellersPage() {
             )}
           </>
         )}
+      </div>
       </div>
     </div>
   );

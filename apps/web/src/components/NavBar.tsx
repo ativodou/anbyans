@@ -29,7 +29,6 @@ export default function Navbar() {
 
   // --- Top bar links per role ---
   const links: { href: string; label: string }[] = [
-    { href: '/', label: L('Lakay', 'Home', 'Accueil')! },
   ];
   // Public events page only for fan/admin, not organizer (they use dashboard)
   if (role === 'fan' || role === 'admin') {
@@ -45,8 +44,6 @@ export default function Navbar() {
   if (role === 'organizer') {
     links.push(
       { href: '/organizer/dashboard', label: L('Dachbod', 'Dashboard', 'Tableau de bord')! },
-      { href: '/organizer/events/create', label: L('+ Kreye', '+ Create', '+ Creer')! },
-      { href: '/organizer/staff', label: L('Staf', 'Staff', 'Staff')! },
     );
   }
 
