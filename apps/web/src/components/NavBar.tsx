@@ -30,8 +30,11 @@ export default function Navbar() {
   // --- Top bar links per role ---
   const links: { href: string; label: string }[] = [
     { href: '/', label: L('Lakay', 'Home', 'Accueil')! },
-    { href: '/events', label: L('Evenman', 'Events', 'Evenements')! },
   ];
+  // Public events page only for fan/admin, not organizer (they use dashboard)
+  if (role === 'fan' || role === 'admin') {
+    links.push({ href: '/events', label: L('Evenman', 'Events', 'Evenements')! });
+  }
 
   if (role === 'fan') {
     links.push(
@@ -43,7 +46,7 @@ export default function Navbar() {
     links.push(
       { href: '/organizer/dashboard', label: L('Dachbod', 'Dashboard', 'Tableau de bord')! },
       { href: '/organizer/events/create', label: L('+ Kreye', '+ Create', '+ Creer')! },
-      { href: '/organizer/vendors', label: L('Vande', 'Vendors', 'Vendeurs')! },
+      { href: '/organizer/staff', label: L('Staf', 'Staff', 'Staff')! },
     );
   }
 
@@ -148,10 +151,12 @@ export default function Navbar() {
                     <div style={{ color: '#555', fontSize: 10, marginTop: 4 }}>{user.email}</div>
                   </div>
 
-                  {/* Shared links */}
-                  <Link href="/events" onClick={() => setMenuOpen(false)} style={{ display: 'block', padding: '8px 12px', borderRadius: 6, color: '#ccc', fontSize: 12, textDecoration: 'none' }}>
-                    {L('Jwenn Evenman', 'Browse Events', 'Parcourir')}
-                  </Link>
+                  {/* Shared links — pas pou òganizatè */}
+                  {role !== 'organizer' && (
+                    <Link href="/events" onClick={() => setMenuOpen(false)} style={{ display: 'block', padding: '8px 12px', borderRadius: 6, color: '#ccc', fontSize: 12, textDecoration: 'none' }}>
+                      {L('Jwenn Evenman', 'Browse Events', 'Parcourir')}
+                    </Link>
+                  )}
 
                   {/* Fan links */}
                   {role === 'fan' && (
@@ -175,10 +180,13 @@ export default function Navbar() {
                         {L('Dachbod', 'Dashboard', 'Tableau de bord')}
                       </Link>
                       <Link href="/organizer/events/create" onClick={() => setMenuOpen(false)} style={{ display: 'block', padding: '8px 12px', borderRadius: 6, color: '#ccc', fontSize: 12, textDecoration: 'none' }}>
-                        {L('Kreye Evenman', 'Create Event', 'Creer un evenement')}
+                        {L('+ Kreye Evenman', '+ Create Event', '+ Creer')}
                       </Link>
-                      <Link href="/organizer/vendors" onClick={() => setMenuOpen(false)} style={{ display: 'block', padding: '8px 12px', borderRadius: 6, color: '#ccc', fontSize: 12, textDecoration: 'none' }}>
-                        {L('Jere Vande', 'Manage Resellers', 'Gerer les vendeurs')}
+                      <Link href="/organizer/staff" onClick={() => setMenuOpen(false)} style={{ display: 'block', padding: '8px 12px', borderRadius: 6, color: '#ccc', fontSize: 12, textDecoration: 'none' }}>
+                        {L('Staf', 'Staff', 'Staff')}
+                      </Link>
+                      <div style={{display:'none'}}>
+                        {L('Kreye Evenman', 'Create Event', 'Creer un evenement')}
                       </Link>
                     </>
                   )}
@@ -204,7 +212,10 @@ export default function Navbar() {
                       <Link href="/admin/dashboard" onClick={() => setMenuOpen(false)} style={{ display: 'block', padding: '8px 12px', borderRadius: 6, color: '#ccc', fontSize: 12, textDecoration: 'none' }}>
                         {L('Dachbod', 'Dashboard', 'Tableau de bord')}
                       </Link>
-                                    </>
+                      <Link href="/tickets" onClick={() => setMenuOpen(false)} style={{ display: 'block', padding: '8px 12px', borderRadius: 6, color: '#ccc', fontSize: 12, textDecoration: 'none' }}>
+                        {L('Tike Mwen', 'My Tickets', 'Mes Billets')}
+                      </Link>
+                    </>
                   )}
 
                   {/* Sign out */}
