@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useT } from '@/i18n';
 import LangSwitcher from '@/components/LangSwitcher';
 import { getPublishedEvents } from '@/lib/db';
@@ -37,6 +37,7 @@ export default function LandingPage() {
   const [privateModal, setPrivateModal] = useState(false);
   const [privateCode, setPrivateCode] = useState('');
   const [gallery, setGallery] = useState<GalleryItem[]>(FALLBACK_GALLERY);
+  const galleryLoaded = React.useRef(false);
 
   useEffect(() => {
     async function loadEvents() {
@@ -65,9 +66,10 @@ export default function LandingPage() {
           combined.push(...tmGallery);
         } catch (err) { console.error('TM error:', err); }
       }
-      if (combined.length > 0) setGallery(combined);
+      if (combined.length > 0 && !galleryLoaded.current) { galleryLoaded.current = true; setGallery(combined); }
     }
     loadEvents();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
@@ -143,7 +145,7 @@ export default function LandingPage() {
                   {ev.imageUrl
                     ? <img src={ev.imageUrl} alt={ev.title} className="w-full h-full object-cover" />
                     : ev.emoji}
-                  {ev.live && <span className="absolute top-2 left-2 bg-red text-white text-[8px] font-bold px-1.5 py-0.5 rounded-md animate-pulse">● LIVE</span>}
+                  {ev.live && <span className="absolute top-2 left-2 bg-red text-white text-[8px] font-bold px-1.5 py-0.5 rounded-md">● LIVE</span>}
                   {ev.source === 'ticketmaster' && <span className="absolute bottom-1 right-1 bg-black/60 text-[8px] text-gray-400 px-1 rounded">TM</span>}
                 </div>
                 <div className="p-3">
