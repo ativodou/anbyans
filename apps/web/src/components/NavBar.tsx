@@ -58,6 +58,7 @@ export default function Navbar() {
     links.push(
       { href: '/admin/dashboard', label: L('Dachbod', 'Dashboard', 'Tableau de bord')! },
       { href: '/admin/venues', label: L('Sal yo', 'Venues', 'Salles')! },
+      { href: '/tickets', label: L('Tikè Mwen', 'My Tickets', 'Mes Billets')! },
     );
   }
 
