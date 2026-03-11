@@ -366,8 +366,7 @@ export default function EventDetailPage() {
               onClick={() => {
                 const rows = [['Non', 'Email', 'Telefòn', 'Seksyon', 'Plas', 'Pri', 'Status', 'Kòd Tikè']];
                 attendees.forEach((a: any) => rows.push([a.buyerName, a.buyerEmail, a.buyerPhone, a.section, a.seat, a.price, a.status, a.ticketCode]));
-                const csv = rows.map(r => r.map(v => `"${v ?? ''}"`).join(',')).join('
-');
+                const csv = rows.map(r => r.map(v => `"${v ?? ''}"`).join(',')).join("\n");
                 const blob = new Blob([csv], { type: 'text/csv' });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a'); a.href = url; a.download = `${event?.name}-attendees.csv`; a.click();
