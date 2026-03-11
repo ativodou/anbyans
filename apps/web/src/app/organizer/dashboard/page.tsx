@@ -1,4 +1,5 @@
 'use client';
+import { useT } from '@/i18n';
 import ResellersTab from '@/components/organizer/ResellersTab';
 
 import Link from 'next/link';
@@ -68,6 +69,7 @@ const NAV_ITEMS: { id: Tab; icon: string; label: string; badge?: number }[] = [
    ══════════════════════════════════════════════════════════════════ */
 
 function AnalyticsPanel({ allTickets, events }: { allTickets: any[]; events: EventData[] }) {
+  const { t } = useT();
   const [aTab, setATab] = useState<'spenders' | 'loyal' | 'sections' | 'events'>('spenders');
 
   const validTickets = allTickets.filter(t => t.status !== 'cancelled' && t.status !== 'refunded');
@@ -117,7 +119,7 @@ function AnalyticsPanel({ allTickets, events }: { allTickets: any[]; events: Eve
     <div>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
         {[
-          { label: 'TOTAL ACHETEURS', val: buyers.length, icon: '👤', color: 'text-white' },
+          { label: t('total_buyers').toUpperCase(), val: buyers.length, icon: '👤', color: 'text-white' },
           { label: 'FIDÈL (2+ EVÈN)', val: buyers.filter(b => b.eventCount >= 2).length, icon: '⭐', color: 'text-orange' },
           { label: 'TIKÈ VANN', val: validTickets.length, icon: '🎫', color: 'text-green' },
           { label: 'DEPANS MOY / MOUN', val: '$' + (buyers.length ? Math.round(buyers.reduce((s, b) => s + b.total, 0) / buyers.length) : 0), icon: '💰', color: 'text-cyan' },
@@ -200,7 +202,7 @@ function AnalyticsPanel({ allTickets, events }: { allTickets: any[]; events: Eve
 
       {aTab === 'events' && (
         <div className="bg-dark-card border border-border rounded-card p-5">
-          <p className="text-[10px] uppercase tracking-widest text-orange font-bold mb-4">📅 REVNI PA EVÈNMAN</p>
+          <p className="text-[10px] uppercase tracking-widest text-orange font-bold mb-4">📅 {t('revenue_per_event').toUpperCase()}</p>
           <div className="space-y-3">
             {revEvents.map(ev => (
               <div key={ev.name}>
@@ -227,6 +229,7 @@ function AnalyticsPanel({ allTickets, events }: { allTickets: any[]; events: Eve
 export default function OrganizerDashboardPage() {
   const router = useRouter();
   const { user } = useAuth();
+  const { t } = useT();
   const [tab, setTab] = useState<Tab>('dashboard');
   const [sideOpen, setSideOpen] = useState(false);
 
@@ -437,13 +440,13 @@ export default function OrganizerDashboardPage() {
         <header className="sticky top-0 z-20 bg-dark border-b border-border px-5 flex items-center h-14 gap-3">
           <button onClick={() => setSideOpen(true)} className="md:hidden text-xl">☰</button>
           <h1 className="font-heading text-xl tracking-wide flex-1">
-            {tab === 'dashboard' && 'DACHBÒD'}
-            {tab === 'events'    && 'EVÈNMAN'}
+            {tab === 'dashboard' && t('dashboard').toUpperCase()}
+            {tab === 'events'    && t('events').toUpperCase()}
             {tab === 'resellers' && 'REVANDÈ'}
-            {tab === 'revenue'   && 'REVNI'}
+            {tab === 'revenue'   && t('revenue').toUpperCase()}
             {tab === 'analytics' && 'ANALYTICS'}
-            {tab === 'scanner'   && 'ESKANÈ'}
-            {tab === 'settings'  && 'PARAMÈT'}
+            {tab === 'scanner'   && t('qr_scanner').toUpperCase()}
+            {tab === 'settings'  && t('settings').toUpperCase()}
           </h1>
 
 
@@ -457,9 +460,9 @@ export default function OrganizerDashboardPage() {
             {/* Stats — real data */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
               {[
-                { label: 'REVNI TOTAL',    value: `$${totalRevenue.toLocaleString()}`, sub: `${totalSold} tikè vann` },
+                { label: t('revenue_total').toUpperCase(),    value: `$${totalRevenue.toLocaleString()}`, sub: `${totalSold} ${t('tickets_sold')}` },
                 { label: 'TIKÈ VANN',      value: totalSold.toLocaleString(),          sub: `${activeEvents} evènman aktif` },
-                { label: 'EVÈNMAN AKTIF',  value: activeEvents.toString(),             sub: `${events.length} total` },
+                { label: t('active_events').toUpperCase(),  value: activeEvents.toString(),             sub: `${events.length} ${t('total').toLowerCase()}` },
                 { label: 'REVANDÈ DWE',    value: `$${totalVendorOwed.toLocaleString()}`, sub: `${vendors.length} revandè`, warn: totalVendorOwed > 0 },
               ].map((s, i) => (
                 <div key={i} className="bg-dark-card border border-border rounded-card p-4">
@@ -475,12 +478,12 @@ export default function OrganizerDashboardPage() {
               <Link href="/organizer/events/create"
                 className="bg-dark-card border border-border rounded-card p-4 flex items-center gap-3 hover:border-orange-border hover:bg-dark-hover transition-all">
                 <span className="text-2xl">📅</span>
-                <div><p className="text-xs font-bold">Kreye Evènman</p><p className="text-[10px] text-gray-light">Kreye yon nouvo evènman ak seksyon tikè</p></div>
+                <div><p className="text-xs font-bold">{t('create_event')}</p><p className="text-[10px] text-gray-light">{t('create_event_desc')}</p></div>
               </Link>
               <Link href="/organizer/vendors"
                 className="bg-dark-card border border-border rounded-card p-4 flex items-center gap-3 hover:border-orange-border hover:bg-dark-hover transition-all">
                 <span className="text-2xl">🏪</span>
-                <div><p className="text-xs font-bold">Jere Revandè</p><p className="text-[10px] text-gray-light">Asiyen tikè epi swiv vant revandè yo</p></div>
+                <div><p className="text-xs font-bold">{t('manage_resellers')}</p><p className="text-[10px] text-gray-light">{t('manage_resellers_desc')}</p></div>
               </Link>
               <Link href="/organizer/scanner"
                 className="bg-dark-card border border-border rounded-card p-4 flex items-center gap-3 hover:border-orange-border hover:bg-dark-hover transition-all">
@@ -497,7 +500,7 @@ export default function OrganizerDashboardPage() {
             {/* Events Overview */}
             <div className="mb-5">
               <div className="flex items-center justify-between mb-3">
-                <h2 className="font-heading text-lg tracking-wide">EVÈNMAN</h2>
+                <h2 className="font-heading text-lg tracking-wide">{t('events').toUpperCase()}</h2>
                 <button onClick={() => setTab('events')} className="text-[11px] text-orange hover:underline">Wè tout →</button>
               </div>
               <div className="overflow-x-auto">
@@ -651,7 +654,7 @@ export default function OrganizerDashboardPage() {
             <div>
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
                 {[
-                  { label: 'REVNI TOTAL',     value: `$${totalRevenue.toLocaleString()}` },
+                  { label: t('revenue_total').toUpperCase(),     value: `$${totalRevenue.toLocaleString()}` },
                   { label: 'VANT ONLINE',      value: `$${onlineRevenue.toLocaleString()}`, sub: totalRevenue > 0 ? `${Math.round(onlineRevenue / totalRevenue * 100)}% total` : '—', color: 'text-green' },
                   { label: 'VANT REVANDÈ',     value: `$${vendorTicketRevenue.toLocaleString()}`, sub: totalRevenue > 0 ? `${Math.round(vendorTicketRevenue / totalRevenue * 100)}% total` : '—', color: 'text-orange' },
                   { label: 'REVANDÈ DWE',      value: `$${totalVendorOwed.toLocaleString()}`, color: 'text-orange' },
@@ -701,7 +704,7 @@ export default function OrganizerDashboardPage() {
           {tab === 'scanner' && (
             <div className="text-center py-16">
               <div className="text-6xl mb-4">📱</div>
-              <h3 className="font-heading text-2xl tracking-wide mb-2">ESKANÈ QR</h3>
+              <h3 className="font-heading text-2xl tracking-wide mb-2">{t('qr_scanner').toUpperCase()}</h3>
               <p className="text-xs text-gray-light mb-6 max-w-sm mx-auto">Pou eskanè tikè, ouvri paj eskanè a oswa itilize kamera aparèy ou.</p>
               <Link href="/organizer/scanner" className="inline-flex px-6 py-3 rounded-lg bg-orange text-white font-bold text-sm hover:bg-orange/80 transition-all">
                 Ouvri Eskanè →
@@ -712,7 +715,7 @@ export default function OrganizerDashboardPage() {
           {/* ═══ SETTINGS TAB ═══ */}
           {tab === 'settings' && (
             <div className="max-w-2xl">
-              <h3 className="font-heading text-lg tracking-wide mb-4">PARAMÈT KONT</h3>
+              <h3 className="font-heading text-lg tracking-wide mb-4">{t('account_settings').toUpperCase()}</h3>
 
               <div className="bg-dark-card border border-border rounded-card p-5 space-y-3.5 mb-5">
                 <p className="text-[10px] uppercase tracking-widest text-orange font-bold">Enfòmasyon Biznis</p>

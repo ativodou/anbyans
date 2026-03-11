@@ -1,4 +1,5 @@
 'use client';
+import { useT } from '@/i18n';
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -51,6 +52,7 @@ const NAV: { id: Tab; icon: string; label: string }[] = [
 ];
 
 export default function AdminDashboardPage() {
+  const { t } = useT();
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const [tab, setTab] = useState<Tab>('overview');
@@ -275,9 +277,9 @@ export default function AdminDashboardPage() {
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
                 {[
                   { icon: '🎫', label: 'TIKÈ VANN', val: validTickets.length, color: 'text-white' },
-                  { icon: '💰', label: 'REVNI PLATFÒM', val: '$' + platformFee.toLocaleString(), color: 'text-orange' },
-                  { icon: '📅', label: 'EVÈNMAN AKTIF', val: liveEvents, color: 'text-green' },
-                  { icon: '👥', label: 'TOTAL ITILIZATÈ', val: totalUsers, color: 'text-cyan' },
+                  { icon: '💰', label: t('revenue_platform').toUpperCase(), val: '$' + platformFee.toLocaleString(), color: 'text-orange' },
+                  { icon: '📅', label: t('active_events').toUpperCase(), val: liveEvents, color: 'text-green' },
+                  { icon: '👥', label: t('total_users').toUpperCase(), val: totalUsers, color: 'text-cyan' },
                 ].map(k => (
                   <div key={k.label} className="bg-dark-card border border-border rounded-card p-4">
                     <p className="text-[10px] text-gray-muted uppercase tracking-widest mb-1">{k.icon} {k.label}</p>
@@ -289,7 +291,7 @@ export default function AdminDashboardPage() {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 {/* Recent events */}
                 <div className="bg-dark-card border border-border rounded-card p-4">
-                  <p className="text-[10px] uppercase tracking-widest text-orange font-bold mb-3">📅 DÈNYE EVÈNMAN</p>
+                  <p className="text-[10px] uppercase tracking-widest text-orange font-bold mb-3">📅 {t('latest_events').toUpperCase()}</p>
                   {events.slice(0, 5).map(e => (
                     <div key={e.id} className="flex items-center gap-3 py-2 border-b border-border last:border-0">
                       <div className="flex-1 min-w-0">
@@ -496,12 +498,12 @@ export default function AdminDashboardPage() {
             <div>
               <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
                 {[
-                  { label: 'REVNI BRIT', val: '$' + grossRevenue.toLocaleString(), color: 'text-white', sub: 'Tout tikè vann' },
+                  { label: t('revenue_gross').toUpperCase(), val: '$' + grossRevenue.toLocaleString(), color: 'text-white', sub: t('all_tickets_sold') },
                   { label: 'FRÈ ANBYANS (9%)', val: '$' + platformFee.toLocaleString(), color: 'text-orange', sub: 'Revni platfòm' },
                   { label: 'TIKÈ VALID', val: validTickets.length, color: 'text-green', sub: 'Tikè aktif' },
                   { label: 'TIKÈ ANILE', val: allTickets.filter(t=>t.status==='cancelled').length, color: 'text-red', sub: '' },
                   { label: 'RANBOUSMAN', val: '$' + allTickets.filter(t=>t.status==='refunded').reduce((s,t)=>s+(t.price||0),0).toLocaleString(), color: 'text-yellow-400', sub: '' },
-                  { label: 'EVÈNMAN TOTAL', val: events.length, color: 'text-cyan', sub: '' },
+                  { label: t('total_events').toUpperCase(), val: events.length, color: 'text-cyan', sub: '' },
                 ].map(k => (
                   <div key={k.label} className="bg-dark-card border border-border rounded-card p-4">
                     <p className="text-[10px] text-gray-muted uppercase tracking-widest mb-1">{k.label}</p>
@@ -512,7 +514,7 @@ export default function AdminDashboardPage() {
               </div>
 
               <div className="bg-dark-card border border-border rounded-card p-5 mb-4">
-                <p className="text-[10px] uppercase tracking-widest text-orange font-bold mb-4">💳 REVNI PA METÒD PEMAN</p>
+                <p className="text-[10px] uppercase tracking-widest text-orange font-bold mb-4">💳 {t('revenue_by_payment').toUpperCase()}</p>
                 <div className="space-y-3">
                   {Object.entries(byMethod).sort((a,b) => (b[1] as number)-(a[1] as number)).map(([m, amt]) => (
                     <div key={m}>
@@ -529,7 +531,7 @@ export default function AdminDashboardPage() {
               </div>
 
               <div className="bg-dark-card border border-border rounded-card p-5">
-                <p className="text-[10px] uppercase tracking-widest text-orange font-bold mb-4">🎪 REVNI PA ÒGANIZATÈ</p>
+                <p className="text-[10px] uppercase tracking-widest text-orange font-bold mb-4">🎪 {t('revenue_by_organizer').toUpperCase()}</p>
                 {[...organizers].sort((a,b) => (b.totalRevenue||0)-(a.totalRevenue||0)).slice(0,10).map((o, i) => (
                   <div key={o.id} className="flex items-center gap-3 py-2.5 border-b border-border last:border-0">
                     <span className="text-[10px] font-black text-gray-muted w-5">{i+1}</span>

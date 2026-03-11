@@ -273,7 +273,7 @@ export default function OrganizerResellersPage() {
                 </div>
                 <p className="text-xs text-gray-light mb-4">{t('resellers_pricing_subtitle')}</p>
                 {events.length === 0 ? (
-                  <p className="text-xs text-gray-muted">Pa gen evènman disponib. Kreye yon evènman dabò.</p>
+                  <p className="text-xs text-gray-muted">{t('no_events_yet')}</p>
                 ) : (
                   <>
                     <div className="flex gap-2 mb-4 flex-wrap">

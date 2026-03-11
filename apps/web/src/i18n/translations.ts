@@ -4,6 +4,9 @@ export const LOCALE_LABELS: Record<Locale, string> = {
   ht: 'Kreyòl',
   en: 'English',
   fr: 'Français',
+  /* ═══ DASHBOARD / STATS ═══ */
+
+
 };
 
 export const LOCALE_FLAGS: Record<Locale, string> = {
@@ -16,6 +19,29 @@ export const LOCALE_FLAGS: Record<Locale, string> = {
 // Organized by page/section. Each key maps to { ht, en, fr }.
 
 const t = {
+
+  /* ═══ DASHBOARD / ADMIN ═══ */
+revenue_total:        { ht:'Revni Total', en:'Total Revenue', fr:'Revenu Total' },
+  revenue_per_event:    { ht:'Revni pa Evènman', en:'Revenue per Event', fr:'Revenu par Événement' },
+  revenue_by_payment:   { ht:'Revni pa Metòd Peman', en:'Revenue by Payment Method', fr:'Revenu par méthode de paiement' },
+  revenue_by_organizer: { ht:'Revni pa Òganizatè', en:'Revenue by Organizer', fr:'Revenu par organisateur' },
+  revenue_platform:     { ht:'Revni Platfòm', en:'Platform Revenue', fr:'Revenu Plateforme' },
+  revenue_gross:        { ht:'Revni Brit', en:'Gross Revenue', fr:'Revenu Brut' },
+  tickets_sold:         { ht:'tikè vann', en:'tickets sold', fr:'billets vendus' },
+  all_tickets_sold:     { ht:'Tout tikè vann', en:'All tickets sold', fr:'Tous les billets vendus' },
+  active_events:        { ht:'Evènman Aktif', en:'Active Events', fr:'Événements Actifs' },
+  total_events:         { ht:'Total Evènman', en:'Total Events', fr:'Total Événements' },
+  total_buyers:         { ht:'Total Achetè', en:'Total Buyers', fr:'Total Acheteurs' },
+  total_users:          { ht:'Total Itilizatè', en:'Total Users', fr:'Total Utilisateurs' },
+  latest_events:        { ht:'Dènye Evènman', en:'Latest Events', fr:'Derniers Événements' },
+  qr_scanner:           { ht:'Eskanè QR', en:'QR Scanner', fr:'Scanner QR' },
+  account_settings:     { ht:'Paramèt Kont', en:'Account Settings', fr:'Paramètres du compte' },
+  create_event:         { ht:'Kreye Evènman', en:'Create Event', fr:'Créer un événement' },
+  create_event_desc:    { ht:'Kreye yon nouvo evènman ak seksyon tikè', en:'Create a new event with ticket sections', fr:'Créer un nouvel événement avec sections de billets' },
+  manage_resellers:     { ht:'Jere Revandè', en:'Manage Resellers', fr:'Gérer les revendeurs' },
+  manage_resellers_desc:{ ht:'Asiyen tikè epi swiv vant revandè yo', en:'Assign tickets and track reseller sales', fr:'Assigner des billets et suivre les ventes' },
+  no_events_yet:        { ht:'Pa gen evènman disponib. Kreye yon evènman dabò.', en:'No events available. Create an event first.', fr:"Aucun événement disponible. Créez un événement d'abord." },
+  create_another:       { ht:'Kreye yon lòt', en:'Create Another', fr:'Créer un autre' },
 
   /* ═══ COMMON / SHARED ═══ */
   home: { ht:'Akèy', en:'Home', fr:'Accueil' },
@@ -333,39 +359,7 @@ const t = {
   resellers_paid_upfront: { ht:'Peye Davans', en:'Paid Upfront', fr:"Payé d'avance" },
   resellers_since: { ht:'Depi', en:'Since', fr:'Depuis' },
   resellers_purchase_date: { ht:'Dat Acha', en:'Purchase Date', fr:"Date d'achat" },
-  resellers_done: { ht:'Fini', en:'Done', fr:'Terminé' },
-
-
-  /* ═══ RESELLERS / VENDORS ═══ */
-  org_nav_resellers:      { ht:'Revandè', en:'Resellers', fr:'Revendeurs' },
-  buy_each:               { ht:'pa tikè', en:'each', fr:'chacun' },
-  resellers_active:       { ht:'Aktif', en:'Active', fr:'Actif' },
-  resellers_available:    { ht:'Revandè disponib', en:'Available Resellers', fr:'Revendeurs disponibles' },
-  resellers_bought:       { ht:'Tikè achte', en:'Tickets Bought', fr:'Billets achetés' },
-  resellers_bulk_pricing: { ht:'Pri an gwo', en:'Bulk Pricing', fr:'Tarifs en gros' },
-  resellers_done:         { ht:'Fini', en:'Done', fr:'Terminé' },
-  resellers_edit_price:   { ht:'Chanje pri', en:'Edit Price', fr:'Modifier le prix' },
-  resellers_example:      { ht:'Egzanp', en:'Example', fr:'Exemple' },
-  resellers_invite:       { ht:'Envite Revandè', en:'Invite Reseller', fr:'Inviter un revendeur' },
-  resellers_invite_subtitle: { ht:'Voye envitasyon WhatsApp bay yon revandè', en:'Send a WhatsApp invite to a reseller', fr:'Envoyer une invitation WhatsApp à un revendeur' },
-  resellers_invite_title: { ht:'Envite Revandè', en:'Invite Reseller', fr:'Inviter un revendeur' },
-  resellers_online_price: { ht:'Pri anliy', en:'Online Price', fr:'Prix en ligne' },
-  resellers_paid:         { ht:'Peye', en:'Paid', fr:'Payé' },
-  resellers_paid_upfront: { ht:'Peye davans', en:'Paid Upfront', fr:"Payé d'avance" },
-  resellers_prepaid_note: { ht:'Revandè achte tikè davans', en:'Reseller buys tickets upfront', fr:"Le revendeur achète les billets à l'avance" },
-  resellers_price_per:    { ht:'Pri pa tikè', en:'Price per ticket', fr:'Prix par billet' },
-  resellers_pricing_subtitle: { ht:'Fikse pri espesyal pou revandè ou yo', en:'Set special prices for your resellers', fr:'Fixez des prix spéciaux pour vos revendeurs' },
-  resellers_pricing_title: { ht:'Pri an Gwo pou Revandè', en:'Bulk Pricing for Resellers', fr:'Tarifs en gros pour revendeurs' },
-  resellers_purchase_date: { ht:'Dat acha', en:'Purchase Date', fr:"Date d'achat" },
-  resellers_purchased:    { ht:'Tikè achte', en:'Tickets Purchased', fr:'Billets achetés' },
-  resellers_qty:          { ht:'Kantite', en:'Qty', fr:'Qté' },
-  resellers_revenue:      { ht:'Revni revandè', en:'Reseller Revenue', fr:'Revenu revendeur' },
-  resellers_send_invite:  { ht:'Voye Envitasyon', en:'Send Invite', fr:"Envoyer l'invitation" },
-  resellers_since:        { ht:'Depi', en:'Since', fr:'Depuis' },
-  vend_auth_biz_name:     { ht:'Non biznis', en:'Business Name', fr:"Nom de l'entreprise" },
-  vend_auth_payment_method: { ht:'Metòd peman', en:'Payment Method', fr:'Méthode de paiement' },
-  vend_buy_discount:      { ht:'Rabè pou revandè', en:'Reseller Discount', fr:'Remise revendeur' },
-} as const;
+  resellers_done: { ht:'Fini', en:'Done', fr:'Terminé' },} as const;
 
 export type TranslationKey = keyof typeof t;
 export default t;
