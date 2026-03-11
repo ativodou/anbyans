@@ -185,9 +185,7 @@ export default function Navbar() {
                       <Link href="/organizer/staff" onClick={() => setMenuOpen(false)} style={{ display: 'block', padding: '8px 12px', borderRadius: 6, color: '#ccc', fontSize: 12, textDecoration: 'none' }}>
                         {L('Staf', 'Staff', 'Staff')}
                       </Link>
-                      <div style={{display:'none'}}>
-                        {L('Kreye Evenman', 'Create Event', 'Creer un evenement')}
-                      </Link>
+
                     </>
                   )}
 
