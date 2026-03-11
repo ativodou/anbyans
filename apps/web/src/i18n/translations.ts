@@ -335,6 +335,36 @@ const t = {
   resellers_purchase_date: { ht:'Dat Acha', en:'Purchase Date', fr:"Date d'achat" },
   resellers_done: { ht:'Fini', en:'Done', fr:'Terminé' },
 
+
+  /* ═══ RESELLERS / VENDORS ═══ */
+  org_nav_resellers:      { ht:'Revandè', en:'Resellers', fr:'Revendeurs' },
+  buy_each:               { ht:'pa tikè', en:'each', fr:'chacun' },
+  resellers_active:       { ht:'Aktif', en:'Active', fr:'Actif' },
+  resellers_available:    { ht:'Revandè disponib', en:'Available Resellers', fr:'Revendeurs disponibles' },
+  resellers_bought:       { ht:'Tikè achte', en:'Tickets Bought', fr:'Billets achetés' },
+  resellers_bulk_pricing: { ht:'Pri an gwo', en:'Bulk Pricing', fr:'Tarifs en gros' },
+  resellers_done:         { ht:'Fini', en:'Done', fr:'Terminé' },
+  resellers_edit_price:   { ht:'Chanje pri', en:'Edit Price', fr:'Modifier le prix' },
+  resellers_example:      { ht:'Egzanp', en:'Example', fr:'Exemple' },
+  resellers_invite:       { ht:'Envite Revandè', en:'Invite Reseller', fr:'Inviter un revendeur' },
+  resellers_invite_subtitle: { ht:'Voye envitasyon WhatsApp bay yon revandè', en:'Send a WhatsApp invite to a reseller', fr:'Envoyer une invitation WhatsApp à un revendeur' },
+  resellers_invite_title: { ht:'Envite Revandè', en:'Invite Reseller', fr:'Inviter un revendeur' },
+  resellers_online_price: { ht:'Pri anliy', en:'Online Price', fr:'Prix en ligne' },
+  resellers_paid:         { ht:'Peye', en:'Paid', fr:'Payé' },
+  resellers_paid_upfront: { ht:'Peye davans', en:'Paid Upfront', fr:"Payé d'avance" },
+  resellers_prepaid_note: { ht:'Revandè achte tikè davans', en:'Reseller buys tickets upfront', fr:"Le revendeur achète les billets à l'avance" },
+  resellers_price_per:    { ht:'Pri pa tikè', en:'Price per ticket', fr:'Prix par billet' },
+  resellers_pricing_subtitle: { ht:'Fikse pri espesyal pou revandè ou yo', en:'Set special prices for your resellers', fr:'Fixez des prix spéciaux pour vos revendeurs' },
+  resellers_pricing_title: { ht:'Pri an Gwo pou Revandè', en:'Bulk Pricing for Resellers', fr:'Tarifs en gros pour revendeurs' },
+  resellers_purchase_date: { ht:'Dat acha', en:'Purchase Date', fr:"Date d'achat" },
+  resellers_purchased:    { ht:'Tikè achte', en:'Tickets Purchased', fr:'Billets achetés' },
+  resellers_qty:          { ht:'Kantite', en:'Qty', fr:'Qté' },
+  resellers_revenue:      { ht:'Revni revandè', en:'Reseller Revenue', fr:'Revenu revendeur' },
+  resellers_send_invite:  { ht:'Voye Envitasyon', en:'Send Invite', fr:"Envoyer l'invitation" },
+  resellers_since:        { ht:'Depi', en:'Since', fr:'Depuis' },
+  vend_auth_biz_name:     { ht:'Non biznis', en:'Business Name', fr:"Nom de l'entreprise" },
+  vend_auth_payment_method: { ht:'Metòd peman', en:'Payment Method', fr:'Méthode de paiement' },
+  vend_buy_discount:      { ht:'Rabè pou revandè', en:'Reseller Discount', fr:'Remise revendeur' },
 } as const;
 
 export type TranslationKey = keyof typeof t;
