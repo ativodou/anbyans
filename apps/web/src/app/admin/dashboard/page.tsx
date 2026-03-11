@@ -9,9 +9,9 @@ import {
   collection, getDocs, doc, updateDoc, deleteDoc,
   query, orderBy, serverTimestamp, getDoc
 } from 'firebase/firestore';
-import { updateEvent, type EventData } from '@/lib/db';
+import { updateEvent, getVenues, createVenue, updateVenue, deleteVenue, seedKnownVenues, type EventData, type VenueData } from '@/lib/db';
 
-type Tab = 'overview' | 'events' | 'organizers' | 'users' | 'refunds' | 'finance' | 'settings';
+type Tab = 'overview' | 'events' | 'organizers' | 'users' | 'refunds' | 'finance' | 'venues' | 'settings';
 
 interface OrganizerData {
   id: string;
@@ -46,6 +46,7 @@ const NAV: { id: Tab; icon: string; label: string }[] = [
   { id: 'users',       icon: '👥', label: 'Itilizatè'    },
   { id: 'refunds',     icon: '💸', label: 'Ranbousman'   },
   { id: 'finance',     icon: '💰', label: 'Finans'       },
+  { id: 'venues',      icon: '🏟️', label: 'Sal yo'      },
   { id: 'settings',    icon: '⚙️', label: 'Paramèt'     },
 ];
 
@@ -61,6 +62,12 @@ export default function AdminDashboardPage() {
   const [users, setUsers] = useState<UserData[]>([]);
   const [refunds, setRefunds] = useState<any[]>([]);
   const [allTickets, setAllTickets] = useState<any[]>([]);
+  const [venues, setVenues] = useState<VenueData[]>([]);
+  const [venueSearch, setVenueSearch] = useState('');
+  const [venueModal, setVenueModal] = useState<'create' | 'edit' | null>(null);
+  const [editingVenue, setEditingVenue] = useState<VenueData | null>(null);
+  const [venueForm, setVenueForm] = useState<Partial<VenueData>>({});
+  const [venueLoading, setVenueLoading] = useState(false);
   const [loading, setLoading] = useState(true);
 
   // Search
@@ -80,11 +87,13 @@ export default function AdminDashboardPage() {
   async function loadAll() {
     setLoading(true);
     try {
-      const [evSnap, usersSnap, refSnap] = await Promise.all([
+      const [evSnap, usersSnap, refSnap, venSnap] = await Promise.all([
         getDocs(collection(db, 'events')),
         getDocs(collection(db, 'users')),
         getDocs(collection(db, 'refundRequests')),
+        getVenues(),
       ]);
+      setVenues(venSnap as VenueData[]);
 
       const evList = evSnap.docs.map(d => ({ id: d.id, ...d.data() } as EventData));
       setEvents(evList);
@@ -129,6 +138,58 @@ export default function AdminDashboardPage() {
     const next = current === 'published' ? 'cancelled' : 'published';
     await updateEvent(eventId, { status: next as any });
     setEvents(prev => prev.map(e => e.id === eventId ? { ...e, status: next as any } : e));
+  }
+
+
+  async function handleSaveVenue() {
+    if (!venueForm.name || !venueForm.city || !venueForm.country) return;
+    setVenueLoading(true);
+    try {
+      const data = {
+        name: venueForm.name || '',
+        address: venueForm.address || '',
+        city: venueForm.city || '',
+        country: venueForm.country || '',
+        gps: venueForm.gps || { lat: 0, lng: 0 },
+        capacity: Number(venueForm.capacity) || 0,
+        contact: venueForm.contact || {},
+        amenities: venueForm.amenities || [],
+        notes: venueForm.notes || '',
+        isVerified: venueForm.isVerified ?? true,
+        photos: venueForm.photos || [],
+        floorPlanUrl: venueForm.floorPlanUrl || '',
+        sections: venueForm.sections || [],
+      };
+      if (venueModal === 'create') {
+        const id = await createVenue(data);
+        setVenues(prev => [...prev, { id, ...data }]);
+      } else if (editingVenue?.id) {
+        await updateVenue(editingVenue.id, data);
+        setVenues(prev => prev.map(v => v.id === editingVenue.id ? { ...v, ...data } : v));
+      }
+      setVenueModal(null);
+      setEditingVenue(null);
+      setVenueForm({});
+    } catch (e) { console.error(e); }
+    setVenueLoading(false);
+  }
+
+  async function handleDeleteVenue(id: string) {
+    if (!confirm('Efase sal sa a?')) return;
+    await deleteVenue(id);
+    setVenues(prev => prev.filter(v => v.id !== id));
+  }
+
+  async function handleSeedVenues() {
+    if (!confirm('Ajoute 13 sal koni nan Firestore?')) return;
+    setVenueLoading(true);
+    try {
+      const count = await seedKnownVenues();
+      alert(`${count} sal ajoute!`);
+      const fresh = await getVenues();
+      setVenues(fresh);
+    } catch(e) { console.error(e); }
+    setVenueLoading(false);
   }
 
   async function approveRefund(r: any) {
@@ -480,6 +541,174 @@ export default function AdminDashboardPage() {
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+
+
+          {/* ═══ VENUES ═══ */}
+          {tab === 'venues' && (
+            <div>
+              <div className="flex items-center gap-3 mb-4">
+                <input value={venueSearch} onChange={e => setVenueSearch(e.target.value)}
+                  placeholder="Chèche sal..."
+                  className="flex-1 px-4 py-3 rounded-xl bg-dark-card border border-border text-white text-sm outline-none focus:border-orange placeholder:text-gray-muted" />
+                <button onClick={() => { setVenueForm({ isVerified: true, gps: { lat: 0, lng: 0 } }); setVenueModal('create'); }}
+                  className="px-4 py-3 rounded-xl bg-orange text-black text-xs font-bold whitespace-nowrap">
+                  + Ajoute Sal
+                </button>
+                {venues.length === 0 && (
+                  <button onClick={handleSeedVenues} disabled={venueLoading}
+                    className="px-4 py-3 rounded-xl bg-white/[0.06] border border-border text-gray-light text-xs font-bold whitespace-nowrap hover:text-white transition-all">
+                    🌱 Ensemanse
+                  </button>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                {venues.filter(v => !venueSearch || v.name.toLowerCase().includes(venueSearch.toLowerCase()) || v.city.toLowerCase().includes(venueSearch.toLowerCase())).map(v => (
+                  <div key={v.id} className="bg-dark-card border border-border rounded-xl p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className="text-sm font-bold truncate">{v.name}</p>
+                          {v.isVerified && <span className="text-[9px] bg-green-dim text-green px-1.5 py-0.5 rounded font-bold border border-green/20">✓ VERIFYE</span>}
+                        </div>
+                        <p className="text-[11px] text-gray-muted">{v.address}</p>
+                        <p className="text-[11px] text-gray-muted">{v.city}, {v.country}</p>
+                        <div className="flex items-center gap-3 mt-2">
+                          <span className="text-[11px] text-orange font-bold">👥 {v.capacity.toLocaleString()}</span>
+                          {v.sections && v.sections.length > 0 && (
+                            <span className="text-[11px] text-gray-muted">{v.sections.length} seksyon</span>
+                          )}
+                          {v.contact?.phone && <span className="text-[11px] text-gray-muted">📞 {v.contact.phone}</span>}
+                        </div>
+                        {v.amenities && v.amenities.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-2">
+                            {v.amenities.map(a => (
+                              <span key={a} className="text-[9px] bg-white/[0.05] text-gray-muted px-1.5 py-0.5 rounded">{a}</span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex flex-col gap-1.5">
+                        <button onClick={() => { setEditingVenue(v); setVenueForm(v); setVenueModal('edit'); }}
+                          className="px-3 py-1.5 rounded-lg text-[10px] font-bold bg-white/[0.05] border border-border text-gray-light hover:text-white transition-all">
+                          ✏️ Modifye
+                        </button>
+                        <button onClick={() => handleDeleteVenue(v.id!)}
+                          className="px-3 py-1.5 rounded-lg text-[10px] font-bold bg-red/10 border border-red/20 text-red hover:bg-red/20 transition-all">
+                          🗑 Efase
+                        </button>
+                      </div>
+                    </div>
+                    {v.notes && <p className="text-[10px] text-gray-muted mt-2 italic border-t border-border pt-2">{v.notes}</p>}
+                  </div>
+                ))}
+              </div>
+
+              {venues.length === 0 && !venueLoading && (
+                <div className="text-center py-20">
+                  <p className="text-4xl mb-3">🏟️</p>
+                  <p className="text-gray-muted text-sm mb-4">Pa gen sal nan baz done</p>
+                  <button onClick={handleSeedVenues} className="px-6 py-3 rounded-xl bg-orange text-black text-sm font-bold">
+                    🌱 Ajoute Sal Koni yo
+                  </button>
+                </div>
+              )}
+
+              {/* ── Modal ── */}
+              {venueModal && (
+                <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+                  <div className="bg-dark-card border border-border rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6">
+                    <div className="flex items-center justify-between mb-5">
+                      <h3 className="font-heading text-lg">{venueModal === 'create' ? 'Ajoute Sal' : 'Modifye Sal'}</h3>
+                      <button onClick={() => { setVenueModal(null); setEditingVenue(null); setVenueForm({}); }} className="text-gray-muted hover:text-white text-xl">✕</button>
+                    </div>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-[11px] font-semibold text-gray-muted uppercase tracking-wider mb-1.5">Non Sal *</label>
+                        <input value={venueForm.name || ''} onChange={e => setVenueForm(p => ({ ...p, name: e.target.value }))}
+                          className="w-full px-3 py-2.5 rounded-xl bg-white/[0.04] border border-border text-white text-sm outline-none focus:border-orange" />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold text-gray-muted uppercase tracking-wider mb-1.5">Adrès</label>
+                        <input value={venueForm.address || ''} onChange={e => setVenueForm(p => ({ ...p, address: e.target.value }))}
+                          className="w-full px-3 py-2.5 rounded-xl bg-white/[0.04] border border-border text-white text-sm outline-none focus:border-orange" />
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-[11px] font-semibold text-gray-muted uppercase tracking-wider mb-1.5">Vil *</label>
+                          <input value={venueForm.city || ''} onChange={e => setVenueForm(p => ({ ...p, city: e.target.value }))}
+                            className="w-full px-3 py-2.5 rounded-xl bg-white/[0.04] border border-border text-white text-sm outline-none focus:border-orange" />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-semibold text-gray-muted uppercase tracking-wider mb-1.5">Peyi *</label>
+                          <select value={venueForm.country || 'Haiti'} onChange={e => setVenueForm(p => ({ ...p, country: e.target.value }))}
+                            className="w-full px-3 py-2.5 rounded-xl bg-dark border border-border text-white text-sm outline-none focus:border-orange">
+                            {['Haiti','USA','Canada','France','Rep. Dominiken','Gwiyàn','Martinik','Gwadloup'].map(c => <option key={c} value={c}>{c}</option>)}
+                          </select>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-[11px] font-semibold text-gray-muted uppercase tracking-wider mb-1.5">Kapasité</label>
+                          <input type="number" value={venueForm.capacity || ''} onChange={e => setVenueForm(p => ({ ...p, capacity: Number(e.target.value) }))}
+                            className="w-full px-3 py-2.5 rounded-xl bg-white/[0.04] border border-border text-white text-sm outline-none focus:border-orange" />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-semibold text-gray-muted uppercase tracking-wider mb-1.5">Telefòn</label>
+                          <input value={venueForm.contact?.phone || ''} onChange={e => setVenueForm(p => ({ ...p, contact: { ...p.contact, phone: e.target.value } }))}
+                            className="w-full px-3 py-2.5 rounded-xl bg-white/[0.04] border border-border text-white text-sm outline-none focus:border-orange" />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-[11px] font-semibold text-gray-muted uppercase tracking-wider mb-1.5">Imel Sal</label>
+                          <input type="email" value={venueForm.contact?.email || ''} onChange={e => setVenueForm(p => ({ ...p, contact: { ...p.contact, email: e.target.value } }))}
+                            className="w-full px-3 py-2.5 rounded-xl bg-white/[0.04] border border-border text-white text-sm outline-none focus:border-orange" />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-semibold text-gray-muted uppercase tracking-wider mb-1.5">Sit Wèb</label>
+                          <input value={venueForm.contact?.website || ''} onChange={e => setVenueForm(p => ({ ...p, contact: { ...p.contact, website: e.target.value } }))}
+                            className="w-full px-3 py-2.5 rounded-xl bg-white/[0.04] border border-border text-white text-sm outline-none focus:border-orange" />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold text-gray-muted uppercase tracking-wider mb-1.5">Amenite (separe pa vigil)</label>
+                        <input value={(venueForm.amenities || []).join(', ')} onChange={e => setVenueForm(p => ({ ...p, amenities: e.target.value.split(',').map(s => s.trim()).filter(Boolean) }))}
+                          placeholder="Parking, AC, Bar, Wifi, Sekirite..."
+                          className="w-full px-3 py-2.5 rounded-xl bg-white/[0.04] border border-border text-white text-sm outline-none focus:border-orange placeholder:text-gray-muted" />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold text-gray-muted uppercase tracking-wider mb-1.5">Nòt</label>
+                        <textarea rows={2} value={venueForm.notes || ''} onChange={e => setVenueForm(p => ({ ...p, notes: e.target.value }))}
+                          className="w-full px-3 py-2.5 rounded-xl bg-white/[0.04] border border-border text-white text-sm outline-none focus:border-orange resize-none" />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold text-gray-muted uppercase tracking-wider mb-1.5">URL Plan Sal</label>
+                        <input value={venueForm.floorPlanUrl || ''} onChange={e => setVenueForm(p => ({ ...p, floorPlanUrl: e.target.value }))}
+                          placeholder="https://..."
+                          className="w-full px-3 py-2.5 rounded-xl bg-white/[0.04] border border-border text-white text-sm outline-none focus:border-orange placeholder:text-gray-muted" />
+                      </div>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" checked={venueForm.isVerified ?? true} onChange={e => setVenueForm(p => ({ ...p, isVerified: e.target.checked }))}
+                          className="w-4 h-4 accent-orange" />
+                        <span className="text-xs text-gray-light">Sal Verifye pa Anbyans</span>
+                      </label>
+                    </div>
+                    <div className="flex gap-2 mt-5">
+                      <button onClick={() => { setVenueModal(null); setEditingVenue(null); setVenueForm({}); }}
+                        className="flex-1 py-3 rounded-xl bg-white/[0.05] border border-border text-gray-light text-sm font-bold hover:text-white transition-all">
+                        Anile
+                      </button>
+                      <button onClick={handleSaveVenue} disabled={venueLoading || !venueForm.name || !venueForm.city}
+                        className="flex-1 py-3 rounded-xl bg-orange text-black text-sm font-bold disabled:opacity-50">
+                        {venueLoading ? 'Ap sove...' : 'Anrejistre'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

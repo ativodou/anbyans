@@ -1034,3 +1034,159 @@ export async function denyRefund(requestId: string, eventId: string, ticketId: s
     status: 'used',
   });
 }
+
+// ═══════════════════════════════════════════════════════════════════
+// VENUE MANAGEMENT
+// ═══════════════════════════════════════════════════════════════════
+
+export interface VenueSection {
+  name: string;
+  color: string;
+  capacity: number;
+}
+
+export interface VenueData {
+  id?: string;
+  name: string;
+  address: string;
+  city: string;
+  country: string;
+  gps: { lat: number; lng: number };
+  capacity: number;
+  photos?: string[];
+  floorPlanUrl?: string;
+  contact?: { phone?: string; email?: string; website?: string };
+  amenities?: string[];
+  sections?: VenueSection[];
+  isVerified?: boolean;
+  notes?: string;
+  createdAt?: any;
+  updatedAt?: any;
+}
+
+export async function getVenues(): Promise<VenueData[]> {
+  const snap = await getDocs(collection(db, 'venues'));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as VenueData));
+}
+
+export async function getVenue(venueId: string): Promise<VenueData | null> {
+  const snap = await getDoc(doc(db, 'venues', venueId));
+  if (!snap.exists()) return null;
+  return { id: snap.id, ...snap.data() } as VenueData;
+}
+
+export async function createVenue(data: Omit<VenueData, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
+  const ref = await addDoc(collection(db, 'venues'), {
+    ...data,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+  return ref.id;
+}
+
+export async function updateVenue(venueId: string, data: Partial<VenueData>): Promise<void> {
+  await updateDoc(doc(db, 'venues', venueId), { ...data, updatedAt: serverTimestamp() });
+}
+
+export async function deleteVenue(venueId: string): Promise<void> {
+  await deleteDoc(doc(db, 'venues', venueId));
+}
+
+// Seed known venues into Firestore (run once from admin)
+export async function seedKnownVenues(): Promise<number> {
+  const SEED_VENUES: Omit<VenueData, 'id' | 'createdAt' | 'updatedAt'>[] = [
+    {
+      name: 'Karibe Hotel', address: 'Juvenat 7, Petion-Ville', city: 'Petion-Ville', country: 'Haiti',
+      gps: { lat: 18.5135, lng: -72.2896 }, capacity: 2000,
+      amenities: ['Parking', 'AC', 'Bar', 'Sekirite', 'Espace VIP'],
+      isVerified: true,
+      sections: [
+        { name: 'VIP', color: '#f97316', capacity: 200 },
+        { name: 'Jeneral', color: '#06b6d4', capacity: 1800 },
+      ],
+    },
+    {
+      name: 'Champ de Mars', address: 'Champ de Mars, Port-au-Prince', city: 'Port-au-Prince', country: 'Haiti',
+      gps: { lat: 18.5458, lng: -72.3387 }, capacity: 10000,
+      amenities: ['Espas Ouvè', 'Gwo Kapasité'],
+      isVerified: true,
+    },
+    {
+      name: 'Marriott Port-au-Prince', address: 'Route de Delmas, Port-au-Prince', city: 'Port-au-Prince', country: 'Haiti',
+      gps: { lat: 18.5410, lng: -72.3300 }, capacity: 1500,
+      amenities: ['Parking', 'AC', 'Bar', 'Wifi', 'Sekirite', 'Espace VIP'],
+      isVerified: true,
+      sections: [
+        { name: 'VIP', color: '#f97316', capacity: 150 },
+        { name: 'Jeneral', color: '#22c55e', capacity: 1350 },
+      ],
+    },
+    {
+      name: 'Stade Sylvio Cator', address: 'Rue Oswald Durand, Port-au-Prince', city: 'Port-au-Prince', country: 'Haiti',
+      gps: { lat: 18.5395, lng: -72.3366 }, capacity: 30000,
+      amenities: ['Espas Ouvè', 'Gwo Kapasité', 'Sekirite'],
+      isVerified: true,
+    },
+    {
+      name: 'Club Indigo', address: 'Route Nationale 1, Montrouis', city: 'Montrouis', country: 'Haiti',
+      gps: { lat: 18.9530, lng: -72.7130 }, capacity: 1200,
+      amenities: ['Plaj', 'Pisinn', 'Bar', 'AC', 'Parking', 'Espace VIP'],
+      isVerified: true,
+    },
+    {
+      name: 'Parc Istorik La Citadelle', address: 'Milot, Cap-Haitien', city: 'Cap-Haitien', country: 'Haiti',
+      gps: { lat: 19.6050, lng: -72.2150 }, capacity: 5000,
+      amenities: ['Espas Ouvè', 'Istwa'],
+      isVerified: true,
+    },
+    {
+      name: 'Lakay Mizik', address: 'Tabarre, Port-au-Prince', city: 'Port-au-Prince', country: 'Haiti',
+      gps: { lat: 18.5580, lng: -72.2780 }, capacity: 800,
+      amenities: ['AC', 'Bar', 'Parking', 'Sono'],
+      isVerified: true,
+    },
+    {
+      name: 'Little Haiti Cultural Center', address: '212 NE 59th Terrace, Miami, FL', city: 'Miami', country: 'USA',
+      gps: { lat: 25.8326, lng: -80.1917 }, capacity: 500,
+      amenities: ['AC', 'Parking', 'Sono', 'Wifi'],
+      isVerified: true,
+    },
+    {
+      name: 'Marlins Park', address: '501 Marlins Way, Miami, FL', city: 'Miami', country: 'USA',
+      gps: { lat: 25.7781, lng: -80.2197 }, capacity: 37000,
+      amenities: ['Parking', 'AC', 'Bar', 'Gwo Kapasité'],
+      isVerified: true,
+    },
+    {
+      name: 'BAM Brooklyn', address: '30 Lafayette Ave, Brooklyn, NY', city: 'Brooklyn', country: 'USA',
+      gps: { lat: 40.6862, lng: -73.9782 }, capacity: 2100,
+      amenities: ['AC', 'Bar', 'Sekirite'],
+      isVerified: true,
+    },
+    {
+      name: 'Place des Arts Montreal', address: '175 Rue Sainte-Catherine O, Montreal', city: 'Montreal', country: 'Canada',
+      gps: { lat: 45.5076, lng: -73.5663 }, capacity: 3000,
+      amenities: ['AC', 'Bar', 'Parking', 'Sekirite'],
+      isVerified: true,
+    },
+    {
+      name: 'Zenith Paris', address: '211 Avenue Jean Jaures, Paris', city: 'Paris', country: 'France',
+      gps: { lat: 48.8935, lng: 2.3935 }, capacity: 6300,
+      amenities: ['AC', 'Bar', 'Sekirite', 'Espace VIP'],
+      isVerified: true,
+    },
+    {
+      name: 'Hard Rock Cafe Punta Cana', address: 'Blvd Turistico del Este, Punta Cana', city: 'Punta Cana', country: 'Rep. Dominiken',
+      gps: { lat: 18.5820, lng: -68.4055 }, capacity: 1000,
+      amenities: ['Plaj', 'Bar', 'AC', 'Parking'],
+      isVerified: true,
+    },
+  ];
+
+  let count = 0;
+  for (const v of SEED_VENUES) {
+    await addDoc(collection(db, 'venues'), { ...v, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+    count++;
+  }
+  return count;
+}
