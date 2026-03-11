@@ -44,7 +44,6 @@ export default function Navbar() {
       { href: '/organizer/dashboard', label: L('Dachbod', 'Dashboard', 'Tableau de bord')! },
       { href: '/organizer/events/create', label: L('+ Kreye', '+ Create', '+ Creer')! },
       { href: '/organizer/vendors', label: L('Vande', 'Vendors', 'Vendeurs')! },
-      { href: '/organizer/scanner', label: L('Eskane', 'Scanner', 'Scanner')! },
     );
   }
 
@@ -180,9 +179,6 @@ export default function Navbar() {
                       </Link>
                       <Link href="/organizer/vendors" onClick={() => setMenuOpen(false)} style={{ display: 'block', padding: '8px 12px', borderRadius: 6, color: '#ccc', fontSize: 12, textDecoration: 'none' }}>
                         {L('Jere Vande', 'Manage Resellers', 'Gerer les vendeurs')}
-                      </Link>
-                      <Link href="/organizer/scanner" onClick={() => setMenuOpen(false)} style={{ display: 'block', padding: '8px 12px', borderRadius: 6, color: '#ccc', fontSize: 12, textDecoration: 'none' }}>
-                        {L('Eskane Tike', 'Scan Tickets', 'Scanner les billets')}
                       </Link>
                     </>
                   )}
