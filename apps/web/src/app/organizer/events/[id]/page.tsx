@@ -1,17 +1,17 @@
 'use client';
 import React, { useState, useEffect } from 'react';
-import React, { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import React, { useT } from '@/i18n';
-import React, { useAuth } from '@/hooks/useAuth';
-import React, {
+import { useT } from '@/i18n';
+import { useAuth } from '@/hooks/useAuth';
+import {
   getEvent, updateEvent, deleteEvent,
   getDoorStaff, addDoorStaff, removeDoorStaff,
   type EventData, type DoorStaff,
   getRefundRequests, approveRefund, denyRefund, type RefundRequest,
 } from '@/lib/db';
-import React, { collectionGroup, query, where, getDocs } from 'firebase/firestore';
-import React, { db } from '@/lib/firebase';
+import { collectionGroup, query, where, getDocs } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 type Tab = 'overview' | 'sections' | 'attendees' | 'refunds' | 'staff' | 'settings';
 
