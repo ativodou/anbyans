@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useT } from '@/i18n';
 import { auth, db } from '@/lib/firebase';
@@ -84,7 +84,11 @@ export default function VendorDashboardPage() {
   const [buyError, setBuyError] = useState('');
 
   // ─── Load data ───────────────────────────────────────────────────
+  const loadedRef = React.useRef(false);
+
   const loadData = useCallback(async (uid: string) => {
+    if (loadedRef.current) return;
+    loadedRef.current = true;
     try {
       const v = await getVendorByUid(uid);
       if (!v || !v.id) { router.push('/vendor/auth'); return; }
@@ -125,11 +129,12 @@ export default function VendorDashboardPage() {
 
   useEffect(() => {
     const unsub = auth.onAuthStateChanged(u => {
-      if (!u) { router.push('/vendor/auth'); return; }
+      if (!u) { window.location.href = '/vendor/auth'; return; }
       loadData(u.uid);
     });
     return () => unsub();
-  }, [loadData, router]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ─── Derived ─────────────────────────────────────────────────────
   const totalStock = owned.reduce((a, b) => a + b.qty, 0);
