@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useT } from '@/i18n';
 import { useAuth } from '@/hooks/useAuth';
-import { createEvent, KNOWN_VENUES, type EventSection, type EventRestriction, type EventPromo, type EventVenue } from '@/lib/db';
+import { createEvent, KNOWN_VENUES, type EventSection, type CalendarTier, type EventRestriction, type EventPromo, type EventVenue } from '@/lib/db';
 
 export default function CreateEvent() {
   const router = useRouter();
@@ -52,6 +52,36 @@ export default function CreateEvent() {
     { name: 'VIP', capacity: 200, price: 75, sold: 0, color: '#C0C0C0' },
     { name: 'General', capacity: 500, price: 35, sold: 0, color: '#06b6d4' },
   ]);
+
+  // CalendarTier expanded state per section
+  const [calExpanded, setCalExpanded] = useState<boolean[]>([false, false, false]);
+
+  function addCalendarTier(sIdx: number) {
+    const updated = sections.map((s, i) => {
+      if (i !== sIdx) return s;
+      const tiers = s.calendarTiers || [];
+      const newTier: CalendarTier = { label: 'Early Bird', openDate: '', closeDate: '', priceEach: Math.round(s.price * 0.6) };
+      return { ...s, calendarTiers: [...tiers, newTier] };
+    });
+    setSections(updated);
+  }
+
+  function updateCalendarTier(sIdx: number, tIdx: number, field: keyof CalendarTier, value: any) {
+    const updated = sections.map((s, i) => {
+      if (i !== sIdx) return s;
+      const tiers = (s.calendarTiers || []).map((t, j) => j === tIdx ? { ...t, [field]: value } : t);
+      return { ...s, calendarTiers: tiers };
+    });
+    setSections(updated);
+  }
+
+  function removeCalendarTier(sIdx: number, tIdx: number) {
+    const updated = sections.map((s, i) => {
+      if (i !== sIdx) return s;
+      return { ...s, calendarTiers: (s.calendarTiers || []).filter((_, j) => j !== tIdx) };
+    });
+    setSections(updated);
+  }
 
   // Step 4: Promos
   const [promos, setPromos] = useState<EventPromo[]>([]);
@@ -571,6 +601,66 @@ export default function CreateEvent() {
                       style={{ width: '100%', height: 36, borderRadius: 6, border: '1px solid #1e1e2e', background: 'transparent', cursor: 'pointer' }} />
                   </div>
                 </div>
+
+                {/* ── Calendar Tiers (Vandè) ── */}
+                <div style={{ marginTop: 14, borderTop: '1px solid #1e1e2e', paddingTop: 12 }}>
+                  <button onClick={() => setCalExpanded(prev => prev.map((v, ci) => ci === i ? !v : v))}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#a855f7', fontSize: 12, fontWeight: 700, padding: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    🏪 {L('Pri Vandè pa Dat', 'Vendor Calendar Pricing', 'Tarifs vendeur par date')}
+                    {s.calendarTiers?.length ? ` (${s.calendarTiers.length})` : ''} {calExpanded[i] ? '▲' : '▼'}
+                  </button>
+
+                  {calExpanded[i] && (
+                    <div style={{ marginTop: 10 }}>
+                      <p style={{ color: '#666', fontSize: 11, marginBottom: 10 }}>
+                        {L('Vandè ki achte plis bonè peye mwens. Fenèt yo pa ka chevauchè.', 'Vendors who buy earlier pay less. Windows must not overlap.', 'Les vendeurs achetant plus tôt paient moins. Les fenêtres ne doivent pas se chevaucher.')}
+                      </p>
+
+                      {(s.calendarTiers || []).map((t, ti) => (
+                        <div key={ti} style={{ background: '#0a0a0f', border: '1px solid #a855f722', borderRadius: 8, padding: 10, marginBottom: 8, display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr auto', gap: 8, alignItems: 'end' }}>
+                          <div>
+                            <label style={{ color: '#666', fontSize: 10, display: 'block', marginBottom: 3 }}>{L('Non fenèt', 'Window name', 'Nom fenêtre')}</label>
+                            <input value={t.label} onChange={e => updateCalendarTier(i, ti, 'label', e.target.value)}
+                              placeholder="Early Bird" style={{ ...inputStyle, fontSize: 12, padding: 6 }} />
+                          </div>
+                          <div>
+                            <label style={{ color: '#666', fontSize: 10, display: 'block', marginBottom: 3 }}>{L('Ouvèti', 'Opens', 'Ouverture')}</label>
+                            <input type="date" value={t.openDate} onChange={e => updateCalendarTier(i, ti, 'openDate', e.target.value)}
+                              style={{ ...inputStyle, fontSize: 12, padding: 6 }} />
+                          </div>
+                          <div>
+                            <label style={{ color: '#666', fontSize: 10, display: 'block', marginBottom: 3 }}>{L('Fèmti', 'Closes', 'Fermeture')}</label>
+                            <input type="date" value={t.closeDate} onChange={e => updateCalendarTier(i, ti, 'closeDate', e.target.value)}
+                              style={{ ...inputStyle, fontSize: 12, padding: 6 }} />
+                          </div>
+                          <div>
+                            <label style={{ color: '#666', fontSize: 10, display: 'block', marginBottom: 3 }}>{L('Pri vandè ($)', 'Vendor price ($)', 'Prix vendeur ($)')}</label>
+                            <input type="number" value={t.priceEach} onChange={e => updateCalendarTier(i, ti, 'priceEach', parseFloat(e.target.value) || 0)}
+                              style={{ ...inputStyle, fontSize: 12, padding: 6 }} />
+                          </div>
+                          <button onClick={() => removeCalendarTier(i, ti)}
+                            style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: 16, paddingBottom: 4 }}>✕</button>
+                        </div>
+                      ))}
+
+                      <button onClick={() => addCalendarTier(i)}
+                        style={{ fontSize: 12, color: '#a855f7', background: 'none', border: '1px dashed #a855f755', borderRadius: 6, padding: '6px 14px', cursor: 'pointer', width: '100%', marginTop: 4 }}>
+                        + {L('Ajoute fenèt', 'Add pricing window', 'Ajouter une fenêtre')}
+                      </button>
+
+                      {s.calendarTiers && s.calendarTiers.length > 0 && (
+                        <div style={{ background: '#a855f711', border: '1px solid #a855f733', borderRadius: 6, padding: '6px 10px', marginTop: 8 }}>
+                          <p style={{ color: '#a855f7', fontSize: 10, fontWeight: 700 }}>
+                            💡 {L(`${s.calendarTiers.length} fenèt defini. Pri online a ($${s.price}) rete pri piblik la — vandè yo ka achte pou mwens.`,
+                              `${s.calendarTiers.length} window(s) set. Online price ($${s.price}) stays public — vendors buy cheaper.`,
+                              `${s.calendarTiers.length} fenêtre(s) définie(s). Le prix en ligne ($${s.price}) reste public — les vendeurs achètent moins cher.`)}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
               </div>
             ))}
 

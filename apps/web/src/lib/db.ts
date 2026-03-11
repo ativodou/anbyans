@@ -19,12 +19,20 @@ import { db } from './firebase';
 
 // ─── Event Types ─────────────────────────────────────────────────
 
+export interface CalendarTier {
+  label: string;          // ex: "Early Bird", "Normal", "Last Call"
+  openDate: string;       // ISO date "2026-01-15"
+  closeDate: string;      // ISO date "2026-03-10"
+  priceEach: number;      // vendor bulk price during this window
+}
+
 export interface EventSection {
   name: string;
   capacity: number;
   price: number;
   sold: number;
   color: string;
+  calendarTiers?: CalendarTier[];  // date-based vendor bulk pricing
 }
 
 export interface EventRestriction {
@@ -891,13 +899,27 @@ export async function acceptVendorInvite(token: string, uid: string): Promise<Ve
 export async function getEventBulkPricing(eventId: string): Promise<ResellerSectionPricing[]> {
   const event = await getEvent(eventId);
   if (!event) return [];
-  return event.sections.map(s => ({
-    section: s.name,
-    sectionColor: s.color,
-    onlinePrice: s.price,
-    available: s.capacity - s.sold,
-    bulkTiers: (s as any).bulkTiers || [],
-  }));
+  const today = new Date().toISOString().slice(0, 10);
+  return event.sections
+    .filter(s => (s.calendarTiers && s.calendarTiers.length > 0) || (s as any).bulkTiers?.length > 0)
+    .map(s => {
+      // Find active calendar tier for today
+      const activeTier = s.calendarTiers?.find(t => today >= t.openDate && today <= t.closeDate);
+      // Build bulkTiers from calendarTiers (sorted by openDate = cheapest first = earliest)
+      const calBulkTiers = (s.calendarTiers || [])
+        .sort((a, b) => a.openDate.localeCompare(b.openDate))
+        .map(t => ({ minQty: 1, maxQty: null as number | null, priceEach: t.priceEach, label: t.label, openDate: t.openDate, closeDate: t.closeDate }));
+      return {
+        section: s.name,
+        sectionColor: s.color,
+        onlinePrice: s.price,
+        available: s.capacity - s.sold,
+        bulkTiers: (s as any).bulkTiers || [],
+        calendarTiers: s.calendarTiers || [],
+        activeTier: activeTier || null,
+        activePrice: activeTier?.priceEach ?? null,
+      };
+    });
 }
 
 // ─── Save Bulk Tiers to Event Section ────────────────────────────
@@ -934,7 +956,7 @@ export async function vendorSellTicket(params: {
   buyerName: string;
   buyerPhone: string;
   qty: number;
-}): Promise<string[]> {
+}): Promise<{ codes: string[]; pin: string }> {
   const purchaseRef = doc(db, 'vendorPurchases', params.purchaseId);
   const purchaseSnap = await getDoc(purchaseRef);
   if (!purchaseSnap.exists()) throw new Error('Purchase not found');
@@ -943,6 +965,8 @@ export async function vendorSellTicket(params: {
   const available = purchase.qty - purchase.sold;
   if (params.qty > available) throw new Error('Not enough tickets');
 
+  // One PIN for the fan — same for all tickets in this sale
+  const buyerPin = generateBuyerPin();
   const assignedCodes = purchase.ticketCodes.slice(purchase.sold, purchase.sold + params.qty);
 
   for (const code of assignedCodes) {
@@ -956,14 +980,20 @@ export async function vendorSellTicket(params: {
       await updateDoc(ticketSnap.docs[0].ref, {
         buyerName: params.buyerName,
         buyerPhone: params.buyerPhone,
+        buyerPin,
         isVendorSold: true,
+        vendorSoldAt: serverTimestamp(),
         status: 'valid',
       });
     }
   }
 
-  await updateDoc(purchaseRef, { sold: purchase.sold + params.qty });
-  return assignedCodes;
+  await updateDoc(purchaseRef, {
+    sold: purchase.sold + params.qty,
+    updatedAt: serverTimestamp(),
+  });
+
+  return { codes: assignedCodes, pin: buyerPin };
 }
 
 // ─── Refund Requests ─────────────────────────────────────────────────────────

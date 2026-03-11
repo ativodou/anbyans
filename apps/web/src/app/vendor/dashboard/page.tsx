@@ -20,6 +20,7 @@ import {
 
 // ─── Types ────────────────────────────────────────────────────────
 interface BulkTier { minQty: number; maxQty: number | null; priceEach: number; }
+interface CalTier { label: string; openDate: string; closeDate: string; priceEach: number; }
 
 interface VendorSale {
   id?: string;
@@ -69,6 +70,7 @@ export default function VendorDashboardPage() {
   const [showSellConfirm, setShowSellConfirm] = useState(false);
   const [sellSuccess, setSellSuccess] = useState(false);
   const [sellCodes, setSellCodes] = useState<string[]>([]);
+  const [sellPin, setSellPin] = useState('');
   const [sellLoading, setSellLoading] = useState(false);
   const [sellError, setSellError] = useState('');
 
@@ -147,7 +149,12 @@ export default function VendorDashboardPage() {
 
   const selectedEvent = availableEvents[buyEventIdx];
   const selectedSection = selectedEvent?.pricing[buySectionIdx];
-  const bulkPrice = selectedSection ? getBulkPrice(selectedSection.bulkTiers, buyQty) : 0;
+  const today = new Date().toISOString().slice(0, 10);
+  const calTiers: CalTier[] = (selectedSection as any)?.calendarTiers || [];
+  const activeCalTier = calTiers.find((t: CalTier) => today >= t.openDate && today <= t.closeDate);
+  const bulkPrice = activeCalTier ? activeCalTier.priceEach
+    : selectedSection ? getBulkPrice(selectedSection.bulkTiers, buyQty) : 0;
+  const buyWindowOpen = calTiers.length === 0 || !!activeCalTier;
   const buyTotal = buyQty * bulkPrice;
 
   // ─── Actions ─────────────────────────────────────────────────────
@@ -156,14 +163,38 @@ export default function VendorDashboardPage() {
     setSellLoading(true);
     setSellError('');
     try {
-      const codes = await vendorSellTicket({
+      const result = await vendorSellTicket({
         purchaseId: currentStock.id,
         eventId: currentStock.eventId,
         buyerName,
         buyerPhone,
         qty: sellQty,
       });
-      setSellCodes(codes);
+      setSellCodes(result.codes);
+      // Send WhatsApp confirmation directly to the fan from Anbyans
+      const ticketUrl = `${window.location.origin}/ticket/${result.codes[0]}`;
+      const eventName = currentStock.eventName;
+      const section = currentStock.section;
+      const wa = currentStock.eventDate;
+      const msg = [
+        '🎫 *ANBYANS - TIKÈ OU PARE!*',
+        '',
+        `🎭 ${eventName}`,
+        `📅 ${wa} · 🎟️ Seksyon: ${section}`,
+        '',
+        result.codes.map((c, i) => `🔑 Tikè ${i + 1}: ${c}`).join('\n'),
+        `🔐 PIN: ${result.pin}`,
+        '',
+        `📱 Wè tikè ou: ${ticketUrl}`,
+        '',
+        '⚠️ Kenbe PIN ou an sekirite.',
+        '🛡️ Tikè sa voye dirèkteman pa Anbyans — pa vandè a.',
+      ].join('\n');
+      const phone = buyerPhone.replace(/[^0-9]/g, '');
+      const waUrl = phone
+        ? `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`
+        : `https://wa.me/?text=${encodeURIComponent(msg)}`;
+      window.open(waUrl, '_blank');
       setSellSuccess(true);
       setShowSellConfirm(false);
       // Refresh stock
@@ -540,38 +571,66 @@ export default function VendorDashboardPage() {
                   </div>
                 )}
 
-                {/* Bulk pricing table */}
-                {selectedSection && (
-                  <div style={{ ...card, marginBottom: 16 }}>
-                    <p style={{ color: '#f97316', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', marginBottom: 10 }}>
-                      💲 {L('Pri Bulk', 'Bulk Pricing', 'Tarifs en gros')} — {selectedSection.section}
-                    </p>
-                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                      <thead>
-                        <tr style={{ borderBottom: '1px solid #1e1e2e' }}>
-                          {[L('Kantite', 'Quantity', 'Quantité'), L('Pri Chak', 'Each', 'Unitaire'), L('Rabè', 'Discount', 'Rabais')].map(h => (
-                            <th key={h} style={{ textAlign: h === L('Pri Chak', 'Each', 'Unitaire') ? 'right' : h === L('Rabè', 'Discount', 'Rabais') ? 'right' : 'left', color: '#555', fontSize: 9, textTransform: 'uppercase', paddingBottom: 8 }}>{h}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {selectedSection.bulkTiers.map((tier: BulkTier, i: number) => {
-                          const disc = Math.round(((selectedSection.onlinePrice - tier.priceEach) / selectedSection.onlinePrice) * 100);
-                          const active = buyQty >= tier.minQty && (tier.maxQty === null || buyQty <= tier.maxQty);
-                          return (
-                            <tr key={i} style={{ borderBottom: '1px solid #1e1e2e', background: active ? '#a855f715' : 'transparent' }}>
-                              <td style={{ padding: '8px 0', fontSize: 12, color: active ? '#a855f7' : '#fff', fontWeight: active ? 700 : 400 }}>
-                                {fmtTier(tier)} {L('tikè', 'tickets', 'billets')} {active && '← ou'}
-                              </td>
-                              <td style={{ textAlign: 'right', fontSize: 14, fontWeight: 700 }}>${tier.priceEach}</td>
-                              <td style={{ textAlign: 'right', color: '#22c55e', fontSize: 12, fontWeight: 700 }}>-{disc}%</td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
+                {/* Calendar pricing table */}
+                {selectedSection && (() => {
+                  const today = new Date().toISOString().slice(0, 10);
+                  const calTiers: CalTier[] = (selectedSection as any).calendarTiers || [];
+                  const hasCal = calTiers.length > 0;
+                  const activeCal = calTiers.find((t: CalTier) => today >= t.openDate && today <= t.closeDate);
+                  return (
+                    <div style={{ ...card, marginBottom: 16 }}>
+                      <p style={{ color: '#a855f7', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', marginBottom: 10 }}>
+                        📅 {L('Pri pa Dat', 'Calendar Pricing', 'Tarifs par date')} — {selectedSection.section}
+                      </p>
+                      {hasCal ? (
+                        <>
+                          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                            <thead>
+                              <tr style={{ borderBottom: '1px solid #1e1e2e' }}>
+                                {['Fenèt', L('Dat', 'Dates', 'Dates'), L('Pri', 'Price', 'Prix'), L('Rabè', 'Discount', 'Rabais')].map(h => (
+                                  <th key={h} style={{ color: '#555', fontSize: 9, textTransform: 'uppercase', paddingBottom: 8, textAlign: 'left' }}>{h}</th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {calTiers.map((t: CalTier, i: number) => {
+                                const disc = Math.round(((selectedSection.onlinePrice - t.priceEach) / selectedSection.onlinePrice) * 100);
+                                const isActive = today >= t.openDate && today <= t.closeDate;
+                                const isPast = today > t.closeDate;
+                                const isFuture = today < t.openDate;
+                                return (
+                                  <tr key={i} style={{ borderBottom: '1px solid #1e1e2e', background: isActive ? '#a855f715' : 'transparent', opacity: isPast ? 0.4 : 1 }}>
+                                    <td style={{ padding: '8px 0', fontSize: 12, fontWeight: isActive ? 700 : 400, color: isActive ? '#a855f7' : '#fff' }}>
+                                      {t.label} {isActive && '← ' + L('kounye a', 'now', 'maintenant')} {isFuture && '🔒'} {isPast && '✓'}
+                                    </td>
+                                    <td style={{ fontSize: 10, color: '#888' }}>{t.openDate} → {t.closeDate}</td>
+                                    <td style={{ fontSize: 14, fontWeight: 700 }}>${t.priceEach}</td>
+                                    <td style={{ color: '#22c55e', fontSize: 12, fontWeight: 700 }}>-{disc}%</td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                          {!activeCal && (
+                            <div style={{ background: '#ef444415', border: '1px solid #ef444433', borderRadius: 6, padding: '6px 10px', marginTop: 10 }}>
+                              <p style={{ color: '#ef4444', fontSize: 11 }}>
+                                ⚠️ {L('Pa gen fenèt ouvert kounye a. Kontakte òganizatè a.', 'No pricing window open now. Contact the organizer.', 'Aucune fenêtre ouverte. Contactez organisateur.')}
+                              </p>
+                            </div>
+                          )}
+                          {activeCal && (
+                            <div style={{ background: '#a855f715', border: '1px solid #a855f733', borderRadius: 6, padding: '6px 10px', marginTop: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <p style={{ color: '#a855f7', fontSize: 11, fontWeight: 700 }}>✓ {activeCal.label} — ${activeCal.priceEach}/{L('tikè', 'ticket', 'billet')}</p>
+                              <p style={{ color: '#666', fontSize: 10 }}>{L('Fèmen', 'Closes', 'Ferme')} {activeCal.closeDate}</p>
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <p style={{ color: '#555', fontSize: 12 }}>{L('Pa gen kalandriye pri. Kontakte òganizatè a pou pri vandè.', 'No calendar pricing set. Contact organizer for vendor pricing.', 'Pas de tarification calendaire. Contactez organisateur.')}</p>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {/* Qty */}
                 {selectedSection && (
@@ -608,8 +667,8 @@ export default function VendorDashboardPage() {
                 {buyError && <p style={{ color: '#ef4444', fontSize: 12, marginBottom: 10 }}>{buyError}</p>}
 
                 <button onClick={() => setShowBuyConfirm(true)}
-                  disabled={!selectedSection || buyQty < (selectedSection?.bulkTiers[0]?.minQty || 1)}
-                  style={{ ...btn('#a855f7'), opacity: (!selectedSection || buyQty < (selectedSection?.bulkTiers[0]?.minQty || 1)) ? 0.4 : 1 }}>
+                  disabled={!selectedSection || !buyWindowOpen || buyQty < 1}
+                  style={{ ...btn('#a855f7'), opacity: (!selectedSection || !buyWindowOpen || buyQty < 1) ? 0.4 : 1 }}>
                   🛒 {L('Achte', 'Buy', 'Acheter')} {buyQty} {L('tikè', 'tickets', 'billets')} — ${buyTotal.toLocaleString()}
                 </button>
               </>
