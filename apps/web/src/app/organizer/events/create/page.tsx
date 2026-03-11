@@ -27,6 +27,8 @@ export default function CreateEvent() {
   const [isPrivate, setIsPrivate] = useState(false);
   const [privateMode, setPrivateMode] = useState<'rsvp' | 'kotizasyon' | 'paid'>('rsvp');
   const [suggestedAmount, setSuggestedAmount] = useState(0);
+  const [refundPolicy, setRefundPolicy] = useState<'no_refund' | 'timed' | 'organizer_approval'>('organizer_approval');
+  const [refundDeadlineDays, setRefundDeadlineDays] = useState(7);
   const privateTokenRef = useRef('');
   const [restrictions, setRestrictions] = useState<EventRestriction>({
     dressCode: '', foodDrink: '', cameras: '', bags: '', security: '', accessibility: '', health: '',
@@ -117,6 +119,8 @@ export default function CreateEvent() {
         organizerId: user.uid,
         organizerName: user.email || '',
         ...(isPrivate && { privateMode, suggestedAmount: privateMode === 'kotizasyon' ? suggestedAmount : 0 }),
+        refundPolicy,
+        ...(refundPolicy === 'timed' && { refundDeadlineDays }),
         totalCapacity: sections.reduce((sum, s) => sum + s.capacity, 0),
       });
       setCreatedId(eventId);
@@ -733,6 +737,44 @@ export default function CreateEvent() {
               </div>
             )}
 
+
+            {/* Refund Policy */}
+            <div style={{ marginTop: 20, padding: '16px', background: '#0a0a0f', borderRadius: 10, border: '1px solid #1e1e2e' }}>
+              <div style={{ color: '#888', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>
+                📋 {L('Politik Ranbousman', 'Refund Policy', 'Politique de Remboursement')}
+              </div>
+              {(['organizer_approval', 'timed', 'no_refund'] as const).map(opt => (
+                <div key={opt} onClick={() => setRefundPolicy(opt)} style={{
+                  display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px',
+                  border: `1px solid ${refundPolicy === opt ? '#f97316' : '#1e1e2e'}`,
+                  borderRadius: 8, cursor: 'pointer', marginBottom: 8,
+                  background: refundPolicy === opt ? '#1a0a00' : 'transparent',
+                }}>
+                  <div style={{ width: 14, height: 14, borderRadius: '50%', border: `2px solid ${refundPolicy === opt ? '#f97316' : '#333'}`, background: refundPolicy === opt ? '#f97316' : 'transparent', flexShrink: 0 }} />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ color: refundPolicy === opt ? '#f97316' : '#fff', fontWeight: 700, fontSize: 13 }}>
+                      {opt === 'organizer_approval' && L('Sijè Apwobasyon', 'Subject to Approval', 'Soumis à Approbation')}
+                      {opt === 'timed' && L('Fenèt Tan', 'Time Window', 'Fenêtre Temporelle')}
+                      {opt === 'no_refund' && L('Pa Gen Ranbousman', 'No Refunds', 'Aucun Remboursement')}
+                    </div>
+                    <div style={{ color: '#555', fontSize: 11, marginTop: 2 }}>
+                      {opt === 'organizer_approval' && L('Ou deside ka pa ka pou chak demann.', 'You decide case by case.', 'Vous décidez au cas par cas.')}
+                      {opt === 'timed' && L('Moun ka mande ranbousman avan yon dat limit.', 'Buyers can request before a deadline.', 'Les acheteurs peuvent demander avant une date limite.')}
+                      {opt === 'no_refund' && L('Vant final — pa gen ranbousman.', 'All sales final — no refunds.', 'Ventes définitives.')}
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {refundPolicy === 'timed' && (
+                <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <label style={{ color: '#888', fontSize: 12 }}>{L('Jou anvan evènman:', 'Days before event:', 'Jours avant:')}</label>
+                  <input type="number" min="1" max="90" value={refundDeadlineDays}
+                    onChange={e => setRefundDeadlineDays(parseInt(e.target.value) || 7)}
+                    style={{ width: 80, padding: 8, borderRadius: 8, border: '1px solid #1e1e2e', background: '#0a0a0f', color: '#fff', fontSize: 14, fontWeight: 700, textAlign: 'center' }}
+                  />
+                </div>
+              )}
+            </div>
             {imageUrl && (
               <div style={{ marginBottom: 16 }}>
                 <div style={{ color: '#888', fontSize: 11, marginBottom: 4 }}>{L('Afich', 'Poster', 'Affiche')}</div>

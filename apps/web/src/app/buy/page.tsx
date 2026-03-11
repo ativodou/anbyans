@@ -52,7 +52,7 @@ const StripePaymentForm = forwardRef<
   useEffect(() => () => { onUnready(); }, []);
 
   useImperativeHandle(ref, () => ({
-    submit: async (clientSecret: string) => {
+    submit: async (clientSecret: string): Promise<{ ok: boolean; error?: string; paymentIntentId?: string }> => {
       if (!stripe || !elements) return { ok: false, error: 'Stripe pa chaje. Eseye anko.' };
       const cardElement = elements.getElement(CardElement);
       if (!cardElement) return { ok: false, error: 'Fòm kat pa disponib.' };
@@ -62,7 +62,7 @@ const StripePaymentForm = forwardRef<
       });
       if (error) return { ok: false, error: error.message ?? 'Peman echwe.' };
       if (paymentIntent?.status !== 'succeeded') return { ok: false, error: 'Peman pa konplete.' };
-      return { ok: true };
+      return { ok: true, paymentIntentId: paymentIntent.id };
     },
   }), [stripe, elements]);
 
@@ -221,8 +221,8 @@ function BuyTicketInner() {
   const doPayment = async () => {
     if (!ev?.id || !sec) return;
 
-    // ── MonCash / Natcash — real API redirect ──────────────────────
-    if (pay === 'moncash' || pay === 'natcash') {
+    // ── MonCash — real API redirect ──────────────────────────────
+    if (pay === 'moncash') {
       setProcessing(true);
       try {
         const orderId = `ANB-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -300,6 +300,9 @@ function BuyTicketInner() {
         (sec as any).color ?? '#fff',
         seats,
         sec.price,
+        undefined,
+        result.paymentIntentId,
+        'stripe',
       );
       setPurchasedTickets(tickets);
       setConfirmed(true);
@@ -315,7 +318,7 @@ function BuyTicketInner() {
     if (!ev?.id || !sec) return;
     setProcessing(true);
     try {
-      const tix = await purchaseTickets(ev.id, buyerName, buyerEmail, buyerPhone, sec.name, (sec as any).color ?? '#fff', seats, sec.price);
+      const tix = await purchaseTickets(ev.id, buyerName, buyerEmail, buyerPhone, sec.name, (sec as any).color ?? '#fff', seats, sec.price, undefined, undefined, pay === 'cash' ? 'cash' : 'free');
       setPurchasedTickets(tix);
       setShowPayInstructions(false);
       setStep(6);
@@ -804,6 +807,20 @@ function BuyTicketInner() {
           </div>
         );
       })()}
+
+      {/* Refund Policy Notice — step 5 */}
+      {step === 5 && ev?.refundPolicy && (
+        <div className="fixed bottom-[72px] left-0 right-0 z-40 px-5">
+          <div className="max-w-[1100px] mx-auto">
+            <p className="text-[10px] text-gray-muted bg-dark border border-border rounded-lg px-3 py-2">
+              📋{' '}
+              {ev.refundPolicy === 'no_refund' && L('Pa gen ranbousman apre acha — vant final.', 'No refunds after purchase — all sales final.', 'Aucun remboursement — vente définitive.')}
+              {ev.refundPolicy === 'timed' && L(`Ranbousman posib jiska ${ev.refundDeadlineDays ?? 7} jou anvan evènman.`, `Refunds up to ${ev.refundDeadlineDays ?? 7} days before event.`, `Remboursement jusqu'à ${ev.refundDeadlineDays ?? 7} jours avant.`)}
+              {ev.refundPolicy === 'organizer_approval' && L('Ranbousman sijè a apwobasyon òganizatè.', 'Refunds subject to organizer approval.', 'Remboursement soumis à approbation.')}
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* ════════════ Bottom Bar ════════════ */}
       <div className="fixed bottom-0 left-0 right-0 z-50 bg-dark border-t border-border px-5 py-3">

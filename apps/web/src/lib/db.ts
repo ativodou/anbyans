@@ -81,6 +81,8 @@ export interface EventData {
   privateToken?: string;
   privateMode?: 'rsvp' | 'kotizasyon' | 'paid';
   suggestedAmount?: number;
+  refundPolicy?: 'no_refund' | 'timed' | 'organizer_approval';
+  refundDeadlineDays?: number; // for 'timed': how many days before event
   // Floor plan — prèt pou Seats.io ak Firebase Storage
   floorPlanUrl?: string;
   seatsioChartKey?: string;
@@ -120,6 +122,9 @@ export interface TicketData {
   ticketCode: string;
   qrData: string;
   buyerPin?: string;
+  paymentIntentId?: string;  // Stripe PI id — dispute defense
+  paymentMethod?: 'stripe' | 'moncash' | 'natcash' | 'cash' | 'free';
+  buyerIp?: string;
   status: 'valid' | 'used' | 'cancelled' | 'refunded' | 'pending_transfer';
   usedAt?: any;
   usedBy?: string;
@@ -595,6 +600,8 @@ export async function purchaseTickets(
   seats: string[],
   pricePerSeat: number,
   buyerPin?: string,
+  paymentIntentId?: string,
+  paymentMethod?: 'stripe' | 'moncash' | 'natcash' | 'cash' | 'free',
 ): Promise<TicketData[]> {
   const tickets: TicketData[] = [];
 
@@ -615,6 +622,8 @@ export async function purchaseTickets(
      buyerPin: buyerPin || generateBuyerPin(),
       status: 'valid',
       purchasedAt: serverTimestamp(),
+      ...(paymentIntentId && { paymentIntentId }),
+      ...(paymentMethod && { paymentMethod }),
     };
     const ref = await addDoc(collection(db, 'events', eventId, 'tickets'), ticketDoc);
     tickets.push({ id: ref.id, ...ticketDoc });
