@@ -491,7 +491,7 @@ export default function EventDetailPage() {
           </div>
         )}
 
-        {/* ── STAFF ── */
+        {/* ── STAFF ── */}
         {tab === 'staff' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             {/* Add staff */}
