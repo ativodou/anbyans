@@ -57,7 +57,6 @@ export default function Navbar() {
   if (role === 'admin') {
     links.push(
       { href: '/admin/dashboard', label: L('Dachbod', 'Dashboard', 'Tableau de bord')! },
-      { href: '/admin/venues', label: L('Sal yo', 'Venues', 'Salles')! },
       { href: '/tickets', label: L('Tikè Mwen', 'My Tickets', 'Mes Billets')! },
     );
   }
@@ -209,10 +208,7 @@ export default function Navbar() {
                       <Link href="/admin/dashboard" onClick={() => setMenuOpen(false)} style={{ display: 'block', padding: '8px 12px', borderRadius: 6, color: '#ccc', fontSize: 12, textDecoration: 'none' }}>
                         {L('Dachbod', 'Dashboard', 'Tableau de bord')}
                       </Link>
-                      <Link href="/admin/venues" onClick={() => setMenuOpen(false)} style={{ display: 'block', padding: '8px 12px', borderRadius: 6, color: '#ccc', fontSize: 12, textDecoration: 'none' }}>
-                        {L('Jere Sal', 'Manage Venues', 'Gerer les salles')}
-                      </Link>
-                    </>
+                                    </>
                   )}
 
                   {/* Sign out */}
