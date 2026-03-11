@@ -1,15 +1,22 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useT } from '@/i18n';
 import { signUp, signIn, signInWithGoogle } from '@/lib/auth';
-import { useAuth } from '@/hooks/useAuth';
+import { auth } from '@/lib/firebase';
 
 export default function VendorAuth() {
   const router = useRouter();
   const { locale } = useT();
-  const { user } = useAuth();
+
+  // If already logged in, go straight to dashboard (fires once)
+  useEffect(() => {
+    const unsub = auth.onAuthStateChanged(u => {
+      unsub();
+      if (u) router.replace('/vendor/dashboard');
+    });
+  }, []);
   const L = (ht: string, en: string, fr: string) => ({ ht, en, fr }[locale]);
 
   const [tab, setTab] = useState<'login' | 'invite'>('login');
@@ -38,7 +45,7 @@ export default function VendorAuth() {
   const [error, setError] = useState('');
   const [googleLoading, setGoogleLoading] = useState(false);
 
-  if (user) { router.push('/vendor/dashboard'); return null; }
+
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
