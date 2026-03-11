@@ -153,7 +153,7 @@ export default function OrganizerResellersPage() {
     { id: 'scanner', icon: '📱', label: 'Eskanè', href: '/organizer/scanner' },
     { id: 'settings', icon: '⚙️', label: 'Paramèt', href: '/organizer/dashboard' },
   ];
-  const initials = user?.displayName?.split(' ').map(w=>w[0]).join('').toUpperCase() || 'O';
+  const initials = user?.name?.split(' ').map((w:string)=>w[0]).join('').toUpperCase() || 'O';
 
   return (
     <div className="min-h-screen flex bg-dark">
@@ -172,7 +172,7 @@ export default function OrganizerResellersPage() {
         <div className="p-4 border-t border-border flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-full bg-orange flex items-center justify-center text-sm font-bold text-white">{initials}</div>
           <div className="flex-1 min-w-0">
-            <p className="text-[11px] font-semibold truncate">{user?.displayName || user?.email}</p>
+            <p className="text-[11px] font-semibold truncate">{user?.name || user?.email}</p>
             <p className="text-[9px] text-gray-muted">Pwomote</p>
           </div>
           <button onClick={() => router.push('/')} className="text-gray-muted hover:text-red text-sm">🚪</button>
