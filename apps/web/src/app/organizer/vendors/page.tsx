@@ -8,6 +8,9 @@ import {
   getOrganizerEvents,
   getOrganizerVendors,
   getOrganizerVendorPurchases,
+  getAllUnassignedVendors,
+  assignVendorToOrganizer,
+  removeVendorFromOrganizer,
   inviteVendor,
   updateVendorStatus,
   updateVendorTrusted,
@@ -53,16 +56,21 @@ export default function OrganizerResellersPage() {
   const [inviteError, setInviteError] = useState('');
   const [inviteSent, setInviteSent] = useState(false);
   const [whatsAppUrl, setWhatsAppUrl] = useState('');
+  const [mainTab, setMainTab] = useState<'my'|'available'>('my');
+  const [unassigned, setUnassigned] = useState<VendorData[]>([]);
+  const [assigning, setAssigning] = useState<string|null>(null);
 
   const loadData = useCallback(async () => {
     if (!user?.uid) return;
     setLoading(true);
     try {
-      const [evList, resellerList, purchaseList] = await Promise.all([
+      const [evList, resellerList, purchaseList, unassignedList] = await Promise.all([
         getOrganizerEvents(user.uid),
         getOrganizerVendors(user.uid),
         getOrganizerVendorPurchases(user.uid),
+        getAllUnassignedVendors(),
       ]);
+      setUnassigned(unassignedList);
       const resellersWithPurchases: VendorWithPurchases[] = resellerList.map(v => ({
         ...v,
         purchases: purchaseList.filter(p => p.vendorId === v.id),
@@ -125,6 +133,12 @@ export default function OrganizerResellersPage() {
     }
   };
 
+  const handleAssign = async (vendorId: string) => {
+    if (!user?.uid) return;
+    setAssigning(vendorId);
+    try { await assignVendorToOrganizer(vendorId, user.uid); await loadData(); }
+    catch(e){console.error(e);} finally{setAssigning(null);}
+  };
   const pricingEvent = events[pricingEventIdx] ?? null;
 
   return (
@@ -157,6 +171,40 @@ export default function OrganizerResellersPage() {
 
         {!loading && (
           <>
+            <div className="flex gap-2 mb-5 border-b border-border">
+              {([['my','👥 Revandè Mwen',resellers.length],['available','🔍 Revandè Disponib',unassigned.length]] as const).map(([id,label,count])=>(
+                <button key={id} onClick={()=>setMainTab(id)} className={`px-4 py-2 text-xs font-bold border-b-2 transition-colors ${mainTab===id?'border-orange text-orange':'border-transparent text-gray-muted hover:text-white'}`}>
+                  {label} <span className="ml-1 bg-border px-1.5 py-0.5 rounded-full text-[9px]">{count}</span>
+                </button>
+              ))}
+            </div>
+            {mainTab==='available' && (
+              <div>
+                <p className="text-xs text-gray-muted mb-4">Vendor ki enskri men poko konekte ak okenn òganizatè.</p>
+                {unassigned.length===0 ? (
+                  <div className="bg-dark-card border border-border rounded-card p-10 text-center">
+                    <p className="text-xs text-gray-muted">Pa gen vendor disponib.</p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-3">
+                    {unassigned.map(v=>(
+                      <div key={v.id} className="bg-dark-card border border-border rounded-card p-4 flex items-center justify-between gap-4">
+                        <div>
+                          <p className="font-bold text-sm">{v.name}</p>
+                          <p className="text-xs text-gray-muted">{v.contact} · {v.phone} · {v.city}</p>
+                        </div>
+                        <button onClick={()=>handleAssign(v.id!)} disabled={assigning===v.id}
+                          className="px-4 py-2 rounded-lg bg-orange text-white text-xs font-bold hover:bg-orange/80 disabled:opacity-50">
+                          {assigning===v.id?'...':'➕ Ajoute'}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+            {mainTab==='my' && (
+            <>
             {/* STATS */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
               <div className="bg-dark-card border border-border rounded-card p-3.5">
@@ -444,6 +492,8 @@ export default function OrganizerResellersPage() {
                 );
               })}
             </div>
+            </>
+            )}
           </>
         )}
       </div>

@@ -877,6 +877,23 @@ export async function updateVendorStatus(vendorId: string, status: 'active' | 'i
   });
 }
 
+
+// ─── Get All Unassigned Vendors ──────────────────────────────────────
+
+export async function getAllUnassignedVendors(): Promise<VendorData[]> {
+  const q = query(collection(db, 'vendors'), where('organizerId', '==', ''));
+  const snap = await getDocs(q);
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as VendorData));
+}
+
+export async function assignVendorToOrganizer(vendorId: string, organizerId: string): Promise<void> {
+  await updateDoc(doc(db, 'vendors', vendorId), { organizerId, status: 'active', updatedAt: serverTimestamp() });
+}
+
+export async function removeVendorFromOrganizer(vendorId: string): Promise<void> {
+  await updateDoc(doc(db, 'vendors', vendorId), { organizerId: '', updatedAt: serverTimestamp() });
+}
+
 // ─── Accept Reseller Invite (reseller side) ─────────────────────────
 
 export async function acceptVendorInvite(token: string, uid: string): Promise<VendorData | null> {
