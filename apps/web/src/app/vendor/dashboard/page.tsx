@@ -72,16 +72,22 @@ export default function VendorDashboardPage() {
 
     const loadData = async (uid: string) => {
       try {
-        const v = await getVendorByUid(uid);
+        let v = await getVendorByUid(uid);
         if (cancelled) return;
 
-        // ── FIX: pa redirect si pa gen vendor doc — montre ekran "an atant" ──
         if (!v || !v.id) {
-          if (!cancelled) {
-            setNoVendorDoc(true);
-            setLoading(false);
-          }
-          return;
+          const fu = auth.currentUser;
+          const ref = await addDoc(collection(db, 'vendors'), {
+            uid, name: fu?.displayName || fu?.email?.split('@')[0] || 'Vande',
+            contact: fu?.email || '', phone: '', city: '', organizerId: '',
+            payMethod: '', payAccount: '', status: 'active',
+            joinedDate: new Date().toISOString().slice(0,10),
+            createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
+          });
+          v = { id: ref.id, uid, name: fu?.displayName || fu?.email?.split('@')[0] || 'Vande',
+            contact: fu?.email || '', phone: '', city: '', organizerId: '',
+            payMethod: '', payAccount: '', status: 'active',
+            joinedDate: new Date().toISOString().slice(0,10), createdAt: null, updatedAt: null };
         }
 
         setVendor(v);
