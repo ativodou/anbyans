@@ -1,4 +1,5 @@
 'use client';
+import ResellersTab from '@/components/organizer/ResellersTab';
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -397,7 +398,7 @@ export default function OrganizerDashboardPage() {
           {NAV_ITEMS.map(n => (
             <button key={n.id}
               onClick={() => {
-                if (n.id === 'resellers') { router.push('/organizer/vendors'); return; }
+                if (n.id === 'resellers') { setTab('resellers'); setSideOpen(false); return; }
                 if (n.id === 'create') { router.push('/organizer/events/create'); return; }
                 if (n.id === 'staff') { router.push('/organizer/scanner'); return; }
                 setTab(n.id); setSideOpen(false);
@@ -643,70 +644,7 @@ export default function OrganizerDashboardPage() {
           )}
 
           {/* ═══ RESELLERS TAB ═══ */}
-          {tab === 'resellers' && <>
-            <div className="flex items-center justify-between mb-4">
-              <p className="text-xs text-gray-light">{vendors.length} revandè anrejistre</p>
-              <Link href="/organizer/vendors"
-                className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-orange text-white text-xs font-bold hover:bg-orange/80 transition-all">
-                Jere Revandè →
-              </Link>
-            </div>
-
-            {vendors.length === 0 ? (
-              <div className="bg-dark-card border border-border rounded-card p-12 text-center">
-                <p className="text-5xl mb-3">🏪</p>
-                <p className="text-gray-muted mb-4">Pa gen revandè ankò.</p>
-                <Link href="/organizer/vendors" className="inline-flex px-5 py-2.5 rounded-lg bg-orange text-white text-xs font-bold hover:bg-orange/80 transition-all">
-                  Ajoute Revandè
-                </Link>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {vendorStats.map(v => {
-                  const sellPct = v.totalAssigned > 0 ? Math.round((v.totalVSold / v.totalAssigned) * 100) : 0;
-                  return (
-                    <div key={v.id} className="bg-dark-card border border-border rounded-card p-4 hover:border-white/[0.1] transition-all">
-                      <div className="flex items-start gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-purple-dim border border-purple-border flex items-center justify-center text-lg flex-shrink-0">🏪</div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-0.5">
-                            <p className="font-bold text-sm">{v.name}</p>
-                            <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase ${v.status === 'active' ? 'bg-green-dim text-green' : 'bg-white/[0.05] text-gray-muted'}`}>
-                              {v.status === 'active' ? 'AKTIF' : 'AKTIF'}
-                            </span>
-                          </div>
-                          {v.contactName && <p className="text-[11px] text-gray-light">{v.contactName} {v.city ? `· 📍 ${v.city}` : ''}</p>}
-                          {v.phone && <p className="text-[11px] text-gray-muted">{v.phone}</p>}
-                        </div>
-                        <div className="text-right flex-shrink-0">
-                          {v.totalOwed > 0
-                            ? <p className="text-xs font-bold text-orange">Dwe: ${v.totalOwed.toLocaleString()}</p>
-                            : <p className="text-xs font-bold text-green">✓ Regle</p>
-                          }
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-3 gap-3 mt-3 pt-3 border-t border-border">
-                        <div><p className="text-[9px] text-gray-muted uppercase">Evènman</p><p className="text-sm font-bold">{v.eventCount}</p></div>
-                        <div><p className="text-[9px] text-gray-muted uppercase">Tikè Asiyen</p><p className="text-sm font-bold">{v.totalAssigned}</p></div>
-                        <div>
-                          <p className="text-[9px] text-gray-muted uppercase">Vann</p>
-                          <p className="text-sm font-bold">{v.totalVSold} <span className="text-[10px] text-gray-muted font-normal">({sellPct}%)</span></p>
-                        </div>
-                      </div>
-                      <div className="w-full h-1 bg-white/[0.05] rounded-full overflow-hidden mt-2">
-                        <div className="h-full bg-orange rounded-full transition-all" style={{ width: `${sellPct}%` }} />
-                      </div>
-                      <div className="flex gap-2 mt-3">
-                        <Link href="/organizer/vendors" className="px-3 py-1.5 rounded-lg bg-white/[0.04] border border-border text-[10px] font-bold text-gray-light hover:text-white hover:border-white/[0.15] transition-all">📋 Asiyen Tikè</Link>
-                        <Link href="/organizer/vendors" className="px-3 py-1.5 rounded-lg bg-white/[0.04] border border-border text-[10px] font-bold text-gray-light hover:text-white hover:border-white/[0.15] transition-all">📊 Wè Vant</Link>
-                        {v.totalOwed > 0 && <button className="px-3 py-1.5 rounded-lg bg-orange-dim border border-orange-border text-[10px] font-bold text-orange hover:bg-orange hover:text-white transition-all">💰 Mande Peman</button>}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </>}
+          {tab === 'resellers' && <ResellersTab />}
 
           {/* ═══ REVENUE TAB ═══ */}
           {tab === 'revenue' && (
