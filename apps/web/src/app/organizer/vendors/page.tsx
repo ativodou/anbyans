@@ -18,6 +18,7 @@ import {
   type VendorPurchase,
   type BulkTier,
 } from '@/lib/db';
+import { useOrganizerEvent } from '../OrganizerEventContext';
 
 type VendorWithPurchases = VendorData & {
   purchases: (VendorPurchase & { vendorId: string; vendorName: string })[];
@@ -34,7 +35,9 @@ const sectionColors: Record<string, string> = {
 
 export default function OrganizerVendorsPage() {
   const { user } = useAuth();
-  const { t } = useT();
+  const { t, locale } = useT();
+  const L = (ht: string, en: string, fr: string) => ({ ht, en, fr } as Record<string, string>)[locale] ?? ht;
+  const { selectedEvent } = useOrganizerEvent();
 
   const [events, setEvents]       = useState<EventData[]>([]);
   const [resellers, setResellers] = useState<VendorWithPurchases[]>([]);
@@ -48,6 +51,11 @@ export default function OrganizerVendorsPage() {
   const [showPricing, setShowPricing]     = useState(false);
   const [filterStatus, setFilterStatus]   = useState<string>('all');
   const [filterEvent, setFilterEvent]     = useState<string>('all');
+
+  // Sync filter to selected event from context
+  useEffect(() => {
+    setFilterEvent(selectedEvent?.id || 'all');
+  }, [selectedEvent?.id]);
   const [pricingEventIdx, setPricingEventIdx] = useState(0);
   const [assigning, setAssigning]         = useState<string | null>(null);
 
@@ -169,8 +177,8 @@ export default function OrganizerVendorsPage() {
       {/* ── Main tabs ── */}
       <div className="flex gap-2 mb-5 border-b border-border">
         {([
-          ['my',        `👥 ${t('org_nav_resellers')} Mwen`,       resellers.length],
-          ['available', `🔍 ${t('resellers_available') || 'Revandè Disponib'}`, unassigned.length],
+          ['my', `👥 ${L('Revandè Mwen', 'My Resellers', 'Mes Revendeurs')}`, resellers.length],
+          ['available', `🔍 ${L('Revandè Disponib', 'Available Resellers', 'Revendeurs Disponibles')}`, unassigned.length],
         ] as const).map(([id, label, count]) => (
           <button key={id} onClick={() => setMainTab(id)}
             className={`px-4 py-2 text-xs font-bold border-b-2 transition-colors ${mainTab === id ? 'border-orange text-orange' : 'border-transparent text-gray-muted hover:text-white'}`}>
