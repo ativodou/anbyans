@@ -1,7 +1,6 @@
 'use client';
 
-export const dynamic = 'force-dynamic';
-
+import { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
@@ -318,7 +317,7 @@ function PoolMemberCard({
 
 // ─── Main page ───────────────────────────────────────────────────
 
-export default function OrganizerStaffPage() {
+function OrganizerStaffPageInner() {
   const { user }   = useAuth();
   const { locale } = useT();
   const L  = (ht: string, en: string, fr: string) => ({ ht, en, fr } as Record<string, string>)[locale] ?? ht;
@@ -823,5 +822,13 @@ export default function OrganizerStaffPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function OrganizerStaffPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center py-32"><div className="w-8 h-8 rounded-full border-2 border-orange border-t-transparent animate-spin" /></div>}>
+      <OrganizerStaffPageInner />
+    </Suspense>
   );
 }
