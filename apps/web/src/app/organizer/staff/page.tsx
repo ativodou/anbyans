@@ -32,7 +32,7 @@ interface StaffMember {
   role: StaffRole;
   pin: string;
   organizerId: string;
-  settings?: ScannerSettings | DoorSettings | SalesSettings | SecuritySettings | FbSettings | ManagerSettings;
+  settings?: any;
   createdAt?: any;
 }
 
@@ -70,7 +70,7 @@ const roleInfo = (key: StaffRole) => ROLES.find(r => r.key === key)!;
 
 // ─── Settings editors ─────────────────────────────────────────────
 
-function ScannerSettingsEditor({ s: raw, onChange }: { s: ScannerSettings; onChange: (v: ScannerSettings) => void }) {
+function ScannerSettingsEditor({ s: raw, onChange }: { s: any; onChange: (v: ScannerSettings) => void }) {
   const s: ScannerSettings = { deviceLock: true, sectionsAllowed: ['all'], canOverride: false, ...(raw || {}) };
   const sections = ['GA', 'VIP', 'VVIP'];
   return (
@@ -95,7 +95,7 @@ function ScannerSettingsEditor({ s: raw, onChange }: { s: ScannerSettings; onCha
   );
 }
 
-function DoorSettingsEditor({ s: raw, onChange }: { s: DoorSettings; onChange: (v: DoorSettings) => void }) {
+function DoorSettingsEditor({ s: raw, onChange }: { s: any; onChange: (v: DoorSettings) => void }) {
   const s: DoorSettings = { entrance: 'Main', seeCapacity: true, manualAdmit: false, ...(raw || {}) };
   const entrances = ['Main', 'Side', 'VIP', 'Staff', 'Backstage'];
   return (
@@ -117,7 +117,7 @@ function DoorSettingsEditor({ s: raw, onChange }: { s: DoorSettings; onChange: (
   );
 }
 
-function SalesSettingsEditor({ s: raw, onChange }: { s: SalesSettings; onChange: (v: SalesSettings) => void }) {
+function SalesSettingsEditor({ s: raw, onChange }: { s: any; onChange: (v: SalesSettings) => void }) {
   const s: SalesSettings = { commissionPct: 0, sectionsAllowed: ['all'], payMethods: ['cash'], salesTarget: 0, ...(raw || {}) };
   const sections = ['GA', 'VIP', 'VVIP'];
   const payMethods = ['Cash', 'MonCash', 'Natcash', 'Card'];
@@ -168,7 +168,7 @@ function SalesSettingsEditor({ s: raw, onChange }: { s: SalesSettings; onChange:
   );
 }
 
-function SecuritySettingsEditor({ s: raw, onChange }: { s: SecuritySettings; onChange: (v: SecuritySettings) => void }) {
+function SecuritySettingsEditor({ s: raw, onChange }: { s: any; onChange: (v: SecuritySettings) => void }) {
   const s: SecuritySettings = { zone: 'Entrance', incidentAccess: true, canEject: false, ...(raw || {}) };
   const zones = ['Entrance', 'Floor', 'VIP', 'Backstage', 'Parking', 'Stage'];
   return (
@@ -190,7 +190,7 @@ function SecuritySettingsEditor({ s: raw, onChange }: { s: SecuritySettings; onC
   );
 }
 
-function FbSettingsEditor({ s: raw, onChange }: { s: FbSettings; onChange: (v: FbSettings) => void }) {
+function FbSettingsEditor({ s: raw, onChange }: { s: any; onChange: (v: FbSettings) => void }) {
   const s: FbSettings = { categories: ['all'], salesLogging: true, cashHandling: true, ...(raw || {}) };
   const cats = ['Food', 'Drinks', 'Merch'];
   return (
@@ -215,7 +215,7 @@ function FbSettingsEditor({ s: raw, onChange }: { s: FbSettings; onChange: (v: F
   );
 }
 
-function ManagerSettingsEditor({ s: raw, onChange }: { s: ManagerSettings; onChange: (v: ManagerSettings) => void }) {
+function ManagerSettingsEditor({ s: raw, onChange }: { s: any; onChange: (v: ManagerSettings) => void }) {
   const s: ManagerSettings = { canManageStaff: true, canOverrideScanner: false, revenueAccess: false, fullDashboard: false, ...(raw || {}) };
   return (
     <div className="space-y-3">
