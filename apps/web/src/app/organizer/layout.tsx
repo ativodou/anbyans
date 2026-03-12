@@ -92,14 +92,7 @@ function EventSelector() {
               {selectedEvent?.id === ev.id && <span className="text-orange text-xs flex-shrink-0">✓</span>}
             </button>
           ))}
-          <div className="border-t border-border mt-1 pt-1">
-            <Link
-              href="/organizer/events/create"
-              onClick={() => setOpen(false)}
-              className="flex items-center gap-2 px-3 py-2 text-[11px] text-orange hover:bg-dark-hover transition-all">
-              ➕ {L('Kreye nouvo evènman', 'Create new event', 'Créer un événement')}
-            </Link>
-          </div>
+
         </div>
       )}
     </div>

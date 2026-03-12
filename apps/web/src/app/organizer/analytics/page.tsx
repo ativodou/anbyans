@@ -6,14 +6,18 @@ import { useT } from '@/i18n';
 import { getOrganizerEvents, type EventData } from '@/lib/db';
 import { db } from '@/lib/firebase';
 import { collection, getDocs } from 'firebase/firestore';
+import { useOrganizerEvent } from '../OrganizerEventContext';
 
-type ATab = 'spenders' | 'loyal' | 'sections' | 'events';
+type ATab = 'spenders' | 'loyal' | 'sections' | 'events' | 'vendors';
 
 export default function OrganizerAnalyticsPage() {
   const { user } = useAuth();
   const { locale } = useT();
   const L = (ht: string, en: string, fr: string) =>
     ({ ht, en, fr } as Record<string, string>)[locale] ?? ht;
+
+  const { selectedEvent } = useOrganizerEvent();
+  const [viewMode, setViewMode] = useState<'all' | 'selected'>('selected');
 
   const [events, setEvents] = useState<EventData[]>([]);
   const [allTickets, setAllTickets] = useState<any[]>([]);
@@ -42,7 +46,10 @@ export default function OrganizerAnalyticsPage() {
     load();
   }, [user?.uid]);
 
-  const validTickets = allTickets.filter(t => t.status !== 'cancelled' && t.status !== 'refunded');
+  const filteredTickets = viewMode === 'selected' && selectedEvent
+    ? allTickets.filter(t => t.eventId === selectedEvent.id)
+    : allTickets;
+  const validTickets = filteredTickets.filter(t => t.status !== 'cancelled' && t.status !== 'refunded');
 
   // Buyer stats
   const byBuyer: Record<string, { name: string; phone: string; total: number; count: number; events: Set<string>; sections: Record<string, number> }> = {};
@@ -103,6 +110,31 @@ export default function OrganizerAnalyticsPage() {
 
   return (
     <div>
+      {/* ── Toggle ── */}
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="font-heading text-lg tracking-wide">
+          {viewMode === 'all'
+            ? L('Tout Evènman', 'All Events', 'Tous les événements')
+            : selectedEvent?.name || L('Evènman Chwazi', 'Selected Event', 'Événement sélectionné')}
+        </h2>
+        <div className="flex items-center gap-1 bg-white/[0.04] border border-border rounded-lg p-1">
+          <button onClick={() => setViewMode('all')}
+            className={`px-3 py-1.5 rounded text-[11px] font-bold transition-all ${viewMode === 'all' ? 'bg-orange text-white' : 'text-gray-muted hover:text-white'}`}>
+            {L('Tout', 'All', 'Tous')}
+          </button>
+          <button onClick={() => setViewMode('selected')} disabled={!selectedEvent}
+            className={`px-3 py-1.5 rounded text-[11px] font-bold transition-all ${
+              viewMode === 'selected' ? 'bg-orange text-white' :
+              !selectedEvent ? 'text-gray-muted/40 cursor-not-allowed' :
+              'text-gray-muted hover:text-white'
+            }`}>
+            {selectedEvent
+              ? selectedEvent.name.length > 18 ? selectedEvent.name.slice(0, 18) + '…' : selectedEvent.name
+              : L('Chwazi evènman', 'Select event', 'Choisir')}
+          </button>
+        </div>
+      </div>
+
       {/* KPI cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
         {[
@@ -125,6 +157,7 @@ export default function OrganizerAnalyticsPage() {
           ['loyal',    `⭐ ${L('Pli Fidèl',   'Most Loyal',   'Plus Fidèles')}`],
           ['sections', `🎯 ${L('Seksyon',     'Sections',     'Sections')}`],
           ['events',   `📅 ${L('Evènman',     'Events',       'Événements')}`],
+          ['vendors',  `🏪 ${L('Revandè',     'Resellers',    'Revendeurs')}`],
         ] as [ATab, string][]).map(([k, label]) => (
           <button key={k} onClick={() => setATab(k)}
             className={`px-4 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-all ${
@@ -202,25 +235,190 @@ export default function OrganizerAnalyticsPage() {
         </div>
       )}
 
-      {/* Events revenue */}
+      {/* Events breakdown */}
       {aTab === 'events' && (
-        <div className="bg-dark-card border border-border rounded-card p-5">
-          <p className="text-[10px] uppercase tracking-widest text-orange font-bold mb-4">📅 {L('REVNI PA EVÈNMAN', 'REVENUE BY EVENT', 'REVENU PAR ÉVÉNEMENT')}</p>
-          <div className="space-y-4">
-            {revEvents.map(ev => (
-              <div key={ev.name}>
-                <div className="flex justify-between text-xs mb-1.5">
-                  <span className="font-bold truncate flex-1 mr-4">{ev.name}</span>
-                  <span className="text-gray-muted whitespace-nowrap">${ev.rev.toLocaleString()} · {ev.count} {L('tikè', 'tickets', 'billets')}</span>
+        <div className="space-y-3">
+          {revEvents.length === 0 ? (
+            <div className="bg-dark-card border border-border rounded-card p-10 text-center">
+              <p className="text-gray-muted text-sm">{L('Pa gen done.', 'No data.', 'Aucune donnée.')}</p>
+            </div>
+          ) : revEvents.map(ev => {
+            const evObj = events.find(e => e.name === ev.name);
+            const cap = (evObj?.sections || []).reduce((a: number, s: any) => a + (s.capacity || 0), 0);
+            const fillPct = cap > 0 ? Math.round((ev.count / cap) * 100) : null;
+            const admitted = allTickets.filter(t => t.eventId === evObj?.id && t.status === 'used').length;
+            const attendPct = ev.count > 0 ? Math.round((admitted / ev.count) * 100) : 0;
+            const avgPrice = ev.count > 0 ? Math.round(ev.rev / ev.count) : 0;
+            const onlineCount = validTickets.filter(t => t.eventId === evObj?.id && !t.vendorId).length;
+            const resellerCount = ev.count - onlineCount;
+            const onlinePct = ev.count > 0 ? Math.round((onlineCount / ev.count) * 100) : 0;
+
+            return (
+              <div key={ev.name} className="bg-dark-card border border-border rounded-card p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="font-bold text-sm truncate flex-1 mr-4">{ev.name}</p>
+                  <p className="font-heading text-xl text-green flex-shrink-0">${ev.rev.toLocaleString()}</p>
                 </div>
-                <div className="w-full bg-white/[0.05] rounded-full h-2.5">
-                  <div className="bg-green h-2.5 rounded-full transition-all" style={{ width: `${Math.round(ev.rev / maxRev * 100)}%` }} />
+
+                {/* Section breakdown */}
+                {(() => {
+                  const secMap: Record<string, { count: number; rev: number; color: string }> = {};
+                  validTickets.filter(t => t.eventId === evObj?.id).forEach((t: any) => {
+                    const s = t.section || 'GA';
+                    if (!secMap[s]) secMap[s] = { count: 0, rev: 0, color: t.sectionColor || '#888' };
+                    secMap[s].count++;
+                    secMap[s].rev += t.price || 0;
+                  });
+                  const secEntries = Object.entries(secMap).sort((a, b) => b[1].rev - a[1].rev);
+                  if (secEntries.length === 0) return null;
+                  return (
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      {secEntries.map(([sec, data]) => (
+                        <div key={sec} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white/[0.04] border border-border">
+                          <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: data.color }} />
+                          <span className="text-[10px] font-bold">{sec}</span>
+                          <span className="text-[10px] text-gray-muted">{data.count} {L('tikè', 'tickets', 'billets')}</span>
+                          <span className="text-[10px] font-bold text-green">${data.rev.toLocaleString()}</span>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
+
+                {/* Revenue per section */}
+                {(() => {
+                  const secMap: Record<string, { count: number; rev: number; color: string }> = {};
+                  validTickets.filter((t: any) => t.eventId === evObj?.id).forEach((t: any) => {
+                    const s = t.section || 'GA';
+                    if (!secMap[s]) secMap[s] = { count: 0, rev: 0, color: t.sectionColor || '#888' };
+                    secMap[s].count++;
+                    secMap[s].rev += t.price || 0;
+                  });
+                  const entries = Object.entries(secMap).sort((a, b) => b[1].rev - a[1].rev);
+                  const totalSecRev = entries.reduce((a, [, d]) => a + d.rev, 0);
+                  if (entries.length === 0) return null;
+                  return (
+                    <div className="mb-3">
+                      <p className="text-[9px] uppercase tracking-widest text-gray-muted mb-2">{L('Revni pa Seksyon', 'Revenue by Section', 'Revenu par Section')}</p>
+                      <div className="space-y-2">
+                        {entries.map(([sec, data]) => (
+                          <div key={sec}>
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: data.color }} />
+                              <span className="text-[11px] font-bold flex-1">{sec}</span>
+                              <span className="text-[10px] text-gray-muted">{data.count} {L('tikè', 'tickets', 'billets')}</span>
+                              <span className="text-[11px] font-bold text-green">${data.rev.toLocaleString()}</span>
+                              <span className="text-[9px] text-gray-muted w-8 text-right">{totalSecRev > 0 ? Math.round((data.rev / totalSecRev) * 100) : 0}%</span>
+                            </div>
+                            <div className="w-full h-1 bg-white/[0.06] rounded-full overflow-hidden">
+                              <div className="h-full rounded-full" style={{ width: `${totalSecRev > 0 ? Math.round((data.rev / totalSecRev) * 100) : 0}%`, background: data.color }} />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
+                  {/* Tickets sold */}
+                  <div className="bg-white/[0.03] rounded-lg p-2.5">
+                    <p className="text-[9px] text-gray-muted uppercase tracking-widest mb-1">🎫 {L('Tikè', 'Tickets', 'Billets')}</p>
+                    <p className="text-sm font-bold">{ev.count}{cap > 0 ? <span className="text-gray-muted font-normal text-[10px]">/{cap}</span> : ''}</p>
+                    {fillPct !== null && (
+                      <div className="mt-1.5 w-full h-1 bg-white/[0.06] rounded-full overflow-hidden">
+                        <div className="h-full bg-orange rounded-full" style={{ width: `${fillPct}%` }} />
+                      </div>
+                    )}
+                    {fillPct !== null && <p className="text-[9px] text-orange mt-0.5">{fillPct}% {L('ranpli', 'full', 'rempli')}</p>}
+                  </div>
+
+                  {/* Attendance */}
+                  <div className="bg-white/[0.03] rounded-lg p-2.5">
+                    <p className="text-[9px] text-gray-muted uppercase tracking-widest mb-1">🚪 {L('Antre', 'Attended', 'Présence')}</p>
+                    <p className="text-sm font-bold text-green">{admitted}<span className="text-gray-muted font-normal text-[10px]">/{ev.count}</span></p>
+                    <div className="mt-1.5 w-full h-1 bg-white/[0.06] rounded-full overflow-hidden">
+                      <div className="h-full bg-green-500 rounded-full" style={{ width: `${attendPct}%` }} />
+                    </div>
+                    <p className="text-[9px] text-green mt-0.5">{attendPct}% {L('prezans', 'show rate', 'présents')}</p>
+                  </div>
+
+                  {/* Avg price */}
+                  <div className="bg-white/[0.03] rounded-lg p-2.5">
+                    <p className="text-[9px] text-gray-muted uppercase tracking-widest mb-1">💰 {L('Moy/Tikè', 'Avg/Ticket', 'Moy/Billet')}</p>
+                    <p className="text-sm font-bold">${avgPrice}</p>
+                    <p className="text-[9px] text-gray-muted mt-1">{L('pri mwayen', 'avg price', 'prix moyen')}</p>
+                  </div>
+
+                  {/* Online vs reseller */}
+                  <div className="bg-white/[0.03] rounded-lg p-2.5">
+                    <p className="text-[9px] text-gray-muted uppercase tracking-widest mb-1">🌐 {L('Kannal', 'Channel', 'Canal')}</p>
+                    <p className="text-sm font-bold">{onlinePct}% <span className="text-[10px] text-gray-muted font-normal">online</span></p>
+                    <p className="text-[9px] text-gray-muted mt-1">{resellerCount} {L('revandè', 'reseller', 'revendeur')}</p>
+                  </div>
                 </div>
               </div>
-            ))}
-          </div>
+            );
+          })}
         </div>
       )}
+
+      {/* Vendors */}
+      {aTab === 'vendors' && (() => {
+        const vendorMap: Record<string, { name: string; sections: Record<string, { count: number; rev: number }>; total: number; totalRev: number }> = {};
+        validTickets.filter((t: any) => t.vendorId).forEach((t: any) => {
+          const vid = t.vendorId;
+          const vname = t.vendorName || vid;
+          if (!vendorMap[vid]) vendorMap[vid] = { name: vname, sections: {}, total: 0, totalRev: 0 };
+          const sec = t.section || 'GA';
+          if (!vendorMap[vid].sections[sec]) vendorMap[vid].sections[sec] = { count: 0, rev: 0 };
+          vendorMap[vid].sections[sec].count++;
+          vendorMap[vid].sections[sec].rev += t.price || 0;
+          vendorMap[vid].total++;
+          vendorMap[vid].totalRev += t.price || 0;
+        });
+        const entries = Object.entries(vendorMap).sort((a, b) => b[1].totalRev - a[1].totalRev);
+        if (entries.length === 0) return (
+          <div className="bg-dark-card border border-border rounded-card p-10 text-center">
+            <p className="text-4xl mb-2">🏪</p>
+            <p className="text-gray-muted text-sm">{L('Pa gen vant revandè ankò.', 'No reseller sales yet.', 'Aucune vente revendeur.')}</p>
+          </div>
+        );
+        return (
+          <div className="space-y-3">
+            {entries.map(([vid, v]) => {
+              const secEntries = Object.entries(v.sections).sort((a, b) => b[1].rev - a[1].rev);
+              return (
+                <div key={vid} className="bg-dark-card border border-border rounded-card p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">🏪</span>
+                      <span className="font-bold text-sm">{v.name}</span>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-heading text-lg text-green">${v.totalRev.toLocaleString()}</p>
+                      <p className="text-[10px] text-gray-muted">{v.total} {L('tikè', 'tickets', 'billets')}</p>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    {secEntries.map(([sec, data]) => (
+                      <div key={sec} className="flex items-center gap-2">
+                        <span className="text-[10px] font-bold w-12 text-gray-light">{sec}</span>
+                        <div className="flex-1 h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
+                          <div className="h-full bg-orange rounded-full" style={{ width: `${v.total > 0 ? Math.round((data.count / v.total) * 100) : 0}%` }} />
+                        </div>
+                        <span className="text-[10px] text-gray-muted w-8 text-right">{data.count}</span>
+                        <span className="text-[10px] font-bold text-green w-16 text-right">${data.rev.toLocaleString()}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        );
+      })()}
+
     </div>
   );
 }
