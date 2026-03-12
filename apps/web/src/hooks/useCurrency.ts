@@ -5,11 +5,11 @@ import { db } from '@/lib/firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
 
 interface CurrencySettings {
-  exchangeRate: number;        // 1 USD = X HTG
+  exchangeRate: number;
   defaultCurrency: 'USD' | 'HTG';
 }
 
-// ── Singleton cache so multiple components don't each open a listener ──
+// ── Singleton cache ──────────────────────────────────────────────
 let cachedRate: number = 130;
 let cachedDefault: 'USD' | 'HTG' = 'USD';
 let listeners: Array<(s: CurrencySettings) => void> = [];
@@ -38,10 +38,10 @@ function subscribeToRate(uid: string, cb: (s: CurrencySettings) => void) {
   };
 }
 
-// ── Hook ──
+// ── Hook ─────────────────────────────────────────────────────────
 export function useCurrency(uid?: string) {
-  const [rate, setRate]       = useState(cachedRate);
-  const [defCur, setDefCur]   = useState(cachedDefault);
+  const [rate, setRate]     = useState(cachedRate);
+  const [defCur, setDefCur] = useState(cachedDefault);
 
   useEffect(() => {
     if (!uid) return;
@@ -51,26 +51,47 @@ export function useCurrency(uid?: string) {
     });
   }, [uid]);
 
-  // Format a USD amount as dual display
-  const fmt = (usd: number): { usd: string; htg: string; both: string; primary: string; secondary: string } => {
+  const fmt = (usd: number) => {
     const htgAmount = Math.round(usd * rate);
     const usdStr = `$${usd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     const htgStr = `${htgAmount.toLocaleString('fr-HT')} HTG`;
-
     return {
       usd:       usdStr,
       htg:       htgStr,
       both:      `${usdStr} · ${htgStr}`,
       primary:   defCur === 'USD' ? usdStr : htgStr,
       secondary: defCur === 'USD' ? htgStr : usdStr,
+      raw:       usd,
+      rawHtg:    htgAmount,
     };
   };
 
   return { rate, defaultCurrency: defCur, fmt };
 }
 
-// ── Standalone formatter (no hook, for use in non-component contexts) ──
-export function formatDualPrice(usd: number, rate = cachedRate): { usd: string; htg: string; both: string } {
+// ── PriceDisplay component ────────────────────────────────────────
+// Renders USD in green and HTG in red, same size, side by side
+export function PriceDisplay({
+  usd,
+  fmt,
+  className = 'text-sm',
+}: {
+  usd: number;
+  fmt: ReturnType<typeof useCurrency>['fmt'];
+  className?: string;
+}) {
+  const p = fmt(usd);
+  return (
+    <span className={`inline-flex items-center gap-1.5 font-bold ${className}`}>
+      <span className="text-green">{p.usd}</span>
+      <span className="text-white/20">·</span>
+      <span className="text-red-400">{p.htg}</span>
+    </span>
+  );
+}
+
+// ── Standalone formatter ──────────────────────────────────────────
+export function formatDualPrice(usd: number, rate = cachedRate) {
   const htg = Math.round(usd * rate);
   return {
     usd:  `$${usd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
