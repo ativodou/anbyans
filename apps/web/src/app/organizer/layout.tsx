@@ -15,13 +15,6 @@ interface OrgProfile {
   initials: string;
 }
 
-interface OrganizerEventItem {
-  id: string;
-  name: string;
-  status?: string;
-  startDate?: string;
-}
-
 // ─── Event Selector Dropdown ────────────────────────────────────
 
 function EventSelector() {
@@ -81,10 +74,10 @@ function EventSelector() {
           <p className="text-[9px] font-bold uppercase tracking-widest text-gray-muted px-3 py-2">
             {L('Evènman ou yo', 'Your Events', 'Vos Événements')}
           </p>
-          {events.map((ev: OrganizerEventItem) => (
+          {events.map(ev => (
             <button
               key={ev.id}
-              onClick={() => { setSelectedEvent(ev); setOpen(false); }}
+              onClick={() => { setSelectedEvent(ev as any); setOpen(false); }}
               className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-left hover:bg-dark-hover transition-all ${selectedEvent?.id === ev.id ? 'bg-orange-dim' : ''}`}>
               <div
                 className="w-2 h-2 rounded-full flex-shrink-0"
