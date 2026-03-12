@@ -26,6 +26,7 @@ import {
 interface ScanRecord {
   ticketCode: string;
   buyerName: string;
+  buyerPhone: string;
   section: string;
   sectionColor: string;
   seat: string;
@@ -108,7 +109,6 @@ function ScannerPageInner() {
   // Initialize
   useEffect(() => {
     const urlEventId = searchParams.get('event');
-
     if (isOrganizer && !urlEventId) {
       loadOrganizerEvents();
     } else if (urlEventId) {
@@ -173,7 +173,7 @@ function ScannerPageInner() {
     setStaffList(prev => prev.map(s => s.id === sid ? { ...s, disabled } : s));
   }
 
-function shareStaffPin(staff: DoorStaff) {
+  function shareStaffPin(staff: DoorStaff) {
     const url = `${window.location.origin}/organizer/scanner?event=${eventId}`;
     const msg = `📱 Eskane tike pou "${event?.name}"\n👤 ${staff.staffName}\n🔗 ${url}\n🔑 PIN: ${staff.pin}\n\n⚠️ PIN sa a pou OU selman. Li pral bloke sou telefon OU.`;
     const phone = staff.phone?.replace(/[^0-9]/g, '') || '';
@@ -256,14 +256,28 @@ function shareStaffPin(staff: DoorStaff) {
     let record: ScanRecord;
 
     if (!ticket) {
-      record = { ticketCode: trimmed, buyerName: '???', section: '—', sectionColor: '#666', seat: '—', status: 'not-found', time: now, synced: false };
+      record = {
+        ticketCode: trimmed, buyerName: '???', buyerPhone: '',
+        section: '—', sectionColor: '#666', seat: '—',
+        status: 'not-found', time: now, synced: false,
+      };
     } else if (ticket.status === 'used' || scanHistory.some(h => h.ticketCode === ticket.ticketCode && h.status === 'admitted')) {
-      record = { ticketCode: ticket.ticketCode, buyerName: ticket.buyerName, section: ticket.section, sectionColor: ticket.sectionColor, seat: ticket.seat, status: 'already-used', time: now, synced: false };
+      record = {
+        ticketCode: ticket.ticketCode, buyerName: ticket.buyerName,
+        buyerPhone: (ticket as any).buyerPhone || '',
+        section: ticket.section, sectionColor: ticket.sectionColor, seat: ticket.seat,
+        status: 'already-used', time: now, synced: false,
+      };
     } else {
       const updated = tickets.map(t => t.ticketCode === ticket.ticketCode ? { ...t, status: 'used' as const } : t);
       setTickets(updated);
       saveTicketsLocal(eventId, updated);
-      record = { ticketCode: ticket.ticketCode, buyerName: ticket.buyerName, section: ticket.section, sectionColor: ticket.sectionColor, seat: ticket.seat, status: 'admitted', time: now, synced: false };
+      record = {
+        ticketCode: ticket.ticketCode, buyerName: ticket.buyerName,
+        buyerPhone: (ticket as any).buyerPhone || '',
+        section: ticket.section, sectionColor: ticket.sectionColor, seat: ticket.seat,
+        status: 'admitted', time: now, synced: false,
+      };
 
       if (isOnline) {
         markTicketUsed(eventId, ticket.ticketCode, staffName).catch(() => {});
@@ -274,7 +288,6 @@ function shareStaffPin(staff: DoorStaff) {
       }
     }
 
-    // Update denied stats too
     if (record.status !== 'admitted' && isOnline && staffId && staffId !== 'organizer') {
       updateDoorStaffStats(eventId, staffId, false).catch(() => {});
     }
@@ -288,15 +301,6 @@ function shareStaffPin(staff: DoorStaff) {
   function handleManualScan() {
     processTicketCode(manualCode);
     setManualCode('');
-  }
-
-  function simulateScan() {
-    if (tickets.length === 0) {
-      alert(L('Telechaje tike yo anvan!', 'Download tickets first!', 'Telechargez les billets d\'abord!'));
-      return;
-    }
-    const t = tickets[Math.floor(Math.random() * tickets.length)];
-    processTicketCode(t.ticketCode);
   }
 
   // ─── Camera ────────────────────────────────────────────────────
@@ -378,9 +382,9 @@ function shareStaffPin(staff: DoorStaff) {
   };
 
   const statusConfig = {
-    'admitted': { bg: '#0a2a0a', border: '#22c55e', color: '#22c55e', icon: '✅', label: L('Antre!', 'Admitted!', 'Admis!') },
+    'admitted':     { bg: '#0a2a0a', border: '#22c55e', color: '#22c55e', icon: '✅', label: L('Antre!', 'Admitted!', 'Admis!') },
     'already-used': { bg: '#2a1a00', border: '#f97316', color: '#f97316', icon: '⚠️', label: L('Deja Itilize!', 'Already Used!', 'Deja utilise!') },
-    'not-found': { bg: '#2a0a0a', border: '#ef4444', color: '#ef4444', icon: '❌', label: L('Pa Jwenn!', 'Not Found!', 'Non trouve!') },
+    'not-found':    { bg: '#2a0a0a', border: '#ef4444', color: '#ef4444', icon: '❌', label: L('Pa Jwenn!', 'Not Found!', 'Non trouve!') },
   };
 
   // ─── Styles ───────────────────────────────────────────────────
@@ -416,7 +420,7 @@ function shareStaffPin(staff: DoorStaff) {
               {L('Eskane Tike', 'Ticket Scanner', 'Scanner de Billets')}
             </h1>
             <p style={{ color: '#888', fontSize: 13 }}>
-              {L('Mete kod PIN oganizate a ba ou a', 'Enter the PIN code from the organizer', 'Entrez le code PIN de l\'organisateur')}
+              {L('Mete kod PIN oganizate a ba ou a', 'Enter the PIN code from the organizer', "Entrez le code PIN de l'organisateur")}
             </p>
           </div>
 
@@ -501,7 +505,6 @@ function shareStaffPin(staff: DoorStaff) {
       <div style={{ ...pageStyle, padding: 20 }}>
         <div style={{ maxWidth: 540, margin: '0 auto' }}>
 
-          {/* Header */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
             <div>
               <h1 style={{ fontSize: 20, fontWeight: 800, marginBottom: 4 }}>🚪 {event?.name}</h1>
@@ -515,12 +518,11 @@ function shareStaffPin(staff: DoorStaff) {
             </button>
           </div>
 
-          {/* Add door staff */}
           <div style={{ ...cardStyle, marginBottom: 20 }}>
             <div style={{ color: '#888', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>
               {L('Ajoute Moun nan Pot', 'Add Door Staff', 'Ajouter Personnel')}
             </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               <div style={{ display: 'flex', gap: 8 }}>
                 <input
                   value={newStaffName}
@@ -550,7 +552,6 @@ function shareStaffPin(staff: DoorStaff) {
             </div>
           </div>
 
-          {/* Staff list */}
           <div style={{ color: '#888', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>
             {L('Ekip nan Pot', 'Door Team', 'Equipe Porte')} ({staffList.length})
           </div>
@@ -574,14 +575,10 @@ function shareStaffPin(staff: DoorStaff) {
                     {staff.staffName}
                     {staff.disabled && <span style={{ color: '#ef4444', fontSize: 10, marginLeft: 8 }}>DISABLED</span>}
                   </div>
-
-                  {/* PIN display */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
                     <span style={{ color: '#888', fontSize: 11 }}>PIN:</span>
                     <span style={{ fontSize: 18, fontWeight: 800, letterSpacing: 4, color: '#f97316', fontFamily: 'monospace' }}>{staff.pin}</span>
                   </div>
-
-                  {/* Status */}
                   <div style={{ marginTop: 8, display: 'flex', gap: 8, alignItems: 'center' }}>
                     {staff.activated ? (
                       <span style={{ fontSize: 10, color: '#22c55e', background: '#22c55e15', padding: '2px 8px', borderRadius: 4, fontWeight: 700 }}>
@@ -600,9 +597,8 @@ function shareStaffPin(staff: DoorStaff) {
                   </div>
                 </div>
 
-                {/* Actions */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
-                <button onClick={() => shareStaffPin(staff)}
+                  <button onClick={() => shareStaffPin(staff)}
                     style={{ padding: '6px 12px', borderRadius: 6, border: `1px solid ${staff.phone ? '#22c55e' : '#f97316'}`, background: staff.phone ? '#22c55e15' : 'transparent', color: staff.phone ? '#22c55e' : '#f97316', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>
                     {staff.phone ? '💬 WhatsApp' : L('Pataje', 'Share', 'Partager')}
                   </button>
@@ -619,7 +615,6 @@ function shareStaffPin(staff: DoorStaff) {
             </div>
           ))}
 
-          {/* Back button */}
           <button onClick={() => { setEventId(''); setEvent(null); setStaffList([]); setView('organizer-select'); }}
             style={{ marginTop: 16, padding: '10px 0', background: 'transparent', border: 'none', color: '#888', fontSize: 13, cursor: 'pointer' }}>
             ← {L('Retounen', 'Back', 'Retour')}
@@ -702,6 +697,19 @@ function shareStaffPin(staff: DoorStaff) {
             <div style={{ fontSize: 48 }}>{sc.icon}</div>
             <div style={{ fontSize: 22, fontWeight: 800, color: sc.color, marginTop: 8 }}>{sc.label}</div>
             <div style={{ fontSize: 16, fontWeight: 700, marginTop: 8 }}>{lastScan.buyerName}</div>
+
+            {/* Phone number */}
+            {lastScan.buyerPhone && (
+              <div style={{ marginTop: 6 }}>
+                <a
+                  href={`tel:${lastScan.buyerPhone}`}
+                  style={{ color: '#888', fontSize: 13, textDecoration: 'none' }}
+                >
+                  📞 {lastScan.buyerPhone}
+                </a>
+              </div>
+            )}
+
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 8 }}>
               <span style={{ padding: '4px 10px', borderRadius: 4, fontSize: 11, fontWeight: 700, border: `1px solid ${lastScan.sectionColor}`, color: lastScan.sectionColor, background: lastScan.sectionColor + '15' }}>
                 {lastScan.section}
@@ -785,7 +793,9 @@ function shareStaffPin(staff: DoorStaff) {
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 12, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.buyerName}</div>
                   <div style={{ fontSize: 10, color: '#888' }}>
-                    <span style={{ color: h.sectionColor }}>{h.section}</span> • {h.seat} • <span style={{ fontFamily: 'monospace' }}>{h.ticketCode}</span>
+                    <span style={{ color: h.sectionColor }}>{h.section}</span> • {h.seat}
+                    {h.buyerPhone ? ` • 📞 ${h.buyerPhone}` : ''}
+                    {' • '}<span style={{ fontFamily: 'monospace' }}>{h.ticketCode}</span>
                   </div>
                 </div>
                 <div style={{ textAlign: 'right', flexShrink: 0 }}>
@@ -811,7 +821,6 @@ function shareStaffPin(staff: DoorStaff) {
     </div>
   );
 }
-
 
 export default function ScannerPage() {
   return (
