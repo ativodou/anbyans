@@ -1,854 +1,597 @@
 'use client';
-import QRCode from '@/components/QRCode';
 
+import { useEffect, useState, Suspense } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import { collection, query, where, getDocs, doc, addDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { useT } from '@/hooks/useT';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
-import { useState, useEffect, useCallback, useRef, Suspense, forwardRef, useImperativeHandle } from 'react';
-import { useT } from '@/i18n';
-import { useAuth } from '@/hooks/useAuth';
-import LangSwitcher from '@/components/LangSwitcher';
-import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
-import { loadStripe } from '@stripe/stripe-js';
 
-import {
-  getPublishedEvents,
-  purchaseTickets,
-  type EventData,
-  type EventSection,
-  type TicketData,
-} from '@/lib/db';
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-// ─── Helpers ─────────────────────────────────────────────────────
-
-const FEE = 0.085;
-const MAX_SEATS = 10;
-const ROWS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-
-function seatGrid(capacity: number): { rows: number; cols: number } {
-  const cols = capacity <= 20 ? capacity : capacity <= 50 ? 10 : capacity <= 200 ? 14 : capacity <= 500 ? 18 : 20;
-  const rows = Math.ceil(capacity / cols);
-  return { rows, cols };
+interface Section {
+  id: string;
+  name: string;
+  price: number;
+  capacity: number;
+  sold: number;
+  color: string;
+  type: 'ga' | 'reserved';
 }
 
-// ─── Stripe ──────────────────────────────────────────────────────
+interface Seat { row: string; num: number; id: string; taken: boolean; }
 
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY as string);
+interface EventData {
+  id: string;
+  slug: string;
+  title: string;
+  date: any;
+  venue: string;
+  city: string;
+  description?: string;
+  coverImage?: string;
+  sections: Section[];
+  organizerId: string;
+  organizerName?: string;
+  paymentMethods: Record<string, { active: boolean; values?: string[] }>;
+  exchangeRate: number;
+  status: 'live' | 'upcoming' | 'ended';
+  isPrivate?: boolean;
+}
 
-// ─── Stripe Payment Form (must live inside <Elements>) ───────────
+type Step = 'detail' | 'seats' | 'info' | 'payment' | 'done';
+type PayMethod = 'stripe' | 'moncash' | 'natcash' | 'cash';
 
-// ─── Stripe TRUE deferred pattern ────────────────────────────────
-// <Elements> gets mode/amount/currency — NO clientSecret.
-// clientSecret is fetched ONLY at payment time, passed into submit().
-// This avoids the "mixed pattern" error ("A processing error occurred").
-type StripeFormHandle = { submit: (clientSecret: string) => Promise<{ ok: boolean; error?: string; paymentIntentId?: string }> };
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const StripePaymentForm = forwardRef<
-  StripeFormHandle,
-  { onReady: () => void; onUnready: () => void }
->(({ onReady, onUnready }: { onReady: () => void; onUnready: () => void }, ref) => {
-  const stripe = useStripe();
-  const elements = useElements();
+function genCode() {
+  return Math.random().toString(36).substring(2, 10).toUpperCase();
+}
 
-  useEffect(() => () => { onUnready(); }, []);
+function dateStr(ts: any, locale = 'fr-HT') {
+  if (!ts) return '';
+  const d = ts.toDate ? ts.toDate() : new Date(ts);
+  return d.toLocaleDateString(locale, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+}
 
-  useImperativeHandle(ref, () => ({
-    submit: async (clientSecret: string): Promise<{ ok: boolean; error?: string; paymentIntentId?: string }> => {
-      if (!stripe || !elements) return { ok: false, error: 'Stripe pa chaje. Eseye anko.' };
-      const cardElement = elements.getElement(CardElement);
-      if (!cardElement) return { ok: false, error: 'Fòm kat pa disponib.' };
-      // Confirm directly with card element — no wallet button, no Apple Pay
-      const { error, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
-        payment_method: { card: cardElement },
-      });
-      if (error) return { ok: false, error: error.message ?? 'Peman echwe.' };
-      if (paymentIntent?.status !== 'succeeded') return { ok: false, error: 'Peman pa konplete.' };
-      return { ok: true, paymentIntentId: paymentIntent.id };
-    },
-  }), [stripe, elements]);
+function timeStr(ts: any) {
+  if (!ts) return '';
+  const d = ts.toDate ? ts.toDate() : new Date(ts);
+  return d.toLocaleTimeString('fr-HT', { hour: '2-digit', minute: '2-digit' });
+}
 
-  const cardStyle = {
-    style: {
-      base: {
-        color: '#f9fafb',
-        fontFamily: 'Inter, sans-serif',
-        fontSize: '16px',
-        '::placeholder': { color: '#6b7280' },
-        iconColor: '#06b6d4',
-      },
-      invalid: { color: '#ef4444', iconColor: '#ef4444' },
-    },
-  };
+// ─── Seat Map ─────────────────────────────────────────────────────────────────
 
+function SeatMap({ section, takenIds, selected, onToggle }: {
+  section: Section;
+  takenIds: string[];
+  selected: string[];
+  onToggle: (id: string) => void;
+}) {
+  const rows = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').slice(0, 10);
+  const cols = 10;
   return (
-    <div className="p-3 rounded-[10px] border border-border bg-[#111827]">
-      <CardElement options={cardStyle} onReady={onReady} />
+    <div className="overflow-auto">
+      {/* Stage */}
+      <div className="w-full bg-white/[0.06] rounded-lg text-center text-[10px] font-bold text-gray-400 py-2 mb-6 tracking-widest">ESTAJ / SCENE</div>
+      <div className="flex flex-col gap-1.5 items-center">
+        {rows.map(row => (
+          <div key={row} className="flex gap-1.5 items-center">
+            <span className="text-[9px] text-gray-500 w-4 text-right">{row}</span>
+            {Array.from({ length: cols }, (_, i) => {
+              const id = `${row}${i + 1}`;
+              const taken    = takenIds.includes(id);
+              const isSel    = selected.includes(id);
+              return (
+                <button key={id} disabled={taken} onClick={() => onToggle(id)}
+                  className={`w-7 h-7 rounded-md text-[9px] font-bold transition-all ${
+                    taken  ? 'bg-white/[0.04] text-gray-700 cursor-not-allowed' :
+                    isSel  ? 'bg-orange text-white scale-110 shadow-lg shadow-orange/30' :
+                             'bg-white/[0.08] text-gray-300 hover:bg-orange/30'
+                  }`}>
+                  {i + 1}
+                </button>
+              );
+            })}
+            <span className="text-[9px] text-gray-500 w-4">{row}</span>
+          </div>
+        ))}
+      </div>
+      {/* Legend */}
+      <div className="flex gap-4 mt-5 justify-center">
+        {[
+          { color: 'bg-white/[0.08]',  label: 'Disponib / Available' },
+          { color: 'bg-orange',        label: 'Seleksyone / Selected' },
+          { color: 'bg-white/[0.04]',  label: 'Pran / Taken' },
+        ].map(l => (
+          <div key={l.label} className="flex items-center gap-1.5">
+            <div className={`w-3.5 h-3.5 rounded ${l.color}`} />
+            <span className="text-[9px] text-gray-400">{l.label}</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
-});
-StripePaymentForm.displayName = 'StripePaymentForm';
+}
 
-// ─── Component ───────────────────────────────────────────────────
+// ─── Main component ───────────────────────────────────────────────────────────
 
-function BuyTicketInner() {
-  const { t, locale } = useT();
-  const { user } = useAuth();
-  const L = (ht: string, en: string, fr: string) => ({ ht, en, fr }[locale as 'ht' | 'en' | 'fr']);
-  const searchParams = useSearchParams();
+function BuyPageInner() {
+  const { L } = useT();
+  const params  = useParams();
+  const router  = useRouter();
+  const slug    = params?.slug as string;
 
-  const STEP_LABELS = [
-    L('Chwazi Evènman', 'Choose Event', 'Choisir un événement'),
-    L('Chwazi Seksyon', 'Choose Section', 'Choisir une section'),
-    L('Chwazi Plas', 'Choose Seats', 'Choisir des places'),
-    L('Revize', 'Review', 'Réviser'),
-    L('Peye', 'Pay', 'Payer'),
-  ];
+  const [event, setEvent]       = useState<EventData | null>(null);
+  const [loading, setLoading]   = useState(true);
+  const [step, setStep]         = useState<Step>('detail');
 
-  // Data
-  const [events, setEvents] = useState<EventData[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  // Flow
-  const [step, setStep] = useState(1);
-  const [ev, setEv] = useState<EventData | null>(null);
-  const [sec, setSec] = useState<EventSection | null>(null);
-  const [seats, setSeats] = useState<string[]>([]);
-  const [pay, setPay] = useState('');
-  const [promo, setPromo] = useState(0);
-  const [promoCode, setPromoCode] = useState('');
-  const [promoMsg, setPromoMsg] = useState('');
-  const [processing, setProcessing] = useState(false);
-  const [stripeProcessing, setStripeProcessing] = useState(false); // card-only: keeps <Elements> mounted
-
-  // Stripe
-  const [paymentElementReady, setPaymentElementReady] = useState(false);
-  const stripeFormRef = useRef<StripeFormHandle | null>(null);
-
-  const [showPayInstructions, setShowPayInstructions] = useState(false);
-  const [confirmed, setConfirmed] = useState(false);
-  const [purchasedTickets, setPurchasedTickets] = useState<TicketData[]>([]);
-  const [holdTime, setHoldTime] = useState(600);
-  const [qrKey, setQrKey] = useState(0);
-  const [qrCountdown, setQrCountdown] = useState(15);
+  // Selection
+  const [selSection, setSelSection] = useState<Section | null>(null);
+  const [qty, setQty]               = useState(1);
+  const [selSeats, setSelSeats]     = useState<string[]>([]);
+  const [takenSeats, setTakenSeats] = useState<string[]>([]);
 
   // Buyer info
-  const [buyerName, setBuyerName] = useState('');
-  const [buyerEmail, setBuyerEmail] = useState('');
-  const [buyerPhone, setBuyerPhone] = useState('');
+  const [name,  setName]   = useState('');
+  const [phone, setPhone]  = useState('');
+  const [email, setEmail]  = useState('');
 
-  // Load events from Firestore
+  // Payment
+  const [payMethod, setPayMethod]   = useState<PayMethod | null>(null);
+  const [txnId, setTxnId]           = useState('');
+  const [processing, setProcessing] = useState(false);
+  const [ticketCodes, setTicketCodes] = useState<string[]>([]);
+  const [errors, setErrors]           = useState<Record<string, string>>({});
+
+  // ── Load event ────────────────────────────────────────────────
   useEffect(() => {
+    if (!slug) return;
     (async () => {
       try {
-        const data = await getPublishedEvents();
-        setEvents(data);
-      } catch (err) {
-        console.error('Failed to load events:', err);
-      }
-      setLoading(false);
-    })();
-  }, []);
-
-  // Auto-select event from URL ?event=ID
-  useEffect(() => {
-    const eventId = searchParams.get('event');
-    if (eventId && events.length > 0 && step === 1) {
-      const found = events.find(e => e.id === eventId);
-      if (found) {
-        setEv(found);
-        setSec(null);
-        setSeats([]);
-        setStep(2);
-      }
-    }
-  }, [events, searchParams]);
-
-  // Pre-fill buyer info from auth
-  useEffect(() => {
-    if (user) {
-      setBuyerEmail(user.email || '');
-      setBuyerName((user as any)?.firstName || user.email?.split('@')[0] || '');
-    }
-  }, [user]);
-
-  // Hold timer
-  useEffect(() => {
-    if (step < 3 || confirmed) return;
-    const ti = setInterval(() => setHoldTime(p => Math.max(0, p - 1)), 1000);
-    return () => clearInterval(ti);
-  }, [step, confirmed]);
-
-  // QR rotation
-  useEffect(() => {
-    if (!confirmed) return;
-    const ti = setInterval(() => {
-      setQrCountdown(p => { if (p <= 1) { setQrKey(k => k + 1); return 15; } return p - 1; });
-    }, 1000);
-    return () => clearInterval(ti);
-  }, [confirmed]);
-
-
-
-  // Calculations
-  const calcTotal = useCallback(() => {
-    if (!sec || seats.length === 0) return { sub: 0, fee: 0, disc: 0, total: 0 };
-    const sub = seats.length * sec.price;
-    const fee = Math.round(sub * FEE * 100) / 100;
-    const disc = promo > 0 ? Math.round(sub * promo * 100) / 100 : 0;
-    return { sub, fee, disc, total: sub + fee - disc };
-  }, [sec, seats, promo]);
-
-  const { sub, fee, disc, total } = calcTotal();
-  const holdMin = Math.floor(holdTime / 60);
-  const holdSec2 = holdTime % 60;
-
-  const applyPromo = () => {
-    const code = promoCode.trim().toUpperCase();
-    const eventPromo = ev?.promos?.find(p => p.code === code);
-    if (eventPromo) {
-      const discount = eventPromo.type === 'percent' ? eventPromo.discount / 100 : 0;
-      setPromo(discount);
-      setPromoMsg(`✅ ${code} — ${Math.round(discount * 100)}% ${L('rabè', 'off', 'remise')}!`);
-    } else {
-      setPromoMsg(`✕ ${L('Kòd pa valid.', 'Invalid code.', 'Code invalide.')}`);
-    }
-  };
-
-  const toggleSeat = (id: string) => {
-    if (seats.includes(id)) setSeats(seats.filter(s => s !== id));
-    else if (seats.length < MAX_SEATS) setSeats([...seats, id]);
-  };
-
-  const doPayment = async () => {
-    if (!ev?.id || !sec) return;
-
-    // ── MonCash — real API redirect ──────────────────────────────
-    if (pay === 'moncash') {
-      setProcessing(true);
-      try {
-        const orderId = `ANB-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-        // Save pending order to sessionStorage so /buy/moncash-return can restore it
-        const pending = {
-          eventId: ev.id, eventName: ev.name,
-          buyerName: buyerName || 'Guest', buyerEmail, buyerPhone,
-          section: sec.name, sectionColor: (sec as any).color ?? '#fff',
-          seats, pricePerSeat: sec.price, orderId,
-        };
-        sessionStorage.setItem('moncash_pending_order', JSON.stringify(pending));
-
-        const res = await fetch('/api/payment/moncash', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ amount: total.toFixed(2), orderId }),
-        });
-        const data = await res.json();
-        if (data.error || !data.redirectUrl) {
-          alert(data.error ?? L('Erè MonCash API.', 'MonCash API error.', 'Erreur MonCash API.'));
-          setProcessing(false);
-          return;
+        const q = query(collection(db, 'events'), where('slug', '==', slug));
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+          const d = snap.docs[0];
+          setEvent({ id: d.id, ...d.data() } as EventData);
         }
-        // Redirect to MonCash payment page
-        window.location.href = data.redirectUrl;
-      } catch (err) {
-        alert(err instanceof Error ? err.message : L('Erè. Eseye ankò.', 'Error. Try again.', 'Erreur.'));
-        setProcessing(false);
-      }
-      return;
-    }
+      } catch (e) { console.error(e); }
+      finally { setLoading(false); }
+    })();
+  }, [slug]);
 
-    // ── Other manual methods (Zelle, PayPal, Cash…) ───────────────
-    if (pay !== 'card') { setShowPayInstructions(true); return; }
-
-    const stripeForm = stripeFormRef.current;
-    if (!stripeForm) {
-      alert(L('Stripe pa chaje. Eseye anko.', 'Stripe not loaded. Try again.', 'Stripe non chargé.'));
-      return;
-    }
-
-    // Use stripeProcessing (NOT processing) so <Elements>/<StripePaymentForm>
-    // stay mounted — full-screen spinner would unmount them, killing stripe/elements
-    setStripeProcessing(true);
-    try {
-      // 1. Fetch PaymentIntent clientSecret at payment time (true deferred pattern)
-      const res = await fetch('/api/payment/stripe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: Math.round(total * 100) / 100, eventName: ev.name, seats: seats.length }),
-      });
-      const { clientSecret, error: apiError } = await res.json();
-      if (apiError || !clientSecret) {
-        alert(apiError ?? L('Erè Stripe API.', 'Stripe API error.', 'Erreur Stripe API.'));
-        setStripeProcessing(false);
-        return;
-      }
-
-      // 2. elements.submit() + stripe.confirmPayment({ clientSecret }) inside
-      const result = await stripeForm.submit(clientSecret);
-      if (!result.ok) {
-        alert(result.error ?? L('Ere. Eseye ankò.', 'Error. Try again.', 'Erreur.'));
-        setStripeProcessing(false);
-        return;
-      }
-
-      // 3. Stripe OK — write tickets to Firestore
-      setProcessing(true); // now safe to show full-screen spinner (Stripe done)
-      const tickets = await purchaseTickets(
-        ev.id,
-        buyerName || 'Guest',
-        buyerEmail,
-        buyerPhone,
-        sec.name,
-        (sec as any).color ?? '#fff',
-        seats,
-        sec.price,
-        undefined,
-        result.paymentIntentId,
-        'stripe',
+  // ── Load taken seats when section selected ────────────────────
+  useEffect(() => {
+    if (!selSection || selSection.type !== 'reserved' || !event) return;
+    (async () => {
+      const q = query(
+        collection(db, 'tickets'),
+        where('eventId', '==', event.id),
+        where('section', '==', selSection.id),
+        where('status', '!=', 'cancelled')
       );
-      setPurchasedTickets(tickets);
-      setConfirmed(true);
-    } catch (err) {
-      console.error('[doPayment] error:', err);
-      alert(err instanceof Error ? err.message : L('Ere. Eseye ankò.', 'Error. Try again.', 'Erreur.'));
-    }
-    setStripeProcessing(false);
-    setProcessing(false);
+      const snap = await getDocs(q);
+      setTakenSeats(snap.docs.map(d => d.data().seat).filter(Boolean));
+    })();
+  }, [selSection, event]);
+
+  const htg = (usd: number) => Math.round(usd * (event?.exchangeRate || 130));
+  const fmtPrice = (usd: number) => `$${usd.toFixed(2)} · ${htg(usd).toLocaleString('fr-HT')} HTG`;
+  const total = selSection ? selSection.price * qty : 0;
+
+  // ── Seat toggle ───────────────────────────────────────────────
+  const toggleSeat = (id: string) => {
+    setSelSeats(prev =>
+      prev.includes(id) ? prev.filter(s => s !== id) :
+      prev.length < qty ? [...prev, id] : prev
+    );
   };
 
-  const confirmPayment = async () => {
-    if (!ev?.id || !sec) return;
+  // ── Validate buyer info ───────────────────────────────────────
+  const validateInfo = () => {
+    const e: Record<string, string> = {};
+    if (!name.trim())  e.name  = L('Non obligatwa', 'Name required', 'Nom requis');
+    if (!phone.trim()) e.phone = L('Telefòn obligatwa', 'Phone required', 'Téléphone requis');
+    if (email && !/\S+@\S+\.\S+/.test(email)) e.email = L('Email pa valab', 'Invalid email', 'Email invalide');
+    setErrors(e);
+    return Object.keys(e).length === 0;
+  };
+
+  // ── Complete purchase ─────────────────────────────────────────
+  const completePurchase = async () => {
+    if (!event || !selSection || !payMethod) return;
     setProcessing(true);
     try {
-      const tix = await purchaseTickets(ev.id, buyerName, buyerEmail, buyerPhone, sec.name, (sec as any).color ?? '#fff', seats, sec.price, undefined, undefined, pay === 'cash' ? 'cash' : 'free');
-      setPurchasedTickets(tix);
-      setShowPayInstructions(false);
-      setStep(6);
-      const codes = tix.map((t: any) => t.ticketCode).join(', ');
-      const msg = encodeURIComponent(L(
-        'Tikè ou a: ' + codes + ' - Evènman: ' + (ev.name ?? '') + ' - Metòd: ' + pay,
-        'Your ticket(s): ' + codes + ' - Event: ' + (ev.name ?? '') + ' - Method: ' + pay,
-        'Votre billet: ' + codes + ' - Evenement: ' + (ev.name ?? '') + ' - Methode: ' + pay
-      ));
-      window.open('https://wa.me/?text=' + msg, '_blank');
-    } catch (e: any) {
-      alert(L('Erè. Eseye anko.', 'Error. Try again.', 'Erreur.'));
-    }
-    setProcessing(false);
-  };
+      const codes: string[] = [];
+      const seats = selSection.type === 'reserved' ? selSeats : Array(qty).fill(null);
 
-  const getDeepLink = () => {
-    const amount = sec ? (sec.price * seats.length).toFixed(2) : '0';
-    const note = encodeURIComponent((ev?.name ?? 'Tike Anbyans'));
-    const orgPhone = (ev as any)?.organizerPhone ?? '';
-    const orgPaypal = (ev as any)?.paypalMe ?? '';
-    const orgCashapp = (ev as any)?.cashappTag ?? '';
-    const orgZelle = (ev as any)?.zelleInfo ?? orgPhone;
-    switch (pay) {
-      case 'moncash':
-      case 'natcash':
-        return orgPhone ? `tel:${orgPhone}` : null;
-      case 'paypal':
-        return orgPaypal ? `https://paypal.me/${orgPaypal}/${amount}` : 'https://paypal.com';
-      case 'cashapp':
-        return orgCashapp ? `https://cash.app/$${orgCashapp}/${amount}` : 'https://cash.app';
-      case 'zelle':
-        return `https://enroll.zellepay.com/qr-codes?data=${encodeURIComponent(JSON.stringify({token:orgZelle,amount,memo:note}))}`;
-      default:
-        return null;
-    }
-  };
+      for (let i = 0; i < qty; i++) {
+        const code = genCode();
+        const paymentStatus =
+          payMethod === 'stripe'              ? 'paid' :
+          payMethod === 'moncash' || payMethod === 'natcash' ? 'pending_verification' :
+          'pending_cash';
 
-  const getPayInstructions = () => {
-    const amount = sec ? (sec.price * seats.length).toFixed(2) : '0';
-    const orgPhone = (ev as any)?.organizerPhone ?? '';
-    switch (pay) {
-      case 'moncash': return { icon: '📱', title: 'MonCash', line1: L('Voye $' + amount + ' sou:', 'Send $' + amount + ' to:', 'Envoyez $' + amount + ' à:'), line2: orgPhone || L('Nimewo òganizatè a', "Organizer's number", "Numéro de l'organisateur") };
-      case 'natcash': return { icon: '💚', title: 'Natcash', line1: L('Voye $' + amount + ' sou:', 'Send $' + amount + ' to:', 'Envoyez $' + amount + ' à:'), line2: orgPhone || L('Nimewo òganizatè a', "Organizer's number", "Numéro de l'organisateur") };
-      case 'zelle': return { icon: '⚡', title: 'Zelle', line1: L('Voye $' + amount + ' sou:', 'Send $' + amount + ' to:', 'Envoyez $' + amount + ' à:'), line2: (ev as any)?.zelleInfo || orgPhone || 'Zelle' };
-      case 'paypal': return { icon: '🅿️', title: 'PayPal', line1: L('Voye $' + amount + ' sou:', 'Send $' + amount + ' to:', 'Envoyez $' + amount + ' à:'), line2: (ev as any)?.paypalMe ? 'paypal.me/' + (ev as any).paypalMe : 'PayPal' };
-      case 'cashapp': return { icon: '💲', title: 'Cash App', line1: L('Voye $' + amount + ' sou:', 'Send $' + amount + ' to:', 'Envoyez $' + amount + ' à:'), line2: (ev as any)?.cashappTag ? '$' + (ev as any).cashappTag : 'Cash App' };
-      default: return { icon: '💵', title: 'Cash', line1: L('Peye nan pòt la', 'Pay at the door', "Payez à l'entrée"), line2: '' };
+        await addDoc(collection(db, 'tickets'), {
+          ticketCode:    code,
+          qrData:        code,
+          eventId:       event.id,
+          organizerId:   event.organizerId,
+          buyerName:     name.trim(),
+          buyerPhone:    phone.trim(),
+          buyerEmail:    email.trim() || null,
+          section:       selSection.id,
+          sectionName:   selSection.name,
+          sectionColor:  selSection.color,
+          seat:          seats[i] || null,
+          price:         selSection.price,
+          priceHTG:      htg(selSection.price),
+          paymentMethod: payMethod,
+          paymentStatus,
+          txnId:         txnId.trim() || null,
+          status:        paymentStatus === 'paid' ? 'valid' : 'pending',
+          purchasedAt:   serverTimestamp(),
+        });
+        codes.push(code);
+      }
+      setTicketCodes(codes);
+      setStep('done');
+    } catch (e) {
+      console.error(e);
+      alert(L('Erè. Eseye ankò.', 'Error. Please try again.', 'Erreur. Veuillez réessayer.'));
+    } finally {
+      setProcessing(false);
     }
   };
 
-  const goNext = () => {
-    if (step === 5) { doPayment(); return; }
-    setStep(step + 1);
+  // ── Render ────────────────────────────────────────────────────
+
+  if (loading) return (
+    <div className="min-h-screen bg-black flex items-center justify-center">
+      <div className="w-8 h-8 border-2 border-orange border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+
+  if (!event) return (
+    <div className="min-h-screen bg-black flex flex-col items-center justify-center text-white gap-4">
+      <p className="text-5xl">🎭</p>
+      <p className="text-gray-400">{L('Evènman pa jwenn.', 'Event not found.', 'Événement introuvable.')}</p>
+      <Link href="/events" className="text-orange text-sm">← {L('Tounen', 'Back', 'Retour')}</Link>
+    </div>
+  );
+
+  const availMethods = Object.entries(event.paymentMethods || {})
+    .filter(([, v]) => v.active)
+    .map(([k]) => k as PayMethod);
+
+  const PAY_LABELS: Record<string, string> = {
+    moncash: '📱 MonCash',
+    natcash: '📱 Natcash',
+    stripe:  '💳 Kart / Card',
+    cash:    '💵 Cash · Zelle · CashApp',
   };
 
-  const goBack = () => {
-    if (step === 3) setSeats([]);
-    if (step > 1) setStep(step - 1);
-  };
-
-  const canNext =
-    step === 1 ? !!ev :
-    step === 2 ? !!sec :
-    step === 3 ? seats.length > 0 :
-    step === 4 ? !!buyerPhone.trim() :
-    pay === 'card' ? (paymentElementReady && !stripeProcessing) : !!pay;
-
-  const perSeat = L('pa plas', 'per seat', 'par place');
-  const availOf = L('disponib sou', 'available of', 'disponible sur');
-  const stageLabel = L('SÈNN', 'STAGE', 'SCÈNE');
-  const chooseLabel = L('Chwazi', 'Selected', 'Sélectionné');
-  const takenLabel = L('Pran', 'Taken', 'Pris');
-  const availLabel = L('Disponib', 'Available', 'Disponible');
-
-  // ═══════════════════════════════════════════════════════════════
-  // CONFIRMED
-  // ═══════════════════════════════════════════════════════════════
-
-  if (confirmed && purchasedTickets.length > 0) {
-    const ticket = purchasedTickets[0];
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center px-5 py-10">
-        <div className="w-full max-w-[420px] text-center">
-          <div className="text-6xl mb-4">🎉</div>
-          <h2 className="font-heading text-3xl tracking-wide mb-1">{L('TIKÈ OU PARE!', 'YOUR TICKET IS READY!', 'VOTRE BILLET EST PRÊT !')}</h2>
-          <p className="text-xs text-gray-light mb-6">{L('Prezante QR kòd sa a nan antre a.', 'Show this QR code at the entrance.', "Présentez ce QR code à l'entrée.")}</p>
-          <div className="bg-dark-card border border-border rounded-2xl p-6 relative">
-            <div className="absolute top-1/2 -left-2.5 w-5 h-5 rounded-full bg-dark" />
-            <div className="absolute top-1/2 -right-2.5 w-5 h-5 rounded-full bg-dark" />
-            <p className="font-bold text-lg">{ev?.name}</p>
-            <p className="text-xs text-gray-light mt-1">📍 {ev?.venue?.name} · 📅 {ev?.startDate} · 🕐 {ev?.startTime}</p>
-            <div className="mt-3 mb-3">
-              <span className="px-3 py-1 rounded-md text-[10px] font-bold border" style={{ color: sec?.color, borderColor: sec?.color, background: sec?.color + '15' }}>
-                {sec?.name}
-              </span>
-            </div>
-            <p className="text-xs text-gray-light">{L('Plas', 'Seats', 'Places')}: {seats.join(', ')} ({purchasedTickets.length} {purchasedTickets.length === 1 ? L('tikè', 'ticket', 'billet') : L('tikè', 'tickets', 'billets')})</p>
-            <div className="mt-4 mb-2 flex justify-center">
-              <QRCode key={qrKey} data={`${ticket.qrData}:${qrKey}`} size={156} />
-            </div>
-            <p className="text-[10px] text-gray-muted">{L('QR kòd ap chanje chak', 'QR code changes every', 'Le QR code change toutes les')} {qrCountdown}s</p>
-            <p className="text-xs font-bold mt-3">Ref: {ticket.ticketCode}</p>
-            <p className="text-[9px] text-gray-muted mt-1 font-mono break-all">{ticket.qrData}</p>
-          </div>
-          <p className="text-sm text-cyan font-bold text-center mt-6 mb-2">👇 {L('Klike pou resevwa tikè ou sou WhatsApp', 'Click to receive your ticket on WhatsApp', 'Cliquez pour recevoir votre billet sur WhatsApp')}</p>
-          <div className="flex gap-2.5 justify-center">
-<Link href="/events" className="px-5 py-3 rounded-lg bg-cyan text-dark font-bold text-sm hover:bg-white transition-all">🎫 {L('Wè Plis Evènman', 'See More Events', "Voir plus d'événements")}</Link>
-<button onClick={() => {
-  const phone = buyerPhone.replace(/[^0-9]/g, '');
-  const ticketUrl = `${window.location.origin}/ticket/${purchasedTickets[0]?.ticketCode}`;
-  const pin = purchasedTickets[0]?.buyerPin || '';
-  const msg = `🎫 *ANBYANS - TIKÈ OU PARE!*\n\n🎭 ${ev?.name}\n📍 ${ev?.venue?.name}\n📅 ${ev?.startDate} · 🕐 ${ev?.startTime}\n\n🎟️ Seksyon: ${sec?.name}\n💺 Plas: ${seats.join(', ')}\n🔑 Kòd: ${purchasedTickets[0]?.ticketCode}\n🔐 PIN: ${pin}\n\n📱 Wè tikè ou: ${ticketUrl}\n\n⚠️ Kenbe PIN ou an sekirite. Ou bezwen li pou wè tikè ou sou aplikasyon an\n\n🛡️ Pwoteje pa Anbyans`;
-  if (phone) {
-    window.location.href = `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
-  } else {
-    window.location.href = `https://wa.me/?text=${encodeURIComponent(msg)}`;
-  }
-}} className="px-5 py-3 rounded-lg border border-green text-green font-bold text-sm hover:bg-green hover:text-dark transition-all">📲 WhatsApp</button>
-          </div>
+  // ── Step: Detail ──────────────────────────────────────────────
+  if (step === 'detail') return (
+    <div className="min-h-screen bg-black text-white">
+      {/* Cover */}
+      <div className="relative h-56 md:h-72 bg-gradient-to-br from-orange/20 to-purple-900/40">
+        {event.coverImage && <img src={event.coverImage} alt={event.title} className="w-full h-full object-cover" />}
+        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
+        <Link href="/events" className="absolute top-4 left-4 text-white/70 hover:text-white text-sm">← {L('Tounen', 'Back', 'Retour')}</Link>
+        {event.status === 'live' && (
+          <span className="absolute top-4 right-4 bg-red-500 text-white text-[10px] font-black px-2.5 py-1 rounded-full animate-pulse">● LIVE</span>
+        )}
+        <div className="absolute bottom-4 left-4 right-4">
+          <h1 className="font-heading text-2xl md:text-3xl text-white leading-tight">{event.title}</h1>
+          <p className="text-gray-300 text-sm mt-1">📅 {dateStr(event.date)} · {timeStr(event.date)}</p>
+          <p className="text-gray-300 text-sm">📍 {event.venue}{event.city ? `, ${event.city}` : ''}</p>
         </div>
       </div>
-    );
-  }
 
-  // ═══════════════════════════════════════════════════════════════
-  // PROCESSING
-  // ═══════════════════════════════════════════════════════════════
+      <div className="max-w-2xl mx-auto px-4 py-6">
+        {event.description && (
+          <p className="text-gray-400 text-sm mb-6 leading-relaxed">{event.description}</p>
+        )}
 
-  // Full-screen spinner only for non-card payments (MonCash, Zelle, etc.)
-  // Card uses stripeProcessing so <Elements> stays mounted during Stripe calls
-  if (processing && pay !== 'card') {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-4">
-        <div className="w-12 h-12 border-4 border-cyan border-t-transparent rounded-full animate-spin" />
-        <p className="text-sm text-gray-light">{L('Ap trete peman an...', 'Processing payment...', 'Traitement du paiement...')}</p>
-      </div>
-    );
-  }
-
-  // ═══════════════════════════════════════════════════════════════
-  // MAIN FLOW
-  // ═══════════════════════════════════════════════════════════════
-
-  return (
-    <div className="min-h-screen flex flex-col pb-20">
-      {/* Nav */}
-      <nav className="sticky top-0 z-50 bg-dark border-b border-border px-5">
-        <div className="max-w-[1100px] mx-auto flex items-center h-[52px] gap-3.5">
-          <Link href="/"><span className="font-heading text-sm tracking-widest">ANBYANS</span></Link>
-          <span className="font-heading text-base tracking-wide flex-1">{L('ACHTE TIKÈ', 'BUY TICKETS', 'ACHETER DES BILLETS')}</span>
-          {step >= 3 && (
-            <div className="flex items-center gap-1.5 text-xs font-semibold text-orange">
-              <div className="w-1.5 h-1.5 rounded-full bg-orange animate-pulse" />
-              <span className={holdTime <= 60 ? 'text-red' : ''}>{holdMin}:{holdSec2 < 10 ? '0' : ''}{holdSec2}</span>
-            </div>
-          )}
-          <LangSwitcher />
-          <Link href="/events" className="px-3 py-1.5 rounded-lg border border-border text-gray-light text-[11px] hover:border-cyan hover:text-cyan transition-all">← {L('Retounen', 'Back', 'Retour')}</Link>
-        </div>
-      </nav>
-
-      <div className="max-w-[1100px] mx-auto w-full px-5 pt-5 flex-1">
-        {/* Steps */}
-        <div className="flex items-center gap-0 mb-5 overflow-x-auto">
-          {STEP_LABELS.map((label, i) => {
-            const n = i + 1;
-            const done = n < step;
-            const active = n === step;
+        {/* Sections */}
+        <h2 className="font-heading text-lg mb-3">{L('Chwazi Tikè', 'Choose Ticket', 'Choisir Billet')}</h2>
+        <div className="space-y-3 mb-6">
+          {event.sections.map(sec => {
+            const avail  = sec.capacity - (sec.sold || 0);
+            const isSel  = selSection?.id === sec.id;
+            const soldOut = avail <= 0;
             return (
-              <div key={n} className="flex items-center">
-                <div className="flex items-center gap-1.5">
-                  <div className={`w-6 h-6 rounded-full text-[9px] font-bold flex items-center justify-center flex-shrink-0 ${done ? 'bg-green text-white' : active ? 'bg-cyan text-dark' : 'bg-white/[0.04] border border-border text-gray-muted'}`}>
-                    {done ? '✓' : n}
-                  </div>
-                  <span className={`text-[10px] whitespace-nowrap ${done ? 'text-green' : active ? 'text-white font-semibold' : 'text-gray-muted'}`}>{label}</span>
+              <button key={sec.id} disabled={soldOut}
+                onClick={() => { setSelSection(sec); setSelSeats([]); }}
+                className={`w-full flex items-center gap-4 p-4 rounded-xl border transition-all text-left ${
+                  isSel    ? 'border-orange bg-orange/10' :
+                  soldOut  ? 'border-white/[0.04] opacity-40 cursor-not-allowed' :
+                             'border-white/[0.08] hover:border-orange/40 bg-white/[0.03]'
+                }`}>
+                <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: sec.color || '#f97316' }} />
+                <div className="flex-1">
+                  <p className="font-bold text-sm">{sec.name}</p>
+                  <p className="text-[11px] text-gray-400">
+                    {soldOut
+                      ? L('Fin · Sold out', 'Sold out', 'Épuisé')
+                      : `${avail} ${L('plas', 'available', 'places')} · ${sec.type === 'reserved' ? L('Plas Rezève', 'Reserved', 'Réservé') : 'GA'}`}
+                  </p>
                 </div>
-                {n < 5 && <div className="w-[30px] h-px bg-border mx-1.5 flex-shrink-0" />}
-              </div>
+                <div className="text-right">
+                  <p className="font-heading text-base text-green">${sec.price}</p>
+                  <p className="text-[10px] text-red-400">{htg(sec.price).toLocaleString('fr-HT')} HTG</p>
+                </div>
+              </button>
             );
           })}
         </div>
 
-        {/* ════════════ STEP 1: Choose Event ════════════ */}
-        {step === 1 && (
-          <div>
-            <h3 className="font-heading text-xl tracking-wide mb-3.5">{L('CHWAZI EVÈNMAN', 'CHOOSE EVENT', 'CHOISIR UN ÉVÉNEMENT')}</h3>
-            {loading ? (
-              <div className="text-center py-10">
-                <div className="w-8 h-8 border-4 border-cyan border-t-transparent rounded-full animate-spin mx-auto" />
-                <p className="text-sm text-gray-light mt-3">{L('Ap chaje...', 'Loading...', 'Chargement...')}</p>
-              </div>
-            ) : events.length === 0 ? (
-              <div className="text-center py-10">
-                <div className="text-4xl mb-3">🎭</div>
-                <p className="text-gray-light">{L('Pa gen evènman disponib kounye a.', 'No events available right now.', 'Aucun événement disponible pour le moment.')}</p>
-              </div>
-            ) : (
-              <div className="flex flex-col gap-2.5">
-                {events.map(e => {
-                  const minP = e.sections?.length > 0 ? Math.min(...e.sections.map(s => s.price)) : 0;
-                  const selected = ev?.id === e.id;
-                  const emoji = e.category === 'Mizik' ? '🎶' : e.category === 'Fèt' ? '🎧' : e.category === 'Festival' ? '🥁' : '🎭';
-                  return (
-                    <div key={e.id} onClick={() => { setEv(e); setSec(null); setSeats([]); setPromo(0); setTimeout(goNext, 200); }}
-                      className={`flex gap-3.5 bg-dark-card border rounded-card p-3.5 cursor-pointer transition-all hover:-translate-y-0.5 ${selected ? 'border-cyan bg-cyan-dim' : 'border-border hover:border-white/[0.12]'}`}>
-                      <div className="w-20 h-20 rounded-[10px] bg-gradient-to-br from-[#1a1a2e] to-[#16213e] flex items-center justify-center text-4xl flex-shrink-0">{emoji}</div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-[9px] uppercase tracking-widest text-cyan font-bold">{e.category}</div>
-                        <div className="text-base font-bold mt-0.5">{e.name}</div>
-                        <div className="flex flex-wrap gap-2.5 text-[11px] text-gray-light mt-1">
-                          <span>📍 {e.venue?.name}</span>
-                          <span>📅 {e.startDate}</span>
-                          <span>🕐 {e.startTime}</span>
-                        </div>
-                      </div>
-                      <div className="text-right flex-shrink-0">
-                        <div className="font-heading text-xl">${minP}</div>
-                        <div className="text-[9px] text-gray-muted">{L('depi', 'from', 'à partir de')}</div>
-                        {e.status === 'live' && <div className="mt-1 text-[9px] font-bold text-red animate-pulse">● {L('AN DIRÈK', 'LIVE', 'EN DIRECT')}</div>}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ════════════ STEP 2: Choose Section ════════════ */}
-        {step === 2 && ev && (
-          <div>
-            <h3 className="font-heading text-xl tracking-wide mb-3.5">{ev.name} — {L('Chwazi Seksyon', 'Choose Section', 'Choisir une section')}</h3>
-            <div className="bg-dark-card border border-border rounded-card p-4 mb-4 text-center">
-              <span className="text-2xl">🎤</span>
-              <p className="text-xs text-gray-muted font-bold mt-1">{stageLabel}</p>
-            </div>
-            <div className="flex flex-col gap-2.5">
-              {(ev.sections || []).map((s, idx) => {
-                const avail = s.capacity - (s.sold || 0);
-                const pct = s.capacity > 0 ? Math.round((s.sold || 0) / s.capacity * 100) : 0;
-                const selected = sec?.name === s.name;
-                return (
-                  <div key={idx} onClick={() => { setSec(s); setSeats([]); setTimeout(goNext, 200); }}
-                    className={`flex items-center gap-3.5 bg-dark-card border rounded-card p-4 cursor-pointer transition-all hover:-translate-y-0.5 ${selected ? 'border-cyan bg-cyan-dim' : 'border-border hover:border-white/[0.12]'}`}>
-                    <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: s.color }} />
-                    <div className="flex-1 min-w-0">
-                      <div className="font-bold">{s.name}</div>
-                      <div className={`text-[11px] mt-1 ${pct > 75 ? 'text-red' : 'text-green'}`}>{pct > 75 ? '⚡ ' : ''}{avail} {availOf} {s.capacity}</div>
-                    </div>
-                    <div className="text-right flex-shrink-0">
-                      <div className="font-heading text-2xl" style={{ color: s.color }}>${s.price}</div>
-                      <div className="text-[9px] text-gray-muted">{perSeat}</div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* ════════════ STEP 3: Choose Seats ════════════ */}
-        {step === 3 && sec && (
-          <div>
-            <h3 className="font-heading text-xl tracking-wide mb-3.5">{sec.name} — {L('Chwazi Plas', 'Choose Seats', 'Choisir des places')}</h3>
-            <div className="bg-dark-card border border-border rounded-card p-4 mb-4 text-center">
-              <span className="text-xl">🎤</span>
-              <p className="text-[10px] text-gray-muted font-bold mt-0.5">{stageLabel}</p>
-            </div>
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-2.5 h-2.5 rounded-sm" style={{ background: sec.color }} />
-              <span className="text-xs font-bold">{sec.name}</span>
-              <span className="text-xs text-gray-muted">— ${sec.price} {perSeat}</span>
-            </div>
-            {(() => {
-              const { rows, cols } = seatGrid(sec.capacity);
-              const soldCount = sec.sold || 0;
-              const takenSet = new Set<number>();
-              let seed = sec.name.length * 7 + sec.capacity;
-              for (let i = 0; i < soldCount && i < sec.capacity; i++) {
-                seed = (seed * 1103515245 + 12345) & 0x7fffffff;
-                let idx = seed % (rows * cols);
-                while (takenSet.has(idx)) idx = (idx + 1) % (rows * cols);
-                takenSet.add(idx);
-              }
-              return (
-                <>
-                  <div className="overflow-x-auto pb-4">
-                    <div className="flex flex-col gap-1 min-w-fit">
-                      {Array.from({ length: rows }).map((_, r) => (
-                        <div key={r} className="flex items-center gap-0.5">
-                          <span className="w-5 text-[9px] text-gray-muted text-center font-bold">{ROWS[r] || r}</span>
-                          {Array.from({ length: cols }).map((_, c) => {
-                            const idx = r * cols + c;
-                            if (idx >= sec.capacity) return <div key={c} className="w-7 h-7" />;
-                            const seatId = (ROWS[r] || r) + '' + (c + 1);
-                            const taken = takenSet.has(idx);
-                            const selected = seats.includes(seatId);
-                            const isGap = cols > 12 && (c === 2 || c === cols - 3);
-                            return (
-                              <div key={c} className="flex items-center">
-                                {isGap && <div className="w-3" />}
-                                <button onClick={() => !taken && toggleSeat(seatId)} disabled={taken}
-                                  className={`w-7 h-7 rounded text-[8px] font-bold transition-all ${taken ? 'bg-white/[0.03] text-gray-muted/30 cursor-not-allowed opacity-20' : selected ? 'text-dark scale-110 shadow-lg' : 'bg-white/[0.06] text-gray-light hover:bg-white/[0.12] cursor-pointer'}`}
-                                  style={selected ? { background: sec.color } : undefined}>
-                                  {c + 1}
-                                </button>
-                              </div>
-                            );
-                          })}
-                          <span className="w-5 text-[9px] text-gray-muted text-center font-bold">{ROWS[r] || r}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="flex gap-4 mt-2 mb-4">
-                    <div className="flex items-center gap-1.5 text-[10px] text-gray-muted"><div className="w-4 h-4 rounded bg-white/[0.06]" /> {availLabel}</div>
-                    <div className="flex items-center gap-1.5 text-[10px] text-gray-muted"><div className="w-4 h-4 rounded" style={{ background: sec.color }} /> {chooseLabel}</div>
-                    <div className="flex items-center gap-1.5 text-[10px] text-gray-muted"><div className="w-4 h-4 rounded bg-white/[0.03] opacity-20" /> {takenLabel}</div>
-                  </div>
-                </>
-              );
-            })()}
-            {seats.length > 0 && (
-              <div className="flex items-center gap-2 flex-wrap">
-                {seats.map(s => (
-                  <span key={s} className="px-2 py-0.5 rounded text-[10px] font-bold border" style={{ color: sec.color, borderColor: sec.color, background: sec.color + '15' }}>{s}</span>
-                ))}
-                <span className="ml-auto font-heading text-xl" style={{ color: sec.color }}>${seats.length * sec.price}</span>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ════════════ STEP 4: Review ════════════ */}
-        {step === 4 && ev && sec && (
-          <div>
-            <h3 className="font-heading text-xl tracking-wide mb-3.5">{L('REVIZE KÒMAND', 'REVIEW ORDER', 'RÉVISER LA COMMANDE')}</h3>
-            <div className="bg-dark-card border border-border rounded-card p-5 space-y-4">
+        {/* Qty + CTA */}
+        {selSection && (
+          <div className="bg-white/[0.04] rounded-xl p-4 mb-4">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-sm font-bold">{L('Kantite', 'Quantity', 'Quantité')}</span>
               <div className="flex items-center gap-3">
-                <div className="w-14 h-14 rounded-[10px] bg-gradient-to-br from-[#1a1a2e] to-[#16213e] flex items-center justify-center text-3xl flex-shrink-0">🎭</div>
-                <div>
-                  <p className="font-bold">{ev.name}</p>
-                  <p className="text-xs text-gray-light">📍 {ev.venue?.name} · 📅 {ev.startDate} · 🕐 {ev.startTime}</p>
-                </div>
+                <button onClick={() => setQty(q => Math.max(1, q - 1))}
+                  className="w-8 h-8 rounded-full bg-white/[0.08] text-white font-bold hover:bg-orange/30 transition-colors">−</button>
+                <span className="text-lg font-heading w-6 text-center">{qty}</span>
+                <button onClick={() => setQty(q => Math.min(10, q + 1))}
+                  className="w-8 h-8 rounded-full bg-white/[0.08] text-white font-bold hover:bg-orange/30 transition-colors">+</button>
               </div>
-
-              {/* Buyer info */}
-              <div className="space-y-2">
-                <h4 className="text-xs font-bold text-gray-light">{L('Enfòmasyon Ou', 'Your Info', 'Vos informations')}</h4>
-                <input value={buyerName} onChange={e => setBuyerName(e.target.value)}
-                  placeholder={L('Non konplè', 'Full name', 'Nom complet')!}
-                  className="w-full px-3.5 py-2.5 rounded-[10px] bg-white/[0.04] border border-border text-white text-[13px] outline-none focus:border-cyan placeholder:text-gray-muted" />
-              <input value={buyerPhone} onChange={e => setBuyerPhone(e.target.value)}
-                  placeholder={L('WhatsApp / Telefòn (obligatwa)', 'WhatsApp / Phone (required)', 'WhatsApp / Téléphone (obligatoire)')!} type="tel"
-                  className="w-full px-3.5 py-2.5 rounded-[10px] bg-white/[0.04] border border-border text-white text-[13px] outline-none focus:border-cyan placeholder:text-gray-muted" />
-                <input value={buyerEmail} onChange={e => setBuyerEmail(e.target.value)}
-                  placeholder={L('Imèl (opsyonèl)', 'Email (optional)', 'E-mail (optionnel)')!} type="email"
-                  className="w-full px-3.5 py-2.5 rounded-[10px] bg-white/[0.04] border border-border text-white text-[13px] outline-none focus:border-cyan placeholder:text-gray-muted" />
+            </div>
+            <div className="flex justify-between text-sm border-t border-white/[0.06] pt-3">
+              <span className="text-gray-400">{L('Total', 'Total', 'Total')}</span>
+              <div className="text-right">
+                <p className="font-bold text-green">${total.toFixed(2)}</p>
+                <p className="text-[11px] text-red-400">{htg(total).toLocaleString('fr-HT')} HTG</p>
               </div>
-
-              <div>
-                <h4 className="text-xs font-bold text-gray-light mb-2">{L('Seksyon & Plas', 'Section & Seats', 'Section & Places')}</h4>
-                <div className="flex flex-wrap gap-1.5">
-                  {seats.map(s => (
-                    <span key={s} className="px-2.5 py-1 rounded text-[10px] font-bold border" style={{ color: sec.color, borderColor: sec.color, background: sec.color + '15' }}>{sec.name} {s}</span>
-                  ))}
-                </div>
-              </div>
-
-              <div className="border-t border-border pt-3 space-y-2">
-                <div className="flex justify-between text-sm"><span className="text-gray-light">{sec.name} × {seats.length}</span><span>${sub.toFixed(2)}</span></div>
-                <div className="flex justify-between text-sm"><span className="text-gray-light">{L('Frè', 'Fees', 'Frais')} (8.5%)</span><span>${fee.toFixed(2)}</span></div>
-                {disc > 0 && <div className="flex justify-between text-sm"><span className="text-green">{L('Rabè', 'Discount', 'Remise')} ({Math.round(promo * 100)}%)</span><span className="text-green">-${disc.toFixed(2)}</span></div>}
-                <div className="flex justify-between items-center pt-2 border-t border-border">
-                  <span className="font-bold">{L('TOTAL', 'TOTAL', 'TOTAL')}</span>
-                  <span className="font-heading text-3xl text-cyan">${total.toFixed(2)}</span>
-                </div>
-              </div>
-              <p className="text-[10px] text-gray-muted text-center">{L('Frè enkli. Pa gen sipriz.', 'Fees included. No surprises.', 'Frais inclus. Pas de surprise.')}</p>
-
-              {/* Promo code */}
-              <div className="flex gap-2">
-                <input value={promoCode} onChange={e => setPromoCode(e.target.value)}
-                  placeholder={L('Kòd pwomo (opsyonèl)', 'Promo code (optional)', 'Code promo (optionnel)')!}
-                  className="flex-1 px-3.5 py-2.5 rounded-[10px] bg-white/[0.04] border border-border text-white text-[13px] outline-none focus:border-cyan placeholder:text-gray-muted" />
-                <button onClick={applyPromo} className="px-4 py-2.5 rounded-[10px] bg-cyan-dim text-cyan text-xs font-bold border border-cyan-border hover:bg-cyan hover:text-dark transition-all">{L('Aplike', 'Apply', 'Appliquer')}</button>
-              </div>
-              {promoMsg && <p className={`text-[11px] ${promoMsg.startsWith('✅') ? 'text-green' : 'text-red'}`}>{promoMsg}</p>}
             </div>
           </div>
         )}
 
-        {/* ════════════ STEP 5: Pay ════════════ */}
-        {step === 5 && (
-          <div>
-            <h3 className="font-heading text-xl tracking-wide mb-3.5">{L('PEYE', 'PAY', 'PAYER')}</h3>
-            <div className="flex flex-col gap-2.5">
-              {[
-                { id: 'moncash', icon: '📱', name: 'MonCash', desc: L('Peye ak MonCash', 'Pay with MonCash', 'Payer avec MonCash') },
-                { id: 'natcash', icon: '💚', name: 'Natcash', desc: L('Peye ak Natcash', 'Pay with Natcash', 'Payer avec Natcash') },
-                { id: 'card', icon: '💳', name: L('Kat Kredi', 'Credit Card', 'Carte de crédit'), desc: L('Visa, Mastercard', 'Visa, Mastercard', 'Visa, Mastercard') },
-                { id: 'zelle', icon: '⚡', name: 'Zelle', desc: L('Peye ak Zelle', 'Pay with Zelle', 'Payer avec Zelle') },
-                { id: 'paypal', icon: '🅿️', name: 'PayPal', desc: L('Peye ak PayPal', 'Pay with PayPal', 'Payer avec PayPal') },
-                { id: 'cashapp', icon: '💲', name: 'Cash App', desc: L('Peye ak Cash App', 'Pay with Cash App', 'Payer avec Cash App') },
-                { id: 'cash', icon: '💵', name: L('Kach', 'Cash', 'Espèces'), desc: L('Peye nan pot la', 'Pay at the door', "Payer à l'entrée") },
-              ].map(m => (
-                <div key={m.id} onClick={() => setPay(m.id)}
-                  className={`flex items-center gap-3.5 bg-dark-card border rounded-card p-4 cursor-pointer transition-all ${pay === m.id ? 'border-cyan bg-cyan-dim' : 'border-border hover:border-white/[0.12]'}`}>
-                  <span className="text-2xl">{m.icon}</span>
-                  <div className="flex-1">
-                    <p className="font-bold text-sm">{m.name}</p>
-                    <p className="text-[11px] text-gray-light">{m.desc}</p>
-                  </div>
-                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${pay === m.id ? 'border-cyan' : 'border-border'}`}>
-                    {pay === m.id && <div className="w-2.5 h-2.5 rounded-full bg-cyan" />}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* ── Card: Elements with deferred mode (NO clientSecret here) ── */}
-            {pay === 'card' && (
-              <div className="mt-4 p-4 bg-dark-card border border-cyan rounded-card">
-                <p className="text-xs text-gray-light mb-3">💳 {L('Antre enfòmasyon kat ou a', 'Enter your card details', 'Entrez les détails de votre carte')}</p>
-                <Elements
-                  stripe={stripePromise}
-                  options={{
-                    mode: 'payment',
-                    amount: Math.max(50, Math.round(total * 100)),
-                    currency: 'usd',
-                    appearance: {
-                      theme: 'night',
-                      variables: { colorPrimary: '#06b6d4', colorBackground: '#111827', borderRadius: '10px' },
-                    },
-                  }}
-                >
-                  {!paymentElementReady && (
-                    <div className="flex items-center gap-2 py-4 justify-center">
-                      <div className="w-5 h-5 border-2 border-cyan border-t-transparent rounded-full animate-spin" />
-                      <span className="text-xs text-gray-light">{L('Ap chaje fòm kat...', 'Loading card form...', 'Chargement du formulaire...')}</span>
-                    </div>
-                  )}
-                  <StripePaymentForm
-                    ref={stripeFormRef}
-                    onReady={() => setPaymentElementReady(true)}
-                    onUnready={() => setPaymentElementReady(false)}
-                  />
-                </Elements>
-              </div>
-            )}
-          </div>
-        )}
+        <button disabled={!selSection}
+          onClick={() => setStep(selSection?.type === 'reserved' ? 'seats' : 'info')}
+          className="w-full py-3.5 rounded-xl font-heading text-base bg-orange text-white disabled:opacity-30 hover:bg-orange/90 transition-all">
+          {L('Kontinye', 'Continue', 'Continuer')} →
+        </button>
       </div>
+    </div>
+  );
 
-      {/* ════════════ Pay Instructions Modal ════════════ */}
-      {showPayInstructions && sec && (() => {
-        const info = getPayInstructions();
-        const link = getDeepLink();
-        const amount = (sec.price * seats.length).toFixed(2);
-        return (
-          <div className="fixed inset-0 z-[60] bg-black/80 flex items-end justify-center p-4">
-            <div className="bg-dark-card border border-border rounded-2xl w-full max-w-md p-6 flex flex-col gap-4">
-              <div className="text-center">
-                <div className="text-4xl mb-2">{info.icon}</div>
-                <h3 className="font-heading text-xl">{info.title}</h3>
-                <p className="text-gray-light text-sm mt-1">{info.line1}</p>
-                <p className="font-bold text-lg text-cyan mt-1">{info.line2}</p>
-                <p className="text-2xl font-bold mt-2">${amount}</p>
-              </div>
-              {link && (
-                <a href={link} target="_blank" rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-2 bg-cyan text-dark font-bold py-3 rounded-xl text-sm">
-                  {L('Ouvri ' + info.title, 'Open ' + info.title, 'Ouvrir ' + info.title)} →
-                </a>
-              )}
-              <button onClick={confirmPayment} disabled={processing}
-                className="flex items-center justify-center gap-2 bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white font-bold py-3 rounded-xl text-sm">
-                {processing ? '...' : L('✓ Mwen Peye — Kreye Tikè Mwen', '✓ I Paid — Get My Ticket', '✓ Mwen Peye — Mon Billet')}
-              </button>
-              <button onClick={() => setShowPayInstructions(false)}
-                className="text-gray-light text-sm text-center py-2">
-                {L('Tounen', 'Go Back', 'Retour')}
-              </button>
-            </div>
+  // ── Step: Seats ───────────────────────────────────────────────
+  if (step === 'seats') return (
+    <div className="min-h-screen bg-black text-white">
+      <div className="max-w-2xl mx-auto px-4 py-6">
+        <button onClick={() => setStep('detail')} className="text-gray-400 hover:text-white text-sm mb-4">← {L('Tounen', 'Back', 'Retour')}</button>
+        <h2 className="font-heading text-xl mb-1">{L('Chwazi Plas', 'Choose Seats', 'Choisir Places')}</h2>
+        <p className="text-gray-400 text-xs mb-6">
+          {selSeats.length}/{qty} {L('plas seleksyone', 'seats selected', 'places sélectionnées')} · {selSection?.name}
+        </p>
+        <SeatMap
+          section={selSection!}
+          takenIds={takenSeats}
+          selected={selSeats}
+          onToggle={toggleSeat}
+        />
+        <button disabled={selSeats.length !== qty}
+          onClick={() => setStep('info')}
+          className="w-full mt-8 py-3.5 rounded-xl font-heading text-base bg-orange text-white disabled:opacity-30 hover:bg-orange/90 transition-all">
+          {L('Kontinye', 'Continue', 'Continuer')} →
+        </button>
+      </div>
+    </div>
+  );
+
+  // ── Step: Info ────────────────────────────────────────────────
+  if (step === 'info') return (
+    <div className="min-h-screen bg-black text-white">
+      <div className="max-w-2xl mx-auto px-4 py-6">
+        <button onClick={() => setStep(selSection?.type === 'reserved' ? 'seats' : 'detail')}
+          className="text-gray-400 hover:text-white text-sm mb-4">← {L('Tounen', 'Back', 'Retour')}</button>
+        <h2 className="font-heading text-xl mb-6">{L('Enfòmasyon Ou', 'Your Info', 'Vos Informations')}</h2>
+
+        <div className="space-y-4">
+          <div>
+            <label className="block text-xs font-bold text-gray-400 mb-1.5">{L('Non Konplè *', 'Full Name *', 'Nom Complet *')}</label>
+            <input value={name} onChange={e => setName(e.target.value)}
+              placeholder="Jean Paul"
+              className={`w-full px-4 py-3 rounded-xl bg-white/[0.06] border text-white text-sm outline-none focus:border-orange ${errors.name ? 'border-red-500' : 'border-white/[0.1]'}`} />
+            {errors.name && <p className="text-red-400 text-[10px] mt-1">{errors.name}</p>}
           </div>
-        );
-      })()}
 
-      {/* Refund Policy Notice — step 5 */}
-      {step === 5 && ev?.refundPolicy && (
-        <div className="fixed bottom-[72px] left-0 right-0 z-40 px-5">
-          <div className="max-w-[1100px] mx-auto">
-            <p className="text-[10px] text-gray-muted bg-dark border border-border rounded-lg px-3 py-2">
-              📋{' '}
-              {ev.refundPolicy === 'no_refund' && L('Pa gen ranbousman apre acha — vant final.', 'No refunds after purchase — all sales final.', 'Aucun remboursement — vente définitive.')}
-              {ev.refundPolicy === 'timed' && L(`Ranbousman posib jiska ${ev.refundDeadlineDays ?? 7} jou anvan evènman.`, `Refunds up to ${ev.refundDeadlineDays ?? 7} days before event.`, `Remboursement jusqu'à ${ev.refundDeadlineDays ?? 7} jours avant.`)}
-              {ev.refundPolicy === 'organizer_approval' && L('Ranbousman sijè a apwobasyon òganizatè.', 'Refunds subject to organizer approval.', 'Remboursement soumis à approbation.')}
-            </p>
+          <div>
+            <label className="block text-xs font-bold text-gray-400 mb-1.5">{L('Nimewo Telefòn *', 'Phone Number *', 'Numéro de Téléphone *')}</label>
+            <input value={phone} onChange={e => setPhone(e.target.value)}
+              placeholder="+509 xxxx-xxxx"
+              type="tel"
+              className={`w-full px-4 py-3 rounded-xl bg-white/[0.06] border text-white text-sm outline-none focus:border-orange ${errors.phone ? 'border-red-500' : 'border-white/[0.1]'}`} />
+            {errors.phone && <p className="text-red-400 text-[10px] mt-1">{errors.phone}</p>}
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-gray-400 mb-1.5">{L('Email (opsyonèl)', 'Email (optional)', 'Email (facultatif)')}</label>
+            <input value={email} onChange={e => setEmail(e.target.value)}
+              placeholder="you@email.com"
+              type="email"
+              className={`w-full px-4 py-3 rounded-xl bg-white/[0.06] border text-white text-sm outline-none focus:border-orange ${errors.email ? 'border-red-500' : 'border-white/[0.1]'}`} />
+            {errors.email && <p className="text-red-400 text-[10px] mt-1">{errors.email}</p>}
           </div>
         </div>
-      )}
 
-      {/* ════════════ Bottom Bar ════════════ */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 bg-dark border-t border-border px-5 py-3">
-        <div className="max-w-[1100px] mx-auto flex items-center gap-3">
-          <div className="flex-1 text-xs text-gray-light">
-            {step === 1 && (ev ? <><strong>{ev.name}</strong></> : L('Chwazi yon evènman.', 'Choose an event.', 'Choisissez un événement.'))}
-            {step === 2 && (sec ? <><strong>{sec.name}</strong> — ${sec.price} {perSeat}</> : L('Chwazi yon seksyon.', 'Choose a section.', 'Choisissez une section.'))}
-            {step === 3 && (seats.length > 0 ? <><strong>{seats.length} {L('plas', 'seats', 'places')}</strong> · ${total.toFixed(2)}</> : L('Chwazi omwen 1 plas.', 'Select at least 1 seat.', 'Sélectionnez au moins 1 place.'))}
-            {step === 4 && <>{L('Total', 'Total', 'Total')}: <strong>${total.toFixed(2)}</strong></>}
-            {step === 5 && <>{L('Total', 'Total', 'Total')}: <strong>${total.toFixed(2)}</strong></>}
+        {/* Order summary */}
+        <div className="mt-6 bg-white/[0.04] rounded-xl p-4 text-sm">
+          <p className="font-bold mb-2">{L('Rezime', 'Summary', 'Résumé')}</p>
+          <div className="flex justify-between text-gray-400 text-xs mb-1">
+            <span>{selSection?.name} × {qty}</span>
+            <span className="text-green">${total.toFixed(2)} <span className="text-red-400">· {htg(total).toLocaleString('fr-HT')} HTG</span></span>
           </div>
-          {step > 1 && (
-            <button onClick={goBack} className="px-4 py-2.5 rounded-[10px] border border-border text-gray-light text-xs font-bold hover:border-cyan hover:text-cyan transition-all">{L('Retounen', 'Back', 'Retour')}</button>
+          {selSeats.length > 0 && (
+            <p className="text-[10px] text-gray-500">Plas: {selSeats.join(', ')}</p>
           )}
-          <button onClick={goNext} disabled={!canNext}
-            className={`px-6 py-2.5 rounded-[10px] font-bold text-sm transition-all ${step === 5 ? (canNext ? 'bg-green text-white hover:bg-green/80' : 'bg-white/[0.04] text-gray-muted cursor-not-allowed') : (canNext ? 'bg-cyan text-dark hover:bg-white' : 'bg-white/[0.04] text-gray-muted cursor-not-allowed')}`}>
-            {step === 5 ? (stripeProcessing ? <span className="flex items-center gap-2"><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline-block" />Ap trete...</span> : `🔒 ${L('Peye', 'Pay', 'Payer')} $${total.toFixed(2)}`) : step === 3 ? L('Revize →', 'Review →', 'Réviser →') : L('Kontinye →', 'Continue →', 'Continuer →')}
-          </button>
+        </div>
+
+        <button onClick={() => { if (validateInfo()) setStep('payment'); }}
+          className="w-full mt-4 py-3.5 rounded-xl font-heading text-base bg-orange text-white hover:bg-orange/90 transition-all">
+          {L('Kontinye', 'Continue', 'Continuer')} →
+        </button>
+      </div>
+    </div>
+  );
+
+  // ── Step: Payment ─────────────────────────────────────────────
+  if (step === 'payment') return (
+    <div className="min-h-screen bg-black text-white">
+      <div className="max-w-2xl mx-auto px-4 py-6">
+        <button onClick={() => setStep('info')} className="text-gray-400 hover:text-white text-sm mb-4">← {L('Tounen', 'Back', 'Retour')}</button>
+        <h2 className="font-heading text-xl mb-6">{L('Peman', 'Payment', 'Paiement')}</h2>
+
+        {/* Method selector */}
+        <div className="space-y-3 mb-6">
+          {availMethods.map(m => (
+            <button key={m} onClick={() => setPayMethod(m)}
+              className={`w-full flex items-center gap-4 p-4 rounded-xl border transition-all text-left ${
+                payMethod === m ? 'border-orange bg-orange/10' : 'border-white/[0.08] hover:border-orange/30'
+              }`}>
+              <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${payMethod === m ? 'border-orange' : 'border-gray-500'}`}>
+                {payMethod === m && <div className="w-2 h-2 rounded-full bg-orange" />}
+              </div>
+              <span className="font-bold text-sm">{PAY_LABELS[m] || m}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* MonCash / Natcash instructions */}
+        {(payMethod === 'moncash' || payMethod === 'natcash') && (
+          <div className="bg-white/[0.04] rounded-xl p-4 mb-4 text-sm">
+            <p className="font-bold mb-2">📱 {payMethod === 'moncash' ? 'MonCash' : 'Natcash'}</p>
+            <p className="text-gray-400 text-xs mb-3">
+              {L(
+                `Voye ${fmtPrice(total)} bay nimewo sa a, answit antre ID tranzaksyon ou a anba.`,
+                `Send ${fmtPrice(total)} to the number below, then enter your transaction ID.`,
+                `Envoyez ${fmtPrice(total)} au numéro ci-dessous, puis entrez votre ID de transaction.`
+              )}
+            </p>
+            <div className="bg-black/40 rounded-lg p-3 text-center mb-3">
+              <p className="text-[10px] text-gray-500 mb-0.5">{payMethod === 'moncash' ? 'MonCash' : 'Natcash'} #</p>
+              <p className="font-heading text-xl text-orange">
+                {event.paymentMethods?.[payMethod]?.values?.[0] || '—'}
+              </p>
+            </div>
+            <label className="block text-[10px] font-bold text-gray-400 mb-1.5">
+              {L('ID Tranzaksyon', 'Transaction ID', 'ID de Transaction')}
+            </label>
+            <input value={txnId} onChange={e => setTxnId(e.target.value)}
+              placeholder="ex: TXN123456"
+              className="w-full px-4 py-3 rounded-xl bg-white/[0.06] border border-white/[0.1] text-white text-sm outline-none focus:border-orange" />
+          </div>
+        )}
+
+        {/* Cash / Zelle / CashApp */}
+        {payMethod === 'cash' && (
+          <div className="bg-white/[0.04] rounded-xl p-4 mb-4 text-sm">
+            <p className="font-bold mb-2">💵 {L('Cash · Zelle · CashApp', 'Cash · Zelle · CashApp', 'Cash · Zelle · CashApp')}</p>
+            <p className="text-gray-400 text-xs">
+              {L(
+                'Tikè ou a pral gen estati "ann atant". Ou ka peye nan pòt oswa bay òganizatè a.',
+                'Your ticket will be marked "pending". Pay at the door or contact the organizer.',
+                'Votre billet sera marqué "en attente". Payez à l\'entrée ou contactez l\'organisateur.'
+              )}
+            </p>
+            {event.paymentMethods?.cash?.values?.length > 0 && (
+              <div className="mt-3 bg-black/40 rounded-lg p-3">
+                {event.paymentMethods.cash.values.map((v, i) => (
+                  <p key={i} className="text-xs text-orange font-bold">{v}</p>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Stripe placeholder */}
+        {payMethod === 'stripe' && (
+          <div className="bg-white/[0.04] rounded-xl p-4 mb-4 text-sm">
+            <p className="font-bold mb-2">💳 {L('Kart Kredi / Debi', 'Credit / Debit Card', 'Carte Crédit / Débit')}</p>
+            <p className="text-gray-400 text-xs">
+              {L('Stripe ap chaje kart ou lè ou klike Konfime.', 'Stripe will charge your card when you confirm.', 'Stripe débitera votre carte à la confirmation.')}
+            </p>
+            {/* TODO: mount Stripe Elements here */}
+            <div className="mt-3 bg-black/40 rounded-lg p-3 border border-dashed border-white/10 text-center text-gray-600 text-xs">
+              Stripe Elements — {L('pwochen vèsyon', 'coming next release', 'prochaine version')}
+            </div>
+          </div>
+        )}
+
+        {/* Order total */}
+        <div className="bg-white/[0.04] rounded-xl p-4 mb-4">
+          <div className="flex justify-between text-sm">
+            <span className="text-gray-400">{L('Total', 'Total', 'Total')}</span>
+            <div className="text-right">
+              <p className="font-bold text-green">${total.toFixed(2)}</p>
+              <p className="text-[11px] text-red-400">{htg(total).toLocaleString('fr-HT')} HTG</p>
+            </div>
+          </div>
+        </div>
+
+        <button
+          disabled={!payMethod || processing || ((payMethod === 'moncash' || payMethod === 'natcash') && !txnId.trim())}
+          onClick={completePurchase}
+          className="w-full py-3.5 rounded-xl font-heading text-base bg-orange text-white disabled:opacity-30 hover:bg-orange/90 transition-all flex items-center justify-center gap-2">
+          {processing
+            ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> {L('Tann...', 'Processing...', 'Traitement...')}</>
+            : L('Konfime Peman', 'Confirm Payment', 'Confirmer Paiement')}
+        </button>
+      </div>
+    </div>
+  );
+
+  // ── Step: Done ────────────────────────────────────────────────
+  if (step === 'done') return (
+    <div className="min-h-screen bg-black text-white flex items-center justify-center px-4">
+      <div className="max-w-md w-full text-center">
+        <div className="text-6xl mb-4">🎉</div>
+        <h2 className="font-heading text-2xl mb-2">
+          {payMethod === 'cash' || payMethod === 'moncash' || payMethod === 'natcash'
+            ? L('Tikè ou ann atant!', 'Ticket pending!', 'Billet en attente!')
+            : L('Tikè konfime!', 'Ticket confirmed!', 'Billet confirmé!')}
+        </h2>
+        <p className="text-gray-400 text-sm mb-8">
+          {payMethod === 'cash'
+            ? L('Peye nan pòt pou konfime plas ou.', 'Pay at the door to confirm your spot.', 'Payez à l\'entrée pour confirmer.')
+            : payMethod === 'moncash' || payMethod === 'natcash'
+            ? L('Nou pral verifye peman ou a. Tikè ou ap aktive nan kèk minit.', 'We\'ll verify your payment. Your ticket will activate shortly.', 'Nous vérifierons votre paiement.')
+            : L('Tikè ou prèt. Montre kòd la nan pòt.', 'Your ticket is ready. Show the code at the door.', 'Votre billet est prêt.')}
+        </p>
+
+        <div className="space-y-3 mb-8">
+          {ticketCodes.map((code, i) => (
+            <div key={code} className="bg-white/[0.06] rounded-xl p-4">
+              <p className="text-[10px] text-gray-500 mb-1">
+                {L('Tikè', 'Ticket', 'Billet')} {ticketCodes.length > 1 ? `#${i + 1}` : ''} · {selSection?.name}
+                {selSeats[i] ? ` · Plas ${selSeats[i]}` : ''}
+              </p>
+              <p className="font-heading text-2xl tracking-widest text-orange">{code}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex gap-3">
+          <Link href={`/ticket/${ticketCodes[0]}`}
+            className="flex-1 py-3 rounded-xl bg-orange text-white font-bold text-sm hover:bg-orange/90 transition-all">
+            {L('Wè Tikè', 'View Ticket', 'Voir Billet')}
+          </Link>
+          <Link href="/events"
+            className="flex-1 py-3 rounded-xl bg-white/[0.08] text-white font-bold text-sm hover:bg-white/[0.12] transition-all">
+            {L('Tounen', 'Back', 'Retour')}
+          </Link>
         </div>
       </div>
     </div>
   );
+
+  return null;
 }
 
-export default function BuyTicketPage() {
-  return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="w-10 h-10 border-4 border-cyan border-t-transparent rounded-full animate-spin" /></div>}>
-      <BuyTicketInner />
-    </Suspense>
-  );
+export default function BuyPage() {
+  return <Suspense><BuyPageInner /></Suspense>;
 }

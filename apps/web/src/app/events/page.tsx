@@ -1,222 +1,175 @@
 'use client';
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
+
+import { useEffect, useState, Suspense } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
+import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import { useT } from '@/i18n';
-import { getPublishedEvents, type EventData } from '@/lib/db';
+import Link from 'next/link';
 
-export default function BrowseEvents() {
-  const { locale } = useT();
-  const L = (ht: string, en: string, fr: string) => ({ ht, en, fr }[locale]);
+interface PublicEvent {
+  id: string;
+  slug: string;
+  title: string;
+  date: any;
+  venue: string;
+  city: string;
+  coverImage?: string;
+  minPrice: number;
+  maxPrice: number;
+  sections: any[];
+  status: 'live' | 'upcoming' | 'ended';
+  organizerName?: string;
+  tags?: string[];
+}
 
-  const [events, setEvents] = useState<EventData[]>([]);
+function EventsInner() {
+  const { L } = useT();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [events, setEvents]   = useState<PublicEvent[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('');
-  const [selectedCity, setSelectedCity] = useState('');
+  const [search, setSearch]   = useState(searchParams.get('q') || '');
+  const [filter, setFilter]   = useState<'all' | 'live' | 'upcoming'>('all');
 
   useEffect(() => {
-    async function load() {
+    (async () => {
       try {
-        const data = await getPublishedEvents();
-        setEvents(data);
-      } catch (err) {
-        console.error('Failed to load events:', err);
-      } finally {
-        setLoading(false);
-      }
-    }
-    load();
+        const q = query(
+          collection(db, 'events'),
+          where('status', 'in', ['live', 'upcoming']),
+          orderBy('date', 'asc')
+        );
+        const snap = await getDocs(q);
+        setEvents(snap.docs.map(d => ({ id: d.id, ...d.data() } as PublicEvent)));
+      } catch (e) { console.error(e); }
+      finally { setLoading(false); }
+    })();
   }, []);
 
-  const categories = [
-    { value: '', label: L('Tout', 'All', 'Tous') },
-    { value: 'kompa', label: 'Kompa' },
-    { value: 'rara', label: 'Rara' },
-    { value: 'rasin', label: 'Rasin' },
-    { value: 'jazz', label: 'Jazz' },
-    { value: 'dj', label: 'DJ' },
-    { value: 'gala', label: 'Gala' },
-    { value: 'conference', label: L('Konferans', 'Conference', 'Conference') },
-    { value: 'sports', label: L('Espo', 'Sports', 'Sports') },
-    { value: 'theater', label: L('Teyat', 'Theater', 'Theatre') },
-    { value: 'festival', label: 'Festival' },
-    { value: 'religious', label: L('Relijye', 'Religious', 'Religieux') },
-  ];
-
-  const cities = ['', ...Array.from(new Set(events.map(e => e.venue?.city).filter(Boolean)))];
-
-  const filtered = events.filter(e => {
+  const filtered = events.filter(ev => {
     const matchSearch = !search ||
-      e.name.toLowerCase().includes(search.toLowerCase()) ||
-      e.description?.toLowerCase().includes(search.toLowerCase()) ||
-      e.venue?.name?.toLowerCase().includes(search.toLowerCase()) ||
-      e.venue?.city?.toLowerCase().includes(search.toLowerCase());
-    const matchCategory = !selectedCategory || e.category === selectedCategory;
-    const matchCity = !selectedCity || e.venue?.city === selectedCity;
-    return matchSearch && matchCategory && matchCity;
+      ev.title.toLowerCase().includes(search.toLowerCase()) ||
+      ev.city?.toLowerCase().includes(search.toLowerCase()) ||
+      ev.tags?.some(t => t.toLowerCase().includes(search.toLowerCase()));
+    const matchFilter = filter === 'all' || ev.status === filter;
+    return matchSearch && matchFilter;
   });
 
-  const lowestPrice = (e: EventData) => {
-    if (!e.sections || e.sections.length === 0) return 0;
-    return Math.min(...e.sections.map(s => s.price));
-  };
+  const fmt = (n: number) => `$${n.toLocaleString('en-US', { minimumFractionDigits: 0 })}`;
 
-  const totalCapacity = (e: EventData) => {
-    if (!e.sections) return 0;
-    return e.sections.reduce((sum, s) => sum + s.capacity, 0);
+  const dateStr = (ts: any) => {
+    if (!ts) return '';
+    const d = ts.toDate ? ts.toDate() : new Date(ts);
+    return d.toLocaleDateString('fr-HT', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
   };
-
-  const inputStyle: React.CSSProperties = { padding: 12, borderRadius: 8, border: '1px solid #1e1e2e', background: '#0a0a0f', color: '#fff', fontSize: 14, boxSizing: 'border-box' };
 
   return (
-    <div style={{ minHeight: '100vh', background: '#0a0a0f', padding: '20px 16px' }}>
-      <div style={{ maxWidth: 1000, margin: '0 auto' }}>
-
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
-          <Link href="/" style={{ color: '#06b6d4', textDecoration: 'none', fontSize: 14 }}>
-            &larr; {L('Lakay', 'Home', 'Accueil')}
+    <div className="min-h-screen bg-black text-white">
+      {/* Header */}
+      <div className="bg-black/80 backdrop-blur sticky top-0 z-20 border-b border-white/[0.06]">
+        <div className="max-w-5xl mx-auto px-4 py-4 flex items-center gap-3">
+          <Link href="/" className="font-heading text-xl text-orange tracking-wide">ANBYANS</Link>
+          <div className="flex-1" />
+          <Link href="/organizer/auth" className="text-[11px] font-bold text-gray-400 hover:text-white transition-colors">
+            {L('Òganizatè', 'Organizer', 'Organisateur')} →
           </Link>
-          <h1 style={{ color: '#fff', fontSize: 22, fontWeight: 800 }}>
-            {L('Evenman', 'Events', 'Evenements')}
+        </div>
+      </div>
+
+      {/* Hero search */}
+      <div className="bg-gradient-to-b from-orange/10 to-transparent py-12 px-4">
+        <div className="max-w-2xl mx-auto text-center">
+          <h1 className="font-heading text-4xl md:text-5xl text-white mb-2">
+            {L('Evènman pou nou, pa nou.', 'Events for us, by us.', 'Événements pour nous, par nous.')}
           </h1>
-          <Link href="/auth" style={{ color: '#06b6d4', textDecoration: 'none', fontSize: 13 }}>
-            {L('Konekte', 'Sign In', 'Connexion')}
-          </Link>
-        </div>
-
-        {/* Search */}
-        <div style={{ marginBottom: 16 }}>
-          <input
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder={L('Chache evenman, atis, kote...', 'Search events, artists, venues...', 'Chercher evenements, artistes, lieux...')!}
-            style={{ ...inputStyle, width: '100%' }}
-          />
-        </div>
-
-        {/* Filters */}
-        <div style={{ display: 'flex', gap: 8, marginBottom: 24, flexWrap: 'wrap' }}>
-          {/* Category chips */}
-          {categories.map(c => (
-            <button key={c.value} onClick={() => setSelectedCategory(c.value)}
-              style={{
-                padding: '6px 14px', borderRadius: 20, border: '1px solid #1e1e2e', cursor: 'pointer',
-                background: selectedCategory === c.value ? '#06b6d4' : 'transparent',
-                color: selectedCategory === c.value ? '#000' : '#888',
-                fontSize: 12, fontWeight: 600,
-              }}>
-              {c.label}
-            </button>
-          ))}
-
-          {/* City filter */}
-          {cities.length > 2 && (
-            <select value={selectedCity} onChange={e => setSelectedCity(e.target.value)}
-              style={{ ...inputStyle, fontSize: 12, padding: '6px 12px', borderRadius: 20 }}>
-              <option value="">{L('Tout Vil', 'All Cities', 'Toutes les villes')}</option>
-              {cities.filter(Boolean).map(c => (
-                <option key={c} value={c!}>{c}</option>
-              ))}
-            </select>
-          )}
-        </div>
-
-        {/* Loading */}
-        {loading && (
-          <div style={{ textAlign: 'center', padding: 60 }}>
-            <div style={{ fontSize: 40, marginBottom: 12 }}>&#x23F3;</div>
-            <p style={{ color: '#888' }}>{L('Ap chaje evenman...', 'Loading events...', 'Chargement...')}</p>
+          <p className="text-gray-400 text-sm mb-8">
+            {L('Jwenn evènman Ayisyen nan tout kote', 'Find Haitian events everywhere', 'Trouvez des événements haïtiens partout')}
+          </p>
+          <div className="relative">
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder={L('Rechèche evènman, vil, artis...', 'Search events, city, artist...', 'Rechercher événements, ville...')}
+              className="w-full px-5 py-3.5 rounded-xl bg-white/[0.08] border border-white/[0.12] text-white placeholder:text-gray-500 text-sm outline-none focus:border-orange"
+            />
+            <span className="absolute right-4 top-3.5 text-gray-500">🔍</span>
           </div>
-        )}
+        </div>
+      </div>
 
-        {/* No events */}
-        {!loading && filtered.length === 0 && (
-          <div style={{ textAlign: 'center', padding: 60 }}>
-            <div style={{ fontSize: 48, marginBottom: 12 }}>&#x1F3B6;</div>
-            <h2 style={{ color: '#fff', marginBottom: 8 }}>
-              {search || selectedCategory
-                ? L('Pa gen rezilta', 'No results', 'Aucun resultat')
-                : L('Pa gen evenman anko', 'No events yet', "Pas encore d'evenements")}
-            </h2>
-            <p style={{ color: '#888', fontSize: 14, marginBottom: 24 }}>
-              {search || selectedCategory
-                ? L('Eseye yon lot rechech', 'Try a different search', 'Essayez une autre recherche')
-                : L('Premye evenman yo ap vini byento!', 'First events coming soon!', 'Les premiers evenements arrivent bientot!')}
-            </p>
-            {(search || selectedCategory) && (
-              <button onClick={() => { setSearch(''); setSelectedCategory(''); setSelectedCity(''); }}
-                style={{ padding: '10px 24px', borderRadius: 8, border: '1px solid #06b6d4', background: 'transparent', color: '#06b6d4', cursor: 'pointer', fontSize: 13 }}>
-                {L('Efase Filt', 'Clear Filters', 'Effacer les filtres')}
-              </button>
-            )}
+      {/* Filter tabs */}
+      <div className="max-w-5xl mx-auto px-4 mb-6 flex gap-2">
+        {(['all', 'live', 'upcoming'] as const).map(f => (
+          <button key={f} onClick={() => setFilter(f)}
+            className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${
+              filter === f ? 'bg-orange text-white' : 'bg-white/[0.06] text-gray-400 hover:bg-white/[0.1]'
+            }`}>
+            {f === 'all'      ? L('Tout', 'All', 'Tous') :
+             f === 'live'     ? `● ${L('An Dirèk', 'Live Now', 'En Direct')}` :
+                                L('Pwochen', 'Upcoming', 'À venir')}
+          </button>
+        ))}
+        <span className="ml-auto text-xs text-gray-500 self-center">
+          {filtered.length} {L('evènman', 'events', 'événements')}
+        </span>
+      </div>
+
+      {/* Event grid */}
+      <div className="max-w-5xl mx-auto px-4 pb-16">
+        {loading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {[...Array(6)].map((_, i) => (
+              <div key={i} className="rounded-2xl bg-white/[0.04] h-72 animate-pulse" />
+            ))}
           </div>
-        )}
-
-        {/* Event Grid */}
-        {!loading && filtered.length > 0 && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
-            {filtered.map(event => (
-              <Link key={event.id} href={`/events/${event.id}`} style={{ textDecoration: 'none' }}>
-                <div style={{
-                  background: '#12121a', border: '1px solid #1e1e2e', borderRadius: 12, overflow: 'hidden',
-                  cursor: 'pointer', transition: 'border-color .2s',
-                }}
-                  onMouseEnter={e => (e.currentTarget.style.borderColor = '#06b6d4')}
-                  onMouseLeave={e => (e.currentTarget.style.borderColor = '#1e1e2e')}>
-
-                  {/* Image */}
-                  <div style={{ height: 160, background: '#1a1a2a', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-                    {event.imageUrl ? (
-                      <img src={event.imageUrl} alt={event.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    ) : (
-                      <span style={{ fontSize: 48 }}>&#x1F3B5;</span>
-                    )}
-                  </div>
-
-                  {/* Info */}
-                  <div style={{ padding: 16 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-                      <h3 style={{ color: '#fff', fontSize: 16, fontWeight: 700, margin: 0, flex: 1 }}>{event.name}</h3>
-                      <span style={{ background: '#06b6d4', color: '#000', padding: '2px 8px', borderRadius: 12, fontSize: 11, fontWeight: 700, marginLeft: 8, whiteSpace: 'nowrap' }}>
-                        ${lowestPrice(event)}+
-                      </span>
-                    </div>
-
-                    <div style={{ color: '#888', fontSize: 13, marginBottom: 4 }}>
-                      {event.startDate} {event.startTime && `@ ${event.startTime}`}
-                    </div>
-
-                    <div style={{ color: '#666', fontSize: 12, marginBottom: 8 }}>
-                      {event.venue?.name} &bull; {event.venue?.city}
-                    </div>
-
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{
-                        padding: '2px 8px', borderRadius: 12, fontSize: 10, fontWeight: 600,
-                        background: '#0a1a1a', border: '1px solid #1e1e2e', color: '#888',
-                      }}>
-                        {event.category}
-                      </span>
-                      <span style={{ color: '#555', fontSize: 11 }}>
-                        {totalCapacity(event)} {L('plas', 'seats', 'places')}
-                      </span>
-                    </div>
+        ) : filtered.length === 0 ? (
+          <div className="text-center py-24 text-gray-500">
+            <p className="text-4xl mb-3">🎭</p>
+            <p>{L('Pa gen evènman pou kounye a.', 'No events found.', 'Aucun événement trouvé.')}</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filtered.map(ev => (
+              <Link key={ev.id} href={`/e/${ev.slug}`}
+                className="group rounded-2xl overflow-hidden border border-white/[0.06] hover:border-orange/40 transition-all bg-white/[0.03] hover:bg-white/[0.06]">
+                {/* Cover */}
+                <div className="relative h-40 bg-gradient-to-br from-orange/20 to-purple-900/40 overflow-hidden">
+                  {ev.coverImage
+                    ? <img src={ev.coverImage} alt={ev.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                    : <div className="flex items-center justify-center h-full text-5xl">🎉</div>
+                  }
+                  {ev.status === 'live' && (
+                    <span className="absolute top-2 left-2 bg-red-500 text-white text-[9px] font-black px-2 py-0.5 rounded-full animate-pulse">
+                      ● LIVE
+                    </span>
+                  )}
+                </div>
+                {/* Info */}
+                <div className="p-4">
+                  <p className="font-heading text-base text-white leading-tight mb-1 line-clamp-2">{ev.title}</p>
+                  <p className="text-[11px] text-gray-400 mb-0.5">📅 {dateStr(ev.date)}</p>
+                  <p className="text-[11px] text-gray-400 mb-3">📍 {ev.venue}{ev.city ? `, ${ev.city}` : ''}</p>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-orange">
+                      {ev.minPrice === ev.maxPrice
+                        ? fmt(ev.minPrice)
+                        : `${fmt(ev.minPrice)} – ${fmt(ev.maxPrice)}`}
+                    </span>
+                    <span className="text-[10px] font-bold bg-orange/10 text-orange px-3 py-1 rounded-full group-hover:bg-orange group-hover:text-white transition-all">
+                      {L('Achte', 'Buy', 'Acheter')} →
+                    </span>
                   </div>
                 </div>
               </Link>
             ))}
           </div>
         )}
-
-        {/* Results count */}
-        {!loading && filtered.length > 0 && (
-          <div style={{ textAlign: 'center', marginTop: 24, color: '#555', fontSize: 13 }}>
-            {filtered.length} {L('evenman', 'events', 'evenements')}
-            {(search || selectedCategory || selectedCity) && ` ${L('jwenn', 'found', 'trouves')}`}
-          </div>
-        )}
       </div>
     </div>
   );
+}
+
+export default function EventsPage() {
+  return <Suspense><EventsInner /></Suspense>;
 }
