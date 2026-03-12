@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useCurrency } from '@/hooks/useCurrency';
+import { PriceDisplay } from '@/hooks/PriceDisplay';
 import { useT } from '@/i18n';
 import { getOrganizerEvents, type EventData } from '@/lib/db';
 import { db } from '@/lib/firebase';
@@ -159,10 +160,10 @@ export default function OrganizerRevenuePage() {
       {/* ── Stats ── */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
         {[
-          { label: L('REVNI TOTAL', 'TOTAL REVENUE', 'REVENU TOTAL'),        value: fmt(totalRevenue).usd, htg: fmt(totalRevenue).htg,           sub: `${validTickets.length} ${L('tikè', 'tickets', 'billets')}` },
-          { label: L('VANT ONLINE', 'ONLINE SALES', 'VENTES EN LIGNE'),       value: fmt(onlineRevenue).usd, htg: fmt(onlineRevenue).htg,           sub: totalRevenue > 0 ? `${Math.round(onlineRevenue / totalRevenue * 100)}% total` : '—', color: 'text-green' },
-          { label: L('VANT REVANDÈ', 'RESELLER SALES', 'VENTES REVENDEURS'), value: fmt(vendorTicketRevenue).usd, htg: fmt(vendorTicketRevenue).htg,     sub: totalRevenue > 0 ? `${Math.round(vendorTicketRevenue / totalRevenue * 100)}% total` : '—', color: 'text-orange' },
-          { label: L('REVANDÈ DWE', 'RESELLERS OWE', 'REVENDEURS DWE'),      value: fmt(totalVendorOwed).usd, htg: fmt(totalVendorOwed).htg,         color: totalVendorOwed > 0 ? 'text-orange' : 'text-green' },
+          { label: L('REVNI TOTAL', 'TOTAL REVENUE', 'REVENU TOTAL'),        value: '__PRICE__', priceUsd: totalRevenue,           sub: `${validTickets.length} ${L('tikè', 'tickets', 'billets')}` },
+          { label: L('VANT ONLINE', 'ONLINE SALES', 'VENTES EN LIGNE'),       value: '__PRICE__', priceUsd: onlineRevenue,           sub: totalRevenue > 0 ? `${Math.round(onlineRevenue / totalRevenue * 100)}% total` : '—', color: 'text-green' },
+          { label: L('VANT REVANDÈ', 'RESELLER SALES', 'VENTES REVENDEURS'), value: '__PRICE__', priceUsd: vendorTicketRevenue,     sub: totalRevenue > 0 ? `${Math.round(vendorTicketRevenue / totalRevenue * 100)}% total` : '—', color: 'text-orange' },
+          { label: L('REVANDÈ DWE', 'RESELLERS OWE', 'REVENDEURS DWE'),      value: '__PRICE__', priceUsd: totalVendorOwed,         color: totalVendorOwed > 0 ? 'text-orange' : 'text-green' },
           { label: L('MANJE & BWESON', 'FOOD & DRINKS', 'NOURRITURE & BOISSONS'), value: '$0', sub: L('Poko disponib', 'Coming soon', 'Bientôt disponible'), color: 'text-gray-muted' },
         ].map((s, i) => (
           <div key={i} className="bg-dark-card border border-border rounded-card p-4">
@@ -182,7 +183,7 @@ export default function OrganizerRevenuePage() {
           {dailyData.map((d, i) => (
             <div key={i} className="flex-1 flex flex-col items-center gap-1 group relative">
               <div className="absolute -top-7 left-1/2 -translate-x-1/2 bg-dark border border-border rounded px-1.5 py-0.5 text-[9px] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-                {fmt(d.revenue).usd} · {d.count} {L('tikè', 'tickets', 'billets')}
+                <PriceDisplay usd={d.revenue} fmt={fmt} className="text-[10px]" /> · {d.count} {L('tikè', 'tickets', 'billets')}
               </div>
               <div
                 className="w-full rounded-t transition-all bg-orange/70 hover:bg-orange"
@@ -211,7 +212,7 @@ export default function OrganizerRevenuePage() {
                       <span className="text-xs font-bold">{sec}</span>
                       <span className="text-[10px] text-gray-muted">{data.count} {L('tikè', 'tickets', 'billets')}</span>
                     </div>
-                    <span className="text-xs font-bold">${fmt(data.revenue).usd}</span>
+                    <span className="text-xs font-bold"><PriceDisplay usd={data.revenue} fmt={fmt} className="text-xs" /></span>
                   </div>
                   <div className="w-full h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
                     <div className="h-full rounded-full" style={{ width: `${(data.revenue / totalRevenue) * 100}%`, background: data.color }} />
@@ -236,7 +237,7 @@ export default function OrganizerRevenuePage() {
                   <p className="text-xs text-gray-light">{v.totalVSold} {L('tikè', 'tickets', 'billets')}</p>
                   {v.totalOwed > 0 ? (
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-orange">${fmt(v.totalOwed).usd} / {fmt(v.totalOwed).htg}</span>
+                      <span className="text-xs font-bold"><PriceDisplay usd={v.totalOwed} fmt={fmt} className="text-xs" /></span>
                       <button className="px-2.5 py-1 rounded-lg bg-orange text-white text-[9px] font-bold hover:bg-orange/80 transition-all">
                         {L('Mande', 'Request', 'Demander')}
                       </button>

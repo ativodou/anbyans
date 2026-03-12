@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useCurrency } from '@/hooks/useCurrency';
+import { PriceDisplay } from '@/hooks/PriceDisplay';
 import { useT } from '@/i18n';
 import { getOrganizerEvents, type EventData } from '@/lib/db';
 import { db } from '@/lib/firebase';
@@ -162,15 +163,16 @@ export default function OrganizerDashboardPage() {
       {/* ── Stats ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
         {[
-          { label: L('REVNI TOTAL', 'TOTAL REVENUE', 'REVENU TOTAL'),        value: fmt(totalRevenue).usd, sub2: fmt(totalRevenue).htg, sub: `${totalSold} ${L('tikè vann', 'tickets sold', 'billets vendus')}` },
+          { label: L('REVNI TOTAL', 'TOTAL REVENUE', 'REVENU TOTAL'),        value: '__PRICE__', priceUsd: totalRevenue, sub: `${totalSold} ${L('tikè vann', 'tickets sold', 'billets vendus')}` },
           { label: L('TIKÈ VANN', 'TICKETS SOLD', 'BILLETS VENDUS'),         value: totalSold.toLocaleString(),             sub: `${activeEvents} ${L('evènman aktif', 'active events', 'événements actifs')}` },
           { label: L('EVÈNMAN AKTIF', 'ACTIVE EVENTS', 'ÉVÉNEMENTS ACTIFS'), value: activeEvents.toString(),               sub: `${filteredEvents.length} ${L('total', 'total', 'total')}` },
-          { label: L('REVANDÈ DWE', 'RESELLERS OWE', 'REVENDEURS DWE'),      value: fmt(totalVendorOwed).usd, sub2: fmt(totalVendorOwed).htg, sub: `${vendors.length} ${L('revandè', 'resellers', 'revendeurs')}`, warn: totalVendorOwed > 0 },
+          { label: L('REVANDÈ DWE', 'RESELLERS OWE', 'REVENDEURS DWE'),      value: '__PRICE__', priceUsd: totalVendorOwed, sub: `${vendors.length} ${L('revandè', 'resellers', 'revendeurs')}`, warn: totalVendorOwed > 0 },
         ].map((s, i) => (
           <div key={i} className="bg-dark-card border border-border rounded-card p-4">
             <p className="text-[10px] text-gray-muted uppercase tracking-widest mb-1.5">{s.label}</p>
-            <p className={`font-heading text-3xl tracking-wide ${(s as any).warn ? 'text-orange' : ''}`}>{s.value}</p>
-            {(s as any).sub2 && <p className="text-[9px] text-gray-muted -mt-1">{(s as any).sub2}</p>}
+            {(s as any).priceUsd !== undefined
+              ? <PriceDisplay usd={(s as any).priceUsd} fmt={fmt} className="text-2xl" />
+              : <p className={`font-heading text-3xl tracking-wide ${(s as any).warn ? 'text-orange' : ''}`}>{s.value}</p>}
             <p className="text-[10px] text-gray-muted mt-1">{s.sub}</p>
           </div>
         ))}
@@ -271,7 +273,7 @@ export default function OrganizerDashboardPage() {
                       </span>
                     </td>
                     <td className="text-xs text-gray-light pl-3">{evTickets.length}</td>
-                    <td className="text-xs font-bold pl-3"><div>{fmt(evRevenue).usd}</div><div className="text-[9px] text-gray-muted font-normal">{fmt(evRevenue).htg}</div></td>
+                    <td className="text-xs pl-3"><PriceDisplay usd={evRevenue} fmt={fmt} className="text-xs" /></td>
                   </tr>
                 );
               })}
@@ -299,7 +301,7 @@ export default function OrganizerDashboardPage() {
                     {s.section || 'GA'} · {s.source === 'vendor' ? `🏪 ${s.vendorName || L('Revandè','Reseller','Revendeur')}` : `🌐 ${L('Online','Online','En ligne')}`} · {s.buyerName || '—'}
                   </p>
                 </div>
-                <span className="font-heading text-lg text-green">{fmt(s.price || 0).usd}</span>
+                <PriceDisplay usd={s.price || 0} fmt={fmt} className="text-base" />
               </div>
             ))}
           </div>

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useCurrency } from '@/hooks/useCurrency';
+import { PriceDisplay } from '@/hooks/PriceDisplay';
 import { useT } from '@/i18n';
 import { getOrganizerEvents, type EventData } from '@/lib/db';
 import { db } from '@/lib/firebase';
@@ -184,7 +185,7 @@ export default function OrganizerAnalyticsPage() {
                 <p className="text-[10px] text-gray-muted">{b.phone} · {b.count} {L('tikè', 'tickets', 'billets')} · {b.eventCount} {L('evèn', 'events', 'évén.')}</p>
               </div>
               <div className="text-right">
-                <p className="text-sm font-black text-orange">{fmt(b.total).usd}<span className="block text-[9px] font-normal text-gray-muted">{fmt(b.total).htg}</span></p>
+                <p className="font-bold"><PriceDisplay usd={b.total} fmt={fmt} className="text-sm" /></p>
                 <p className="text-[9px] text-gray-muted">{b.favSection}</p>
               </div>
             </div>
@@ -209,7 +210,7 @@ export default function OrganizerAnalyticsPage() {
                 {[...Array(Math.min(b.eventCount, 5))].map((_, j) => <span key={j} className="text-orange text-xs">⭐</span>)}
                 <div className="text-right ml-2">
                   <p className="text-xs font-bold">{b.eventCount} {L('evèn', 'events', 'évén.')}</p>
-                  <p className="text-[10px] text-gray-muted">{b.count} {L('tikè', 'tickets', 'billets')} · {fmt(b.total).usd}</p>
+                  <p className="text-[10px] text-gray-muted">{b.count} {L('tikè', 'tickets', 'billets')} · <PriceDisplay usd={b.total} fmt={fmt} className="text-[10px]" /></p>
                 </div>
               </div>
             </div>
@@ -259,7 +260,7 @@ export default function OrganizerAnalyticsPage() {
               <div key={ev.name} className="bg-dark-card border border-border rounded-card p-4">
                 <div className="flex items-center justify-between mb-3">
                   <p className="font-bold text-sm truncate flex-1 mr-4">{ev.name}</p>
-                  <p className="font-heading text-xl text-green flex-shrink-0"><span>{fmt(ev.rev).usd}</span><span className="block text-[9px] text-gray-muted font-normal">{fmt(ev.rev).htg}</span></p>
+                  <p className="flex-shrink-0"><PriceDisplay usd={ev.rev} fmt={fmt} className="text-base" /></p>
                 </div>
 
                 {/* Section breakdown */}
@@ -280,7 +281,7 @@ export default function OrganizerAnalyticsPage() {
                           <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: data.color }} />
                           <span className="text-[10px] font-bold">{sec}</span>
                           <span className="text-[10px] text-gray-muted">{data.count} {L('tikè', 'tickets', 'billets')}</span>
-                          <span className="text-[10px] font-bold text-green">{fmt(data.rev).usd}</span>
+                          <span className="text-[10px]"><PriceDisplay usd={data.rev} fmt={fmt} className="text-[10px]" /></span>
                         </div>
                       ))}
                     </div>
@@ -309,7 +310,7 @@ export default function OrganizerAnalyticsPage() {
                               <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: data.color }} />
                               <span className="text-[11px] font-bold flex-1">{sec}</span>
                               <span className="text-[10px] text-gray-muted">{data.count} {L('tikè', 'tickets', 'billets')}</span>
-                              <span className="text-[11px] font-bold text-green">{fmt(data.rev).usd}</span>
+                              <span className="text-[11px]"><PriceDisplay usd={data.rev} fmt={fmt} className="text-[11px]" /></span>
                               <span className="text-[9px] text-gray-muted w-8 text-right">{totalSecRev > 0 ? Math.round((data.rev / totalSecRev) * 100) : 0}%</span>
                             </div>
                             <div className="w-full h-1 bg-white/[0.06] rounded-full overflow-hidden">
@@ -348,7 +349,7 @@ export default function OrganizerAnalyticsPage() {
                   {/* Avg price */}
                   <div className="bg-white/[0.03] rounded-lg p-2.5">
                     <p className="text-[9px] text-gray-muted uppercase tracking-widest mb-1">💰 {L('Moy/Tikè', 'Avg/Ticket', 'Moy/Billet')}</p>
-                    <p className="text-sm font-bold">{fmt(avgPrice).usd}<span className="block text-[9px] text-gray-muted font-normal">{fmt(avgPrice).htg}</span></p>
+                    <p className="font-bold"><PriceDisplay usd={avgPrice} fmt={fmt} className="text-sm" /></p>
                     <p className="text-[9px] text-gray-muted mt-1">{L('pri mwayen', 'avg price', 'prix moyen')}</p>
                   </div>
 
@@ -398,7 +399,7 @@ export default function OrganizerAnalyticsPage() {
                       <span className="font-bold text-sm">{v.name}</span>
                     </div>
                     <div className="text-right">
-                      <p className="font-heading text-lg text-green"><span>{fmt(v.totalRev).usd}</span><span className="block text-[9px] text-gray-muted font-normal">{fmt(v.totalRev).htg}</span></p>
+                      <p className="font-bold"><PriceDisplay usd={v.totalRev} fmt={fmt} className="text-base" /></p>
                       <p className="text-[10px] text-gray-muted">{v.total} {L('tikè', 'tickets', 'billets')}</p>
                     </div>
                   </div>
@@ -410,7 +411,7 @@ export default function OrganizerAnalyticsPage() {
                           <div className="h-full bg-orange rounded-full" style={{ width: `${v.total > 0 ? Math.round((data.count / v.total) * 100) : 0}%` }} />
                         </div>
                         <span className="text-[10px] text-gray-muted w-8 text-right">{data.count}</span>
-                        <span className="text-[10px] font-bold text-green w-16 text-right">{fmt(data.rev).usd}</span>
+                        <span className="text-[10px] w-24 text-right"><PriceDisplay usd={data.rev} fmt={fmt} className="text-[10px]" /></span>
                       </div>
                     ))}
                   </div>
