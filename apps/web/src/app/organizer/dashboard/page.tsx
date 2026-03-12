@@ -201,9 +201,9 @@ export default function OrganizerDashboardPage() {
       {/* ── Quick Actions ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
         {[
-          { href: '/organizer/events/create', icon: '📅', title: L('Kreye Evènman',  'Create Event',    'Créer un événement'),   sub: L('Kreye yon nouvo evènman ak seksyon tikè', 'Create a new event with ticket sections', 'Créer un événement avec sections') },
+          { href: selectedEvent ? `/organizer/scanner?event=${selectedEvent.id}` : '/organizer/scanner', icon: '📷', title: L('Eskane Tikè', 'Scan Tickets', 'Scanner Billets'), sub: L('Ouvri eskanè pou admèt moun', 'Open scanner to admit guests', 'Ouvrir le scanner pour admettre') },
           { href: '/organizer/vendors',       icon: '🏪', title: L('Jere Revandè',   'Manage Resellers','Gérer les revendeurs'), sub: L('Asiyen tikè epi swiv vant revandè yo', 'Assign tickets and track reseller sales', 'Assigner billets et suivre les ventes') },
-          { href: '/organizer/staff',         icon: '👥', title: L('Jere Staff',     'Manage Staff',    'Gérer le personnel'),   sub: L('Eskane tikè ak jere ekip ou', 'Scan tickets and manage your team', 'Scanner billets et gérer votre équipe') },
+          { href: selectedEvent ? `/organizer/staff?event=${selectedEvent.id}` : '/organizer/staff', icon: '👥', title: L('Jere Staff', 'Manage Staff', 'Gérer le personnel'), sub: L('Eskane tikè ak jere ekip ou', 'Scan tickets and manage your team', 'Scanner billets et gérer votre équipe') },
           { href: '/organizer/revenue',       icon: '📈', title: L('Wè Rapò',        'View Reports',    'Voir les rapports'),    sub: L('Analiz vant, revni, ak pèfòmans', 'Analyze sales, revenue, and performance', 'Analyser ventes et revenus') },
         ].map(a => (
           <Link key={a.href} href={a.href}
