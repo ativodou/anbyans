@@ -166,7 +166,7 @@ function BuyPageInner() {
         }
         if (!data) {
           const privateEv = await getEventByPrivateToken(slug);
-          if (privateEv) { eventId = privateEv.id; data = privateEv; }
+          if (privateEv) { eventId = privateEv.id ?? slug; data = privateEv; }
         }
         if (data) {
           const rawV = data.venue;
