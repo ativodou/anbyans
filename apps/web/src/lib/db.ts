@@ -1,6 +1,6 @@
 import {
   collection,
-  collectionGroup,
+
   doc,
   addDoc,
   setDoc,
@@ -563,7 +563,7 @@ export async function verifyTicketByCode(ticketCode: string): Promise<{
 }> {
   try {
     const q = query(
-      collectionGroup(db, 'tickets'),
+      collection(db, 'tickets'),
       where('ticketCode', '==', ticketCode.trim().toUpperCase()),
       limit(1)
     );

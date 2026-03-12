@@ -2,7 +2,7 @@
 
 import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useT } from '@/i18n';
 import Link from 'next/link';
@@ -24,7 +24,9 @@ interface PublicEvent {
 }
 
 function EventsInner() {
-  const { L } = useT();
+  const { locale } = useT();
+  const L = (ht: string, en: string, fr: string) =>
+    ({ ht, en, fr } as Record<string, string>)[locale] ?? ht;
   const router = useRouter();
   const searchParams = useSearchParams();
   const [events, setEvents]   = useState<PublicEvent[]>([]);
@@ -35,13 +37,16 @@ function EventsInner() {
   useEffect(() => {
     (async () => {
       try {
-        const q = query(
-          collection(db, 'events'),
-          where('status', 'in', ['live', 'upcoming']),
-          orderBy('date', 'asc')
-        );
+        const q = query(collection(db, 'events'));
         const snap = await getDocs(q);
-        setEvents(snap.docs.map(d => ({ id: d.id, ...d.data() } as PublicEvent)));
+        const all = snap.docs.map(d => ({ id: d.id, ...d.data() } as PublicEvent));
+        // normalize status
+        const visible = all.filter(ev => {
+          const s = (ev as any).status;
+          const notPrivate = !(ev as any).isPrivate;
+          return notPrivate && (s === 'live' || s === 'upcoming' || s === 'published');
+        });
+        setEvents(visible);
       } catch (e) { console.error(e); }
       finally { setLoading(false); }
     })();
@@ -49,7 +54,7 @@ function EventsInner() {
 
   const filtered = events.filter(ev => {
     const matchSearch = !search ||
-      ev.title.toLowerCase().includes(search.toLowerCase()) ||
+      ev.title || (ev as any).name.toLowerCase().includes(search.toLowerCase()) ||
       ev.city?.toLowerCase().includes(search.toLowerCase()) ||
       ev.tags?.some(t => t.toLowerCase().includes(search.toLowerCase()));
     const matchFilter = filter === 'all' || ev.status === filter;
@@ -66,17 +71,6 @@ function EventsInner() {
 
   return (
     <div className="min-h-screen bg-black text-white">
-      {/* Header */}
-      <div className="bg-black/80 backdrop-blur sticky top-0 z-20 border-b border-white/[0.06]">
-        <div className="max-w-5xl mx-auto px-4 py-4 flex items-center gap-3">
-          <Link href="/" className="font-heading text-xl text-orange tracking-wide">ANBYANS</Link>
-          <div className="flex-1" />
-          <Link href="/organizer/auth" className="text-[11px] font-bold text-gray-400 hover:text-white transition-colors">
-            {L('Òganizatè', 'Organizer', 'Organisateur')} →
-          </Link>
-        </div>
-      </div>
-
       {/* Hero search */}
       <div className="bg-gradient-to-b from-orange/10 to-transparent py-12 px-4">
         <div className="max-w-2xl mx-auto text-center">
@@ -131,12 +125,12 @@ function EventsInner() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {filtered.map(ev => (
-              <Link key={ev.id} href={`/e/${ev.slug}`}
+              <Link key={ev.id} href={`/e/${(ev as any).slug && !(ev as any).slug.includes(" ") ? (ev as any).slug : ev.id}`}
                 className="group rounded-2xl overflow-hidden border border-white/[0.06] hover:border-orange/40 transition-all bg-white/[0.03] hover:bg-white/[0.06]">
                 {/* Cover */}
                 <div className="relative h-40 bg-gradient-to-br from-orange/20 to-purple-900/40 overflow-hidden">
                   {ev.coverImage
-                    ? <img src={ev.coverImage} alt={ev.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                    ? <img src={ev.coverImage} alt={ev.title || (ev as any).name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                     : <div className="flex items-center justify-center h-full text-5xl">🎉</div>
                   }
                   {ev.status === 'live' && (
@@ -147,14 +141,12 @@ function EventsInner() {
                 </div>
                 {/* Info */}
                 <div className="p-4">
-                  <p className="font-heading text-base text-white leading-tight mb-1 line-clamp-2">{ev.title}</p>
-                  <p className="text-[11px] text-gray-400 mb-0.5">📅 {dateStr(ev.date)}</p>
-                  <p className="text-[11px] text-gray-400 mb-3">📍 {ev.venue}{ev.city ? `, ${ev.city}` : ''}</p>
+                  <p className="font-heading text-base text-white leading-tight mb-1 line-clamp-2">{ev.title || (ev as any).name}</p>
+                  <p className="text-[11px] text-gray-400 mb-0.5">📅 {dateStr((ev as any).startDate ? new Date((ev as any).startDate) : ev.date)}</p>
+                  <p className="text-[11px] text-gray-400 mb-3">📍 {(ev as any).venue?.name || ev.venue}{(ev as any).venue?.city || ev.city ? `, ${(ev as any).venue?.city || ev.city}` : ''}</p>
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-orange">
-                      {ev.minPrice === ev.maxPrice
-                        ? fmt(ev.minPrice)
-                        : `${fmt(ev.minPrice)} – ${fmt(ev.maxPrice)}`}
+                      {(ev as any).sections ? `$${Math.min(...(ev as any).sections.map((s:any) => s.price))} – $${Math.max(...(ev as any).sections.map((s:any) => s.price))}` : fmt(ev.minPrice)}
                     </span>
                     <span className="text-[10px] font-bold bg-orange/10 text-orange px-3 py-1 rounded-full group-hover:bg-orange group-hover:text-white transition-all">
                       {L('Achte', 'Buy', 'Acheter')} →

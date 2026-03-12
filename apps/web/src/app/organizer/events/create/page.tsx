@@ -107,7 +107,9 @@ function SectionRow({ sec, onChange, onRemove, index }: {
 // ─── Main form ───────────────────────────────────────────────────────────────
 
 function CreateEventInner() {
-  const { L } = useT();
+  const { locale } = useT();
+  const L = (ht: string, en: string, fr: string) =>
+    ({ ht, en, fr } as Record<string, string>)[locale] ?? ht;
   const { user } = useAuth();
   const router = useRouter();
 

@@ -17,6 +17,7 @@ interface PaymentMethod {
 const PAYMENT_METHODS: PaymentMethod[] = [
   { key: 'moncash',  icon: '📱', name: 'MonCash',  fields: ['Nimewo MonCash', 'Non sou kont lan'] },
   { key: 'natcash',  icon: '💚', name: 'Natcash',  fields: ['Nimewo Natcash', 'Non sou kont lan'] },
+  { key: 'stripe',   icon: '💳', name: 'Stripe (Kart / Card)', fields: [] },
   { key: 'zelle',    icon: '⚡', name: 'Zelle',    fields: ['Imèl oswa Telefòn Zelle', 'Non sou kont lan'] },
   { key: 'paypal',   icon: '🅿️', name: 'PayPal',   fields: ['Imèl PayPal'] },
   { key: 'cashapp',  icon: '💲', name: 'Cash App', fields: ['$cashtag'] },
@@ -66,7 +67,6 @@ export default function OrganizerSettingsPage() {
   const [email, setEmail]       = useState(user?.email || '');
   const [phone, setPhone]       = useState('');
   const [website, setWebsite]   = useState('');
-  const [bio, setBio]           = useState('');
 
   // ── Payments ──
   const [paymentActive, setPaymentActive]   = useState<Record<string, boolean>>({ moncash: true });
@@ -110,7 +110,6 @@ export default function OrganizerSettingsPage() {
           setBizName(data.businessName || '');
           setPhone(data.phone || '');
           setWebsite(data.website || '');
-          setBio(data.bio || '');
           setDefaultCurrency(data.defaultCurrency || 'USD');
           setExchangeRate(data.exchangeRate || 130);
 
@@ -171,7 +170,7 @@ export default function OrganizerSettingsPage() {
         uid: user.uid,
         email: user.email,
         businessName: bizName,
-        phone, website, bio,
+        phone, website,
         defaultCurrency,
         exchangeRate,
         paymentMethods,
@@ -241,12 +240,7 @@ export default function OrganizerSettingsPage() {
               <input value={website} onChange={e => setWebsite(e.target.value)} placeholder="https://..."
                 className="w-full px-3.5 py-2.5 rounded-[10px] bg-white/[0.04] border border-border text-white text-[13px] outline-none focus:border-orange placeholder:text-gray-muted" />
             </div>
-            <div>
-              <label className="block text-[11px] font-semibold text-gray-light mb-1.5">{L('Deskripsyon', 'Bio / Description', 'Description')}</label>
-              <textarea value={bio} onChange={e => setBio(e.target.value)} rows={3}
-                placeholder={L('Di moun ki ou ye kòm òganizatè...', 'Tell people who you are as an organizer...', 'Décrivez-vous en tant qu\'organisateur...')}
-                className="w-full px-3.5 py-2.5 rounded-[10px] bg-white/[0.04] border border-border text-white text-[13px] outline-none focus:border-orange placeholder:text-gray-muted resize-none" />
-            </div>
+
             <div>
               <label className="block text-[11px] font-semibold text-gray-light mb-1.5">{L('Monè Default', 'Default Currency', 'Devise par défaut')}</label>
               <div className="flex gap-2">

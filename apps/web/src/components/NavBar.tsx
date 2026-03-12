@@ -39,7 +39,6 @@ export default function Navbar() {
     links.push({ href: '/events', label: L('Evenman', 'Events', 'Evenements')! });
   }
   if (role === 'fan') {
-    links.push({ href: '/buy', label: L('Achte Tike', 'Buy Tickets', 'Acheter Billets')! });
   }
   if (role === 'organizer') {
     links.push({ href: '/organizer/dashboard', label: L('Dachbod', 'Dashboard', 'Tableau de bord')! });
@@ -103,8 +102,7 @@ export default function Navbar() {
               <>
                 <div style={{ borderTop: '1px solid #1e1e2e', margin: '4px 0' }} />
                 <div style={{ padding: '4px 12px', color: '#555', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 }}>Fan</div>
-                <Link href="/buy" onClick={() => setMenuOpen(false)} style={{ display: 'block', padding: '8px 12px', borderRadius: 6, color: '#ccc', fontSize: 12, textDecoration: 'none' }}>
-                  {L('Achte Tike', 'Buy Tickets', 'Acheter Billets')}
+                <Link href="/events" onClick={() => setMenuOpen(false)} style={{ display: 'block', padding: '8px 12px', borderRadius: 6, color: '#ccc', fontSize: 12, textDecoration: 'none' }}>
                 </Link>
               </>
             )}
