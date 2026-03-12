@@ -159,7 +159,7 @@ function OrganizerLayoutInner({ children }: { children: React.ReactNode }) {
         });
         return;
       }
-      const fallback = user.displayName || user.email || 'Òganizatè';
+      const fallback = (user as any).displayName || user.email || 'Òganizatè';
       setOrgProfile({
         name: fallback,
         bizName: '',
