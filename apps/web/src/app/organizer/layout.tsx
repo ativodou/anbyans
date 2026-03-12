@@ -6,6 +6,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useT } from '@/i18n';
 import { auth, db } from '@/lib/firebase';
+import { type EventData } from '@/lib/db';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { OrganizerEventProvider, useOrganizerEvent } from './OrganizerEventContext';
 
@@ -13,13 +14,6 @@ interface OrgProfile {
   name: string;
   bizName: string;
   initials: string;
-}
-
-interface OrganizerEvent {
-  id: string;
-  name: string;
-  status?: string;
-  startDate?: string;
 }
 
 // ─── Event Selector Dropdown ────────────────────────────────────
@@ -81,7 +75,7 @@ function EventSelector() {
           <p className="text-[9px] font-bold uppercase tracking-widest text-gray-muted px-3 py-2">
             {L('Evènman ou yo', 'Your Events', 'Vos Événements')}
           </p>
-          {events.map((ev: OrganizerEvent) => (
+          {events.map(ev => (
             <button
               key={ev.id}
               onClick={() => { setSelectedEvent(ev as any); setOpen(false); }}
@@ -99,6 +93,7 @@ function EventSelector() {
               {selectedEvent?.id === ev.id && <span className="text-orange text-xs flex-shrink-0">✓</span>}
             </button>
           ))}
+
         </div>
       )}
     </div>
