@@ -70,7 +70,8 @@ const roleInfo = (key: StaffRole) => ROLES.find(r => r.key === key)!;
 
 // ─── Settings editors ─────────────────────────────────────────────
 
-function ScannerSettingsEditor({ s, onChange }: { s: ScannerSettings; onChange: (v: ScannerSettings) => void }) {
+function ScannerSettingsEditor({ s: raw, onChange }: { s: ScannerSettings; onChange: (v: ScannerSettings) => void }) {
+  const s: ScannerSettings = { deviceLock: true, sectionsAllowed: ['all'], canOverride: false, ...raw };
   const sections = ['GA', 'VIP', 'VVIP'];
   return (
     <div className="space-y-3">
@@ -94,7 +95,8 @@ function ScannerSettingsEditor({ s, onChange }: { s: ScannerSettings; onChange: 
   );
 }
 
-function DoorSettingsEditor({ s, onChange }: { s: DoorSettings; onChange: (v: DoorSettings) => void }) {
+function DoorSettingsEditor({ s: raw, onChange }: { s: DoorSettings; onChange: (v: DoorSettings) => void }) {
+  const s: DoorSettings = { entrance: 'Main', seeCapacity: true, manualAdmit: false, ...raw };
   const entrances = ['Main', 'Side', 'VIP', 'Staff', 'Backstage'];
   return (
     <div className="space-y-3">
@@ -115,7 +117,8 @@ function DoorSettingsEditor({ s, onChange }: { s: DoorSettings; onChange: (v: Do
   );
 }
 
-function SalesSettingsEditor({ s, onChange }: { s: SalesSettings; onChange: (v: SalesSettings) => void }) {
+function SalesSettingsEditor({ s: raw, onChange }: { s: SalesSettings; onChange: (v: SalesSettings) => void }) {
+  const s: SalesSettings = { commissionPct: 0, sectionsAllowed: ['all'], payMethods: ['cash'], salesTarget: 0, ...raw };
   const sections = ['GA', 'VIP', 'VVIP'];
   const payMethods = ['Cash', 'MonCash', 'Natcash', 'Card'];
   return (
@@ -165,7 +168,8 @@ function SalesSettingsEditor({ s, onChange }: { s: SalesSettings; onChange: (v: 
   );
 }
 
-function SecuritySettingsEditor({ s, onChange }: { s: SecuritySettings; onChange: (v: SecuritySettings) => void }) {
+function SecuritySettingsEditor({ s: raw, onChange }: { s: SecuritySettings; onChange: (v: SecuritySettings) => void }) {
+  const s: SecuritySettings = { zone: 'Entrance', incidentAccess: true, canEject: false, ...raw };
   const zones = ['Entrance', 'Floor', 'VIP', 'Backstage', 'Parking', 'Stage'];
   return (
     <div className="space-y-3">
@@ -186,7 +190,8 @@ function SecuritySettingsEditor({ s, onChange }: { s: SecuritySettings; onChange
   );
 }
 
-function FbSettingsEditor({ s, onChange }: { s: FbSettings; onChange: (v: FbSettings) => void }) {
+function FbSettingsEditor({ s: raw, onChange }: { s: FbSettings; onChange: (v: FbSettings) => void }) {
+  const s: FbSettings = { categories: ['all'], salesLogging: true, cashHandling: true, ...raw };
   const cats = ['Food', 'Drinks', 'Merch'];
   return (
     <div className="space-y-3">
@@ -210,7 +215,8 @@ function FbSettingsEditor({ s, onChange }: { s: FbSettings; onChange: (v: FbSett
   );
 }
 
-function ManagerSettingsEditor({ s, onChange }: { s: ManagerSettings; onChange: (v: ManagerSettings) => void }) {
+function ManagerSettingsEditor({ s: raw, onChange }: { s: ManagerSettings; onChange: (v: ManagerSettings) => void }) {
+  const s: ManagerSettings = { canManageStaff: true, canOverrideScanner: false, revenueAccess: false, fullDashboard: false, ...raw };
   return (
     <div className="space-y-3">
       <Toggle label="Can Manage Staff"       value={s.canManageStaff}       onChange={v => onChange({ ...s, canManageStaff: v })}       hint="Activate/deactivate team" />
@@ -245,6 +251,67 @@ function RoleSettingsEditor({ role, settings, onChange }: { role: StaffRole; set
     case 'fb':       return <FbSettingsEditor       s={settings} onChange={onChange} />;
     case 'manager':  return <ManagerSettingsEditor  s={settings} onChange={onChange} />;
   }
+}
+
+// ─── Pool member card (extracted to avoid hook-in-loop) ──────────
+
+function PoolMemberCard({
+  s, locale, RL, L,
+  isExpanded, onToggleExpand,
+  onRegenPin, onDelete, onAssign,
+  onSaveSettings,
+}: {
+  s: StaffMember; locale: string;
+  RL: (r: { ht: string; en: string; fr: string }) => string;
+  L: (ht: string, en: string, fr: string) => string;
+  isExpanded: boolean;
+  onToggleExpand: () => void;
+  onRegenPin: (m: StaffMember) => void;
+  onDelete: (id: string) => void;
+  onAssign: (m: StaffMember) => void;
+  onSaveSettings: (m: StaffMember, settings: any) => void;
+}) {
+  const r = roleInfo(s.role);
+  const [localSettings, setLocalSettings] = useState<any>(s.settings || DEFAULT_SETTINGS[s.role]);
+  const evCount = 0; // passed in if needed later
+
+  return (
+    <div className={`bg-dark-card border rounded-card overflow-hidden transition-all ${isExpanded ? `${r.border}` : 'border-border'}`}>
+      <div className="p-4 flex items-center gap-3 cursor-pointer" onClick={onToggleExpand}>
+        <div className="w-10 h-10 rounded-lg bg-white/[0.05] flex items-center justify-center text-xl flex-shrink-0">{r.icon}</div>
+        <div className="flex-1 min-w-0">
+          <p className="text-xs font-bold">{s.name}</p>
+          <p className="text-[11px] text-gray-light">{s.phone}</p>
+          <div className="flex items-center gap-3 mt-1">
+            <span className="text-[9px] text-gray-muted">PIN: <span className="font-mono font-bold text-white tracking-widest">{s.pin}</span></span>
+            <button onClick={e => { e.stopPropagation(); onRegenPin(s); }}
+              className="text-[9px] text-gray-muted hover:text-orange transition-colors">↻</button>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <button onClick={e => { e.stopPropagation(); onAssign(s); }}
+            className="px-2.5 py-1.5 rounded-lg text-[9px] font-bold border border-border text-gray-light hover:text-orange hover:border-orange transition-all">
+            📋 {L('Asiyen', 'Assign', 'Assigner')}
+          </button>
+          <button onClick={e => { e.stopPropagation(); onDelete(s.id); }}
+            className="px-2.5 py-1.5 rounded-lg text-[9px] font-bold border border-border text-gray-muted hover:text-red hover:border-red/30 transition-all">
+            🗑
+          </button>
+          <span className={`text-gray-muted text-xs transition-transform ${isExpanded ? 'rotate-180' : ''}`}>▼</span>
+        </div>
+      </div>
+      {isExpanded && (
+        <div className="border-t border-border p-4">
+          <p className="text-[10px] uppercase tracking-widest text-gray-muted font-bold mb-3">{L('Paramèt', 'Settings', 'Paramètres')} · {RL(r)}</p>
+          <RoleSettingsEditor role={s.role} settings={localSettings} onChange={setLocalSettings} />
+          <button onClick={() => onSaveSettings(s, localSettings)}
+            className="mt-4 px-4 py-2 rounded-lg bg-orange text-white text-[10px] font-bold hover:bg-orange/80 transition-all">
+            💾 {L('Sove Paramèt', 'Save Settings', 'Sauvegarder')}
+          </button>
+        </div>
+      )}
+    </div>
+  );
 }
 
 // ─── Main page ───────────────────────────────────────────────────
@@ -542,54 +609,21 @@ export default function OrganizerStaffPage() {
             </div>
           ) : (
             <div className="space-y-3">
-              {pool.filter(s => s.role === poolTab).map(s => {
-                const r = roleInfo(s.role);
-                const isExpanded = expandedMember === s.id;
-                const evCount = assignments.filter(a => a.staffId === s.id).length;
-                const [localSettings, setLocalSettings] = useState<any>(s.settings || DEFAULT_SETTINGS[s.role]);
-
-                return (
-                  <div key={s.id} className={`bg-dark-card border rounded-card overflow-hidden transition-all ${isExpanded ? `${r.border}` : 'border-border'}`}>
-                    {/* Member header */}
-                    <div className="p-4 flex items-center gap-3 cursor-pointer" onClick={() => setExpandedMember(isExpanded ? null : s.id)}>
-                      <div className="w-10 h-10 rounded-lg bg-white/[0.05] flex items-center justify-center text-xl flex-shrink-0">{r.icon}</div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-bold">{s.name}</p>
-                        <p className="text-[11px] text-gray-light">{s.phone}</p>
-                        <div className="flex items-center gap-3 mt-1">
-                          <span className="text-[9px] text-gray-muted">PIN: <span className="font-mono font-bold text-white tracking-widest">{s.pin}</span></span>
-                          <button onClick={e => { e.stopPropagation(); handleRegenPin(s); }}
-                            className="text-[9px] text-gray-muted hover:text-orange transition-colors">↻</button>
-                          <span className="text-[9px] text-gray-muted">{evCount} {L('evèn', 'events', 'évén.')}</span>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <button onClick={e => { e.stopPropagation(); setAssignForm(f => ({ ...f, staffId: s.id, role: s.role })); setShowAssignForm(true); setTab('assignments'); }}
-                          className="px-2.5 py-1.5 rounded-lg text-[9px] font-bold border border-border text-gray-light hover:text-orange hover:border-orange transition-all">
-                          📋 {L('Asiyen', 'Assign', 'Assigner')}
-                        </button>
-                        <button onClick={e => { e.stopPropagation(); handleDeleteFromPool(s.id); }}
-                          className="px-2.5 py-1.5 rounded-lg text-[9px] font-bold border border-border text-gray-muted hover:text-red hover:border-red/30 transition-all">
-                          🗑
-                        </button>
-                        <span className={`text-gray-muted text-xs transition-transform ${isExpanded ? 'rotate-180' : ''}`}>▼</span>
-                      </div>
-                    </div>
-
-                    {/* Expanded: role settings */}
-                    {isExpanded && (
-                      <div className="border-t border-border p-4">
-                        <p className="text-[10px] uppercase tracking-widest text-gray-muted font-bold mb-3">{L('Paramèt', 'Settings', 'Paramètres')} · {RL(r)}</p>
-                        <RoleSettingsEditor role={s.role} settings={localSettings} onChange={setLocalSettings} />
-                        <button onClick={() => handleSaveSettings(s, localSettings)}
-                          className="mt-4 px-4 py-2 rounded-lg bg-orange text-white text-[10px] font-bold hover:bg-orange/80 transition-all">
-                          💾 {L('Sove Paramèt', 'Save Settings', 'Sauvegarder')}
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+              {pool.filter(s => s.role === poolTab).map(s => (
+                <PoolMemberCard
+                  key={s.id}
+                  s={s}
+                  locale={locale}
+                  RL={RL}
+                  L={L}
+                  isExpanded={expandedMember === s.id}
+                  onToggleExpand={() => setExpandedMember(expandedMember === s.id ? null : s.id)}
+                  onRegenPin={handleRegenPin}
+                  onDelete={handleDeleteFromPool}
+                  onAssign={m => { setAssignForm(f => ({ ...f, staffId: m.id, role: m.role })); setShowAssignForm(true); setTab('assignments'); }}
+                  onSaveSettings={handleSaveSettings}
+                />
+              ))}
             </div>
           )}
         </div>
