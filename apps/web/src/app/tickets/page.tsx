@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useT } from '@/i18n';
 import { useAuth } from '@/hooks/useAuth';
-import { collection, query, where, getDocs, collectionGroup } from 'firebase/firestore';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { getEvent, initiateTransfer, cancelTransfer, type TicketData, type EventData } from '@/lib/db';
 
@@ -44,7 +44,7 @@ export default function MyTicketsPage() {
     setLoading(true);
     try {
       const q = query(
-        collectionGroup(db, 'tickets'),
+        collection(db, 'tickets'),
         where('buyerEmail', '==', email)
       );
       const snap = await getDocs(q);
@@ -65,7 +65,7 @@ export default function MyTicketsPage() {
     try {
       const cleanPhone = phone.trim();
       const q = query(
-        collectionGroup(db, 'tickets'),
+        collection(db, 'tickets'),
         where('buyerPhone', '==', cleanPhone),
         where('buyerPin', '==', pin.trim())
       );

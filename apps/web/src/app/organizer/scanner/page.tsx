@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useT } from '@/i18n';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import { collection, getDocs, query, where, addDoc, serverTimestamp } from 'firebase/firestore';
 import {
   getEvent,
   getOrganizerEvents,
@@ -33,7 +33,17 @@ interface ScanRecord {
   synced: boolean;
 }
 
-type ViewMode = 'loading' | 'pin-entry' | 'organizer-select' | 'organizer-staff' | 'scanner' | 'waiting';
+type ViewMode = 'loading' | 'pin-entry' | 'organizer-select' | 'organizer-staff' | 'scanner' | 'waiting' | 'fb' | 'sales' | 'security' | 'manager';
+
+function roleToView(role: string): ViewMode {
+  switch (role) {
+    case 'fb':       return 'fb';
+    case 'sales':    return 'sales';
+    case 'security': return 'security';
+    case 'manager':  return 'manager';
+    default:         return 'scanner'; // scanner, door, any unknown
+  }
+}
 
 // ─── Local Storage Helpers ───────────────────────────────────────
 
@@ -51,6 +61,146 @@ function loadScanHistory(eventId: string): ScanRecord[] {
 }
 
 // ─── Component ───────────────────────────────────────────────────
+
+// ═══════════════════════════════════════════════════════════════
+// F&B LOGGING COMPONENT
+// ═══════════════════════════════════════════════════════════════
+
+function FbView({ eventId, eventName, organizerId, staffId, staffName, L, onBack }: {
+  eventId: string; eventName: string; organizerId: string; staffId: string; staffName: string;
+  L: (ht: string, en: string, fr: string) => string | undefined;
+  onBack: () => void;
+}) {
+  const CATEGORIES = ['Food', 'Drinks', 'Merch'];
+  const PAY_METHODS = ['Cash', 'MonCash', 'Natcash'];
+
+  const [category, setCategory]   = useState('Food');
+  const [amount, setAmount]       = useState('');
+  const [payMethod, setPayMethod] = useState('Cash');
+  const [note, setNote]           = useState('');
+  const [saving, setSaving]       = useState(false);
+  const [recentSales, setRecentSales] = useState<any[]>([]);
+  const [totalToday, setTotalToday]   = useState(0);
+
+  const submit = async () => {
+    if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) return;
+    setSaving(true);
+    try {
+      const sale = {
+        eventId, staffId, staffName, organizerId,
+        category, amount: Number(amount), paymentMethod: payMethod,
+        note: note.trim(), recordedAt: serverTimestamp(),
+      };
+      const ref = await addDoc(collection(db, 'fbSales'), sale);
+      const newSale = { id: ref.id, ...sale, recordedAt: new Date() };
+      setRecentSales(prev => [newSale, ...prev].slice(0, 10));
+      setTotalToday(prev => prev + Number(amount));
+      setAmount('');
+      setNote('');
+    } finally { setSaving(false); }
+  };
+
+  const pageStyle: React.CSSProperties = { minHeight: '100vh', background: '#0a0a0f', color: '#fff', fontFamily: 'system-ui, sans-serif' };
+  const cardStyle: React.CSSProperties = { background: '#111118', border: '1px solid #1e1e2e', borderRadius: 12, padding: 16 };
+
+  return (
+    <div style={{ ...pageStyle, padding: 20 }}>
+      <div style={{ maxWidth: 480, margin: '0 auto' }}>
+
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+          <div>
+            <h1 style={{ fontSize: 18, fontWeight: 800, margin: 0 }}>🍽️ {L('Manje & Bweson', 'Food & Drinks', 'Nourriture & Boissons')}</h1>
+            <p style={{ color: '#888', fontSize: 11, margin: '4px 0 0' }}>👤 {staffName} • {eventName}</p>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <p style={{ color: '#888', fontSize: 10, margin: 0 }}>{L('Total jodi a', 'Today\'s total', 'Total aujourd\'hui')}</p>
+            <p style={{ fontSize: 20, fontWeight: 800, color: '#f97316', margin: 0 }}>${totalToday.toFixed(2)}</p>
+          </div>
+        </div>
+
+        {/* Entry form */}
+        <div style={{ ...cardStyle, marginBottom: 16 }}>
+          <p style={{ color: '#888', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>
+            {L('Anrejistre Vant', 'Log Sale', 'Enregistrer Vente')}
+          </p>
+
+          {/* Category */}
+          <p style={{ color: '#888', fontSize: 11, marginBottom: 6 }}>{L('Kategori', 'Category', 'Catégorie')}</p>
+          <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
+            {CATEGORIES.map(c => (
+              <button key={c} onClick={() => setCategory(c)} style={{
+                flex: 1, padding: '8px 4px', borderRadius: 8, border: `1px solid ${category === c ? '#f97316' : '#1e1e2e'}`,
+                background: category === c ? '#f9731620' : 'transparent', color: category === c ? '#f97316' : '#888',
+                fontSize: 12, fontWeight: 700, cursor: 'pointer',
+              }}>{c}</button>
+            ))}
+          </div>
+
+          {/* Amount */}
+          <p style={{ color: '#888', fontSize: 11, marginBottom: 6 }}>{L('Montan ($)', 'Amount ($)', 'Montant ($)')}</p>
+          <input
+            type="number" inputMode="decimal" value={amount}
+            onChange={e => setAmount(e.target.value)}
+            placeholder="0.00"
+            style={{ width: '100%', padding: '12px 14px', borderRadius: 8, border: '1px solid #1e1e2e', background: '#0a0a0f', color: '#fff', fontSize: 18, fontWeight: 700, marginBottom: 14, boxSizing: 'border-box', outline: 'none' }}
+          />
+
+          {/* Payment method */}
+          <p style={{ color: '#888', fontSize: 11, marginBottom: 6 }}>{L('Metòd Peman', 'Payment Method', 'Méthode de Paiement')}</p>
+          <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
+            {PAY_METHODS.map(m => (
+              <button key={m} onClick={() => setPayMethod(m)} style={{
+                flex: 1, padding: '8px 4px', borderRadius: 8, border: `1px solid ${payMethod === m ? '#22c55e' : '#1e1e2e'}`,
+                background: payMethod === m ? '#22c55e20' : 'transparent', color: payMethod === m ? '#22c55e' : '#888',
+                fontSize: 12, fontWeight: 700, cursor: 'pointer',
+              }}>{m}</button>
+            ))}
+          </div>
+
+          {/* Note (optional) */}
+          <input
+            value={note} onChange={e => setNote(e.target.value)}
+            placeholder={L('Nòt (opsyonèl)', 'Note (optional)', 'Note (optionnel)') as string}
+            style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid #1e1e2e', background: '#0a0a0f', color: '#fff', fontSize: 13, marginBottom: 14, boxSizing: 'border-box', outline: 'none' }}
+          />
+
+          <button onClick={submit} disabled={saving || !amount || Number(amount) <= 0} style={{
+            width: '100%', padding: '14px 0', borderRadius: 10, border: 'none',
+            background: amount && Number(amount) > 0 ? '#f97316' : '#222',
+            color: amount && Number(amount) > 0 ? '#000' : '#555',
+            fontSize: 15, fontWeight: 800, cursor: amount ? 'pointer' : 'not-allowed',
+          }}>
+            {saving ? '...' : `✓ ${L('Anrejistre', 'Log Sale', 'Enregistrer')} ${amount ? `$${Number(amount).toFixed(2)}` : ''}`}
+          </button>
+        </div>
+
+        {/* Recent sales */}
+        {recentSales.length > 0 && (
+          <div style={cardStyle}>
+            <p style={{ color: '#888', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>
+              {L('Dènye Vant', 'Recent Sales', 'Ventes Récentes')}
+            </p>
+            {recentSales.map(s => (
+              <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #1e1e2e' }}>
+                <div>
+                  <span style={{ fontSize: 12, fontWeight: 700 }}>{s.category}</span>
+                  <span style={{ fontSize: 10, color: '#888', marginLeft: 8 }}>{s.paymentMethod}</span>
+                  {s.note && <span style={{ fontSize: 10, color: '#666', marginLeft: 8 }}>{s.note}</span>}
+                </div>
+                <span style={{ fontSize: 14, fontWeight: 800, color: '#22c55e' }}>${Number(s.amount).toFixed(2)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <button onClick={onBack} style={{ marginTop: 20, padding: '10px 0', background: 'transparent', border: 'none', color: '#555', fontSize: 13, cursor: 'pointer', width: '100%', textAlign: 'center' }}>
+          ← {L('Retounen', 'Back', 'Retour')}
+        </button>
+      </div>
+    </div>
+  );
+}
 
 function ScannerPageInner() {
   const { user } = useAuth();
@@ -75,6 +225,7 @@ function ScannerPageInner() {
   const [pinError, setPinError] = useState('');
   const [staffId, setStaffId] = useState('');
   const [staffName, setStaffName] = useState('');
+  const [staffRole, setStaffRole] = useState('scanner');
 
   // Scanner
   const [tickets, setTickets] = useState<OfflineTicket[]>([]);
@@ -236,13 +387,13 @@ function ScannerPageInner() {
         setEvent(ev);
         setStaffId(result.staffId || '');
         setStaffName(result.staffName || '');
+        setStaffRole(result.role || 'scanner');
         const localTickets = loadTicketsLocal(eventId);
         const localHistory = loadScanHistory(eventId);
         setTickets(localTickets);
         setScanHistory(localHistory);
-        setView('scanner');
+        setView(roleToView(result.role || 'scanner'));
       } else if (result.waiting) {
-        // PIN is valid but organizer hasn't activated yet — poll until they do
         setView('waiting');
         const interval = setInterval(async () => {
           try {
@@ -253,11 +404,12 @@ function ScannerPageInner() {
               setEvent(ev);
               setStaffId(check.staffId || '');
               setStaffName(check.staffName || '');
+              setStaffRole(check.role || 'scanner');
               const localTickets = loadTicketsLocal(eventId);
               const localHistory = loadScanHistory(eventId);
               setTickets(localTickets);
               setScanHistory(localHistory);
-              setView('scanner');
+              setView(roleToView(check.role || 'scanner'));
             }
           } catch {}
         }, 5000);
@@ -690,6 +842,62 @@ function ScannerPageInner() {
             style={{ marginTop: 16, padding: '10px 0', background: 'transparent', border: 'none', color: '#888', fontSize: 13, cursor: 'pointer' }}>
             ← {L('Retounen', 'Back', 'Retour')}
           </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // F&B VIEW
+  // ═══════════════════════════════════════════════════════════════
+
+  if (view === 'fb') {
+    return <FbView eventId={eventId} eventName={event?.name || ''} organizerId={(event as any)?.organizerId || (event as any)?.uid || ''} staffId={staffId} staffName={staffName} L={L} onBack={() => setView('pin-entry')} />;
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // SALES VIEW
+  // ═══════════════════════════════════════════════════════════════
+
+  if (view === 'sales') {
+    return (
+      <div style={{ ...pageStyle, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: 64, marginBottom: 16 }}>💰</div>
+          <p style={{ color: '#888', fontSize: 14 }}>{L('Vant tikè — Ap vini', 'Ticket sales — Coming soon', 'Ventes billets — Bientôt')}</p>
+          <button onClick={() => setView('pin-entry')} style={{ marginTop: 24, background: 'transparent', border: 'none', color: '#555', fontSize: 13, cursor: 'pointer' }}>← {L('Retounen', 'Back', 'Retour')}</button>
+        </div>
+      </div>
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // SECURITY VIEW
+  // ═══════════════════════════════════════════════════════════════
+
+  if (view === 'security') {
+    return (
+      <div style={{ ...pageStyle, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: 64, marginBottom: 16 }}>🛡️</div>
+          <p style={{ color: '#888', fontSize: 14 }}>{L('Rapò ensidan — Ap vini', 'Incident reports — Coming soon', 'Rapports incidents — Bientôt')}</p>
+          <button onClick={() => setView('pin-entry')} style={{ marginTop: 24, background: 'transparent', border: 'none', color: '#555', fontSize: 13, cursor: 'pointer' }}>← {L('Retounen', 'Back', 'Retour')}</button>
+        </div>
+      </div>
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // MANAGER VIEW
+  // ═══════════════════════════════════════════════════════════════
+
+  if (view === 'manager') {
+    return (
+      <div style={{ ...pageStyle, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: 64, marginBottom: 16 }}>🧑‍💼</div>
+          <p style={{ color: '#888', fontSize: 14 }}>{L('Tableau manadjè — Ap vini', 'Manager dashboard — Coming soon', 'Tableau gestionnaire — Bientôt')}</p>
+          <button onClick={() => setView('pin-entry')} style={{ marginTop: 24, background: 'transparent', border: 'none', color: '#555', fontSize: 13, cursor: 'pointer' }}>← {L('Retounen', 'Back', 'Retour')}</button>
         </div>
       </div>
     );

@@ -92,6 +92,9 @@ export interface EventData {
   suggestedAmount?: number;
   refundPolicy?: 'no_refund' | 'timed' | 'organizer_approval';
   refundDeadlineDays?: number; // for 'timed': how many days before event
+  // Payment collection numbers (organizer's MonCash/NatCash for fan payments)
+  moncashPhone?: string;
+  natcashPhone?: string;
   // Floor plan — prèt pou Seats.io ak Firebase Storage
   floorPlanUrl?: string;
   seatsioChartKey?: string;
@@ -121,20 +124,25 @@ export interface DoorStaff {
 export interface TicketData {
   id?: string;
   eventId: string;
+  organizerId?: string;
   buyerName: string;
   buyerEmail: string;
   buyerPhone: string;
   section: string;
+  sectionName?: string;
   sectionColor: string;
   seat: string;
   price: number;
+  priceHTG?: number;
   ticketCode: string;
   qrData: string;
   buyerPin?: string;
   paymentIntentId?: string;  // Stripe PI id — dispute defense
   paymentMethod?: 'stripe' | 'moncash' | 'natcash' | 'cash' | 'free';
+  paymentStatus?: 'paid' | 'pending_verification' | 'pending_cash';
+  txnId?: string;
   buyerIp?: string;
-  status: 'valid' | 'used' | 'cancelled' | 'refunded' | 'pending_transfer';
+  status: 'valid' | 'used' | 'cancelled' | 'refunded' | 'pending_transfer' | 'pending';
   usedAt?: any;
   usedBy?: string;
   purchasedAt: any;
@@ -143,6 +151,9 @@ export interface TicketData {
   transferToName?: string;
   transferToPhone?: string;
   transferExpiry?: any;
+  // Vendor/reseller fields
+  vendorId?: string;
+  vendorName?: string;
 }
 
 // ─── Offline Ticket (for scanner download) ───────────────────────
@@ -188,7 +199,14 @@ export async function updateEvent(eventId: string, data: Partial<EventData>) {
 export async function getEvent(eventId: string): Promise<EventData | null> {
   const snap = await getDoc(doc(db, 'events', eventId));
   if (!snap.exists()) return null;
-  return { id: snap.id, ...snap.data() } as EventData;
+  const d = snap.data() as any;
+  if (!d.name && d.title) d.name = d.title;
+  if (!d.startDate && d.date) d.startDate = d.date;
+  if (!d.moncashPhone && d.paymentMethods?.moncash?.active)
+    d.moncashPhone = d.paymentMethods.moncash.values?.[0] || '';
+  if (!d.natcashPhone && d.paymentMethods?.natcash?.active)
+    d.natcashPhone = d.paymentMethods.natcash.values?.[0] || '';
+  return { id: snap.id, ...d } as EventData;
 }
 
 // ─── Get All Published Events ────────────────────────────────────
@@ -397,7 +415,7 @@ export async function toggleDoorStaff(eventId: string, staffId: string, disabled
 export async function verifyDoorStaffPin(
   eventId: string,
   pin: string
-): Promise<{ valid: boolean; waiting?: boolean; staffId?: string; staffName?: string; assignmentId?: string; error?: string }> {
+): Promise<{ valid: boolean; waiting?: boolean; staffId?: string; staffName?: string; assignmentId?: string; role?: string; error?: string }> {
   // Get event first to check it exists and isn't over
   const event = await getEvent(eventId);
   if (!event) return { valid: false, error: 'Event not found' };
@@ -420,12 +438,14 @@ export async function verifyDoorStaffPin(
   // For each assignment, check if the pool member's PIN matches
   let assignDoc: any = null;
   let staffName = 'Staff';
+  let staffRole = 'scanner';
   for (const d of assignSnap.docs) {
     const a = d.data();
     const memberDoc = await getDoc(doc(db, 'staffPool', a.staffId));
     if (memberDoc.exists() && (memberDoc.data() as any).pin === pin) {
       assignDoc = d;
       staffName = (memberDoc.data() as any).name || 'Staff';
+      staffRole = a.role || (memberDoc.data() as any).role || 'scanner';
       break;
     }
   }
@@ -445,14 +465,14 @@ export async function verifyDoorStaffPin(
       deviceId: thisDeviceId,
       activatedAt: serverTimestamp(),
     });
-    return { valid: true, staffId: assignDoc.id, staffName, assignmentId: assignDoc.id };
+    return { valid: true, staffId: assignDoc.id, staffName, assignmentId: assignDoc.id, role: staffRole };
   }
 
   if (assignment.deviceId !== thisDeviceId) {
     return { valid: false, error: 'PIN already used on another phone' };
   }
 
-  return { valid: true, staffId: assignDoc.id, staffName, assignmentId: assignDoc.id };
+  return { valid: true, staffId: assignDoc.id, staffName, assignmentId: assignDoc.id, role: staffRole };
 }
 
 // ─── Device ID (persists in localStorage) ────────────────────────
@@ -624,41 +644,76 @@ export async function purchaseTickets(
   buyerPin?: string,
   paymentIntentId?: string,
   paymentMethod?: 'stripe' | 'moncash' | 'natcash' | 'cash' | 'free',
+  opts?: {
+    organizerId?: string;
+    sectionName?: string;
+    priceHTG?: number;
+    paymentStatus?: 'paid' | 'pending_verification' | 'pending_cash';
+    txnId?: string;
+    vendorId?: string;
+    vendorName?: string;
+  }
 ): Promise<TicketData[]> {
   const tickets: TicketData[] = [];
+
+  // Resolve organizerId from event if not provided
+  let organizerId = opts?.organizerId || '';
+  if (!organizerId) {
+    const ev = await getEvent(eventId);
+    organizerId = (ev as any)?.organizerId || (ev as any)?.uid || '';
+  }
+
+  // Derive paymentStatus from paymentMethod if not provided
+  const paymentStatus = opts?.paymentStatus || (
+    paymentMethod === 'stripe' ? 'paid' :
+    (paymentMethod === 'moncash' || paymentMethod === 'natcash') ? 'pending_verification' :
+    paymentMethod === 'cash' ? 'pending_cash' : 'paid'
+  );
+  const ticketStatus = paymentStatus === 'paid' ? 'valid' : 'pending';
 
   for (const seat of seats) {
     const ticketCode = generateTicketCode();
     const qrData = `ANB:${eventId}:${ticketCode}:${Date.now().toString(36)}`;
     const ticketDoc: Omit<TicketData, 'id'> = {
       eventId,
+      organizerId,
       buyerName,
       buyerEmail,
       buyerPhone,
       section,
+      sectionName: opts?.sectionName || section,
       sectionColor,
       seat,
       price: pricePerSeat,
+      ...(opts?.priceHTG && { priceHTG: opts.priceHTG }),
       ticketCode,
       qrData,
-     buyerPin: buyerPin || generateBuyerPin(),
-      status: 'valid',
-      purchasedAt: serverTimestamp(),
+      buyerPin: buyerPin || generateBuyerPin(),
+      status: ticketStatus,
+      paymentStatus,
+      paymentMethod,
       ...(paymentIntentId && { paymentIntentId }),
-      ...(paymentMethod && { paymentMethod }),
+      ...(opts?.txnId && { txnId: opts.txnId }),
+      ...(opts?.vendorId && { vendorId: opts.vendorId }),
+      ...(opts?.vendorName && { vendorName: opts.vendorName }),
+      purchasedAt: serverTimestamp(),
     };
-    const ref = await addDoc(collection(db, 'events', eventId, 'tickets'), ticketDoc);
+    const ref = await addDoc(collection(db, 'tickets'), ticketDoc);
     tickets.push({ id: ref.id, ...ticketDoc });
   }
 
-  // Update event sold count and revenue
+  // Update event sold count and revenue (and section sold counter)
   const eventRef = doc(db, 'events', eventId);
   const eventSnap = await getDoc(eventRef);
   if (eventSnap.exists()) {
     const data = eventSnap.data();
+    const sections = (data.sections || []).map((s: any) =>
+      s.name === section ? { ...s, sold: (s.sold || 0) + seats.length } : s
+    );
     await updateDoc(eventRef, {
       totalSold: (data.totalSold || 0) + seats.length,
       revenue: (data.revenue || 0) + (seats.length * pricePerSeat),
+      sections,
       updatedAt: serverTimestamp(),
     });
   }

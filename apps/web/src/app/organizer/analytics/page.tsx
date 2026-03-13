@@ -7,7 +7,7 @@ import { PriceDisplay } from '@/hooks/PriceDisplay';
 import { useT } from '@/i18n';
 import { getOrganizerEvents, type EventData } from '@/lib/db';
 import { db } from '@/lib/firebase';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, query, where } from 'firebase/firestore';
 import { useOrganizerEvent } from '../OrganizerEventContext';
 
 type ATab = 'spenders' | 'loyal' | 'sections' | 'events' | 'vendors';
@@ -33,13 +33,8 @@ export default function OrganizerAnalyticsPage() {
       try {
         const evs = await getOrganizerEvents(user.uid);
         setEvents(evs);
-        const tickets: any[] = [];
-        await Promise.all(evs.map(async (e) => {
-          if (!e.id) return;
-          const snap = await getDocs(collection(db, 'events', e.id, 'tickets'));
-          snap.docs.forEach(d => tickets.push({ id: d.id, eventId: e.id, ...d.data() }));
-        }));
-        setAllTickets(tickets);
+        const snap = await getDocs(query(collection(db, 'tickets'), where('organizerId', '==', user.uid)));
+        setAllTickets(snap.docs.map(d => ({ id: d.id, ...d.data() })));
       } catch (err) {
         console.error('analytics load', err);
       } finally {
