@@ -1,6 +1,5 @@
 import {
   collection,
-
   doc,
   addDoc,
   setDoc,
@@ -12,8 +11,10 @@ import {
   where,
   orderBy,
   limit,
+  onSnapshot,
   serverTimestamp,
   Timestamp,
+  type Unsubscribe,
 } from 'firebase/firestore';
 import { db } from './firebase';
 
@@ -1241,4 +1242,71 @@ export async function seedKnownVenues(): Promise<number> {
     count++;
   }
   return count;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// PENDING TICKET APPROVAL  (Tikè ann atant)
+// ═══════════════════════════════════════════════════════════════════
+
+export interface PendingTicket {
+  id: string;
+  ticketCode: string;
+  eventId: string;
+  organizerId: string;
+  buyerName: string;
+  buyerPhone: string;
+  buyerEmail?: string | null;
+  paymentMethod: 'moncash' | 'natcash' | 'cash' | string;
+  paymentStatus: 'pending_verification' | 'pending_cash' | string;
+  txnId?: string | null;
+  status: string;
+  price: number;
+  priceHTG?: number;
+  sectionName?: string;
+  sectionColor?: string;
+  purchasedAt: Timestamp | null;
+}
+
+/** Real-time listener — returns all pending tickets for an organizer */
+export function subscribePendingTickets(
+  organizerId: string,
+  callback: (tickets: PendingTicket[]) => void,
+): Unsubscribe {
+  const q = query(
+    collection(db, 'tickets'),
+    where('organizerId', '==', organizerId),
+    where('paymentStatus', 'in', ['pending_verification', 'pending_cash']),
+  );
+
+  return onSnapshot(q, (snap) => {
+    const tickets = snap.docs.map((d) => ({
+      id: d.id,
+      ...(d.data() as Omit<PendingTicket, 'id'>),
+    }));
+    // Newest first
+    tickets.sort((a, b) => {
+      const at = (a.purchasedAt as Timestamp | null)?.toMillis() ?? 0;
+      const bt = (b.purchasedAt as Timestamp | null)?.toMillis() ?? 0;
+      return bt - at;
+    });
+    callback(tickets);
+  });
+}
+
+/** Approve: set status=valid, paymentStatus=paid */
+export async function approveTicket(ticketId: string): Promise<void> {
+  await updateDoc(doc(db, 'tickets', ticketId), {
+    status: 'valid',
+    paymentStatus: 'paid',
+    approvedAt: serverTimestamp(),
+  });
+}
+
+/** Reject: set status=cancelled */
+export async function rejectTicket(ticketId: string): Promise<void> {
+  await updateDoc(doc(db, 'tickets', ticketId), {
+    status: 'cancelled',
+    paymentStatus: 'cancelled',
+    cancelledAt: serverTimestamp(),
+  });
 }

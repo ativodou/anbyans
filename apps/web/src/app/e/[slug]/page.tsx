@@ -65,6 +65,55 @@ function dateStr(ts: any) {
   } catch { return String(ts); }
 }
 
+function StripeForm({
+  processing,
+  setProcessing,
+  onSuccess,
+}: {
+  processing: boolean;
+  setProcessing: (v: boolean) => void;
+  onSuccess: (paymentIntentId: string) => Promise<void> | void;
+}) {
+  const stripe = useStripe();
+  const elements = useElements();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!stripe || !elements || processing) return;
+    setProcessing(true);
+    try {
+      const result = await stripe.confirmPayment({
+        elements,
+        confirmParams: { return_url: window.location.href },
+        redirect: 'if_required',
+      });
+      if (result.error) {
+        console.error(result.error);
+        alert(result.error.message || 'Payment failed.');
+      } else if (result.paymentIntent?.status === 'succeeded') {
+        await onSuccess(result.paymentIntent.id);
+      }
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <PaymentElement />
+      <button
+        type="submit"
+        disabled={!stripe || processing}
+        className="w-full py-3.5 rounded-xl font-heading text-base bg-orange text-white disabled:opacity-30 hover:bg-orange/90 transition-all flex items-center justify-center gap-2"
+      >
+        {processing
+          ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Processing...</>
+          : 'Pay'}
+      </button>
+    </form>
+  );
+}
+
 // ─── Seat Map ─────────────────────────────────────────────────────────────────
 
 function SeatMap({ section, takenIds, selected, onToggle }: {
@@ -115,52 +164,6 @@ function SeatMap({ section, takenIds, selected, onToggle }: {
   );
 }
 
-
-// ─── Stripe Form ─────────────────────────────────────────────────────────────
-
-function StripeForm({ onSuccess, processing, setProcessing }: {
-  onSuccess: (paymentIntentId: string) => void;
-  processing: boolean;
-  setProcessing: (v: boolean) => void;
-}) {
-  const stripe = useStripe();
-  const elements = useElements();
-  const [error, setError] = useState('');
-
-  const handleSubmit = async () => {
-    if (!stripe || !elements) return;
-    setProcessing(true);
-    setError('');
-    const { error: submitError } = await elements.submit();
-    if (submitError) { setError(submitError.message || 'Error'); setProcessing(false); return; }
-    const { error: confirmError, paymentIntent } = await stripe.confirmPayment({
-      elements,
-      redirect: 'if_required',
-    });
-    if (confirmError) {
-      setError(confirmError.message || 'Payment failed');
-      setProcessing(false);
-    } else if (paymentIntent) {
-      onSuccess(paymentIntent.id);
-    }
-  };
-
-  return (
-    <div className="bg-white/[0.04] rounded-xl p-4 mb-4 text-sm">
-      <p className="font-bold mb-3">💳 Kart Kredi / Debi</p>
-      <div className="bg-white rounded-xl p-3 mb-3">
-        <PaymentElement />
-      </div>
-      {error && <p className="text-red-400 text-xs mb-2">{error}</p>}
-      <button onClick={handleSubmit} disabled={processing || !stripe}
-        className="w-full py-3 rounded-xl font-heading text-base bg-orange text-white disabled:opacity-30 hover:bg-orange/90 transition-all flex items-center justify-center gap-2">
-        {processing
-          ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Tann...</>
-          : 'Peye ak Kart →'}
-      </button>
-    </div>
-  );
-}
 // ─── Main component ───────────────────────────────────────────────────────────
 
 function BuyPageInner() {
@@ -212,7 +215,10 @@ function BuyPageInner() {
         }
         if (!data) {
           const privateEv = await getEventByPrivateToken(slug);
-          if (privateEv) { eventId = privateEv.id ?? slug; data = privateEv; }
+          if (privateEv) {
+            eventId = String(privateEv.id ?? slug);
+            data = privateEv;
+          }
         }
         if (data) {
           const rawV = data.venue;

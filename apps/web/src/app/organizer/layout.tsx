@@ -7,7 +7,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useT } from '@/i18n';
 import { auth, db } from '@/lib/firebase';
 import { type EventData } from '@/lib/db';
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import { collection, getDocs, onSnapshot, query, where } from 'firebase/firestore';
 import { OrganizerEventProvider, useOrganizerEvent } from './OrganizerEventContext';
 
 interface OrgProfile {
@@ -112,20 +112,34 @@ function OrganizerLayoutInner({ children }: { children: React.ReactNode }) {
     ({ ht, en, fr } as Record<string, string>)[locale] ?? ht;
 
   const [sideOpen, setSideOpen] = useState(false);
+  const [pendingCount, setPendingCount] = useState(0);
   const [orgProfile, setOrgProfile] = useState<OrgProfile>({
     name: '',
     bizName: '',
     initials: '??',
   });
 
+  // ── Live pending-ticket badge count ─────────────────────────────
+  useEffect(() => {
+    if (!user?.uid) return;
+    const q = query(
+      collection(db, 'tickets'),
+      where('organizerId', '==', user.uid),
+      where('paymentStatus', 'in', ['pending_verification', 'pending_cash']),
+    );
+    const unsub = onSnapshot(q, (snap) => setPendingCount(snap.size));
+    return () => unsub();
+  }, [user?.uid]);
+
   const NAV_ITEMS = [
-    { href: '/organizer/dashboard', icon: '📊', label: L('Dachbòd',  'Dashboard',  'Tableau de bord') },
-    { href: '/organizer/events',    icon: '📅', label: L('Evènman',  'Events',     'Événements') },
-    { href: '/organizer/vendors',   icon: '🏪', label: L('Revandè',  'Resellers',  'Revendeurs') },
-    { href: '/organizer/revenue',   icon: '💰', label: L('Revni',    'Revenue',    'Revenus') },
-    { href: '/organizer/analytics', icon: '📈', label: L('Analytics','Analytics',  'Analytique') },
-    { href: '/organizer/staff',     icon: '👥', label: L('Staff',    'Staff',      'Personnel') },
-    { href: '/organizer/settings',  icon: '⚙️', label: L('Paramèt', 'Settings',   'Paramètres') },
+    { href: '/organizer/dashboard',        icon: '📊', label: L('Dachbòd',         'Dashboard',        'Tableau de bord') },
+    { href: '/organizer/events',           icon: '📅', label: L('Evènman',         'Events',           'Événements') },
+    { href: '/organizer/vendors',          icon: '🏪', label: L('Revandè',         'Resellers',        'Revendeurs') },
+    { href: '/organizer/revenue',          icon: '💰', label: L('Revni',           'Revenue',          'Revenus') },
+    { href: '/organizer/analytics',        icon: '📈', label: L('Analytics',       'Analytics',        'Analytique') },
+    { href: '/organizer/staff',            icon: '👥', label: L('Staff',           'Staff',            'Personnel') },
+    { href: '/organizer/pending-tickets',  icon: '⏳', label: L('Ann Atant',       'Pending',          'En attente'),  badge: pendingCount },
+    { href: '/organizer/settings',         icon: '⚙️', label: L('Paramèt',        'Settings',         'Paramètres') },
   ];
 
   useEffect(() => {
@@ -174,13 +188,14 @@ function OrganizerLayoutInner({ children }: { children: React.ReactNode }) {
   };
 
   const pageTitle = (() => {
-    if (pathname.startsWith('/organizer/events/create')) return L('Kreye Evènman', 'Create Event', 'Créer un événement');
-    if (pathname.startsWith('/organizer/events'))    return L('Evènman',   'Events',    'Événements');
-    if (pathname.startsWith('/organizer/vendors'))   return L('Revandè',   'Resellers', 'Revendeurs');
-    if (pathname.startsWith('/organizer/revenue'))   return L('Revni',     'Revenue',   'Revenus');
-    if (pathname.startsWith('/organizer/analytics')) return L('Analytics', 'Analytics', 'Analytique');
-    if (pathname.startsWith('/organizer/staff'))     return L('Staff',     'Staff',     'Personnel');
-    if (pathname.startsWith('/organizer/settings'))  return L('Paramèt',   'Settings',  'Paramètres');
+    if (pathname.startsWith('/organizer/events/create'))       return L('Kreye Evènman',  'Create Event', 'Créer un événement');
+    if (pathname.startsWith('/organizer/events'))              return L('Evènman',         'Events',       'Événements');
+    if (pathname.startsWith('/organizer/vendors'))             return L('Revandè',         'Resellers',    'Revendeurs');
+    if (pathname.startsWith('/organizer/revenue'))             return L('Revni',           'Revenue',      'Revenus');
+    if (pathname.startsWith('/organizer/analytics'))           return L('Analytics',       'Analytics',    'Analytique');
+    if (pathname.startsWith('/organizer/staff'))               return L('Staff',           'Staff',        'Personnel');
+    if (pathname.startsWith('/organizer/pending-tickets'))     return L('Tikè Ann Atant',  'Pending Tickets', 'Billets en attente');
+    if (pathname.startsWith('/organizer/settings'))            return L('Paramèt',         'Settings',     'Paramètres');
     return L('Dachbòd', 'Dashboard', 'Tableau de bord');
   })();
 
@@ -218,7 +233,12 @@ function OrganizerLayoutInner({ children }: { children: React.ReactNode }) {
                   : 'text-gray-light hover:bg-dark-hover hover:text-white'}
               `}>
               <span className="text-base w-5 text-center">{n.icon}</span>
-              {n.label}
+              <span className="flex-1">{n.label}</span>
+              {'badge' in n && (n as any).badge > 0 && (
+                <span className="ml-auto px-1.5 py-0.5 rounded-full bg-orange text-white text-[9px] font-bold min-w-[18px] text-center">
+                  {(n as any).badge}
+                </span>
+              )}
             </Link>
           ))}
         </nav>
