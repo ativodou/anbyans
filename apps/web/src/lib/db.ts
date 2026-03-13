@@ -785,8 +785,85 @@ export interface VendorData {
   joinedDate: string;
   inviteToken?: string;   // random token sent via WhatsApp link
   trusted?: boolean;      // admin/organizer grants credit card access
+  interestedEvents?: { eventId: string; eventName: string; organizerId: string; emoji?: string }[];
   createdAt: any;
   updatedAt: any;
+}
+
+// ─── Vendor Request (free agent applies to work an event) ───────────
+
+export interface VendorRequest {
+  id?: string;
+  vendorId: string;
+  vendorName: string;
+  vendorPhone: string;
+  vendorCity?: string;
+  eventId: string;
+  eventName: string;
+  eventEmoji?: string;
+  eventDate?: string;
+  organizerId: string;
+  status: 'pending' | 'approved' | 'denied';
+  note?: string;
+  requestedAt: any;
+  resolvedAt?: any;
+}
+
+export async function requestVendorAccess(params: {
+  vendorId: string;
+  vendorName: string;
+  vendorPhone: string;
+  vendorCity?: string;
+  eventId: string;
+  eventName: string;
+  eventEmoji?: string;
+  eventDate?: string;
+  organizerId: string;
+}): Promise<VendorRequest> {
+  // Check if request already exists
+  const q = query(
+    collection(db, 'vendorRequests'),
+    where('vendorId', '==', params.vendorId),
+    where('eventId', '==', params.eventId),
+    limit(1)
+  );
+  const existing = await getDocs(q);
+  if (!existing.empty) {
+    return { id: existing.docs[0].id, ...existing.docs[0].data() } as VendorRequest;
+  }
+  const ref = await addDoc(collection(db, 'vendorRequests'), {
+    ...params,
+    status: 'pending',
+    requestedAt: serverTimestamp(),
+  });
+  return { id: ref.id, ...params, status: 'pending', requestedAt: null };
+}
+
+export async function getVendorRequests(vendorId: string): Promise<VendorRequest[]> {
+  const q = query(collection(db, 'vendorRequests'), where('vendorId', '==', vendorId));
+  const snap = await getDocs(q);
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as VendorRequest));
+}
+
+export async function getOrganizerVendorRequests(organizerId: string): Promise<VendorRequest[]> {
+  const q = query(
+    collection(db, 'vendorRequests'),
+    where('organizerId', '==', organizerId),
+    where('status', '==', 'pending')
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as VendorRequest))
+    .sort((a, b) => (b.requestedAt?.seconds || 0) - (a.requestedAt?.seconds || 0));
+}
+
+export async function resolveVendorRequest(
+  requestId: string,
+  status: 'approved' | 'denied'
+): Promise<void> {
+  await updateDoc(doc(db, 'vendorRequests', requestId), {
+    status,
+    resolvedAt: serverTimestamp(),
+  });
 }
 
 // ─── Create / Invite Reseller ──────────────────────────────────────
@@ -863,6 +940,17 @@ export async function vendorBulkPurchase(params: {
   qty: number;
   priceEach: number;
 }): Promise<VendorPurchase> {
+  // Verify vendor has an approved request for this event
+  const reqQ = query(
+    collection(db, 'vendorRequests'),
+    where('vendorId', '==', params.vendorId),
+    where('eventId', '==', params.eventId),
+    where('status', '==', 'approved'),
+    limit(1)
+  );
+  const reqSnap = await getDocs(reqQ);
+  if (reqSnap.empty) throw new Error('Vendor not approved for this event');
+
   const totalPaid = params.qty * params.priceEach;
   const now = new Date();
   const purchaseDate = `${now.getDate()} ${['Jan','Fev','Mas','Avr','Me','Jen','Jiy','Out','Sep','Okt','Nov','Des'][now.getMonth()]}`;
@@ -873,15 +961,17 @@ export async function vendorBulkPurchase(params: {
     ticketCodes.push(generateTicketCode());
   }
 
-  // Save reseller tickets to event's tickets subcollection
+  // Save reseller tickets to root tickets collection
   for (const code of ticketCodes) {
     const qrData = `ANB:${params.eventId}:${code}:${Date.now().toString(36)}`;
-    await addDoc(collection(db, 'events', params.eventId, 'tickets'), {
+    await addDoc(collection(db, 'tickets'), {
       eventId: params.eventId,
+      organizerId: params.organizerId,
       buyerName: `Vandè: ${params.vendorName}`,
       buyerEmail: '',
       buyerPhone: '',
       section: params.section,
+      sectionName: params.section,
       sectionColor: params.sectionColor,
       seat: 'GA',
       price: params.priceEach,
@@ -889,6 +979,8 @@ export async function vendorBulkPurchase(params: {
       qrData,
       buyerPin: generateBuyerPin(),
       status: 'valid',
+      paymentStatus: 'paid',
+      paymentMethod: 'cash',
       vendorId: params.vendorId,
       vendorName: params.vendorName,
       isVendorTicket: true,
@@ -1062,7 +1154,7 @@ export async function vendorSellTicket(params: {
 
   for (const code of assignedCodes) {
     const ticketsQ = query(
-      collection(db, 'events', params.eventId, 'tickets'),
+      collection(db, 'tickets'),
       where('ticketCode', '==', code),
       limit(1)
     );

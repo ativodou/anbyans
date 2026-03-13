@@ -190,25 +190,48 @@ export default function OrganizerVendorsPage() {
       {/* ── Available vendors tab ── */}
       {mainTab === 'available' && (
         <div>
-          <p className="text-xs text-gray-muted mb-4">Vendor ki enskri men poko konekte ak okenn òganizatè.</p>
+          <p className="text-xs text-gray-muted mb-4">
+            Vande ki enskri men poko asosye ak yon òganizatè. Yo ki enterese nan evènman ou yo gen yon badge.
+          </p>
           {unassigned.length === 0 ? (
             <div className="bg-dark-card border border-border rounded-card p-10 text-center">
-              <p className="text-xs text-gray-muted">Pa gen vendor disponib.</p>
+              <p className="text-xs text-gray-muted">Pa gen vande disponib pou kounye a.</p>
             </div>
           ) : (
             <div className="space-y-3">
-              {unassigned.map(v => (
-                <div key={v.id} className="bg-dark-card border border-border rounded-card p-4 flex items-center justify-between gap-4">
-                  <div>
-                    <p className="font-bold text-sm">{v.name}</p>
-                    <p className="text-xs text-gray-muted">{v.contact} · {v.phone} · {v.city}</p>
+              {unassigned.map(v => {
+                const interestedInMyEvents = (v as any).interestedEvents?.filter(
+                  (ie: any) => ie.organizerId === user?.uid
+                ) || [];
+                return (
+                  <div key={v.id} className={`bg-dark-card border rounded-card p-4 flex items-start justify-between gap-4 ${interestedInMyEvents.length > 0 ? 'border-orange/60' : 'border-border'}`}>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-bold text-sm">{v.name}</p>
+                        {interestedInMyEvents.length > 0 && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange/20 text-orange">
+                            🎯 {L('Enterese', 'Interested', 'Intéressé')}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-muted mt-0.5">{v.contact} · {v.phone} · {v.city}</p>
+                      {interestedInMyEvents.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {interestedInMyEvents.map((ie: any) => (
+                            <span key={ie.eventId} className="text-[11px] bg-dark border border-border rounded-full px-2 py-0.5 text-gray-light">
+                              {ie.emoji} {ie.eventName}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <button onClick={() => handleAssign(v.id!)} disabled={assigning === v.id}
+                      className="px-4 py-2 rounded-lg bg-orange text-white text-xs font-bold hover:bg-orange/80 disabled:opacity-50 transition-all flex-shrink-0">
+                      {assigning === v.id ? '...' : '➕ Ajoute'}
+                    </button>
                   </div>
-                  <button onClick={() => handleAssign(v.id!)} disabled={assigning === v.id}
-                    className="px-4 py-2 rounded-lg bg-orange text-white text-xs font-bold hover:bg-orange/80 disabled:opacity-50 transition-all">
-                    {assigning === v.id ? '...' : '➕ Ajoute'}
-                  </button>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
