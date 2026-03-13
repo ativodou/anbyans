@@ -8,7 +8,9 @@ import {
   getOrganizerVendors,
   getOrganizerVendorPurchases,
   getAllUnassignedVendors,
+  getOrganizerVendorRequests,
   assignVendorToOrganizer,
+  resolveVendorRequest,
   inviteVendor,
   updateVendorStatus,
   updateVendorTrusted,
@@ -16,6 +18,7 @@ import {
   type EventData,
   type VendorData,
   type VendorPurchase,
+  type VendorRequest,
   type BulkTier,
 } from '@/lib/db';
 import { useOrganizerEvent } from '../OrganizerEventContext';
@@ -45,7 +48,9 @@ export default function OrganizerVendorsPage() {
   const [loading, setLoading]     = useState(true);
   const [saving, setSaving]       = useState(false);
 
-  const [mainTab, setMainTab]             = useState<'my' | 'available'>('my');
+  const [mainTab, setMainTab]             = useState<'my' | 'available' | 'requests'>('my');
+  const [vendorRequests, setVendorRequests] = useState<VendorRequest[]>([]);
+  const [resolvingReq, setResolvingReq]     = useState<string | null>(null);
   const [expandedReseller, setExpandedReseller] = useState<string | null>(null);
   const [showInvite, setShowInvite]       = useState(false);
   const [showPricing, setShowPricing]     = useState(false);
@@ -70,12 +75,14 @@ export default function OrganizerVendorsPage() {
     if (!user?.uid) return;
     setLoading(true);
     try {
-      const [evList, resellerList, purchaseList, unassignedList] = await Promise.all([
+      const [evList, resellerList, purchaseList, unassignedList, reqList] = await Promise.all([
         getOrganizerEvents(user.uid),
         getOrganizerVendors(user.uid),
         getOrganizerVendorPurchases(user.uid),
         getAllUnassignedVendors(),
+        getOrganizerVendorRequests(user.uid),
       ]);
+      setVendorRequests(reqList);
       setUnassigned(unassignedList);
       setResellers(resellerList.map(v => ({
         ...v,
@@ -142,6 +149,42 @@ export default function OrganizerVendorsPage() {
     }
   };
 
+  const handleResolveRequest = async (req: VendorRequest, status: 'approved' | 'denied') => {
+    if (!req.id) return;
+    setResolvingReq(req.id);
+    try {
+      await resolveVendorRequest(req.id, status);
+      setVendorRequests(prev => prev.filter(r => r.id !== req.id));
+
+      if (status === 'approved' && req.vendorPhone) {
+        const msg = encodeURIComponent(
+          `✅ *ANBYANS — Demann ou apwouve!*
+
+` +
+          `Bonjou ${req.vendorName}!
+
+` +
+          `Ou apwouve pou vann tikè pou evènman sa a:
+` +
+          `${req.eventEmoji ?? '🎪'} *${req.eventName}*
+` +
+          (req.eventDate ? `📅 ${req.eventDate}
+` : '') +
+          `
+Konekte sou dachbod ou pou achte tikè bulk:
+` +
+          `${window.location.origin}/vendor/dashboard
+
+` +
+          `Anbyans 🎫`
+        );
+        const phone = req.vendorPhone.replace(/[^0-9]/g, '');
+        window.open(`https://wa.me/${phone}?text=${msg}`, '_blank');
+      }
+    } catch (e) { console.error(e); }
+    finally { setResolvingReq(null); }
+  };
+
   const handleAssign = async (vendorId: string) => {
     if (!user?.uid) return;
     setAssigning(vendorId);
@@ -179,6 +222,7 @@ export default function OrganizerVendorsPage() {
         {([
           ['my', `👥 ${L('Revandè Mwen', 'My Resellers', 'Mes Revendeurs')}`, resellers.length],
           ['available', `🔍 ${L('Revandè Disponib', 'Available Resellers', 'Revendeurs Disponibles')}`, unassigned.length],
+          ['requests', `🙋 ${L('Demann', 'Requests', 'Demandes')}`, vendorRequests.length],
         ] as const).map(([id, label, count]) => (
           <button key={id} onClick={() => setMainTab(id)}
             className={`px-4 py-2 text-xs font-bold border-b-2 transition-colors ${mainTab === id ? 'border-orange text-orange' : 'border-transparent text-gray-muted hover:text-white'}`}>
@@ -186,6 +230,60 @@ export default function OrganizerVendorsPage() {
           </button>
         ))}
       </div>
+
+      {/* ── Requests tab ── */}
+      {mainTab === 'requests' && (
+        <div>
+          <p className="text-xs text-gray-muted mb-4">
+            {L('Vande ki mande pou travay evènman ou yo. Apwouve oswa refize yo.',
+              'Vendors requesting to work your events. Approve or deny them.',
+              'Vendeurs demandant à travailler vos événements. Approuvez ou refusez.')}
+          </p>
+          {vendorRequests.length === 0 ? (
+            <div className="bg-dark-card border border-border rounded-card p-10 text-center">
+              <p className="text-2xl mb-2">🙌</p>
+              <p className="text-xs text-gray-muted">{L('Pa gen demann annatant.', 'No pending requests.', 'Aucune demande en attente.')}</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {vendorRequests.map(req => (
+                <div key={req.id} className="bg-dark-card border border-border rounded-card p-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap mb-1">
+                        <p className="font-bold text-sm">{req.vendorName}</p>
+                        {req.vendorCity && <span className="text-xs text-gray-muted">· {req.vendorCity}</span>}
+                      </div>
+                      <p className="text-xs text-gray-muted mb-2">{req.vendorPhone}</p>
+                      <div className="flex items-center gap-2 bg-dark border border-border rounded-lg px-3 py-2 w-fit">
+                        <span className="text-base">{req.eventEmoji || '🎪'}</span>
+                        <div>
+                          <p className="text-xs font-bold">{req.eventName}</p>
+                          {req.eventDate && <p className="text-[10px] text-gray-muted">📅 {req.eventDate}</p>}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-2 flex-shrink-0">
+                      <button
+                        onClick={() => handleResolveRequest(req, 'approved')}
+                        disabled={resolvingReq === req.id}
+                        className="px-4 py-2 rounded-lg bg-green text-white text-xs font-bold hover:opacity-80 disabled:opacity-40 transition-all">
+                        {resolvingReq === req.id ? '...' : `✓ ${L('Apwouve', 'Approve', 'Approuver')}`}
+                      </button>
+                      <button
+                        onClick={() => handleResolveRequest(req, 'denied')}
+                        disabled={resolvingReq === req.id}
+                        className="px-4 py-2 rounded-lg border border-border text-gray-muted text-xs font-bold hover:border-red hover:text-red disabled:opacity-40 transition-all">
+                        ✕ {L('Refize', 'Deny', 'Refuser')}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── Available vendors tab ── */}
       {mainTab === 'available' && (

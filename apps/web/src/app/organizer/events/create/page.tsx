@@ -9,7 +9,6 @@ import { useT } from '@/i18n';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
-interface CalTier { label: string; openDate: string; closeDate: string; priceEach: number; }
 
 interface Section {
   id: string;
@@ -18,7 +17,9 @@ interface Section {
   capacity: number;
   color: string;
   type: 'ga' | 'reserved';
-  calendarTiers?: CalTier[];
+  vendorPrice?: number;
+  vendorOpenDate?: string;
+  vendorCloseDate?: string;
 }
 
 const COLORS = ['#f97316','#a855f7','#3b82f6','#10b981','#ef4444','#eab308','#ec4899','#06b6d4'];
@@ -49,17 +50,7 @@ function SectionRow({ sec, onChange, onRemove, index }: {
   index: number;
 }) {
   const [showTiers, setShowTiers] = useState(false);
-  const tiers: CalTier[] = sec.calendarTiers || [];
 
-  const addTier = () => onChange({
-    ...sec, calendarTiers: [...tiers, { label: '', openDate: '', closeDate: '', priceEach: 0 }],
-  });
-  const updateTier = (i: number, patch: Partial<CalTier>) => onChange({
-    ...sec, calendarTiers: tiers.map((t, idx) => idx === i ? { ...t, ...patch } : t),
-  });
-  const removeTier = (i: number) => onChange({
-    ...sec, calendarTiers: tiers.filter((_, idx) => idx !== i),
-  });
 
   return (
     <div className="bg-white/[0.03] border border-border rounded-xl p-4 space-y-3">
@@ -116,64 +107,50 @@ function SectionRow({ sec, onChange, onRemove, index }: {
         </div>
       </div>
 
-      {/* ── Vendor calendar tiers ── */}
+      {/* ── Vendor window ── */}
       <div className="border-t border-border pt-3">
         <button type="button" onClick={() => setShowTiers(v => !v)}
           className="flex items-center gap-2 text-[11px] font-bold text-gray-400 hover:text-orange transition-colors w-full">
           <span className="text-base">🏪</span>
-          <span>PRIX VANDE (KALANN TYÈ) / VENDOR PRICING TIERS</span>
-          {tiers.length > 0 && (
-            <span className="ml-1 text-[10px] text-orange bg-orange/10 rounded-full px-2">{tiers.length}</span>
-          )}
+          <span>PRIX VANDE / VENDOR PRICING</span>
+          {sec.vendorPrice ? <span className="ml-1 text-[10px] text-orange bg-orange/10 rounded-full px-2">${sec.vendorPrice}</span> : null}
           <span className="ml-auto">{showTiers ? '▲' : '▼'}</span>
         </button>
 
         {showTiers && (
-          <div className="mt-3 space-y-2">
+          <div className="mt-3 space-y-3">
             <p className="text-[10px] text-gray-600">
-              Prix gwo kantite pou vande achte anvan evènman. Chak tye aktive selon dat.
-              / Wholesale prices for vendors. Each tier activates by date window.
+              Pri pou vande achte anvan evènman. Fan ap peye pri nòmal la.
             </p>
-
-            {tiers.length === 0 && (
-              <p className="text-[10px] text-gray-600 italic">Pa gen tye pou kounye a. / No tiers yet.</p>
-            )}
-
-            {tiers.map((t, i) => (
-              <div key={i} className="grid gap-2 p-3 rounded-lg bg-black/30 border border-border/50">
-                <div className="flex gap-2">
-                  <input value={t.label} onChange={e => updateTier(i, { label: e.target.value })}
-                    placeholder="Early Bird / Normal / Last Call"
-                    className="flex-1 px-2 py-1.5 rounded-lg bg-black/40 border border-border text-white text-xs outline-none focus:border-orange" />
-                  <div className="relative">
-                    <span className="absolute left-2 top-1.5 text-gray-500 text-xs">$</span>
-                    <input type="number" min={0} value={t.priceEach || ''}
-                      onChange={e => updateTier(i, { priceEach: Number(e.target.value) })}
-                      placeholder="0"
-                      className="w-20 pl-5 pr-2 py-1.5 rounded-lg bg-black/40 border border-border text-white text-xs font-bold outline-none focus:border-orange" />
-                  </div>
-                  <button type="button" onClick={() => removeTier(i)}
-                    className="text-gray-600 hover:text-red-400 text-xs px-1">✕</button>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="block text-[9px] text-gray-600 mb-0.5">OUVÈ / OPEN</label>
-                    <input type="date" value={t.openDate} onChange={e => updateTier(i, { openDate: e.target.value })}
-                      className="w-full px-2 py-1.5 rounded-lg bg-black/40 border border-border text-white text-xs outline-none focus:border-orange" />
-                  </div>
-                  <div>
-                    <label className="block text-[9px] text-gray-600 mb-0.5">FÈMEN / CLOSE</label>
-                    <input type="date" value={t.closeDate} onChange={e => updateTier(i, { closeDate: e.target.value })}
-                      className="w-full px-2 py-1.5 rounded-lg bg-black/40 border border-border text-white text-xs outline-none focus:border-orange" />
-                  </div>
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <label className="block text-[9px] font-bold text-gray-600 mb-1">PRI VANDE / VENDOR $</label>
+                <div className="relative">
+                  <span className="absolute left-2 top-2 text-gray-500 text-xs">$</span>
+                  <input type="number" min={0} value={sec.vendorPrice || ''}
+                    onChange={e => onChange({ ...sec, vendorPrice: Number(e.target.value) || undefined })}
+                    placeholder="0"
+                    className="w-full pl-5 pr-2 py-1.5 rounded-lg bg-black/40 border border-border text-white text-xs font-bold outline-none focus:border-orange" />
                 </div>
               </div>
-            ))}
-
-            <button type="button" onClick={addTier}
-              className="w-full py-2 rounded-lg border border-dashed border-gray-700 text-gray-500 text-xs font-bold hover:border-orange/40 hover:text-orange transition-all">
-              + Ajoute tye / Add tier
-            </button>
+              <div>
+                <label className="block text-[9px] font-bold text-gray-600 mb-1">OUVÈ / OPEN</label>
+                <input type="date" value={sec.vendorOpenDate || ''}
+                  onChange={e => onChange({ ...sec, vendorOpenDate: e.target.value || undefined })}
+                  className="w-full px-2 py-1.5 rounded-lg bg-black/40 border border-border text-white text-xs outline-none focus:border-orange" />
+              </div>
+              <div>
+                <label className="block text-[9px] font-bold text-gray-600 mb-1">FÈMEN / CLOSE</label>
+                <input type="date" value={sec.vendorCloseDate || ''}
+                  onChange={e => onChange({ ...sec, vendorCloseDate: e.target.value || undefined })}
+                  className="w-full px-2 py-1.5 rounded-lg bg-black/40 border border-border text-white text-xs outline-none focus:border-orange" />
+              </div>
+            </div>
+            {sec.vendorPrice && sec.price && (
+              <p className="text-[10px] text-green-500">
+                Vande ekonomize ${(sec.price - sec.vendorPrice).toFixed(0)} / tikè ({Math.round((1 - sec.vendorPrice / sec.price) * 100)}% rabè)
+              </p>
+            )}
           </div>
         )}
       </div>

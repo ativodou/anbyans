@@ -13,15 +13,15 @@ import {
   requestVendorAccess,
   vendorBulkPurchase,
   vendorSellTicket,
+  getOrganizerPaymentMethods,
   type VendorData,
   type VendorPurchase,
   type VendorRequest,
   type EventData,
   type ResellerSectionPricing,
+  type OrgPaymentMethod,
 } from '@/lib/db';
 
-interface CalTier { label: string; openDate: string; closeDate: string; priceEach: number; }
-interface BulkTier { minQty: number; maxQty: number | null; priceEach: number; }
 interface VendorSale {
   id?: string; ticketCode: string; eventName: string; section: string;
   sectionColor: string; qty: number; sellPriceEach: number; costPriceEach: number;
@@ -29,13 +29,6 @@ interface VendorSale {
 }
 type ApprovedEvent = EventData & { pricing: ResellerSectionPricing[] };
 type Tab = 'events' | 'sell' | 'buy' | 'inventory' | 'sales';
-
-const getBulkPrice = (tiers: BulkTier[], qty: number) => {
-  for (let i = tiers.length - 1; i >= 0; i--) {
-    if (qty >= tiers[i].minQty) return tiers[i].priceEach;
-  }
-  return tiers[0]?.priceEach ?? 0;
-};
 
 export default function VendorDashboardPage() {
   const { locale } = useT();
@@ -72,6 +65,9 @@ export default function VendorDashboardPage() {
   const [buySuccess, setBuySuccess] = useState(false);
   const [buyLoading, setBuyLoading] = useState(false);
   const [buyError, setBuyError] = useState('');
+  const [orgPayMethods, setOrgPayMethods] = useState<OrgPaymentMethod[]>([]);
+  const [selectedPayMethod, setSelectedPayMethod] = useState<OrgPaymentMethod | null>(null);
+  const [loadingPayMethods, setLoadingPayMethods] = useState(false);
 
   const today = new Date().toISOString().slice(0, 10);
 
@@ -165,13 +161,9 @@ export default function VendorDashboardPage() {
 
   const selectedEvent   = approvedEvents[buyEventIdx];
   const selectedSection = selectedEvent?.pricing[buySectionIdx];
-  const calTiers        = ((selectedSection as unknown as { calendarTiers?: CalTier[] })?.calendarTiers ?? []) as CalTier[];
-  const activeCalTier   = calTiers.find(t => today >= t.openDate && today <= t.closeDate);
-  const bulkPrice       = activeCalTier
-    ? activeCalTier.priceEach
-    : selectedSection ? getBulkPrice(((selectedSection as unknown as { bulkTiers?: BulkTier[] }).bulkTiers ?? []), buyQty) : 0;
-  const buyWindowOpen   = calTiers.length === 0 || !!activeCalTier;
-  const buyTotal        = buyQty * bulkPrice;
+  const bulkPrice     = selectedSection?.vendorPrice ?? 0;
+  const buyWindowOpen = selectedSection?.windowOpen ?? false;
+  const buyTotal      = buyQty * bulkPrice;
 
   const refreshStock = async (vendorId: string) => {
     try {
@@ -211,7 +203,7 @@ export default function VendorDashboardPage() {
   }
 
   async function handleConfirmBuy() {
-    if (!vendor?.id || !selectedEvent?.id || !selectedSection) return;
+    if (!vendor?.id || !selectedEvent?.id || !selectedSection || !selectedPayMethod) return;
     setBuyLoading(true); setBuyError('');
     try {
       await vendorBulkPurchase({
@@ -221,6 +213,7 @@ export default function VendorDashboardPage() {
         eventEmoji: selectedEvent.emoji ?? '🎫', eventDate: selectedEvent.startDate ?? '',
         section: selectedSection.section, sectionColor: selectedSection.sectionColor,
         qty: buyQty, priceEach: bulkPrice,
+        paymentMethod: selectedPayMethod.key,
       });
       setBuySuccess(true); setShowBuyConfirm(false);
       await refreshStock(vendor.id);
@@ -344,15 +337,11 @@ export default function VendorDashboardPage() {
                       {isApproved && hasBulk && myEv && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 10 }}>
                           {myEv.pricing.map((sec, si) => {
-                            const secCal     = ((sec as unknown as { calendarTiers?: CalTier[] }).calendarTiers ?? []) as CalTier[];
-                            const activeTier = secCal.find(t => today >= t.openDate && today <= t.closeDate);
-                            const nextTier   = secCal.find(t => today < t.openDate);
-                            const activePrice = activeTier?.priceEach ?? (sec as unknown as { activePrice?: number }).activePrice;
-                            const isOpen     = !!activeTier || secCal.length === 0;
-                            const discount   = activePrice && sec.onlinePrice ? Math.round(((sec.onlinePrice - activePrice) / sec.onlinePrice) * 100) : 0;
+                            const discount = sec.vendorPrice && sec.onlinePrice
+                              ? Math.round(((sec.onlinePrice - sec.vendorPrice) / sec.onlinePrice) * 100) : 0;
                             return (
-                              <div key={si} style={{ background: '#0a0a0f', border: `1px solid ${isOpen ? sec.sectionColor + '44' : '#1e1e2e'}`, borderRadius: 10, padding: 12 }}>
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                              <div key={si} style={{ background: '#0a0a0f', border: `1px solid ${sec.windowOpen ? sec.sectionColor + '44' : '#1e1e2e'}`, borderRadius: 10, padding: 12 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: sec.windowOpen ? 10 : 0 }}>
                                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                     <span style={{ width: 10, height: 10, borderRadius: '50%', background: sec.sectionColor, display: 'inline-block' }} />
                                     <span style={{ fontWeight: 700, fontSize: 13 }}>{sec.section}</span>
@@ -360,30 +349,18 @@ export default function VendorDashboardPage() {
                                   </div>
                                   <div style={{ textAlign: 'right' }}>
                                     <span style={{ color: '#888', fontSize: 10, textDecoration: 'line-through', marginRight: 6 }}>${sec.onlinePrice}</span>
-                                    {isOpen && activePrice
-                                      ? <><span style={{ color: '#22c55e', fontWeight: 800, fontSize: 15 }}>${activePrice}</span>{discount > 0 && <span style={{ color: '#22c55e', fontSize: 10, marginLeft: 4 }}>-{discount}%</span>}</>
+                                    {sec.windowOpen
+                                      ? <><span style={{ color: '#22c55e', fontWeight: 800, fontSize: 15 }}>${sec.vendorPrice}</span>
+                                          {discount > 0 && <span style={{ color: '#22c55e', fontSize: 10, marginLeft: 4 }}>-{discount}%</span>}</>
                                       : <span style={{ color: '#ef4444', fontSize: 11 }}>🔒 {L('Fèmen', 'Closed', 'Fermé')}</span>}
                                   </div>
                                 </div>
-                                {secCal.length > 0 && (
-                                  <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 6 }}>
-                                    {secCal.map((t, ti) => {
-                                      const isAct = today >= t.openDate && today <= t.closeDate;
-                                      const isPast = today > t.closeDate;
-                                      return (
-                                        <span key={ti} style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 20, background: isAct ? '#a855f722' : isPast ? '#1e1e2e' : '#0a0a0f', color: isAct ? '#a855f7' : isPast ? '#444' : '#666', border: `1px solid ${isAct ? '#a855f744' : '#1e1e2e'}`, textDecoration: isPast ? 'line-through' : 'none' }}>
-                                          {t.label} ${t.priceEach}{isAct ? ' ← kounye a' : isPast ? ' ✓' : ` (${t.openDate})`}
-                                        </span>
-                                      );
-                                    })}
-                                  </div>
-                                )}
-                                {!activeTier && nextTier && (
-                                  <p style={{ color: '#f97316', fontSize: 10, marginBottom: 6 }}>
-                                    ⏳ {L('Pwochen:', 'Next:', 'Prochain :')} {nextTier.label} ${nextTier.priceEach} — {L('ouvè', 'opens', 'ouvre')} {nextTier.openDate}
+                                {!sec.windowOpen && sec.vendorOpenDate && today < sec.vendorOpenDate && (
+                                  <p style={{ color: '#f97316', fontSize: 10, marginTop: 6 }}>
+                                    ⏳ {L('Ouvè', 'Opens', 'Ouvre')} {sec.vendorOpenDate} — ${sec.vendorPrice}/{L('tikè','ticket','billet')}
                                   </p>
                                 )}
-                                {isOpen && activePrice && sec.available > 0 && (
+                                {sec.windowOpen && sec.available > 0 && (
                                   <button
                                     onClick={() => {
                                       const idx = approvedEvents.findIndex(ae => ae.id === ev.id);
@@ -393,7 +370,7 @@ export default function VendorDashboardPage() {
                                       setTab('buy');
                                     }}
                                     style={{ width: '100%', padding: '9px 0', borderRadius: 8, border: 'none', background: '#a855f7', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
-                                    🛒 {L('Achte bulk', 'Buy bulk', 'Achat en gros')} — ${activePrice}/{L('tikè', 'ticket', 'billet')}
+                                    🛒 {L('Achte bulk', 'Buy bulk', 'Achat en gros')} — ${sec.vendorPrice}/{L('tikè', 'ticket', 'billet')}
                                   </button>
                                 )}
                               </div>
@@ -738,7 +715,18 @@ export default function VendorDashboardPage() {
                     </div>
 
                     {buyError && <p style={{ color: '#ef4444', fontSize: 12, marginBottom: 10 }}>{buyError}</p>}
-                    <button onClick={() => setShowBuyConfirm(true)} disabled={!buyWindowOpen || buyQty < 1}
+                    <button onClick={() => {
+                        setShowBuyConfirm(true);
+                        setSelectedPayMethod(null);
+                        setOrgPayMethods([]);
+                        const orgId = selectedEvent?.organizerId;
+                        if (orgId) {
+                          setLoadingPayMethods(true);
+                          getOrganizerPaymentMethods(orgId)
+                            .then(m => { setOrgPayMethods(m); setLoadingPayMethods(false); })
+                            .catch(() => setLoadingPayMethods(false));
+                        }
+                      }} disabled={!buyWindowOpen || buyQty < 1}
                       style={{ ...btn('#a855f7'), opacity: (!buyWindowOpen || buyQty < 1) ? 0.4 : 1 }}>
                       🛒 {L('Achte','Buy','Acheter')} {buyQty} {L('tikè','tickets','billets')} — ${buyTotal.toLocaleString()}
                     </button>
@@ -766,20 +754,41 @@ export default function VendorDashboardPage() {
                 </div>
               ))}
             </div>
-            <p style={{ color: '#666', fontSize: 12, marginBottom: 14 }}>{L('Chwazi metòd peman:', 'Choose payment method:', 'Choisissez le mode de paiement :')}</p>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, maxWidth: 360, margin: '0 auto 16px' }}>
-              {['📱 MonCash', '💚 Natcash', '⚡ Zelle', '💲 Cash App', '🅿️ PayPal'].map(m => (
-                <button key={m} onClick={handleConfirmBuy} disabled={buyLoading}
-                  style={{ padding: '10px 6px', borderRadius: 10, border: '1px solid #1e1e2e', background: 'none', color: '#ccc', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>{m}</button>
-              ))}
-              {(vendor as VendorData & { trusted?: boolean })?.trusted && (
-                <button onClick={handleConfirmBuy} disabled={buyLoading}
-                  style={{ padding: '10px 6px', borderRadius: 10, border: '1px solid #22c55e', background: '#22c55e15', color: '#22c55e', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
-                  💳 {L('Kat Kredi','Credit Card','Carte')}
-                  <span style={{ display: 'block', fontSize: 8, color: '#22c55e99', marginTop: 2 }}>✓ Trusted</span>
-                </button>
-              )}
-            </div>
+            <p style={{ color: '#666', fontSize: 12, marginBottom: 14 }}>
+              {L('Chwazi metòd peman:', 'Choose payment method:', 'Choisissez le mode de paiement :')}
+            </p>
+
+            {loadingPayMethods
+              ? <p style={{ color: '#555', fontSize: 12, marginBottom: 16 }}>⏳ {L('Ap chaje...','Loading...','Chargement...')}</p>
+              : orgPayMethods.length === 0
+                ? <p style={{ color: '#ef4444', fontSize: 12, marginBottom: 16 }}>
+                    ⚠️ {L('Òganizatè a pa gen metòd peman aktif.', 'Organizer has no active payment methods.', "L'organisateur n'a pas de méthode de paiement active.")}
+                  </p>
+                : <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8, maxWidth: 360, margin: '0 auto 16px' }}>
+                    {orgPayMethods.map(m => (
+                      <button key={m.key} onClick={() => setSelectedPayMethod(m)}
+                        style={{ padding: '12px 8px', borderRadius: 10, border: `2px solid ${selectedPayMethod?.key === m.key ? '#a855f7' : '#1e1e2e'}`, background: selectedPayMethod?.key === m.key ? '#a855f715' : 'none', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s' }}>
+                        <span style={{ fontSize: 16 }}>{m.icon}</span> {m.label}
+                        {selectedPayMethod?.key === m.key && (
+                          <div style={{ marginTop: 6, padding: '6px 8px', background: '#0a0a0f', borderRadius: 7, border: '1px solid #a855f744' }}>
+                            {m.values.map((v, i) => (
+                              <p key={i} style={{ color: '#a855f7', fontSize: 11, fontWeight: 800, margin: '2px 0', fontFamily: 'monospace' }}>{v}</p>
+                            ))}
+                            <p style={{ color: '#666', fontSize: 9, margin: '4px 0 0' }}>
+                              {L('Voye peman an epi rete tann konfirmasyon', 'Send payment and wait for confirmation', 'Envoyez le paiement et attendez la confirmation')}
+                            </p>
+                          </div>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+            }
+
+            <button onClick={handleConfirmBuy}
+              disabled={buyLoading || !selectedPayMethod || orgPayMethods.length === 0}
+              style={{ ...btn('#a855f7'), maxWidth: 320, margin: '0 auto 12px', opacity: (!selectedPayMethod || buyLoading) ? 0.4 : 1 }}>
+              {buyLoading ? `⏳ ${L('Ap trete...','Processing...','Traitement...')}` : `✅ ${L('Konfime & Voye','Confirm & Send','Confirmer & Envoyer')} $${buyTotal.toLocaleString()}`}
+            </button>
             {buyError && <p style={{ color: '#ef4444', fontSize: 12, marginBottom: 10 }}>{buyError}</p>}
             <button onClick={() => setShowBuyConfirm(false)} style={{ color: '#555', background: 'none', border: 'none', cursor: 'pointer', fontSize: 12 }}>← {L('Retounen', 'Back', 'Retour')}</button>
           </div>

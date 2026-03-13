@@ -20,20 +20,15 @@ import { db } from './firebase';
 
 // ─── Event Types ─────────────────────────────────────────────────
 
-export interface CalendarTier {
-  label: string;          // ex: "Early Bird", "Normal", "Last Call"
-  openDate: string;       // ISO date "2026-01-15"
-  closeDate: string;      // ISO date "2026-03-10"
-  priceEach: number;      // vendor bulk price during this window
-}
-
 export interface EventSection {
   name: string;
   capacity: number;
-  price: number;
+  price: number;          // fan price
   sold: number;
   color: string;
-  calendarTiers?: CalendarTier[];  // date-based vendor bulk pricing
+  vendorPrice?: number;       // vendor bulk price
+  vendorOpenDate?: string;    // ISO date — when vendor window opens
+  vendorCloseDate?: string;   // ISO date — when vendor window closes
 }
 
 export interface EventRestriction {
@@ -752,8 +747,16 @@ export interface ResellerSectionPricing {
   section: string;
   sectionColor: string;
   onlinePrice: number;
-  bulkTiers: BulkTier[];
+  vendorPrice: number;
+  vendorOpenDate: string;
+  vendorCloseDate: string;
+  windowOpen: boolean;
   available: number;
+  // legacy compat
+  bulkTiers: BulkTier[];
+  calendarTiers: never[];
+  activeTier: null;
+  activePrice: number | null;
 }
 
 export interface VendorPurchase {
@@ -941,6 +944,7 @@ export async function vendorBulkPurchase(params: {
   sectionColor: string;
   qty: number;
   priceEach: number;
+  paymentMethod?: string;
 }): Promise<VendorPurchase> {
   // Verify vendor has an approved request for this event
   const reqQ = query(
@@ -981,8 +985,8 @@ export async function vendorBulkPurchase(params: {
       qrData,
       buyerPin: generateBuyerPin(),
       status: 'valid',
-      paymentStatus: 'paid',
-      paymentMethod: 'cash',
+      paymentStatus: 'pending_verification',
+      paymentMethod: params.paymentMethod ?? 'other',
       vendorId: params.vendorId,
       vendorName: params.vendorName,
       isVendorTicket: true,
@@ -1086,23 +1090,24 @@ export async function getEventBulkPricing(eventId: string): Promise<ResellerSect
   if (!event) return [];
   const today = new Date().toISOString().slice(0, 10);
   return event.sections
-    .filter(s => (s.calendarTiers && s.calendarTiers.length > 0) || (s as any).bulkTiers?.length > 0)
+    .filter(s => s.vendorPrice != null && s.vendorPrice > 0)
     .map(s => {
-      // Find active calendar tier for today
-      const activeTier = s.calendarTiers?.find(t => today >= t.openDate && today <= t.closeDate);
-      // Build bulkTiers from calendarTiers (sorted by openDate = cheapest first = earliest)
-      const calBulkTiers = (s.calendarTiers || [])
-        .sort((a, b) => a.openDate.localeCompare(b.openDate))
-        .map(t => ({ minQty: 1, maxQty: null as number | null, priceEach: t.priceEach, label: t.label, openDate: t.openDate, closeDate: t.closeDate }));
+      const windowOpen = (!s.vendorOpenDate || today >= s.vendorOpenDate) &&
+                         (!s.vendorCloseDate || today <= s.vendorCloseDate);
       return {
         section: s.name,
         sectionColor: s.color,
         onlinePrice: s.price,
         available: s.capacity - s.sold,
-        bulkTiers: (s as any).bulkTiers || [],
-        calendarTiers: s.calendarTiers || [],
-        activeTier: activeTier || null,
-        activePrice: activeTier?.priceEach ?? null,
+        vendorPrice: s.vendorPrice!,
+        vendorOpenDate: s.vendorOpenDate ?? '',
+        vendorCloseDate: s.vendorCloseDate ?? '',
+        windowOpen,
+        // kept for compat — not used anymore
+        bulkTiers: [],
+        calendarTiers: [],
+        activeTier: null,
+        activePrice: windowOpen ? s.vendorPrice! : null,
       };
     });
 }
