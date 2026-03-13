@@ -39,7 +39,7 @@ export default function TicketPage() {
   useEffect(() => {
     if (!code) return;
     (async () => {
-      const fullCode = code.toUpperCase().startsWith('ANB-') ? code.toUpperCase() : 'ANB-' + code.toUpperCase();
+      const fullCode = code.toUpperCase();
       const res = await verifyTicketByCode(fullCode);
       if (res.valid && res.ticket) {
         setTicket(res.ticket);
