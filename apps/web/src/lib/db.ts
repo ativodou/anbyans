@@ -1567,23 +1567,25 @@ export async function markEventLive(eventId: string): Promise<void> {
  * Only writes to Firestore if status needs to change — no unnecessary writes.
  */
 export async function autoUpdateEventStatus(event: EventData): Promise<EventData> {
+  if (!event.id) return event;
   if (event.status === 'cancelled' || event.status === 'ended') return event;
   if (event.status === 'draft') return event;
 
-  const endStr     = event.endDate  || event.startDate;
-  const endTimeStr = event.endTime  || '23:59';
-  const startStr   = event.startDate;
+  const endStr       = event.endDate  || event.startDate;
+  const endTimeStr   = event.endTime  || '23:59';
+  const startStr     = event.startDate;
   const startTimeStr = event.startTime || '00:00';
 
-  if (!endStr) return event;
+  if (!endStr || !startStr) return event;
 
-  const now       = new Date();
-  const endDt     = new Date(`${endStr}T${endTimeStr}`);
-  const startDt   = new Date(`${startStr}T${startTimeStr}`);
+  const eventId = event.id;
+  const now     = new Date();
+  const endDt   = new Date(`${endStr}T${endTimeStr}`);
+  const startDt = new Date(`${startStr}T${startTimeStr}`);
 
   // Past end time → ended
-  if (now > endDt && event.status !== 'ended') {
-    await updateDoc(doc(db, 'events', event.id!), {
+  if (now > endDt) {
+    await updateDoc(doc(db, 'events', eventId), {
       status: 'ended',
       endedAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
@@ -1591,9 +1593,9 @@ export async function autoUpdateEventStatus(event: EventData): Promise<EventData
     return { ...event, status: 'ended' };
   }
 
-  // Within event window (started but not ended) → live
+  // Within event window → live
   if (now >= startDt && now <= endDt && event.status === 'published') {
-    await updateDoc(doc(db, 'events', event.id!), {
+    await updateDoc(doc(db, 'events', eventId), {
       status: 'live',
       liveAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
