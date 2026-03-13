@@ -635,56 +635,26 @@ export default function VendorDashboardPage() {
                   </div>
                 )}
 
-                {selectedSection && (() => {
-                  const secCal    = ((selectedSection as unknown as { calendarTiers?: CalTier[] }).calendarTiers ?? []) as CalTier[];
-                  const activeCal = secCal.find(t => today >= t.openDate && today <= t.closeDate);
-                  return (
-                    <div style={{ ...card, marginBottom: 16 }}>
-                      <p style={{ color: '#a855f7', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', marginBottom: 10 }}>📅 {L('Pri pa Dat', 'Calendar Pricing', 'Tarifs par date')} — {selectedSection.section}</p>
-                      {secCal.length > 0 ? (
-                        <>
-                          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                            <thead>
-                              <tr style={{ borderBottom: '1px solid #1e1e2e' }}>
-                                {['Fenèt', L('Dat','Dates','Dates'), L('Pri','Price','Prix'), L('Rabè','Discount','Rabais')].map(h => (
-                                  <th key={h} style={{ color: '#555', fontSize: 9, textTransform: 'uppercase', paddingBottom: 8, textAlign: 'left' }}>{h}</th>
-                                ))}
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {secCal.map((t, i) => {
-                                const disc     = Math.round(((selectedSection.onlinePrice - t.priceEach) / selectedSection.onlinePrice) * 100);
-                                const isActive = today >= t.openDate && today <= t.closeDate;
-                                const isPast   = today > t.closeDate;
-                                return (
-                                  <tr key={i} style={{ borderBottom: '1px solid #1e1e2e', background: isActive ? '#a855f715' : 'transparent', opacity: isPast ? 0.4 : 1 }}>
-                                    <td style={{ padding: '8px 0', fontSize: 12, fontWeight: isActive ? 700 : 400, color: isActive ? '#a855f7' : '#fff' }}>
-                                      {t.label} {isActive && '← now'} {today < t.openDate && '🔒'} {isPast && '✓'}
-                                    </td>
-                                    <td style={{ fontSize: 10, color: '#888' }}>{t.openDate} → {t.closeDate}</td>
-                                    <td style={{ fontSize: 14, fontWeight: 700 }}>${t.priceEach}</td>
-                                    <td style={{ color: '#22c55e', fontSize: 12, fontWeight: 700 }}>-{disc}%</td>
-                                  </tr>
-                                );
-                              })}
-                            </tbody>
-                          </table>
-                          {activeCal
-                            ? <div style={{ background: '#a855f715', border: '1px solid #a855f733', borderRadius: 6, padding: '6px 10px', marginTop: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <p style={{ color: '#a855f7', fontSize: 11, fontWeight: 700 }}>✓ {activeCal.label} — ${activeCal.priceEach}/{L('tikè','ticket','billet')}</p>
-                                <p style={{ color: '#666', fontSize: 10 }}>{L('Fèmen','Closes','Ferme')} {activeCal.closeDate}</p>
-                              </div>
-                            : <div style={{ background: '#ef444415', border: '1px solid #ef444433', borderRadius: 6, padding: '6px 10px', marginTop: 10 }}>
-                                <p style={{ color: '#ef4444', fontSize: 11 }}>⚠️ {L('Pa gen fenèt ouvert kounye a.','No pricing window open now.','Aucune fenêtre ouverte.')}</p>
-                              </div>
-                          }
-                        </>
-                      ) : (
-                        <p style={{ color: '#555', fontSize: 12 }}>{L('Pa gen kalandriye pri.','No calendar pricing set.','Pas de tarification calendaire.')}</p>
-                      )}
+                {selectedSection && (
+                  <div style={{ ...card, marginBottom: 16 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <p style={{ color: '#a855f7', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>🏪 {L('Pri Vande', 'Vendor Price', 'Prix Vendeur')} — {selectedSection.section}</p>
+                        <p style={{ fontSize: 22, fontWeight: 800, color: '#22c55e' }}>${selectedSection.vendorPrice}</p>
+                        <p style={{ color: '#555', fontSize: 10, textDecoration: 'line-through' }}>${selectedSection.onlinePrice} {L('pri fan', 'fan price', 'prix fan')}</p>
+                      </div>
+                      {selectedSection.windowOpen
+                        ? <span style={{ background: '#22c55e20', color: '#22c55e', border: '1px solid #22c55e44', borderRadius: 20, padding: '4px 10px', fontSize: 11, fontWeight: 700 }}>✓ {L('Ouvert', 'Open', 'Ouvert')}</span>
+                        : <span style={{ background: '#ef444415', color: '#ef4444', border: '1px solid #ef444433', borderRadius: 20, padding: '4px 10px', fontSize: 11, fontWeight: 700 }}>🔒 {L('Fèmen', 'Closed', 'Fermé')}</span>
+                      }
                     </div>
-                  );
-                })()}
+                    {selectedSection.vendorOpenDate && (
+                      <p style={{ color: '#555', fontSize: 10, marginTop: 6 }}>
+                        {selectedSection.vendorOpenDate} → {selectedSection.vendorCloseDate || '∞'}
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 {selectedSection && (
                   <>
