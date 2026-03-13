@@ -284,9 +284,9 @@ function PoolMemberCard({
           <p className="text-xs font-bold">{s.name}</p>
           <p className="text-[11px] text-gray-light">{s.phone}</p>
           <div className="flex items-center gap-3 mt-1">
-            <span className="text-[9px] text-gray-muted">PIN: <span className="font-mono font-bold text-white tracking-widest">{s.pin}</span></span>
+            <span className="text-[9px] text-gray-muted">PIN: <span className="font-mono font-bold text-orange tracking-widest">{s.pin}</span></span>
             <button onClick={e => { e.stopPropagation(); onRegenPin(s); }}
-              className="text-[9px] text-gray-muted hover:text-orange transition-colors">↻</button>
+              className="text-[9px] text-gray-muted hover:text-orange transition-colors" title="Regen PIN">↻</button>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -427,6 +427,20 @@ function OrganizerStaffPageInner() {
       setAssignments(prev => [...prev, { id, ...assignment }]);
       setShowAssignForm(false);
     } finally { setSaving(false); }
+  };
+
+  const handleShareAssignmentPin = (a: StaffAssignment) => {
+    const member = pool.find(p => p.id === a.staffId);
+    const ev = events.find(e => e.id === a.eventId);
+    const url = `${window.location.origin}/organizer/scanner?event=${a.eventId}`;
+    const msg = `📱 Eskane tikè pou "${ev?.name}"\n👤 ${member?.name}\n🔗 ${url}\n🔑 PIN: ${(member as any)?.pin}\n\n⚠️ PIN sa a pou OU selman.`;
+    if (member?.phone) {
+      const phone = member.phone.replace(/\D/g, '');
+      window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
+    } else {
+      navigator.clipboard?.writeText(msg);
+      alert(L('PIN kopye!', 'PIN copied!', 'PIN copié!'));
+    }
   };
 
   const handleToggleActive = async (a: StaffAssignment) => {
@@ -719,9 +733,17 @@ function OrganizerStaffPageInner() {
                               {a.active ? L('AKTIF', 'ACTIVE', 'ACTIF') : L('INAKTIF', 'INACTIVE', 'INACTIF')}
                             </span>
                           </div>
-                          <p className="text-[10px] text-gray-muted">{member?.phone} · PIN: <span className="font-mono font-bold text-white">{member?.pin}</span></p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-[10px] text-gray-muted">PIN: <span className="font-mono font-bold text-orange tracking-widest">{member?.pin || '——'}</span></span>
+                          </div>
                         </div>
-                        <div className="flex gap-1.5">
+                        <div className="flex gap-1.5 flex-wrap justify-end">
+                          {member?.phone && (
+                            <button onClick={() => handleShareAssignmentPin(a as any)}
+                              className="px-2.5 py-1.5 rounded-lg text-[9px] font-bold border border-green/40 text-green bg-green/5 hover:bg-green hover:text-white transition-all">
+                              💬 WhatsApp
+                            </button>
+                          )}
                           <button onClick={() => handleToggleActive(a)}
                             className={`px-3 py-1.5 rounded-lg text-[9px] font-bold border transition-all ${
                               a.active ? 'border-border text-gray-light hover:text-red hover:border-red/30' : 'border-green text-green bg-green-dim hover:bg-green hover:text-white'

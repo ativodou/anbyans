@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useT } from '@/i18n';
-import { useRouter } from 'next/navigation';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, where, setDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { getOrganizerEvents, type EventData } from '@/lib/db';
@@ -55,7 +54,6 @@ function Toggle({ label, hint, value, onChange, warn }: { label: string; hint?: 
 export default function OrganizerSettingsPage() {
   const { user } = useAuth();
   const { locale } = useT();
-  const router = useRouter();
   const L = (ht: string, en: string, fr: string) =>
     ({ ht, en, fr } as Record<string, string>)[locale] ?? ht;
 
@@ -365,24 +363,6 @@ export default function OrganizerSettingsPage() {
               <Toggle label={L('Vibre', 'Vibration', 'Vibration')}      hint={L('Vibre sou telefòn', 'Vibrate on phone', 'Vibration téléphone')} value={scannerVibrate}  onChange={setScannerVibrate} />
               <Toggle label={L('Montre non', 'Show guest name', 'Afficher nom')} hint={L('Afiche non moun apre eskane', 'Show name after scan', 'Afficher nom après scan')} value={scannerShowName} onChange={setScannerShowName} />
             </div>
-
-            {/* Launch button */}
-            <button
-              onClick={() => {
-                const url = scannerEvent
-                  ? `/organizer/scanner?event=${scannerEvent}`
-                  : '/organizer/scanner';
-                router.push(url);
-              }}
-              className="w-full py-3 rounded-[10px] bg-orange text-white text-sm font-bold hover:bg-orange/80 transition-all flex items-center justify-center gap-2"
-            >
-              📷 {L('Lanse Eskanè', 'Launch Scanner', 'Lancer le Scanner')}
-              {scannerEvent && events.find(e => e.id === scannerEvent) && (
-                <span className="text-[11px] opacity-70 font-normal">
-                  — {events.find(e => e.id === scannerEvent)?.name}
-                </span>
-              )}
-            </button>
           </div>
         </SectionCard>
       )}

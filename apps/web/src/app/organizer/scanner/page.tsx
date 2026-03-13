@@ -33,7 +33,7 @@ interface ScanRecord {
   synced: boolean;
 }
 
-type ViewMode = 'loading' | 'pin-entry' | 'organizer-select' | 'organizer-staff' | 'scanner';
+type ViewMode = 'loading' | 'pin-entry' | 'organizer-select' | 'organizer-staff' | 'scanner' | 'waiting';
 
 // ─── Local Storage Helpers ───────────────────────────────────────
 
@@ -175,7 +175,7 @@ function ScannerPageInner() {
               staffId: a.staffId,
               staffName: member.name,
               phone: member.phone,
-              pin: member.pin,
+              pin: member.pin || '',
               role: a.role || member.role,
               activated: a.active,
               disabled: !a.active,
@@ -241,6 +241,26 @@ function ScannerPageInner() {
         setTickets(localTickets);
         setScanHistory(localHistory);
         setView('scanner');
+      } else if (result.waiting) {
+        // PIN is valid but organizer hasn't activated yet — poll until they do
+        setView('waiting');
+        const interval = setInterval(async () => {
+          try {
+            const check = await verifyDoorStaffPin(eventId, pin);
+            if (check.valid) {
+              clearInterval(interval);
+              const ev = await getEvent(eventId);
+              setEvent(ev);
+              setStaffId(check.staffId || '');
+              setStaffName(check.staffName || '');
+              const localTickets = loadTicketsLocal(eventId);
+              const localHistory = loadScanHistory(eventId);
+              setTickets(localTickets);
+              setScanHistory(localHistory);
+              setView('scanner');
+            }
+          } catch {}
+        }, 5000);
       } else {
         setPinError(result.error || L('PIN pa bon', 'Invalid PIN', 'PIN invalide'));
       }
@@ -505,6 +525,38 @@ function ScannerPageInner() {
               {L('Antre', 'Enter', 'Entrer')} →
             </button>
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // WAITING FOR ACTIVATION
+  // ═══════════════════════════════════════════════════════════════
+
+  if (view === 'waiting') {
+    return (
+      <div style={{ ...pageStyle, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+        <div style={{ maxWidth: 360, width: '100%', textAlign: 'center' }}>
+          <div style={{ fontSize: 64, marginBottom: 24 }}>⏳</div>
+          <h1 style={{ fontSize: 22, fontWeight: 800, marginBottom: 12 }}>
+            {L('Ap tann aktivasyon...', 'Waiting for activation...', 'En attente d\'activation...')}
+          </h1>
+          <p style={{ color: '#888', fontSize: 14, marginBottom: 32, lineHeight: 1.6 }}>
+            {L(
+              'PIN ou an bon. Òganizatè a dwe aktive ou anvan ou ka kòmanse eskane.',
+              'Your PIN is correct. The organizer needs to activate you before you can start scanning.',
+              'Votre PIN est correct. L\'organisateur doit vous activer avant de scanner.'
+            )}
+          </p>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, color: '#f97316', fontSize: 13 }}>
+            <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#f97316', animation: 'pulse 1.5s infinite' }} />
+            {L('Y ap chèche otorizasyon...', 'Checking for authorization...', 'Vérification en cours...')}
+          </div>
+          <button onClick={() => { setView('pin-entry'); setPin(''); }}
+            style={{ marginTop: 40, background: 'transparent', border: 'none', color: '#555', fontSize: 13, cursor: 'pointer' }}>
+            ← {L('Retounen', 'Back', 'Retour')}
+          </button>
         </div>
       </div>
     );

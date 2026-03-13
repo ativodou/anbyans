@@ -397,7 +397,7 @@ export async function toggleDoorStaff(eventId: string, staffId: string, disabled
 export async function verifyDoorStaffPin(
   eventId: string,
   pin: string
-): Promise<{ valid: boolean; staffId?: string; staffName?: string; error?: string }> {
+): Promise<{ valid: boolean; waiting?: boolean; staffId?: string; staffName?: string; assignmentId?: string; error?: string }> {
   // Get event first to check it exists and isn't over
   const event = await getEvent(eventId);
   if (!event) return { valid: false, error: 'Event not found' };
@@ -409,40 +409,50 @@ export async function verifyDoorStaffPin(
   expiry.setHours(expiry.getHours() + 2);
   if (new Date() > expiry) return { valid: false, error: 'Event is over' };
 
-  // Find staff with this PIN
-  const q = query(
-    collection(db, 'events', eventId, 'doorStaff'),
-    where('pin', '==', pin),
-    limit(1)
-  );
-  const snap = await getDocs(q);
-  if (snap.empty) return { valid: false, error: 'Wrong PIN' };
+  // Find assignment for this event where the pool member has this PIN
+  const assignSnap = await getDocs(query(
+    collection(db, 'staffAssignments'),
+    where('eventId', '==', eventId),
+    limit(100)
+  ));
+  if (assignSnap.empty) return { valid: false, error: 'Wrong PIN' };
 
-  const staffDoc = snap.docs[0];
-  const staff = staffDoc.data() as DoorStaff;
+  // For each assignment, check if the pool member's PIN matches
+  let assignDoc: any = null;
+  let staffName = 'Staff';
+  for (const d of assignSnap.docs) {
+    const a = d.data();
+    const memberDoc = await getDoc(doc(db, 'staffPool', a.staffId));
+    if (memberDoc.exists() && (memberDoc.data() as any).pin === pin) {
+      assignDoc = d;
+      staffName = (memberDoc.data() as any).name || 'Staff';
+      break;
+    }
+  }
+  if (!assignDoc) return { valid: false, error: 'Wrong PIN' };
 
-  // Check not disabled
-  if (staff.disabled) return { valid: false, error: 'PIN disabled by organizer' };
+  const assignment = assignDoc.data();
 
-  // Generate device ID for this phone
-  const thisDeviceId = getOrCreateDeviceId();
-
-  // First time using this PIN — lock to this device
-  if (!staff.activated || !staff.deviceId) {
-    await updateDoc(staffDoc.ref, {
-      deviceId: thisDeviceId,
-      activated: true,
-      activatedAt: serverTimestamp(),
-    });
-    return { valid: true, staffId: staffDoc.id, staffName: staff.staffName };
+  // Not activated yet — waiting for organizer
+  if (!assignment.active) {
+    return { valid: false, waiting: true, assignmentId: assignDoc.id };
   }
 
-  // Already activated — check same device
-  if (staff.deviceId !== thisDeviceId) {
+  // Device lock check
+  const thisDeviceId = getOrCreateDeviceId();
+  if (!assignment.deviceId) {
+    await updateDoc(assignDoc.ref, {
+      deviceId: thisDeviceId,
+      activatedAt: serverTimestamp(),
+    });
+    return { valid: true, staffId: assignDoc.id, staffName, assignmentId: assignDoc.id };
+  }
+
+  if (assignment.deviceId !== thisDeviceId) {
     return { valid: false, error: 'PIN already used on another phone' };
   }
 
-  return { valid: true, staffId: staffDoc.id, staffName: staff.staffName };
+  return { valid: true, staffId: assignDoc.id, staffName, assignmentId: assignDoc.id };
 }
 
 // ─── Device ID (persists in localStorage) ────────────────────────
