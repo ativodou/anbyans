@@ -96,6 +96,8 @@ export interface EventData {
   moncashPhone?: string;
   natcashPhone?: string;
   // Floor plan — prèt pou Seats.io ak Firebase Storage
+  emoji?: string;
+  city?: string;
   floorPlanUrl?: string;
   seatsioChartKey?: string;
   createdAt: any;

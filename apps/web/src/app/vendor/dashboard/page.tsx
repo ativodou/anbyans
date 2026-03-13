@@ -336,7 +336,7 @@ export default function VendorDashboardPage() {
                             <StatusBadge />
                           </div>
                           <p style={{ color: '#888', fontSize: 11, margin: 0 }}>
-                            📅 {ev.startDate}{ev.venue ? ` · 📍 ${ev.venue}` : ''}{ev.city ? ` · ${ev.city}` : ''}
+                            📅 {ev.startDate}{ev.venue?.name ? ` · 📍 ${ev.venue.name}` : ''}{ev.venue?.city ? ` · ${ev.venue.city}` : ''}
                           </p>
                         </div>
                       </div>
