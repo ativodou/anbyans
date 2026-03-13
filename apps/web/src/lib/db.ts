@@ -487,7 +487,8 @@ export async function updateDoorStaffStats(
 
 export async function downloadEventTickets(eventId: string): Promise<OfflineTicket[]> {
   const q = query(
-    collection(db, 'events', eventId, 'tickets'),
+    collection(db, 'tickets'),
+    where('eventId', '==', eventId),
     where('status', 'in', ['valid', 'used'])
   );
   const snap = await getDocs(q);
@@ -509,7 +510,8 @@ export async function downloadEventTickets(eventId: string): Promise<OfflineTick
 
 export async function markTicketUsed(eventId: string, ticketCode: string, scannedBy: string): Promise<boolean> {
   const q = query(
-    collection(db, 'events', eventId, 'tickets'),
+    collection(db, 'tickets'),
+    where('eventId', '==', eventId),
     where('ticketCode', '==', ticketCode),
     limit(1)
   );
@@ -536,7 +538,8 @@ export async function syncOfflineScans(
   let synced = 0;
   for (const scan of usedCodes) {
     const q = query(
-      collection(db, 'events', eventId, 'tickets'),
+      collection(db, 'tickets'),
+      where('eventId', '==', eventId),
       where('ticketCode', '==', scan.ticketCode),
       limit(1)
     );
