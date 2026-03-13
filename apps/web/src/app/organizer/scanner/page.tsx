@@ -4,13 +4,11 @@ import { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useT } from '@/i18n';
+import { db } from '@/lib/firebase';
+import { collection, getDocs, query, where } from 'firebase/firestore';
 import {
   getEvent,
   getOrganizerEvents,
-  addDoorStaff,
-  getDoorStaff,
-  removeDoorStaff,
-  toggleDoorStaff,
   verifyDoorStaffPin,
   updateDoorStaffStats,
   downloadEventTickets,
@@ -69,11 +67,8 @@ function ScannerPageInner() {
   const [event, setEvent] = useState<EventData | null>(null);
   const [orgEvents, setOrgEvents] = useState<EventData[]>([]);
 
-  // Door staff management (organizer)
-  const [staffList, setStaffList] = useState<DoorStaff[]>([]);
-  const [newStaffName, setNewStaffName] = useState('');
-  const [newStaffPhone, setNewStaffPhone] = useState('');
-  const [addingStaff, setAddingStaff] = useState(false);
+  // Door staff management (organizer) — sourced from staffPool + staffAssignments
+  const [staffList, setStaffList] = useState<any[]>([]);
 
   // PIN entry (door staff)
   const [pin, setPin] = useState('');
@@ -96,6 +91,12 @@ function ScannerPageInner() {
   const detectorRef = useRef<any>(null);
   const rafRef = useRef<number>(0);
 
+  // Scanner settings (loaded from organizer settings)
+  const [scannerSound, setScannerSound]       = useState(true);
+  const [scannerVibrate, setScannerVibrate]   = useState(true);
+  const [scannerShowName, setScannerShowName] = useState(true);
+  const [scannerMode, setScannerMode]         = useState<'single' | 'continuous'>('single');
+
   // Online/offline tracking
   useEffect(() => {
     const on = () => setIsOnline(true);
@@ -105,6 +106,25 @@ function ScannerPageInner() {
     setIsOnline(navigator.onLine);
     return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off); };
   }, []);
+
+  // Load organizer scanner settings
+  useEffect(() => {
+    if (!user?.uid) return;
+    (async () => {
+      try {
+        const snap = await getDocs(query(collection(db, 'organizers'), where('uid', '==', user.uid)));
+        if (!snap.empty) {
+          const s = snap.docs[0].data()?.scanner;
+          if (s) {
+            setScannerSound(s.sound ?? true);
+            setScannerVibrate(s.vibrate ?? true);
+            setScannerShowName(s.showName ?? true);
+            setScannerMode(s.mode || 'single');
+          }
+        }
+      } catch {}
+    })();
+  }, [user?.uid]);
 
   // Initialize
   useEffect(() => {
@@ -139,8 +159,33 @@ function ScannerPageInner() {
       const ev = await getEvent(eid);
       if (ev) {
         setEvent(ev);
-        const staff = await getDoorStaff(eid);
-        setStaffList(staff);
+        // Load assigned staff from staffAssignments + staffPool
+        const [assignSnap, poolSnap] = await Promise.all([
+          getDocs(query(collection(db, 'staffAssignments'), where('eventId', '==', eid))),
+          getDocs(query(collection(db, 'staffPool'), where('organizerId', '==', user!.uid))),
+        ]);
+        const poolMap = new Map(poolSnap.docs.map(d => [d.id, { id: d.id, ...d.data() }]));
+        const merged = assignSnap.docs
+          .map(d => {
+            const a = d.data();
+            const member = poolMap.get(a.staffId) as any;
+            if (!member) return null;
+            return {
+              id: d.id,
+              staffId: a.staffId,
+              staffName: member.name,
+              phone: member.phone,
+              pin: member.pin,
+              role: a.role || member.role,
+              activated: a.active,
+              disabled: !a.active,
+              scansCount: 0,
+              admittedCount: 0,
+              deniedCount: 0,
+            };
+          })
+          .filter(Boolean);
+        setStaffList(merged);
         setView('organizer-staff');
       }
     } catch {}
@@ -151,29 +196,8 @@ function ScannerPageInner() {
     loadEventForOrganizer(eid);
   }
 
-  async function handleAddStaff() {
-    if (!newStaffName.trim() || !eventId) return;
-    setAddingStaff(true);
-    try {
-      const staff = await addDoorStaff(eventId, newStaffName.trim(), newStaffPhone.trim());
-      setStaffList(prev => [...prev, staff]);
-      setNewStaffName('');
-      setNewStaffPhone('');
-    } catch {}
-    setAddingStaff(false);
-  }
 
-  async function handleRemoveStaff(sid: string) {
-    await removeDoorStaff(eventId, sid);
-    setStaffList(prev => prev.filter(s => s.id !== sid));
-  }
-
-  async function handleToggleStaff(sid: string, disabled: boolean) {
-    await toggleDoorStaff(eventId, sid, disabled);
-    setStaffList(prev => prev.map(s => s.id === sid ? { ...s, disabled } : s));
-  }
-
-  function shareStaffPin(staff: DoorStaff) {
+  function shareStaffPin(staff: any) {
     const url = `${window.location.origin}/organizer/scanner?event=${eventId}`;
     const msg = `📱 Eskane tike pou "${event?.name}"\n👤 ${staff.staffName}\n🔗 ${url}\n🔑 PIN: ${staff.pin}\n\n⚠️ PIN sa a pou OU selman. Li pral bloke sou telefon OU.`;
     const phone = staff.phone?.replace(/[^0-9]/g, '') || '';
@@ -296,7 +320,33 @@ function ScannerPageInner() {
     const newHistory = [record, ...scanHistory];
     setScanHistory(newHistory);
     saveScanHistory(eventId, newHistory);
-  }, [tickets, scanHistory, eventId, isOnline, staffId, staffName]);
+
+    // Sound feedback
+    if (scannerSound) {
+      try {
+        const ctx = new AudioContext();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.frequency.value = record.status === 'admitted' ? 880 : 220;
+        gain.gain.setValueAtTime(0.3, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.3);
+      } catch {}
+    }
+
+    // Vibration
+    if (scannerVibrate && navigator.vibrate) {
+      navigator.vibrate(record.status === 'admitted' ? [100] : [100, 50, 100]);
+    }
+
+    // Continuous mode — auto-clear result after 2s
+    if (scannerMode === 'continuous') {
+      setTimeout(() => setLastScan(null), 2000);
+    }
+  }, [tickets, scanHistory, eventId, isOnline, staffId, staffName, scannerSound, scannerVibrate, scannerMode]);
 
   function handleManualScan() {
     processTicketCode(manualCode);
@@ -518,38 +568,15 @@ function ScannerPageInner() {
             </button>
           </div>
 
-          <div style={{ ...cardStyle, marginBottom: 20 }}>
-            <div style={{ color: '#888', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>
-              {L('Ajoute Moun nan Pot', 'Add Door Staff', 'Ajouter Personnel')}
+          <div style={{ ...cardStyle, marginBottom: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 13 }}>👥 {L('Ekip Pot la', 'Door Team', 'Équipe Porte')}</div>
+              <div style={{ color: '#888', fontSize: 11, marginTop: 2 }}>{L('Jere staff nan paj Staff la', 'Manage staff from the Staff page', 'Gérez le staff depuis la page Staff')}</div>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <input
-                  value={newStaffName}
-                  onChange={e => setNewStaffName(e.target.value)}
-                  placeholder={L('Non (ekz: Jean)', 'Name (e.g. Jean)', 'Nom (ex: Jean)')!}
-                  style={{ flex: 1, padding: 12, borderRadius: 8, border: '1px solid #1e1e2e', background: '#0a0a0f', color: '#fff', fontSize: 14 }}
-                />
-                <input
-                  value={newStaffPhone}
-                  onChange={e => setNewStaffPhone(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && handleAddStaff()}
-                  placeholder="WhatsApp (+509...)"
-                  type="tel"
-                  style={{ flex: 1, padding: 12, borderRadius: 8, border: '1px solid #1e1e2e', background: '#0a0a0f', color: '#fff', fontSize: 14 }}
-                />
-              </div>
-              <button onClick={handleAddStaff} disabled={!newStaffName.trim() || addingStaff}
-                style={{
-                  padding: '12px 20px', borderRadius: 8, border: 'none',
-                  background: newStaffName.trim() ? '#f97316' : '#333',
-                  color: newStaffName.trim() ? '#000' : '#666',
-                  fontWeight: 700, fontSize: 13, cursor: newStaffName.trim() ? 'pointer' : 'not-allowed',
-                  width: '100%',
-                }}>
-                + {L('Ajoute Moun nan Pot', 'Add Door Staff', 'Ajouter Personnel')}
-              </button>
-            </div>
+            <a href={`/organizer/staff?event=${eventId}`}
+              style={{ padding: '8px 14px', borderRadius: 8, border: '1px solid #f97316', color: '#f97316', fontSize: 11, fontWeight: 700, textDecoration: 'none', whiteSpace: 'nowrap' }}>
+              ➕ {L('Jere Staff', 'Manage Staff', 'Gérer Staff')}
+            </a>
           </div>
 
           <div style={{ color: '#888', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>
@@ -559,7 +586,7 @@ function ScannerPageInner() {
           {staffList.length === 0 && (
             <div style={{ ...cardStyle, textAlign: 'center' }}>
               <div style={{ fontSize: 32, marginBottom: 8 }}>👥</div>
-              <p style={{ color: '#666', fontSize: 13 }}>{L('Ajoute moun ki pral eskane tike nan pot la', 'Add people who will scan tickets at the door', 'Ajoutez les personnes qui scanneront')}</p>
+              <p style={{ color: '#666', fontSize: 13 }}>{L('Pa gen staff asiyen pou evènman sa. Ale nan paj Staff pou asiyen moun.', 'No staff assigned to this event. Go to the Staff page to assign people.', 'Aucun staff assigné. Allez sur la page Staff.')}</p>
             </div>
           )}
 
@@ -601,14 +628,6 @@ function ScannerPageInner() {
                   <button onClick={() => shareStaffPin(staff)}
                     style={{ padding: '6px 12px', borderRadius: 6, border: `1px solid ${staff.phone ? '#22c55e' : '#f97316'}`, background: staff.phone ? '#22c55e15' : 'transparent', color: staff.phone ? '#22c55e' : '#f97316', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>
                     {staff.phone ? '💬 WhatsApp' : L('Pataje', 'Share', 'Partager')}
-                  </button>
-                  <button onClick={() => handleToggleStaff(staff.id!, !staff.disabled)}
-                    style={{ padding: '6px 12px', borderRadius: 6, border: '1px solid #333', background: 'transparent', color: staff.disabled ? '#22c55e' : '#888', fontSize: 10, cursor: 'pointer' }}>
-                    {staff.disabled ? L('Aktive', 'Enable', 'Activer') : L('Dezaktive', 'Disable', 'Desactiver')}
-                  </button>
-                  <button onClick={() => { if (confirm(L('Retire moun sa a?', 'Remove this person?', 'Supprimer?')!)) handleRemoveStaff(staff.id!); }}
-                    style={{ padding: '6px 12px', borderRadius: 6, border: '1px solid #ef444430', background: 'transparent', color: '#ef4444', fontSize: 10, cursor: 'pointer' }}>
-                    {L('Retire', 'Remove', 'Supprimer')}
                   </button>
                 </div>
               </div>
@@ -696,7 +715,9 @@ function ScannerPageInner() {
           <div style={{ ...cardStyle, marginBottom: 16, textAlign: 'center', borderColor: sc.border, background: sc.bg }}>
             <div style={{ fontSize: 48 }}>{sc.icon}</div>
             <div style={{ fontSize: 22, fontWeight: 800, color: sc.color, marginTop: 8 }}>{sc.label}</div>
-            <div style={{ fontSize: 16, fontWeight: 700, marginTop: 8 }}>{lastScan.buyerName}</div>
+            {scannerShowName && (
+              <div style={{ fontSize: 16, fontWeight: 700, marginTop: 8 }}>{lastScan.buyerName}</div>
+            )}
 
             {/* Phone number */}
             {lastScan.buyerPhone && (
