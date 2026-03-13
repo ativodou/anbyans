@@ -1128,6 +1128,36 @@ export async function saveEventBulkTiers(
   );
   await updateDoc(eventRef, { sections, updatedAt: serverTimestamp() });
 }
+// ─── Get Organizer Payment Methods ───────────────────────────────
+export interface OrgPaymentMethod {
+  key: string;
+  label: string;
+  icon: string;
+  values: string[];
+}
+
+export async function getOrganizerPaymentMethods(organizerId: string): Promise<OrgPaymentMethod[]> {
+  const snap = await getDoc(doc(db, 'organizers', organizerId));
+  if (!snap.exists()) return [];
+  const data = snap.data() as any;
+  const pm = data.paymentMethods || {};
+  const META: Record<string, { label: string; icon: string }> = {
+    zelle:   { label: 'Zelle',    icon: '⚡' },
+    cashapp: { label: 'Cash App', icon: '💲' },
+    paypal:  { label: 'PayPal',   icon: '🅿️' },
+    moncash: { label: 'MonCash',  icon: '📱' },
+    natcash: { label: 'NatCash',  icon: '💚' },
+  };
+  return Object.entries(pm)
+    .filter(([, v]: [string, any]) => v?.active && v?.values?.length > 0)
+    .map(([k, v]: [string, any]) => ({
+      key: k,
+      label: META[k]?.label ?? k,
+      icon: META[k]?.icon ?? '💳',
+      values: v.values as string[],
+    }));
+}
+
 // ─── Get Reseller by Firebase Auth UID ────────────────────────────
 
 export async function getVendorByUid(uid: string): Promise<VendorData | null> {
