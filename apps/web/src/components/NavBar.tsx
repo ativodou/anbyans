@@ -151,6 +151,13 @@ export default function Navbar() {
             )}
 
             <div style={{ borderTop: '1px solid #1e1e2e', marginTop: 4 }} />
+            <Link href="/legal" onClick={() => setMenuOpen(false)} style={{ display: 'block', padding: '8px 12px', borderRadius: 6, color: '#666', fontSize: 12, textDecoration: 'none' }}>
+              ⚖️ {L('Dokiman Legal', 'Legal', 'Légal')}
+            </Link>
+            <Link href="/legal/Anbyans_User_Guide.pdf" target="_blank" onClick={() => setMenuOpen(false)} style={{ display: 'block', padding: '8px 12px', borderRadius: 6, color: '#666', fontSize: 12, textDecoration: 'none' }}>
+              📘 {L('Gid Itilizatè', 'User Guide', 'Guide Utilisateur')}
+            </Link>
+            <div style={{ borderTop: '1px solid #1e1e2e', marginTop: 4 }} />
             <button onClick={handleSignOut} style={{ width: '100%', padding: '8px 12px', borderRadius: 6, border: 'none', background: 'transparent', color: '#ef4444', fontSize: 12, cursor: 'pointer', textAlign: 'left' }}>
               {L('Dekonekte', 'Sign Out', 'Deconnexion')}
             </button>
