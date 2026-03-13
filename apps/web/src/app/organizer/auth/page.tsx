@@ -31,6 +31,7 @@ export default function OrganizerAuth() {
   const [payoutDetails, setPayoutDetails] = useState('');
   const [regPass, setRegPass] = useState('');
   const [confirmPass, setConfirmPass] = useState('');
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -55,6 +56,7 @@ export default function OrganizerAuth() {
     e.preventDefault();
     setError('');
     if (regPass !== confirmPass) { setError(L('Modpas yo pa matche', 'Passwords do not match', 'Les mots de passe ne correspondent pas')!); return; }
+    if (!agreedToTerms) { setError(L('Ou dwe aksepte kondisyon yo', 'You must agree to the Terms & Privacy Policy', 'Vous devez accepter les conditions')!); return; }
     if (regPass.length < 6) { setError(L('Modpas dwe gen 6+ karakte', 'Password must be 6+ characters', 'Le mot de passe doit contenir 6+ caracteres')!); return; }
     setLoading(true);
     try {
@@ -258,6 +260,16 @@ export default function OrganizerAuth() {
               <label style={labelStyle}>{L('Konfime Modpas', 'Confirm Password', 'Confirmer le mot de passe')}</label>
               <input type="password" value={confirmPass} onChange={e => setConfirmPass(e.target.value)} required style={inputStyle} />
             </div>
+            <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 18, cursor: 'pointer' }}>
+              <input type="checkbox" checked={agreedToTerms} onChange={e => setAgreedToTerms(e.target.checked)} style={{ marginTop: 2, flexShrink: 0, accentColor: '#f97316' }} />
+              <span style={{ fontSize: 12, color: '#888', lineHeight: 1.6 }}>
+                {L('Mwen li epi mwen dakò ak', 'I have read and agree to the', "J'ai lu et j'accepte les")}{' '}
+                <a href="/legal?tab=tos" target="_blank" style={{ color: '#f97316', textDecoration: 'underline' }}>{L('Kondisyon Sèvis', 'Terms of Service', "Conditions d'Utilisation")}</a>
+                {' '}{L('ak', 'and', 'et')}{' '}
+                <a href="/legal?tab=privacy" target="_blank" style={{ color: '#f97316', textDecoration: 'underline' }}>{L('Politik Konfidansyalite', 'Privacy Policy', 'Politique de Confidentialité')}</a>
+                {' '}{L('nan LaviMiyò LLC.', 'of LaviMiyò LLC.', 'de LaviMiyò LLC.')}
+              </span>
+            </label>
             <button type="submit" disabled={loading}
               style={{ width: '100%', padding: 14, borderRadius: 8, border: 'none', background: '#f97316', color: '#000', fontSize: 15, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.6 : 1 }}>
               {loading ? L('Ap kreye...', 'Creating...', 'Creation...') : L('Kreye Kont Organizate', 'Create Organizer Account', 'Creer un compte organisateur')}

@@ -39,6 +39,7 @@ export default function VendorAuth() {
   const [payoutDetails, setPayoutDetails] = useState('');
   const [regPass, setRegPass] = useState('');
   const [confirmPass, setConfirmPass] = useState('');
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
 
 
   const inp: React.CSSProperties = { width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid #1e1e2e', background: '#0a0a0f', color: '#fff', fontSize: 13, boxSizing: 'border-box' };
@@ -65,6 +66,7 @@ export default function VendorAuth() {
     if (!regEmail.trim()) { setError(L('Mete imel ou.', 'Enter your email.', 'Entrez votre email.')); return; }
     if (regPass.length < 6) { setError(L('Modpas dwe gen 6+ karakte.', 'Password must be 6+ chars.', 'Mot de passe: 6+ caractères.')); return; }
     if (regPass !== confirmPass) { setError(L('Modpas yo pa matche.', 'Passwords do not match.', 'Les mots de passe ne correspondent pas.')); return; }
+    if (!agreedToTerms) { setError(L('Ou dwe aksepte kondisyon yo.', 'You must agree to the Terms & Privacy Policy.', 'Vous devez accepter les conditions.')); return; }
     await handleRegister();
   }
 
@@ -202,6 +204,16 @@ export default function VendorAuth() {
                 <div><label style={lbl}>{L('Modpas *', 'Password *', 'Mot de passe *')}</label><input type="password" value={regPass} onChange={e => setRegPass(e.target.value)} style={inp} /></div>
                 <div><label style={lbl}>{L('Konfime *', 'Confirm *', 'Confirmer *')}</label><input type="password" value={confirmPass} onChange={e => setConfirmPass(e.target.value)} style={{ ...inp, borderColor: confirmPass && regPass !== confirmPass ? '#ef4444' : '#1e1e2e' }} /></div>
               </div>
+              <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 16, cursor: 'pointer' }}>
+                <input type="checkbox" checked={agreedToTerms} onChange={e => setAgreedToTerms(e.target.checked)} style={{ marginTop: 2, flexShrink: 0, accentColor: '#a855f7' }} />
+                <span style={{ fontSize: 12, color: '#888', lineHeight: 1.6 }}>
+                  {L('Mwen li epi mwen dakò ak', 'I have read and agree to the', "J'ai lu et j'accepte les")}{' '}
+                  <a href="/legal?tab=tos" target="_blank" style={{ color: '#a855f7', textDecoration: 'underline' }}>{L('Kondisyon Sèvis', 'Terms of Service', "Conditions d'Utilisation")}</a>
+                  {' '}{L('ak', 'and', 'et')}{' '}
+                  <a href="/legal?tab=privacy" target="_blank" style={{ color: '#a855f7', textDecoration: 'underline' }}>{L('Politik Konfidansyalite', 'Privacy Policy', 'Politique de Confidentialité')}</a>
+                  {' '}{L('nan LaviMiyò LLC.', 'of LaviMiyò LLC.', 'de LaviMiyò LLC.')}
+                </span>
+              </label>
               <button onClick={handleStep1Next} style={{ width: '100%', padding: 14, borderRadius: 8, border: 'none', background: '#a855f7', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
                 {loading ? L('Ap kreye...', 'Creating...', 'Création...') : L('Enskri', 'Register', "S'inscrire")}
               </button>
