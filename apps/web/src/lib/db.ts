@@ -1531,3 +1531,83 @@ export async function getOrganizerLogo(uid: string): Promise<string | null> {
   const snap = await getDoc(doc(db, 'organizers', uid));
   return snap.exists() ? (snap.data().logoURL ?? null) : null;
 }
+
+// ─── Event Status Management ──────────────────────────────────────────────────
+
+/** Manually mark an event as ended */
+export async function markEventEnded(eventId: string): Promise<void> {
+  await updateDoc(doc(db, 'events', eventId), {
+    status: 'ended',
+    endedAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+}
+
+/** Reopen an ended event back to published */
+export async function markEventPublished(eventId: string): Promise<void> {
+  await updateDoc(doc(db, 'events', eventId), {
+    status: 'published',
+    endedAt: null,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+/** Mark event as live (doors open) */
+export async function markEventLive(eventId: string): Promise<void> {
+  await updateDoc(doc(db, 'events', eventId), {
+    status: 'live',
+    liveAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+}
+
+/**
+ * Auto-update event status based on date/time.
+ * Call this when loading events on any page.
+ * Only writes to Firestore if status needs to change — no unnecessary writes.
+ */
+export async function autoUpdateEventStatus(event: EventData): Promise<EventData> {
+  if (event.status === 'cancelled' || event.status === 'ended') return event;
+  if (event.status === 'draft') return event;
+
+  const endStr     = event.endDate  || event.startDate;
+  const endTimeStr = event.endTime  || '23:59';
+  const startStr   = event.startDate;
+  const startTimeStr = event.startTime || '00:00';
+
+  if (!endStr) return event;
+
+  const now       = new Date();
+  const endDt     = new Date(`${endStr}T${endTimeStr}`);
+  const startDt   = new Date(`${startStr}T${startTimeStr}`);
+
+  // Past end time → ended
+  if (now > endDt && event.status !== 'ended') {
+    await updateDoc(doc(db, 'events', event.id!), {
+      status: 'ended',
+      endedAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+    return { ...event, status: 'ended' };
+  }
+
+  // Within event window (started but not ended) → live
+  if (now >= startDt && now <= endDt && event.status === 'published') {
+    await updateDoc(doc(db, 'events', event.id!), {
+      status: 'live',
+      liveAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+    return { ...event, status: 'live' };
+  }
+
+  return event;
+}
+
+/**
+ * Run autoUpdateEventStatus on a list of events.
+ * Returns the updated list.
+ */
+export async function autoUpdateAllEventStatuses(events: EventData[]): Promise<EventData[]> {
+  return Promise.all(events.map(e => autoUpdateEventStatus(e)));
+}

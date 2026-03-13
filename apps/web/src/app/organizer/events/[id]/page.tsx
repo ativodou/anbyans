@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useT } from '@/i18n';
-import { getOrganizerEvents, type EventData } from '@/lib/db';
+import { getOrganizerEvents, type EventData, markEventEnded, markEventPublished, markEventLive, autoUpdateAllEventStatuses } from '@/lib/db';
 import { db } from '@/lib/firebase';
 import { collection, getDocs } from 'firebase/firestore';
 import { useOrganizerEvent } from '../../OrganizerEventContext';
@@ -21,15 +21,18 @@ export default function OrganizerEventsPage() {
   const [allTickets, setAllTickets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'published' | 'draft' | 'live' | 'ended'>('all');
+  const [statusLoading, setStatusLoading] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user?.uid) return;
     const load = async () => {
       try {
         const evs = await getOrganizerEvents(user.uid);
-        setEvents(evs);
+        // Auto-update statuses based on date/time
+        const updated = await autoUpdateAllEventStatuses(evs);
+        setEvents(updated);
         const tickets: any[] = [];
-        await Promise.all(evs.map(async (e) => {
+        await Promise.all(updated.map(async (e) => {
           if (!e.id) return;
           const snap = await getDocs(collection(db, 'events', e.id, 'tickets'));
           snap.docs.forEach(d => tickets.push({ id: d.id, eventId: e.id, ...d.data() }));
@@ -43,6 +46,31 @@ export default function OrganizerEventsPage() {
     };
     load();
   }, [user?.uid]);
+
+  async function handleEndEvent(eventId: string) {
+    if (!confirm(L('Mete evènman an fini?', 'Mark this event as ended?', 'Marquer cet événement comme terminé ?'))) return;
+    setStatusLoading(eventId);
+    try {
+      await markEventEnded(eventId);
+      setEvents(prev => prev.map(e => e.id === eventId ? { ...e, status: 'ended' } : e));
+    } finally { setStatusLoading(null); }
+  }
+
+  async function handleGoLive(eventId: string) {
+    setStatusLoading(eventId);
+    try {
+      await markEventLive(eventId);
+      setEvents(prev => prev.map(e => e.id === eventId ? { ...e, status: 'live' } : e));
+    } finally { setStatusLoading(null); }
+  }
+
+  async function handleReopen(eventId: string) {
+    setStatusLoading(eventId);
+    try {
+      await markEventPublished(eventId);
+      setEvents(prev => prev.map(e => e.id === eventId ? { ...e, status: 'published' } : e));
+    } finally { setStatusLoading(null); }
+  }
 
   const filteredEvents = filter === 'all' ? events : events.filter(e => e.status === filter);
 
@@ -190,6 +218,32 @@ export default function OrganizerEventsPage() {
                       onClick={() => navigator.clipboard.writeText(`${window.location.origin}/e/${e.privateToken}`)}
                       className="px-3 py-1.5 rounded-lg bg-orange/10 border border-orange/30 text-[10px] font-bold text-orange hover:bg-orange hover:text-white transition-all">
                       📋 {L('Kopye lyen prive', 'Copy private link', 'Copier lien privé')}
+                    </button>
+                  )}
+
+                  {/* ── Status controls ── */}
+                  {e.status === 'published' && e.id && (
+                    <button
+                      onClick={() => handleGoLive(e.id!)}
+                      disabled={statusLoading === e.id}
+                      className="px-3 py-1.5 rounded-lg bg-green-dim border border-green/30 text-[10px] font-bold text-green hover:bg-green hover:text-black transition-all disabled:opacity-50">
+                      {statusLoading === e.id ? '⏳' : `● ${L('Mete An Dirèk', 'Go Live', 'Mettre en Direct')}`}
+                    </button>
+                  )}
+                  {(e.status === 'published' || e.status === 'live') && e.id && (
+                    <button
+                      onClick={() => handleEndEvent(e.id!)}
+                      disabled={statusLoading === e.id}
+                      className="px-3 py-1.5 rounded-lg bg-red-900/20 border border-red-800/40 text-[10px] font-bold text-red-400 hover:bg-red-800/40 transition-all disabled:opacity-50">
+                      {statusLoading === e.id ? '⏳' : `■ ${L('Fini Evènman', 'End Event', 'Terminer')}`}
+                    </button>
+                  )}
+                  {e.status === 'ended' && e.id && (
+                    <button
+                      onClick={() => handleReopen(e.id!)}
+                      disabled={statusLoading === e.id}
+                      className="px-3 py-1.5 rounded-lg bg-white/[0.04] border border-border text-[10px] font-bold text-gray-light hover:text-white transition-all disabled:opacity-50">
+                      {statusLoading === e.id ? '⏳' : `↺ ${L('Relouvri', 'Reopen', 'Rouvrir')}`}
                     </button>
                   )}
                   <button

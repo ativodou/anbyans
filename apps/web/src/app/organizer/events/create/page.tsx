@@ -175,8 +175,10 @@ function CreateEventInner() {
   const [coverImage, setCoverImage]   = useState('');
 
   // Date / location
-  const [dateStr, setDateStr]   = useState('');
-  const [timeStr, setTimeStr]   = useState('20:00');
+  const [dateStr, setDateStr]       = useState('');
+  const [timeStr, setTimeStr]       = useState('20:00');
+  const [endDateStr, setEndDateStr] = useState('');
+  const [endTimeStr, setEndTimeStr] = useState('23:00');
   const [venue, setVenue]       = useState('');
   const [city, setCity]         = useState('');
   const [isPrivate, setIsPrivate] = useState(false);
@@ -248,6 +250,10 @@ function CreateEventInner() {
         description:    description.trim() || null,
         coverImage:     coverImage.trim() || null,
         date:           dateTime,
+        startDate:      dateStr,
+        startTime:      timeStr,
+        endDate:        endDateStr || dateStr,
+        endTime:        endTimeStr || '23:00',
         venue:          venue.trim(),
         city:           city.trim() || null,
         isPrivate,
@@ -338,16 +344,31 @@ function CreateEventInner() {
               </p>
             </div>
 
-            {/* Date + time */}
+            {/* Start date + time */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-[11px] font-bold text-gray-400 mb-1.5">{L('DAT *', 'DATE *', 'DATE *')}</label>
+                <label className="block text-[11px] font-bold text-gray-400 mb-1.5">{L('DAT KÒMANSMAN *', 'START DATE *', 'DATE DÉBUT *')}</label>
                 <input type="date" value={dateStr} onChange={e => setDateStr(e.target.value)}
                   className={`w-full px-4 py-3 rounded-xl bg-white/[0.05] border text-white text-sm outline-none focus:border-orange ${errors.date ? 'border-red-500' : 'border-border'}`} />
               </div>
               <div>
-                <label className="block text-[11px] font-bold text-gray-400 mb-1.5">{L('LÈ', 'TIME', 'HEURE')}</label>
+                <label className="block text-[11px] font-bold text-gray-400 mb-1.5">{L('LÈ KÒMANSMAN', 'START TIME', 'HEURE DÉBUT')}</label>
                 <input type="time" value={timeStr} onChange={e => setTimeStr(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl bg-white/[0.05] border border-border text-white text-sm outline-none focus:border-orange" />
+              </div>
+            </div>
+
+            {/* End date + time */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[11px] font-bold text-gray-400 mb-1.5">{L('DAT FEN', 'END DATE', 'DATE FIN')}</label>
+                <input type="date" value={endDateStr} min={dateStr} onChange={e => setEndDateStr(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl bg-white/[0.05] border border-border text-white text-sm outline-none focus:border-orange" />
+                <p className="text-[10px] text-gray-500 mt-1">{L('Kite vid si menm jou', 'Leave blank if same day', 'Laisser vide si même jour')}</p>
+              </div>
+              <div>
+                <label className="block text-[11px] font-bold text-gray-400 mb-1.5">{L('LÈ FEN', 'END TIME', 'HEURE FIN')}</label>
+                <input type="time" value={endTimeStr} onChange={e => setEndTimeStr(e.target.value)}
                   className="w-full px-4 py-3 rounded-xl bg-white/[0.05] border border-border text-white text-sm outline-none focus:border-orange" />
               </div>
             </div>
