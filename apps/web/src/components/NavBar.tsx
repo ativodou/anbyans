@@ -1,10 +1,11 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useT } from '@/i18n';
 import LangSwitcher from './LangSwitcher';
+import { getUserPhoto, getOrganizerLogo } from '@/lib/db';
 
 export default function Navbar() {
   const pathname = usePathname();
@@ -12,11 +13,21 @@ export default function Navbar() {
   const { locale } = useT();
   const L = (ht: string, en: string, fr: string) => ({ ht, en, fr }[locale]);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [avatarSrc, setAvatarSrc] = useState<string | null>(null);
 
   type Role = 'organizer' | 'reseller' | 'admin' | 'fan';
   const role = ((user as { role?: Role })?.role ?? 'fan');
   const displayName = (user as any)?.firstName || user?.email?.split('@')[0] || '';
   const initial = displayName.charAt(0).toUpperCase();
+
+  // Load avatar/logo whenever user changes
+  useEffect(() => {
+    if (!user?.uid) { setAvatarSrc(null); return; }
+    const isOrganizer = role === 'organizer';
+    (isOrganizer ? getOrganizerLogo(user.uid) : getUserPhoto(user.uid))
+      .then(url => setAvatarSrc(url))
+      .catch(() => setAvatarSrc(null));
+  }, [user?.uid, role]);
 
   const accentMap: Record<string, string> = {
     organizer: '#f97316',
@@ -74,7 +85,11 @@ export default function Navbar() {
         background: menuOpen ? accent + '10' : 'transparent',
         cursor: 'pointer',
       }}>
-        <div style={{ width: 32, height: 32, borderRadius: '50%', background: accent, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#000', fontWeight: 800, fontSize: 14 }}>{initial}</div>
+        <div style={{ width: 32, height: 32, borderRadius: role === 'organizer' ? 8 : '50%', background: accent, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#000', fontWeight: 800, fontSize: 14, overflow: 'hidden', flexShrink: 0 }}>
+          {avatarSrc
+            ? <img src={avatarSrc} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            : initial}
+        </div>
         <div style={{ textAlign: 'left' }}>
           <div style={{ color: '#fff', fontSize: 12, fontWeight: 600, lineHeight: 1.2 }}>{displayName}</div>
           <div style={{ color: accent, fontSize: 10, textTransform: 'capitalize' }}>{roleLabel}</div>
@@ -87,9 +102,25 @@ export default function Navbar() {
           <div onClick={() => setMenuOpen(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 99 }} />
           <div style={{ position: 'absolute', top: '110%', right: 0, width: 240, background: '#12121a', border: '1px solid #1e1e2e', borderRadius: 10, padding: 6, zIndex: 100, boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}>
             <div style={{ padding: '10px 12px', borderBottom: '1px solid #1e1e2e', marginBottom: 4 }}>
-              <div style={{ color: '#fff', fontSize: 14, fontWeight: 700 }}>{displayName}</div>
-              <div style={{ display: 'inline-block', marginTop: 4, padding: '2px 8px', borderRadius: 4, fontSize: 10, fontWeight: 700, background: accent + '22', color: accent, textTransform: 'capitalize' }}>{roleLabel}</div>
-              <div style={{ color: '#555', fontSize: 10, marginTop: 4 }}>{user.email}</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                <div style={{ width: 44, height: 44, borderRadius: role === 'organizer' ? 10 : '50%', background: accent, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#000', fontWeight: 800, fontSize: 18, overflow: 'hidden', flexShrink: 0 }}>
+                  {avatarSrc
+                    ? <img src={avatarSrc} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    : initial}
+                </div>
+                <div>
+                  <div style={{ color: '#fff', fontSize: 14, fontWeight: 700 }}>{displayName}</div>
+                  <div style={{ display: 'inline-block', marginTop: 2, padding: '2px 8px', borderRadius: 4, fontSize: 10, fontWeight: 700, background: accent + '22', color: accent, textTransform: 'capitalize' }}>{roleLabel}</div>
+                </div>
+              </div>
+              <div style={{ color: '#555', fontSize: 10 }}>{user.email}</div>
+              <Link href={role === 'organizer' ? '/organizer/settings' : role === 'reseller' ? '/vendor/profile' : '/profile'}
+                onClick={() => setMenuOpen(false)}
+                style={{ display: 'inline-block', marginTop: 6, fontSize: 11, color: accent, textDecoration: 'none', fontWeight: 600 }}>
+                {role === 'organizer'
+                  ? L('✏️ Chanje Logo', '✏️ Change Logo', '✏️ Changer Logo')
+                  : L('✏️ Chanje Foto', '✏️ Change Photo', '✏️ Changer Photo')}
+              </Link>
             </div>
 
             {role !== 'organizer' && (

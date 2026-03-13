@@ -1507,3 +1507,27 @@ export async function rejectTicket(ticketId: string): Promise<void> {
     cancelledAt: serverTimestamp(),
   });
 }
+
+// ─── Photo / Logo ─────────────────────────────────────────────────────────────
+
+/** Save a compressed base64 photo for fans & vendors (users collection) */
+export async function updateUserPhoto(uid: string, base64: string): Promise<void> {
+  await updateDoc(doc(db, 'users', uid), { photoURL: base64, updatedAt: serverTimestamp() });
+}
+
+/** Save a compressed base64 logo for organizers (organizers collection) */
+export async function updateOrganizerLogo(uid: string, base64: string): Promise<void> {
+  await updateDoc(doc(db, 'organizers', uid), { logoURL: base64, updatedAt: serverTimestamp() });
+}
+
+/** Get photoURL for a user (fans/vendors) */
+export async function getUserPhoto(uid: string): Promise<string | null> {
+  const snap = await getDoc(doc(db, 'users', uid));
+  return snap.exists() ? (snap.data().photoURL ?? null) : null;
+}
+
+/** Get logoURL for an organizer */
+export async function getOrganizerLogo(uid: string): Promise<string | null> {
+  const snap = await getDoc(doc(db, 'organizers', uid));
+  return snap.exists() ? (snap.data().logoURL ?? null) : null;
+}

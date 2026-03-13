@@ -5,7 +5,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { useT } from '@/i18n';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, where, setDoc, doc, serverTimestamp } from 'firebase/firestore';
-import { getOrganizerEvents, type EventData } from '@/lib/db';
+import { getOrganizerEvents, type EventData, updateOrganizerLogo, getOrganizerLogo } from '@/lib/db';
+import { compressLogo } from '@/lib/compressImage';
 
 interface PaymentMethod {
   key: string;
@@ -64,6 +65,8 @@ export default function OrganizerSettingsPage() {
 
   // ── Profile ──
   const [bizName, setBizName]   = useState('');
+  const [logoURL, setLogoURL]   = useState<string | null>(null);
+  const [logoUploading, setLogoUploading] = useState(false);
   const [email, setEmail]       = useState(user?.email || '');
   const [phone, setPhone]       = useState('');
   const [website, setWebsite]   = useState('');
@@ -112,6 +115,7 @@ export default function OrganizerSettingsPage() {
           setWebsite(data.website || '');
           setDefaultCurrency(data.defaultCurrency || 'USD');
           setExchangeRate(data.exchangeRate || 130);
+          if (data.logoURL) setLogoURL(data.logoURL);
 
           if (data.paymentMethods) {
             const active: Record<string, boolean> = {};
@@ -218,6 +222,46 @@ export default function OrganizerSettingsPage() {
       {activeTab === 'profile' && (
         <SectionCard title={L('Enfòmasyon Biznis', 'Business Info', 'Informations Entreprise')}>
           <div className="space-y-3">
+
+            {/* ── Logo upload ── */}
+            <div>
+              <label className="block text-[11px] font-semibold text-gray-light mb-2">{L('Logo Biznis', 'Business Logo', 'Logo Entreprise')}</label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                <div style={{ width: 72, height: 72, borderRadius: 12, background: '#1e1e2e', border: '2px dashed #333', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}>
+                  {logoURL
+                    ? <img src={logoURL} alt="logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    : <span style={{ fontSize: 28 }}>🏢</span>}
+                </div>
+                <div>
+                  <label style={{ display: 'inline-block', padding: '8px 16px', borderRadius: 8, background: '#f97316', color: '#000', fontSize: 12, fontWeight: 700, cursor: logoUploading ? 'not-allowed' : 'pointer', opacity: logoUploading ? 0.6 : 1 }}>
+                    {logoUploading ? L('Ap chaje...', 'Uploading...', 'Chargement...') : L('📷 Chwazi Logo', '📷 Choose Logo', '📷 Choisir Logo')}
+                    <input type="file" accept="image/*" style={{ display: 'none' }} disabled={logoUploading}
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file || !user?.uid) return;
+                        setLogoUploading(true);
+                        try {
+                          const compressed = await compressLogo(file);
+                          await updateOrganizerLogo(user.uid, compressed);
+                          setLogoURL(compressed);
+                        } catch (err) { console.error('logo upload', err); }
+                        finally { setLogoUploading(false); }
+                      }} />
+                  </label>
+                  {logoURL && (
+                    <button onClick={async () => { if (!user?.uid) return; await updateOrganizerLogo(user.uid, ''); setLogoURL(null); }}
+                      style={{ display: 'block', marginTop: 6, fontSize: 11, color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                      {L('Retire Logo', 'Remove Logo', 'Supprimer Logo')}
+                    </button>
+                  )}
+                  <p style={{ color: '#555', fontSize: 11, marginTop: 6 }}>
+                    {L('JPG, PNG, WebP · Max 5MB · Rezize otomatikman', 'JPG, PNG, WebP · Max 5MB · Auto-resized to 256px', 'JPG, PNG, WebP · Max 5MB · Redimensionné automatiquement')}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* ── Business Name ── */}
             <div>
               <label className="block text-[11px] font-semibold text-gray-light mb-1.5">{L('Non Biznis', 'Business Name', 'Nom Entreprise')}</label>
               <input value={bizName} onChange={e => setBizName(e.target.value)}
