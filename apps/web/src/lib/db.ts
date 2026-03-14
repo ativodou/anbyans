@@ -1017,14 +1017,21 @@ export async function vendorBulkPurchase(params: {
 
   const ref = await addDoc(collection(db, 'vendorPurchases'), purchaseDoc);
 
-  // Update event totalSold + revenue
+  // Update event totalSold + revenue + section.sold
   const eventRef = doc(db, 'events', params.eventId);
   const eventSnap = await getDoc(eventRef);
   if (eventSnap.exists()) {
     const data = eventSnap.data();
+    const updatedSections = (data.sections || []).map((s: any) => {
+      if (s.name === params.section || s.id === params.section) {
+        return { ...s, sold: (s.sold || 0) + params.qty };
+      }
+      return s;
+    });
     await updateDoc(eventRef, {
       totalSold: (data.totalSold || 0) + params.qty,
       revenue: (data.revenue || 0) + totalPaid,
+      sections: updatedSections,
       updatedAt: serverTimestamp(),
     });
   }

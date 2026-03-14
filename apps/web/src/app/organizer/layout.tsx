@@ -105,7 +105,7 @@ function EventSelector() {
 function OrganizerLayoutInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const { locale } = useT();
 
   const L = (ht: string, en: string, fr: string) =>
@@ -181,6 +181,14 @@ function OrganizerLayoutInner({ children }: { children: React.ReactNode }) {
     if (href === '/organizer/dashboard') return pathname === href;
     return pathname.startsWith(href);
   };
+
+  // ── Role guard ───────────────────────────────────────────────────
+  useEffect(() => {
+    if (!user && !loading) { router.push('/organizer/auth'); return; }
+    if (user && user.role && user.role !== 'organizer' && user.role !== 'admin') {
+      router.push('/');
+    }
+  }, [user, loading]);
 
   const handleSignOut = async () => {
     await auth.signOut();
