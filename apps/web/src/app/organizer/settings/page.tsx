@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useSearchParams } from 'next/navigation';
+import { Suspense } from 'react';
 import { useT } from '@/i18n';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, where, setDoc, doc, serverTimestamp } from 'firebase/firestore';
@@ -53,7 +54,7 @@ function Toggle({ label, hint, value, onChange, warn }: { label: string; hint?: 
   );
 }
 
-export default function OrganizerSettingsPage() {
+function OrganizerSettingsInner() {
   const { user } = useAuth();
   const searchParams = useSearchParams();
   const { locale } = useT();
@@ -659,5 +660,13 @@ export default function OrganizerSettingsPage() {
       </button>
 
     </div>
+  );
+}
+
+export default function OrganizerSettingsPage() {
+  return (
+    <Suspense>
+      <OrganizerSettingsInner />
+    </Suspense>
   );
 }
