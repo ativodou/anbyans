@@ -21,6 +21,7 @@ import { db } from './firebase';
 // ─── Event Types ─────────────────────────────────────────────────
 
 export interface EventSection {
+  id?: string;          // present after creation, keyed by index or uuid
   name: string;
   capacity: number;
   price: number;          // fan price

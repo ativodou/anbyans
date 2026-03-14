@@ -265,7 +265,7 @@ export default function OrganizerEventsPage() {
                   <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid #1e1e2e' }}>
                     <FloorPlanViewer
                       eventId={e.id}
-                      sections={e.sections || []}
+                      sections={(e.sections || []) as any[]}
                       compact={false}
                     />
                   </div>
