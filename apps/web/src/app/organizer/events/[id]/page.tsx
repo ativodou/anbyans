@@ -17,6 +17,7 @@ export default function OrganizerEventsPage() {
     ({ ht, en, fr } as Record<string, string>)[locale] ?? ht;
 
   const { selectedEvent, setSelectedEvent } = useOrganizerEvent();
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const [events, setEvents] = useState<EventData[]>([]);
   const [allTickets, setAllTickets] = useState<any[]>([]);
@@ -135,11 +136,11 @@ export default function OrganizerEventsPage() {
             const evRevenue  = evTickets.reduce((a, t) => a + (t.price || 0), 0);
             const cap        = totalCapacity(e);
             const pct        = cap > 0 ? Math.round((evTickets.length / cap) * 100) : 0;
-            const isSelected = selectedEvent?.id === e.id;
+            const isSelected = expandedId === e.id;
 
             return (
               <div key={e.id}
-                onClick={() => setSelectedEvent(isSelected ? null : e)}
+                onClick={() => { setExpandedId(expandedId === e.id ? null : e.id); setSelectedEvent(e); }}
                 className={`bg-dark-card border rounded-card p-4 transition-all cursor-pointer ${
                   isSelected ? 'border-orange' : 'border-border hover:border-white/[0.1]'
                 }`}>
