@@ -325,10 +325,9 @@ function CreateEventInner() {
       // Save floor plan to public collection (shared by venue)
       if (floorPlanImage && venuePlaceId) {
         await saveFloorPlan(venuePlaceId, {
-          venueName:  venue,
-          image:      floorPlanImage,
-          createdBy:  user.uid,
-          isVerified: false,
+          venueName: venue,
+          image:     floorPlanImage,
+          createdBy: user.uid,
         });
       }
       // Save organizer's zone layout (private, per event)
