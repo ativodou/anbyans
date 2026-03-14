@@ -1,0 +1,96 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helpers ────────────────────────────────────────────────────
+    function isAuth() { return request.auth != null; }
+    function isUser(uid) { return isAuth() && request.auth.uid == uid; }
+
+    // ── Public events (anyone can read published events) ───────────
+    match /events/{eventId} {
+      allow read: if true;
+      allow create: if isAuth();
+      allow update, delete: if isAuth() && resource.data.organizerId == request.auth.uid;
+    }
+
+    // ── Tickets ────────────────────────────────────────────────────
+    match /tickets/{ticketId} {
+      // Fan can read their own ticket; organizer can read their event's tickets
+      allow read: if isAuth() && (
+        resource.data.buyerUid == request.auth.uid ||
+        resource.data.organizerId == request.auth.uid ||
+        resource.data.vendorId == request.auth.uid
+      );
+      allow create: if isAuth();
+      // Only organizer can update (approve/reject)
+      allow update: if isAuth() && resource.data.organizerId == request.auth.uid;
+    }
+
+    // ── Organizer profiles ─────────────────────────────────────────
+    match /organizers/{uid} {
+      allow read: if isAuth();
+      allow write: if isUser(uid);
+    }
+
+    // ── Fan profiles ───────────────────────────────────────────────
+    match /users/{uid} {
+      allow read, write: if isUser(uid);
+    }
+
+    // ── Vendor profiles ────────────────────────────────────────────
+    match /vendors/{uid} {
+      allow read: if isAuth();
+      allow write: if isUser(uid);
+    }
+
+    // ── Vendor requests ────────────────────────────────────────────
+    match /vendorRequests/{docId} {
+      allow read: if isAuth() && (
+        resource.data.vendorId == request.auth.uid ||
+        resource.data.organizerId == request.auth.uid
+      );
+      allow create: if isAuth();
+      allow update: if isAuth() && resource.data.organizerId == request.auth.uid;
+    }
+
+    // ── Vendor purchases ───────────────────────────────────────────
+    match /vendorPurchases/{docId} {
+      allow read: if isAuth() && (
+        resource.data.vendorId == request.auth.uid ||
+        resource.data.organizerId == request.auth.uid
+      );
+      allow create: if isAuth();
+      allow update: if isAuth() && resource.data.organizerId == request.auth.uid;
+    }
+
+    // ── Staff pool ─────────────────────────────────────────────────
+    match /staffPool/{docId} {
+      allow read: if isAuth();
+      allow write: if isAuth() && resource.data.organizerId == request.auth.uid;
+    }
+
+    match /staffAssignments/{docId} {
+      allow read: if isAuth();
+      allow write: if isAuth() && resource.data.organizerId == request.auth.uid;
+    }
+
+    // ── Floor plans (public — shared by venue) ─────────────────────
+    match /floorPlans/{placeId} {
+      allow read: if true;
+      allow create: if isAuth();
+      allow update: if isAuth(); // organizer updates their venue's plan
+      allow delete: if false;    // admin only via console
+    }
+
+    // ── Event layouts (private — organizer's zone arrangement) ─────
+    match /eventLayouts/{eventId} {
+      allow read: if isAuth();
+      allow write: if isAuth();
+    }
+
+    // ── Legal docs (public static) ─────────────────────────────────
+    match /legal/{file} {
+      allow read: if true;
+    }
+  }
+}
