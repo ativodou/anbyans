@@ -83,14 +83,14 @@ export default function AdminFloorPlansPage() {
     p.placeId?.toLowerCase().includes(search.toLowerCase())
   );
 
-  const s: Record<string, React.CSSProperties> = {
-    page:    { minHeight: '100vh', background: '#0a0a0f', color: '#fff', padding: '24px 20px' },
-    card:    { background: '#12121a', border: '1px solid #1e1e2e', borderRadius: 12, padding: 16, marginBottom: 12 },
-    img:     { width: '100%', borderRadius: 8, marginBottom: 10, maxHeight: 200, objectFit: 'cover' as const },
-    badge:   (v: boolean) => ({ display: 'inline-block', padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 700, background: v ? '#166534' : '#1e1e2e', color: v ? '#86efac' : '#555' }),
-    btn:     (color = '#f97316') => ({ padding: '6px 12px', borderRadius: 8, border: 'none', background: color, color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }),
-    input:   { width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid #1e1e2e', background: '#0a0a0f', color: '#fff', fontSize: 13, marginBottom: 10, boxSizing: 'border-box' as const },
+  const s = {
+    page:  { minHeight: '100vh', background: '#0a0a0f', color: '#fff', padding: '24px 20px' } as React.CSSProperties,
+    card:  { background: '#12121a', border: '1px solid #1e1e2e', borderRadius: 12, padding: 16, marginBottom: 12 } as React.CSSProperties,
+    img:   { width: '100%', borderRadius: 8, marginBottom: 10, maxHeight: 200, objectFit: 'cover' as const } as React.CSSProperties,
+    input: { width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid #1e1e2e', background: '#0a0a0f', color: '#fff', fontSize: 13, marginBottom: 10, boxSizing: 'border-box' as const } as React.CSSProperties,
   };
+  const badge = (v: boolean): React.CSSProperties => ({ display: 'inline-block', padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 700, background: v ? '#166534' : '#1e1e2e', color: v ? '#86efac' : '#555' });
+  const btn = (color = '#f97316'): React.CSSProperties => ({ padding: '6px 12px', borderRadius: 8, border: 'none', background: color, color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' });
 
   return (
     <div style={s.page}>
@@ -100,7 +100,7 @@ export default function AdminFloorPlansPage() {
           <h1 style={{ fontSize: 22, fontWeight: 800, margin: 0 }}>🗺️ Floor Plan Manager</h1>
           <p style={{ color: '#555', fontSize: 12, margin: '4px 0 0' }}>{plans.length} venues · {plans.filter(p => p.isVerified).length} verified</p>
         </div>
-        <button style={s.btn()} onClick={() => setShowAddForm(!showAddForm)}>
+        <button style={btn()} onClick={() => setShowAddForm(!showAddForm)}>
           + Add Venue Plan
         </button>
       </div>
@@ -125,10 +125,10 @@ export default function AdminFloorPlansPage() {
           </label>
           {newImage && <img src={newImage} alt="preview" style={{ ...s.img, maxHeight: 150 }} />}
           <div style={{ display: 'flex', gap: 8 }}>
-            <button style={s.btn()} onClick={handleAddPlan} disabled={uploading}>
+            <button style={btn()} onClick={handleAddPlan} disabled={uploading}>
               {uploading ? '⏳ Saving...' : '✅ Save Plan'}
             </button>
-            <button style={s.btn('#1e1e2e')} onClick={() => setShowAddForm(false)}>Cancel</button>
+            <button style={btn('#1e1e2e')} onClick={() => setShowAddForm(false)}>Cancel</button>
           </div>
         </div>
       )}
@@ -155,7 +155,7 @@ export default function AdminFloorPlansPage() {
                   <p style={{ fontWeight: 700, fontSize: 14, marginBottom: 2 }}>{plan.venueName}</p>
                   <p style={{ color: '#555', fontSize: 10, wordBreak: 'break-all' }}>{plan.placeId}</p>
                 </div>
-                <span style={s.badge(plan.isVerified)}>
+                <span style={badge(plan.isVerified)}>
                   {plan.isVerified ? '✓ Verified' : 'Unverified'}
                 </span>
               </div>
@@ -163,10 +163,10 @@ export default function AdminFloorPlansPage() {
                 Uploaded by: {plan.createdBy?.slice(0, 8)}...
               </p>
               <div style={{ display: 'flex', gap: 6 }}>
-                <button style={s.btn(plan.isVerified ? '#374151' : '#166534')} onClick={() => toggleVerified(plan)}>
+                <button style={btn(plan.isVerified ? '#374151' : '#166534')} onClick={() => toggleVerified(plan)}>
                   {plan.isVerified ? '✗ Unverify' : '✓ Verify'}
                 </button>
-                <button style={s.btn('#7f1d1d')} onClick={() => deletePlan(plan.placeId)}>
+                <button style={btn('#7f1d1d')} onClick={() => deletePlan(plan.placeId)}>
                   🗑 Delete
                 </button>
               </div>
