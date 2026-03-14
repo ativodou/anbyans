@@ -282,7 +282,10 @@ function BuyPageInner() {
 
   // ── Cart helpers ──────────────────────────────────────────────
   const htg = (usd: number) => Math.round(usd * (event?.exchangeRate || 130));
-  const cartTotal = cart.reduce((sum, item) => sum + item.section.price * item.qty, 0);
+  const cartTotal   = cart.reduce((sum, item) => sum + item.section.price * item.qty, 0);
+  const FEE_RATE    = 0.09; // 9% Anbyans service fee — passed to fan
+  const serviceFee  = Math.round(cartTotal * FEE_RATE * 100) / 100;
+  const chargeTotal = cartTotal + serviceFee; // what fan actually pays
   const cartCount = cart.reduce((sum, item) => sum + item.qty, 0);
   const cartItem  = (secId: string) => cart.find(c => c.section.id === secId);
 
@@ -370,6 +373,8 @@ function BuyPageInner() {
             section: item.section.id, sectionName: item.section.name, sectionColor: item.section.color,
             seat: seats[i] || null,
             price: item.section.price, priceHTG: htg(item.section.price),
+            serviceFee: Math.round(item.section.price * FEE_RATE * 100) / 100,
+            chargeTotal: Math.round(item.section.price * (1 + FEE_RATE) * 100) / 100,
             paymentMethod: payMethod, paymentStatus,
             txnId: txnId.trim() || null,
             status: paymentStatus === 'paid' ? 'valid' : 'pending',
@@ -566,10 +571,10 @@ function BuyPageInner() {
         <div className="fixed bottom-0 left-0 right-0 bg-black/95 backdrop-blur border-t border-white/[0.08] px-4 py-4 z-50">
           <div className="max-w-2xl mx-auto flex items-center gap-4">
             <div className="flex-1">
-              <p className="text-xs text-gray-400">{cartCount} {L('tikè', 'ticket(s)', 'billet(s)')}</p>
+              <p className="text-xs text-gray-400">{cartCount} {L('tikè', 'ticket(s)', 'billet(s)')} · <span className="text-gray-500">+${serviceFee.toFixed(2)} frè</span></p>
               <div className="flex items-center gap-2">
-                <p className="font-heading text-lg text-green">${cartTotal.toFixed(2)}</p>
-                <p className="text-xs text-red-400">{htg(cartTotal).toLocaleString('fr-HT')} HTG</p>
+                <p className="font-heading text-lg text-green">${chargeTotal.toFixed(2)}</p>
+                <p className="text-xs text-red-400">{htg(chargeTotal).toLocaleString('fr-HT')} HTG</p>
               </div>
             </div>
             <button onClick={() => setStep('info')}
@@ -645,13 +650,18 @@ function BuyPageInner() {
               </div>
             ))}
           </div>
-          <div className="flex justify-between font-bold border-t border-white/[0.06] pt-2 mt-2">
-            <span>Total</span>
+          <div className="flex justify-between text-xs border-t border-white/[0.06] pt-2 mt-2 text-gray-400">
+            <span>{L('Frè sèvis (9%)', 'Service fee (9%)', 'Frais de service (9%)')}</span>
+            <span className="text-gray-400">${serviceFee.toFixed(2)}</span>
+          </div>
+          <div className="flex justify-between font-bold pt-1.5">
+            <span>{L('Total', 'Total', 'Total')}</span>
             <span>
-              <span className="text-green">${cartTotal.toFixed(2)}</span>
-              <span className="text-red-400 ml-1 text-xs">{htg(cartTotal).toLocaleString('fr-HT')} HTG</span>
+              <span className="text-green">${chargeTotal.toFixed(2)}</span>
+              <span className="text-red-400 ml-1 text-xs">{htg(chargeTotal).toLocaleString('fr-HT')} HTG</span>
             </span>
           </div>
+          <p className="text-[10px] text-gray-600 mt-1">{L('Frè sèvis yo pa ranbousab', 'Service fees are non-refundable', 'Les frais de service ne sont pas remboursables')}</p>
         </div>
         <button onClick={() => { if (validateInfo()) setStep('payment'); }}
           className="w-full mt-4 py-3.5 rounded-xl font-heading text-base bg-orange text-white hover:bg-orange/90 transition-all">
@@ -677,7 +687,12 @@ function BuyPageInner() {
                   const res = await fetch('/api/payment/stripe', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ amount: cartTotal, eventName: event?.title, seats: cartCount }),
+                    body: JSON.stringify({
+                      amount: cartTotal, // refund ticket price only — service fee is non-refundable
+                      applicationFeeAmount: serviceFee,
+                      eventName: event?.title,
+                      seats: cartCount,
+                    }),
                   });
                   const data = await res.json();
                   if (data.clientSecret) setClientSecret(data.clientSecret);
@@ -700,9 +715,9 @@ function BuyPageInner() {
             <p className="font-bold mb-2">📱 {payMethod === 'moncash' ? 'MonCash' : 'Natcash'}</p>
             <p className="text-gray-400 text-xs mb-3">
               {L(
-                `Voye $${cartTotal.toFixed(2)} bay nimewo sa a, answit antre ID tranzaksyon ou a.`,
-                `Send $${cartTotal.toFixed(2)} to the number below, then enter your transaction ID.`,
-                `Envoyez $${cartTotal.toFixed(2)} au numéro ci-dessous, puis entrez votre ID de transaction.`
+                `Voye $${chargeTotal.toFixed(2)} bay nimewo sa a, answit antre ID tranzaksyon ou a.`,
+                `Send $${chargeTotal.toFixed(2)} to the number below, then enter your transaction ID.`,
+                `Envoyez $${chargeTotal.toFixed(2)} au numéro ci-dessous, puis entrez votre ID de transaction.`
               )}
             </p>
             <div className="bg-black/40 rounded-lg p-3 text-center mb-3">
@@ -784,13 +799,18 @@ function BuyPageInner() {
               <span className="text-green">${(item.section.price * item.qty).toFixed(2)}</span>
             </div>
           ))}
-          <div className="flex justify-between font-bold border-t border-white/[0.06] pt-2 mt-1">
+          <div className="flex justify-between text-xs text-gray-500 border-t border-white/[0.06] pt-2 mt-1">
+            <span>{L('Frè sèvis (9%)', 'Service fee (9%)', 'Frais (9%)')}</span>
+            <span>${serviceFee.toFixed(2)}</span>
+          </div>
+          <div className="flex justify-between font-bold pt-1.5">
             <span>Total</span>
             <div className="text-right">
-              <p className="text-green">${cartTotal.toFixed(2)}</p>
-              <p className="text-[11px] text-red-400">{htg(cartTotal).toLocaleString('fr-HT')} HTG</p>
+              <p className="text-green">${chargeTotal.toFixed(2)}</p>
+              <p className="text-[11px] text-red-400">{htg(chargeTotal).toLocaleString('fr-HT')} HTG</p>
             </div>
           </div>
+          <p className="text-[10px] text-gray-600 mt-1">{L('Frè pa ranbousab', 'Service fees non-refundable', 'Frais non remboursables')}</p>
         </div>
 
         {payMethod !== 'stripe' && <button
