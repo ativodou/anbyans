@@ -439,9 +439,9 @@ function BuyPageInner() {
       <div className="max-w-2xl mx-auto px-4 py-6">
         {event.description && <p className="text-gray-400 text-sm mb-6 leading-relaxed">{event.description}</p>}
 
-        {/* Venue map */}
+        {/* ── Google Map ── */}
         {(event.venue || event.venuePlaceId) && (
-          <div className="mb-6 rounded-xl overflow-hidden border border-white/[0.08]">
+          <div className="mb-5 rounded-xl overflow-hidden border border-white/[0.08]">
             <div className="flex items-center gap-2 px-3 py-2 bg-white/[0.03] border-b border-white/[0.06]">
               <span className="text-sm">📍</span>
               <span className="text-sm font-bold">{event.venue}{event.city ? `, ${event.city}` : ''}</span>
@@ -449,28 +449,23 @@ function BuyPageInner() {
                 href={event.venuePlaceId
                   ? `https://www.google.com/maps/place/?q=place_id:${event.venuePlaceId}`
                   : `https://www.google.com/maps/search/${encodeURIComponent((event.venue || '') + ' ' + (event.city || ''))}`}
-                target="_blank"
-                rel="noopener noreferrer"
+                target="_blank" rel="noopener noreferrer"
                 onClick={ev => ev.stopPropagation()}
                 className="ml-auto text-[10px] text-orange font-bold hover:underline">
                 {L('Ouvri nan Maps', 'Open in Maps', 'Ouvrir dans Maps')} ↗
               </a>
             </div>
             <iframe
-              title="venue-map"
-              loading="lazy"
-              referrerPolicy="no-referrer-when-downgrade"
+              title="venue-map" loading="lazy" referrerPolicy="no-referrer-when-downgrade"
               src={event.venuePlaceId
                 ? `https://www.google.com/maps/embed/v1/place?key=AIzaSyDvBaqAd8MswI7D8kvA_SCdUpYTEtQz-cs&q=place_id:${event.venuePlaceId}&zoom=15`
                 : `https://www.google.com/maps/embed/v1/search?key=AIzaSyDvBaqAd8MswI7D8kvA_SCdUpYTEtQz-cs&q=${encodeURIComponent((event.venue || '') + ' ' + (event.city || ''))}&zoom=15`}
-              style={{ width: '100%', height: 200, border: 'none', display: 'block' }}
+              style={{ width: '100%', height: 180, border: 'none', display: 'block' }}
             />
           </div>
         )}
 
-        <h2 className="font-heading text-lg mb-3">{L('Chwazi Tikè', 'Choose Tickets', 'Choisir Billets')}</h2>
-
-        {/* Floor plan — shown if available */}
+        {/* ── Floor plan (if organizer set zones) ── */}
         {event.id && (
           <div style={{ marginBottom: 20 }}>
             <FloorPlanViewer
@@ -481,7 +476,6 @@ function BuyPageInner() {
                 const sec = event.sections.find(s => s.id === secId);
                 if (!sec || (sec.capacity - (sec.sold || 0)) <= 0) return;
                 setExpandedSection(secId);
-                // Scroll to the section card
                 setTimeout(() => {
                   document.getElementById(`sec-${secId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 }, 50);
@@ -489,6 +483,8 @@ function BuyPageInner() {
             />
           </div>
         )}
+
+        <h2 className="font-heading text-lg mb-3">{L('Chwazi Tikè', 'Choose Tickets', 'Choisir Billets')}</h2>
 
         <div className="space-y-3">
           {event.sections.map(sec => {
