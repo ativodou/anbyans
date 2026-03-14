@@ -11,6 +11,7 @@ import { db } from '@/lib/firebase';
 import { getEventByPrivateToken } from '@/lib/db';
 import { useT } from '@/i18n';
 import Link from 'next/link';
+import FloorPlanViewer from '@/components/FloorPlanViewer';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -67,7 +68,7 @@ function dateStr(ts: any) {
 
 // ─── Seat Map ─────────────────────────────────────────────────────────────────
 
-import FloorPlanViewer from '@/components/FloorPlanViewer';
+function SeatMap({ section, takenIds, selected, onToggle }: {
   section: Section;
   takenIds: string[];
   selected: string[];
