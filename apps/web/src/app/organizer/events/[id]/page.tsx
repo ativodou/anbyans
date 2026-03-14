@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useT } from '@/i18n';
 import { getOrganizerEvents, type EventData, markEventEnded, markEventPublished, markEventLive, autoUpdateAllEventStatuses } from '@/lib/db';
+import FloorPlanViewer from '@/components/FloorPlanViewer';
 import { db } from '@/lib/firebase';
 import { collection, getDocs } from 'firebase/firestore';
 import { useOrganizerEvent } from '../../OrganizerEventContext';
@@ -258,6 +259,17 @@ export default function OrganizerEventsPage() {
                       : L('Chwazi', 'Select', 'Sélectionner')}
                   </button>
                 </div>
+
+                {/* Floor plan — compact view */}
+                {isSelected && e.id && (
+                  <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid #1e1e2e' }}>
+                    <FloorPlanViewer
+                      eventId={e.id}
+                      sections={e.sections || []}
+                      compact={false}
+                    />
+                  </div>
+                )}
 
               </div>
             );
