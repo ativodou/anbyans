@@ -139,7 +139,8 @@ export default function OrganizerEventsPage() {
 
             return (
               <div key={e.id}
-                className={`bg-dark-card border rounded-card p-4 transition-all ${
+                onClick={() => setSelectedEvent(isSelected ? null : e)}
+                className={`bg-dark-card border rounded-card p-4 transition-all cursor-pointer ${
                   isSelected ? 'border-orange' : 'border-border hover:border-white/[0.1]'
                 }`}>
 
@@ -193,15 +194,16 @@ export default function OrganizerEventsPage() {
                     )}
                   </div>
 
-                  {/* Revenue */}
-                  <div className="text-right flex-shrink-0">
+                  {/* Revenue + chevron */}
+                  <div className="text-right flex-shrink-0 flex flex-col items-end gap-1">
                     <p className="font-heading text-2xl">${evRevenue.toLocaleString()}</p>
                     <p className="text-[10px] text-gray-muted">{evTickets.length} {L('tikè', 'tickets', 'billets')}</p>
+                    <span className={`text-[10px] transition-transform duration-200 ${isSelected ? 'text-orange rotate-180 inline-block' : 'text-gray-muted inline-block'}`}>▼</span>
                   </div>
                 </div>
 
-                {/* ── Actions ── */}
-                <div className="flex items-center gap-2 mt-3 pt-3 border-t border-border flex-wrap">
+                {/* ── Actions (revealed on click) ── */}
+                {isSelected && <div className="flex items-center gap-2 mt-3 pt-3 border-t border-border flex-wrap">
                   <Link href={`/organizer/events/${e.id}/edit`}
                     className="px-3 py-1.5 rounded-lg bg-white/[0.04] border border-border text-[10px] font-bold text-gray-light hover:text-white hover:border-white/20 transition-all">
                     ✏️ {L('Edite', 'Edit', 'Modifier')}
@@ -247,18 +249,8 @@ export default function OrganizerEventsPage() {
                       {statusLoading === e.id ? '⏳' : `↺ ${L('Relouvri', 'Reopen', 'Rouvrir')}`}
                     </button>
                   )}
-                  <button
-                    onClick={() => setSelectedEvent(e)}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ml-auto ${
-                      isSelected
-                        ? 'bg-orange text-white border border-orange'
-                        : 'bg-white/[0.04] border border-border text-gray-light hover:text-orange hover:border-orange'
-                    }`}>
-                    {isSelected
-                      ? `✓ ${L('Chwazi', 'Selected', 'Sélectionné')}`
-                      : L('Chwazi', 'Select', 'Sélectionner')}
-                  </button>
-                </div>
+
+                </div>}
 
                 {/* Floor plan — compact view */}
                 {isSelected && e.id && (
