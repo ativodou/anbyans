@@ -210,7 +210,15 @@ function CreateEventInner() {
 
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [tab, setTab]       = useState<'info' | 'sections' | 'payment'>('info');
+  const [tab, setTab] = useState<'info' | 'sections' | 'map' | 'payment'>('info');
+
+  // Floor plan map
+  const [floorPlanImage, setFloorPlanImage] = useState<string | null>(null);
+  const [mapZones, setMapZones] = useState<{ id: string; sectionId: string; x: number; y: number; w: number; h: number }[]>([]);
+  const [draggingZone, setDraggingZone] = useState<string | null>(null);
+  const [resizingZone, setResizingZone] = useState<string | null>(null);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const mapRef = useRef<HTMLDivElement>(null);
 
   // Load organizer settings
   useEffect(() => {
@@ -313,6 +321,7 @@ function CreateEventInner() {
         city:           city.trim() || null,
         isPrivate,
         sections:       sections.map(s => ({ ...s, sold: 0 })),
+        floorPlan:      floorPlanImage ? { image: floorPlanImage, zones: mapZones } : null,
         paymentMethods,
         exchangeRate,
         minPrice,
@@ -338,7 +347,8 @@ function CreateEventInner() {
   const TABS = [
     { id: 'info',     label: L('Enfòmasyon', 'Info', 'Infos'),       icon: '📋' },
     { id: 'sections', label: L('Seksyon',    'Sections', 'Sections'), icon: '🎫' },
-    { id: 'payment',  label: L('Peman',      'Payment', 'Paiement'),  icon: '💳' },
+    { id: 'map',      label: L('Kat',        'Map',      'Plan'),     icon: '🗺️' },
+    { id: 'payment',  label: L('Peman',      'Payment',  'Paiement'), icon: '💳' },
   ] as const;
 
   return (
@@ -575,6 +585,148 @@ function CreateEventInner() {
                   </div>
                 </div>
               </div>
+            )}
+          </>
+        )}
+
+        {/* ── Tab: Map ── */}
+        {tab === 'map' && (
+          <>
+            <p className="text-[11px] text-gray-500">
+              {L(
+                'Telechaje yon foto plan sal la, epi deplase bwat kolore yo sou chak seksyon.',
+                'Upload a floor plan photo, then drag colored boxes over each section.',
+                'Téléchargez un plan de salle, puis faites glisser les zones colorées.'
+              )}
+            </p>
+
+            {/* Upload floor plan */}
+            {!floorPlanImage ? (
+              <label className="flex flex-col items-center justify-center gap-3 p-8 rounded-xl border-2 border-dashed border-orange/30 cursor-pointer hover:border-orange/60 transition-all">
+                <span style={{ fontSize: 40 }}>🏟️</span>
+                <span className="text-sm font-bold text-gray-300">
+                  {L('Telechaje Plan Sal la', 'Upload Floor Plan', 'Télécharger le Plan')}
+                </span>
+                <span className="text-[11px] text-gray-600">JPG, PNG · Photo, sketch, anything works</span>
+                <input type="file" accept="image/*" className="hidden"
+                  onChange={e => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = ev => setFloorPlanImage(ev.target?.result as string);
+                    reader.readAsDataURL(file);
+                  }} />
+              </label>
+            ) : (
+              <div>
+                {/* Map canvas */}
+                <div
+                  ref={mapRef}
+                  style={{ position: 'relative', display: 'inline-block', width: '100%', userSelect: 'none', borderRadius: 12, overflow: 'hidden', border: '1px solid #1e1e2e' }}
+                  onMouseMove={e => {
+                    if (!mapRef.current) return;
+                    const rect = mapRef.current.getBoundingClientRect();
+                    const x = ((e.clientX - rect.left) / rect.width) * 100;
+                    const y = ((e.clientY - rect.top) / rect.height) * 100;
+                    if (draggingZone) {
+                      setMapZones(z => z.map(zone => zone.id === draggingZone
+                        ? { ...zone, x: Math.max(0, Math.min(95 - zone.w, x - dragOffset.x)), y: Math.max(0, Math.min(95 - zone.h, y - dragOffset.y)) }
+                        : zone));
+                    }
+                    if (resizingZone) {
+                      setMapZones(z => z.map(zone => zone.id === resizingZone
+                        ? { ...zone, w: Math.max(5, x - zone.x), h: Math.max(5, y - zone.y) }
+                        : zone));
+                    }
+                  }}
+                  onMouseUp={() => { setDraggingZone(null); setResizingZone(null); }}
+                  onMouseLeave={() => { setDraggingZone(null); setResizingZone(null); }}
+                >
+                  <img src={floorPlanImage} alt="floor plan" style={{ width: '100%', display: 'block', opacity: 0.85 }} />
+
+                  {/* Render zones */}
+                  {mapZones.map(zone => {
+                    const sec = sections.find(s => s.id === zone.sectionId);
+                    if (!sec) return null;
+                    return (
+                      <div key={zone.id}
+                        style={{
+                          position: 'absolute',
+                          left: `${zone.x}%`, top: `${zone.y}%`,
+                          width: `${zone.w}%`, height: `${zone.h}%`,
+                          background: sec.color + '88',
+                          border: `2px solid ${sec.color}`,
+                          borderRadius: 6,
+                          cursor: 'move',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          flexDirection: 'column',
+                        }}
+                        onMouseDown={e => {
+                          e.stopPropagation();
+                          if (!mapRef.current) return;
+                          const rect = mapRef.current.getBoundingClientRect();
+                          const mx = ((e.clientX - rect.left) / rect.width) * 100;
+                          const my = ((e.clientY - rect.top) / rect.height) * 100;
+                          setDraggingZone(zone.id);
+                          setDragOffset({ x: mx - zone.x, y: my - zone.y });
+                        }}
+                      >
+                        <span style={{ color: '#fff', fontSize: 11, fontWeight: 800, textShadow: '0 1px 3px rgba(0,0,0,0.8)', textAlign: 'center', padding: '0 4px' }}>
+                          {sec.name}
+                        </span>
+                        <span style={{ color: '#fff', fontSize: 9, textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}>
+                          ${sec.price}
+                        </span>
+                        {/* Resize handle */}
+                        <div
+                          style={{ position: 'absolute', bottom: 2, right: 2, width: 12, height: 12, background: sec.color, borderRadius: 2, cursor: 'se-resize' }}
+                          onMouseDown={e => { e.stopPropagation(); setResizingZone(zone.id); }}
+                        />
+                        {/* Delete */}
+                        <div
+                          style={{ position: 'absolute', top: 2, right: 4, color: '#fff', fontSize: 12, cursor: 'pointer', fontWeight: 800, textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}
+                          onMouseDown={e => { e.stopPropagation(); setMapZones(z => z.filter(x => x.id !== zone.id)); }}
+                        >×</div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Add zone buttons — one per section */}
+                <div style={{ marginTop: 12 }}>
+                  <p style={{ color: '#666', fontSize: 11, marginBottom: 8 }}>
+                    {L('Klike pou ajoute yon seksyon sou plan an:', 'Click to add a section zone to the map:', 'Cliquer pour ajouter une zone:')}
+                  </p>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                    {sections.filter(s => s.name).map(sec => (
+                      <button key={sec.id} type="button"
+                        onClick={() => setMapZones(z => [...z, {
+                          id: uid6(), sectionId: sec.id,
+                          x: 10 + Math.random() * 30,
+                          y: 10 + Math.random() * 30,
+                          w: 25, h: 20,
+                        }])}
+                        style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 8, border: `2px solid ${sec.color}`, background: sec.color + '22', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                        <div style={{ width: 10, height: 10, borderRadius: '50%', background: sec.color }} />
+                        + {sec.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Replace image */}
+                <button type="button"
+                  onClick={() => { setFloorPlanImage(null); setMapZones([]); }}
+                  style={{ marginTop: 12, fontSize: 11, color: '#666', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
+                  {L('Chanje imaj la', 'Replace image', 'Changer l\'image')}
+                </button>
+              </div>
+            )}
+
+            {sections.length === 0 && (
+              <p style={{ color: '#f59e0b', fontSize: 12, marginTop: 8 }}>
+                ⚠️ {L('Ajoute seksyon yo anvan ou ka kat la.', 'Add your sections first before mapping.', 'Ajoutez d\'abord vos sections.')}
+              </p>
             )}
           </>
         )}
