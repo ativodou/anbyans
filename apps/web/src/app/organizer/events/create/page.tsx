@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import { collection, addDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -179,9 +179,20 @@ function CreateEventInner() {
   const [timeStr, setTimeStr]       = useState('20:00');
   const [endDateStr, setEndDateStr] = useState('');
   const [endTimeStr, setEndTimeStr] = useState('23:00');
-  const [venue, setVenue]       = useState('');
-  const [city, setCity]         = useState('');
-  const [isPrivate, setIsPrivate] = useState(false);
+  const [venue, setVenue]           = useState('');
+  const [venueAddress, setVenueAddress] = useState('');
+  const [venueLat, setVenueLat]     = useState<number | null>(null);
+  const [venueLng, setVenueLng]     = useState<number | null>(null);
+  const [venuePlaceId, setVenuePlaceId] = useState('');
+  const [city, setCity]             = useState('');
+  const [isPrivate, setIsPrivate]   = useState(false);
+
+  // Venue autocomplete
+  const [venueQuery, setVenueQuery]         = useState('');
+  const [venueSuggestions, setVenueSuggestions] = useState<any[]>([]);
+  const [venueLoading, setVenueLoading]     = useState(false);
+  const [venueSelected, setVenueSelected]   = useState(false);
+  const venueDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Sections
   const [sections, setSections] = useState<Section[]>([
@@ -223,6 +234,46 @@ function CreateEventInner() {
 
   const htg = (usd: number) => Math.round(usd * exchangeRate);
 
+  // ── Venue autocomplete ───────────────────────────────────────────
+  function handleVenueInput(val: string) {
+    setVenueQuery(val);
+    setVenueSelected(false);
+    setVenue(val); // allow manual entry too
+    if (venueDebounce.current) clearTimeout(venueDebounce.current);
+    if (val.length < 2) { setVenueSuggestions([]); return; }
+    venueDebounce.current = setTimeout(async () => {
+      setVenueLoading(true);
+      try {
+        const res = await fetch(`/api/places/autocomplete?q=${encodeURIComponent(val)}`);
+        const data = await res.json();
+        setVenueSuggestions(data.suggestions || []);
+      } catch { setVenueSuggestions([]); }
+      finally { setVenueLoading(false); }
+    }, 350);
+  }
+
+  async function handleVenueSelect(suggestion: any) {
+    setVenueQuery(suggestion.name);
+    setVenue(suggestion.name);
+    setVenueSuggestions([]);
+    setVenueSelected(true);
+    // Fetch full details
+    try {
+      const res = await fetch('/api/places/autocomplete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ placeId: suggestion.placeId }),
+      });
+      const detail = await res.json();
+      if (detail.name) setVenue(detail.name);
+      if (detail.address) setVenueAddress(detail.address);
+      if (detail.city) setCity(detail.city);
+      if (detail.lat) setVenueLat(detail.lat);
+      if (detail.lng) setVenueLng(detail.lng);
+      setVenuePlaceId(suggestion.placeId);
+    } catch { /* keep manual entry */ }
+  }
+
   const validate = () => {
     const e: Record<string, string> = {};
     if (!title.trim())    e.title   = 'Obligatwa / Required';
@@ -255,6 +306,10 @@ function CreateEventInner() {
         endDate:        endDateStr || dateStr,
         endTime:        endTimeStr || '23:00',
         venue:          venue.trim(),
+        venueAddress:   venueAddress.trim() || null,
+        venueLat:       venueLat || null,
+        venueLng:       venueLng || null,
+        venuePlaceId:   venuePlaceId || null,
         city:           city.trim() || null,
         isPrivate,
         sections:       sections.map(s => ({ ...s, sold: 0 })),
@@ -373,13 +428,64 @@ function CreateEventInner() {
               </div>
             </div>
 
-            {/* Venue + city */}
+            {/* Venue autocomplete + city */}
             <div className="grid grid-cols-2 gap-3">
-              <div className="col-span-2 sm:col-span-1">
+              <div className="col-span-2 sm:col-span-1" style={{ position: 'relative' }}>
                 <label className="block text-[11px] font-bold text-gray-400 mb-1.5">{L('KAY EVÈNMAN *', 'VENUE *', 'LIEU *')}</label>
-                <input value={venue} onChange={e => setVenue(e.target.value)}
-                  placeholder="Salle de Fêtes Martel"
-                  className={`w-full px-4 py-3 rounded-xl bg-white/[0.05] border text-white text-sm outline-none focus:border-orange ${errors.venue ? 'border-red-500' : 'border-border'}`} />
+                <div style={{ position: 'relative' }}>
+                  <input
+                    value={venueQuery}
+                    onChange={e => handleVenueInput(e.target.value)}
+                    onBlur={() => setTimeout(() => setVenueSuggestions([]), 200)}
+                    placeholder="Karibe Convention Center..."
+                    autoComplete="off"
+                    className={`w-full px-4 py-3 rounded-xl bg-white/[0.05] border text-white text-sm outline-none focus:border-orange ${errors.venue ? 'border-red-500' : 'border-border'}`}
+                  />
+                  {venueLoading && (
+                    <div style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: '#666', fontSize: 11 }}>
+                      ⏳
+                    </div>
+                  )}
+                  {venueSelected && venuePlaceId && (
+                    <div style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: '#22c55e', fontSize: 11, fontWeight: 700 }}>
+                      ✓
+                    </div>
+                  )}
+                </div>
+                {/* Dropdown suggestions */}
+                {venueSuggestions.length > 0 && (
+                  <div style={{
+                    position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50,
+                    background: '#12121a', border: '1px solid #1e1e2e', borderRadius: 10,
+                    marginTop: 4, overflow: 'hidden', boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
+                  }}>
+                    {venueSuggestions.map((s, i) => (
+                      <button key={s.placeId} type="button"
+                        onMouseDown={() => handleVenueSelect(s)}
+                        style={{
+                          width: '100%', padding: '10px 14px', textAlign: 'left',
+                          background: 'transparent', border: 'none', cursor: 'pointer',
+                          borderBottom: i < venueSuggestions.length - 1 ? '1px solid #1e1e2e' : 'none',
+                        }}
+                        onMouseEnter={e => (e.currentTarget.style.background = '#1e1e2e')}
+                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                      >
+                        <div style={{ color: '#fff', fontSize: 13, fontWeight: 600 }}>📍 {s.name}</div>
+                        {s.secondary && (
+                          <div style={{ color: '#666', fontSize: 11, marginTop: 2 }}>{s.secondary}</div>
+                        )}
+                      </button>
+                    ))}
+                    <div style={{ padding: '6px 14px', borderTop: '1px solid #1e1e2e' }}>
+                      <span style={{ color: '#333', fontSize: 10 }}>Powered by Google</span>
+                    </div>
+                  </div>
+                )}
+                {/* Show address once selected */}
+                {venueAddress && venueSelected && (
+                  <p style={{ color: '#555', fontSize: 11, marginTop: 5 }}>📍 {venueAddress}</p>
+                )}
+                {errors.venue && <p className="text-red-500 text-[10px] mt-1">{errors.venue}</p>}
               </div>
               <div className="col-span-2 sm:col-span-1">
                 <label className="block text-[11px] font-bold text-gray-400 mb-1.5">{L('VIL', 'CITY', 'VILLE')}</label>
