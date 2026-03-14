@@ -196,6 +196,7 @@ function BuyPageInner() {
   const [processing, setProcessing]   = useState(false);
   const [ticketCodes, setTicketCodes] = useState<string[]>([]);
   const [expandedSection, setExpandedSection] = useState('');
+  const [organizerStripeId, setOrganizerStripeId] = useState<string | null>(null);
   const [errors, setErrors]           = useState<Record<string, string>>({});
 
   // ── Load event ────────────────────────────────────────────────
@@ -235,6 +236,16 @@ function BuyPageInner() {
           }
           if (!exchangeRate) exchangeRate = 130;
 
+          // Load organizer's Stripe Connect account ID
+          let organizerStripeAccountId: string | null = null;
+          if (data.organizerId) {
+            try {
+              const orgDoc = await getDoc(doc(db, 'organizers', data.organizerId));
+              if (orgDoc.exists()) organizerStripeAccountId = orgDoc.data().stripeAccountId || null;
+            } catch { /* ignore */ }
+          }
+
+          if (organizerStripeAccountId) setOrganizerStripeId(organizerStripeAccountId);
           setEvent({
             id: eventId,
             slug: data.slug || eventId,
@@ -688,10 +699,11 @@ function BuyPageInner() {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                      amount: cartTotal, // refund ticket price only — service fee is non-refundable
+                      amount: chargeTotal,
                       applicationFeeAmount: serviceFee,
                       eventName: event?.title,
                       seats: cartCount,
+                      connectedAccountId: organizerStripeId,
                     }),
                   });
                   const data = await res.json();

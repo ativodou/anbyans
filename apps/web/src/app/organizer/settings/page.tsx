@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { useSearchParams } from 'next/navigation';
 import { useT } from '@/i18n';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, where, setDoc, doc, serverTimestamp } from 'firebase/firestore';
@@ -54,6 +55,7 @@ function Toggle({ label, hint, value, onChange, warn }: { label: string; hint?: 
 
 export default function OrganizerSettingsPage() {
   const { user } = useAuth();
+  const searchParams = useSearchParams();
   const { locale } = useT();
   const L = (ht: string, en: string, fr: string) =>
     ({ ht, en, fr } as Record<string, string>)[locale] ?? ht;
@@ -76,6 +78,10 @@ export default function OrganizerSettingsPage() {
   const [paymentValues, setPaymentValues]   = useState<Record<string, string[]>>({});
   const [defaultCurrency, setDefaultCurrency] = useState<'USD' | 'HTG'>('USD');
   const [exchangeRate, setExchangeRate]     = useState<number>(130);
+  const [stripeAccountId, setStripeAccountId] = useState<string | null>(null);
+  const [stripeStatus, setStripeStatus]     = useState<{ chargesEnabled: boolean; payoutsEnabled: boolean; detailsSubmitted: boolean } | null>(null);
+  const [stripeConnecting, setStripeConnecting] = useState(false);
+  const [stripeError, setStripeError]       = useState('');
 
   // ── Scanner ──
   const [scannerEvent, setScannerEvent] = useState('');
@@ -116,6 +122,14 @@ export default function OrganizerSettingsPage() {
           setDefaultCurrency(data.defaultCurrency || 'USD');
           setExchangeRate(data.exchangeRate || 130);
           if (data.logoURL) setLogoURL(data.logoURL);
+          if (data.stripeAccountId) {
+            setStripeAccountId(data.stripeAccountId);
+            try {
+              const res = await fetch(`/api/stripe/connect?accountId=${data.stripeAccountId}`);
+              const status = await res.json();
+              if (!status.error) setStripeStatus(status);
+            } catch { /* ignore */ }
+          }
 
           if (data.paymentMethods) {
             const active: Record<string, boolean> = {};
@@ -160,6 +174,54 @@ export default function OrganizerSettingsPage() {
     };
     load();
   }, [user?.uid]);
+
+  // ── Stripe Connect ──────────────────────────────────────────────
+  useEffect(() => {
+    const result = searchParams.get('stripe');
+    if (result === 'success' && stripeAccountId) {
+      // Verify account status after returning from Stripe
+      checkStripeStatus(stripeAccountId);
+    }
+  }, [searchParams, stripeAccountId]);
+
+  async function checkStripeStatus(accountId: string) {
+    try {
+      const res = await fetch(`/api/stripe/connect?accountId=${accountId}`);
+      const data = await res.json();
+      if (!data.error) setStripeStatus(data);
+    } catch { /* ignore */ }
+  }
+
+  async function handleConnectStripe() {
+    if (!user?.uid || !user?.email) return;
+    setStripeConnecting(true);
+    setStripeError('');
+    try {
+      const res = await fetch('/api/stripe/connect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          organizerId: user.uid,
+          email: user.email,
+          returnUrl: `${window.location.origin}/organizer/settings?stripe=success`,
+          refreshUrl: `${window.location.origin}/organizer/settings?stripe=refresh`,
+        }),
+      });
+      const data = await res.json();
+      if (data.error) { setStripeError(data.error); return; }
+      // Save the account ID to Firestore before redirecting
+      const { doc: firestoreDoc, setDoc: setFirestoreDoc } = await import('firebase/firestore');
+      const { db: firestoreDb } = await import('@/lib/firebase');
+      await setFirestoreDoc(firestoreDoc(firestoreDb, 'organizers', user.uid), { stripeAccountId: data.accountId }, { merge: true });
+      setStripeAccountId(data.accountId);
+      // Redirect to Stripe onboarding
+      window.location.href = data.onboardingUrl;
+    } catch (e: any) {
+      setStripeError(e.message || 'Erè koneksyon Stripe');
+    } finally {
+      setStripeConnecting(false);
+    }
+  }
 
   const handleSave = async () => {
     if (!user?.uid) return;
@@ -341,16 +403,56 @@ export default function OrganizerSettingsPage() {
                 <div className="flex items-center gap-3 mb-3">
                   <span className="text-xl">{m.icon}</span>
                   <p className="text-xs font-bold flex-1">{m.name}</p>
-                  <button onClick={() => setPaymentActive(a => ({ ...a, [m.key]: !a[m.key] }))}
-                    className={`px-2.5 py-1 rounded text-[8px] font-bold uppercase transition-all ${
-                      paymentActive[m.key]
-                        ? 'bg-green-dim text-green border border-green-border'
-                        : 'bg-white/[0.05] text-gray-muted border border-border hover:border-white/20'
-                    }`}>
-                    {paymentActive[m.key] ? L('AKTIF', 'ACTIVE', 'ACTIF') : L('INAKTIF', 'INACTIVE', 'INACTIF')}
-                  </button>
+                  {m.key !== 'stripe' && (
+                    <button onClick={() => setPaymentActive(a => ({ ...a, [m.key]: !a[m.key] }))}
+                      className={`px-2.5 py-1 rounded text-[8px] font-bold uppercase transition-all ${
+                        paymentActive[m.key]
+                          ? 'bg-green-dim text-green border border-green-border'
+                          : 'bg-white/[0.05] text-gray-muted border border-border hover:border-white/20'
+                      }`}>
+                      {paymentActive[m.key] ? L('AKTIF', 'ACTIVE', 'ACTIF') : L('INAKTIF', 'INACTIVE', 'INACTIF')}
+                    </button>
+                  )}
+                  {m.key === 'stripe' && stripeStatus?.chargesEnabled && (
+                    <span className="px-2.5 py-1 rounded text-[8px] font-bold uppercase bg-green-dim text-green border border-green-border">✓ KONEKTE</span>
+                  )}
                 </div>
-                {paymentActive[m.key] && (
+
+                {/* ── Stripe Connect special UI ── */}
+                {m.key === 'stripe' && (
+                  <div>
+                    {!stripeAccountId && (
+                      <div className="bg-white/[0.03] rounded-xl p-4">
+                        <p className="text-xs text-gray-300 mb-1">{L('Aksepte kart kredi ak debi nan evènman ou yo.', 'Accept credit and debit cards at your events.', 'Acceptez les cartes bancaires à vos événements.')}</p>
+                        <p className="text-[11px] text-gray-500 mb-3">{L('Anbyans pran 9% frè — rès la ale dirèkteman nan kont ou.', 'Anbyans takes 9% — the rest goes directly to your account.', 'Anbyans prend 9% — le reste va directement sur votre compte.')}</p>
+                        {stripeError && <p className="text-red-400 text-[11px] mb-2">{stripeError}</p>}
+                        <button onClick={handleConnectStripe} disabled={stripeConnecting}
+                          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-purple-700 hover:bg-purple-600 text-white text-xs font-bold transition-all disabled:opacity-50">
+                          {stripeConnecting ? <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> {L('Ap konekte...', 'Connecting...', 'Connexion...')}</> : <>💳 {L('Konekte Stripe', 'Connect Stripe', 'Connecter Stripe')}</>}
+                        </button>
+                      </div>
+                    )}
+                    {stripeAccountId && !stripeStatus?.chargesEnabled && (
+                      <div className="bg-yellow-900/20 border border-yellow-700/30 rounded-xl p-4">
+                        <p className="text-xs text-yellow-300 font-bold mb-1">⏳ {L('Kont Stripe ou an atant verifikasyon', 'Your Stripe account is pending verification', 'Votre compte Stripe est en attente de vérification')}</p>
+                        <p className="text-[11px] text-gray-400 mb-3">{L('Ranpli onboarding Stripe a pou aktive peman kart.', 'Complete Stripe onboarding to activate card payments.', 'Complétez l'onboarding Stripe pour activer les paiements par carte.')}</p>
+                        <button onClick={handleConnectStripe} disabled={stripeConnecting}
+                          className="text-xs text-orange hover:underline font-bold">
+                          {L('Kontinye onboarding →', 'Continue onboarding →', 'Continuer l'onboarding →')}
+                        </button>
+                      </div>
+                    )}
+                    {stripeAccountId && stripeStatus?.chargesEnabled && (
+                      <div className="bg-green-900/20 border border-green-700/30 rounded-xl p-4">
+                        <p className="text-xs text-green-400 font-bold mb-1">✅ {L('Stripe aktif — kart aksepte', 'Stripe active — cards accepted', 'Stripe actif — cartes acceptées')}</p>
+                        <p className="text-[11px] text-gray-400">ID: <span className="font-mono text-gray-300">{stripeAccountId}</span></p>
+                        <p className="text-[11px] text-gray-500 mt-1">{L('Peman yo ale dirèkteman nan kont bank ou aprè 2 jou.', 'Payments go directly to your bank account after 2 days.', 'Les paiements vont directement sur votre compte bancaire après 2 jours.')}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {m.key !== 'stripe' && paymentActive[m.key] && (
                   <div className="grid grid-cols-2 gap-3">
                     {m.fields.map((f, fi) => (
                       <div key={f}>
