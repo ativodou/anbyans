@@ -194,6 +194,7 @@ function BuyPageInner() {
   const [txnId, setTxnId]             = useState('');
   const [processing, setProcessing]   = useState(false);
   const [ticketCodes, setTicketCodes] = useState<string[]>([]);
+  const [expandedSection, setExpandedSection] = useState('');
   const [errors, setErrors]           = useState<Record<string, string>>({});
 
   // ── Load event ────────────────────────────────────────────────
@@ -459,34 +460,66 @@ function BuyPageInner() {
             const soldOut = avail <= 0;
             const item    = cartItem(sec.id);
             const qty     = item?.qty || 0;
+            const isOpen  = expandedSection === sec.id;
+
             return (
-              <div key={sec.id} className={`flex items-center gap-3 p-4 rounded-xl border transition-all ${
-                qty > 0  ? 'border-orange bg-orange/10' :
-                soldOut  ? 'border-white/[0.04] opacity-40' :
-                           'border-white/[0.08] bg-white/[0.03]'
-              }`}>
-                <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: sec.color || '#f97316' }} />
-                <div className="flex-1 min-w-0">
-                  <p className="font-bold text-sm">{sec.name}</p>
-                  <p className="text-[11px] text-gray-400">
-                    {soldOut ? L('Fin', 'Sold out', 'Épuisé')
-                      : `${avail} ${L('plas', 'available', 'places')} · ${sec.type === 'reserved' ? L('Rezève', 'Reserved', 'Réservé') : 'GA'}`}
-                  </p>
-                  {item && item.seats.length > 0 && (
-                    <p className="text-[10px] text-orange mt-0.5 truncate">Plas: {item.seats.join(', ')}</p>
-                  )}
+              <div key={sec.id}
+                onClick={() => !soldOut && setExpandedSection(isOpen ? '' : sec.id)}
+                className={`rounded-xl border transition-all ${
+                  soldOut    ? 'border-white/[0.04] opacity-40 cursor-not-allowed' :
+                  qty > 0    ? 'border-orange bg-orange/10 cursor-pointer' :
+                  isOpen     ? 'border-white/20 bg-white/[0.05] cursor-pointer' :
+                               'border-white/[0.08] bg-white/[0.03] cursor-pointer hover:border-white/20'
+                }`}>
+
+                {/* ── Collapsed row ── */}
+                <div className="flex items-center gap-3 p-4">
+                  <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: sec.color || '#f97316' }} />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-sm">{sec.name}</p>
+                    <p className="text-[11px] text-gray-400">
+                      {soldOut ? L('Fin', 'Sold out', 'Épuisé')
+                        : `${avail} ${L('plas', 'available', 'places')} · ${sec.type === 'reserved' ? L('Rezève', 'Reserved', 'Réservé') : 'GA'}`}
+                    </p>
+                    {qty > 0 && (
+                      <p className="text-[11px] text-orange font-bold mt-0.5">
+                        {qty} {L('nan panie', 'in cart', 'dans panier')}
+                        {item && item.seats.length > 0 && ` · ${item.seats.join(', ')}`}
+                      </p>
+                    )}
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <p className="font-heading text-sm text-green">${sec.price}</p>
+                    <p className="text-[10px] text-red-400">{htg(sec.price).toLocaleString('fr-HT')} HTG</p>
+                    {!soldOut && <p className="text-[10px] text-gray-500 mt-0.5">{isOpen ? '▲' : '▼'}</p>}
+                  </div>
                 </div>
-                <div className="text-right mr-1 flex-shrink-0">
-                  <p className="font-heading text-sm text-green">${sec.price}</p>
-                  <p className="text-[10px] text-red-400">{htg(sec.price).toLocaleString('fr-HT')} HTG</p>
-                </div>
-                {!soldOut && (
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <button onClick={() => adjustQty(sec, -1)} disabled={qty === 0}
-                      className="w-8 h-8 rounded-full bg-white/[0.08] text-white font-bold hover:bg-orange/30 transition-colors disabled:opacity-30 text-lg leading-none">−</button>
-                    <span className="text-base font-heading w-5 text-center">{qty}</span>
-                    <button onClick={() => adjustQty(sec, 1)} disabled={qty >= Math.min(10, avail)}
-                      className="w-8 h-8 rounded-full bg-white/[0.08] text-white font-bold hover:bg-orange/30 transition-colors disabled:opacity-30 text-lg leading-none">+</button>
+
+                {/* ── Expanded content ── */}
+                {isOpen && !soldOut && (
+                  <div className="px-4 pb-4 pt-0" onClick={ev => ev.stopPropagation()}>
+                    <div className="border-t border-white/[0.06] pt-3 flex items-center gap-3">
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => adjustQty(sec, -1)} disabled={qty === 0}
+                          className="w-9 h-9 rounded-full bg-white/[0.08] text-white font-bold hover:bg-orange/30 transition-colors disabled:opacity-30 text-xl leading-none">−</button>
+                        <span className="text-lg font-heading w-8 text-center">{qty}</span>
+                        <button onClick={() => adjustQty(sec, 1)} disabled={qty >= Math.min(10, avail)}
+                          className="w-9 h-9 rounded-full bg-white/[0.08] text-white font-bold hover:bg-orange/30 transition-colors disabled:opacity-30 text-xl leading-none">+</button>
+                      </div>
+                      {qty === 0 ? (
+                        <button
+                          onClick={() => adjustQty(sec, 1)}
+                          className="flex-1 py-2.5 rounded-xl bg-orange text-white font-heading text-sm hover:bg-orange/90 transition-all">
+                          {L('Ajoute nan Panie', 'Add to Cart', 'Ajouter au Panier')}
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => { setCart(prev => prev.filter(c => c.section.id !== sec.id)); setExpandedSection(''); }}
+                          className="flex-1 py-2.5 rounded-xl bg-white/[0.06] border border-white/10 text-gray-400 font-heading text-sm hover:border-red-500/50 hover:text-red-400 transition-all">
+                          {L('Retire', 'Remove', 'Retirer')}
+                        </button>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
