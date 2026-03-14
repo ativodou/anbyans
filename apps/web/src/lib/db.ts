@@ -1613,3 +1613,103 @@ export async function autoUpdateEventStatus(event: EventData): Promise<EventData
 export async function autoUpdateAllEventStatuses(events: EventData[]): Promise<EventData[]> {
   return Promise.all(events.map(e => autoUpdateEventStatus(e)));
 }
+
+// ─── Floor Plans (public — shared by venue) ───────────────────────────────────
+
+export interface FloorPlan {
+  placeId: string;       // Google Place ID — primary key
+  venueName: string;
+  image: string;         // base64 compressed image
+  createdBy: string;     // uid of first uploader
+  isVerified: boolean;   // Anbyans-verified official plan
+  createdAt: any;
+  updatedAt: any;
+}
+
+/** Get floor plan for a venue by Google Place ID */
+export async function getFloorPlan(placeId: string): Promise<FloorPlan | null> {
+  if (!placeId) return null;
+  const snap = await getDoc(doc(db, 'floorPlans', placeId));
+  return snap.exists() ? (snap.data() as FloorPlan) : null;
+}
+
+/** Save or update a floor plan for a venue (public — keyed by placeId) */
+export async function saveFloorPlan(placeId: string, data: {
+  venueName: string;
+  image: string;
+  createdBy: string;
+}): Promise<void> {
+  const ref = doc(db, 'floorPlans', placeId);
+  const existing = await getDoc(ref);
+  if (existing.exists()) {
+    // Only update the image — preserve original creator and verified status
+    await updateDoc(ref, {
+      image: data.image,
+      updatedAt: serverTimestamp(),
+    });
+  } else {
+    await setDoc(ref, {
+      placeId,
+      venueName: data.venueName,
+      image: data.image,
+      createdBy: data.createdBy,
+      isVerified: false,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+  }
+}
+
+// ─── Event Layouts (private — organizer's section arrangement) ────────────────
+
+export interface LayoutZone {
+  id: string;
+  sectionId: string;
+  x: number;   // % from left
+  y: number;   // % from top
+  w: number;   // % width
+  h: number;   // % height
+}
+
+export interface EventLayout {
+  eventId: string;
+  organizerId: string;
+  placeId: string;       // links to floorPlans collection
+  venueName: string;
+  zones: LayoutZone[];
+  createdAt: any;
+  updatedAt: any;
+}
+
+/** Get the section layout for a specific event */
+export async function getEventLayout(eventId: string): Promise<EventLayout | null> {
+  const snap = await getDoc(doc(db, 'eventLayouts', eventId));
+  return snap.exists() ? (snap.data() as EventLayout) : null;
+}
+
+/** Save organizer's section arrangement for an event */
+export async function saveEventLayout(eventId: string, data: {
+  organizerId: string;
+  placeId: string;
+  venueName: string;
+  zones: LayoutZone[];
+}): Promise<void> {
+  await setDoc(doc(db, 'eventLayouts', eventId), {
+    eventId,
+    ...data,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  }, { merge: true });
+}
+
+/** Get organizer's previous layout for a venue (to pre-fill a new event) */
+export async function getOrganizerVenueLayout(organizerId: string, placeId: string): Promise<EventLayout | null> {
+  const snap = await getDocs(query(
+    collection(db, 'eventLayouts'),
+    where('organizerId', '==', organizerId),
+    where('placeId', '==', placeId),
+    limit(1)
+  ));
+  if (snap.empty) return null;
+  return snap.docs[0].data() as EventLayout;
+}

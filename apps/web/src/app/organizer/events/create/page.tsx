@@ -6,6 +6,7 @@ import { collection, addDoc, serverTimestamp, doc, getDoc } from 'firebase/fires
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/hooks/useAuth';
 import { useT } from '@/i18n';
+import { getFloorPlan, saveFloorPlan, saveEventLayout, getOrganizerVenueLayout } from '@/lib/db';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -279,6 +280,20 @@ function CreateEventInner() {
       if (detail.lat) setVenueLat(detail.lat);
       if (detail.lng) setVenueLng(detail.lng);
       setVenuePlaceId(suggestion.placeId);
+
+      // Auto-load floor plan for this venue if it exists
+      const plan = await getFloorPlan(suggestion.placeId);
+      if (plan?.image) {
+        setFloorPlanImage(plan.image);
+      }
+
+      // Auto-load organizer's previous section layout for this venue
+      if (user?.uid) {
+        const prevLayout = await getOrganizerVenueLayout(user.uid, suggestion.placeId);
+        if (prevLayout?.zones?.length) {
+          setMapZones(prevLayout.zones);
+        }
+      }
     } catch { /* keep manual entry */ }
   }
 
@@ -303,7 +318,7 @@ function CreateEventInner() {
       const minPrice = Math.min(...sections.map(s => s.price));
       const maxPrice = Math.max(...sections.map(s => s.price));
 
-      await addDoc(collection(db, 'events'), {
+      const eventRef = await addDoc(collection(db, 'events'), {
         title:          title.trim(),
         slug:           slug.trim(),
         description:    description.trim() || null,
@@ -330,6 +345,25 @@ function CreateEventInner() {
         status:         'upcoming',
         createdAt:      serverTimestamp(),
       });
+
+      // Save floor plan to public collection (keyed by placeId)
+      if (floorPlanImage && venuePlaceId) {
+        await saveFloorPlan(venuePlaceId, {
+          venueName: venue,
+          image: floorPlanImage,
+          createdBy: user.uid,
+        });
+      }
+
+      // Save organizer's section layout to private collection (keyed by eventId)
+      if (mapZones.length > 0 && venuePlaceId) {
+        await saveEventLayout(eventRef.id, {
+          organizerId: user.uid,
+          placeId: venuePlaceId,
+          venueName: venue,
+          zones: mapZones,
+        });
+      }
 
       router.push('/organizer/events');
     } catch (e) {
