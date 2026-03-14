@@ -435,10 +435,10 @@ export default function OrganizerSettingsPage() {
                     {stripeAccountId && !stripeStatus?.chargesEnabled && (
                       <div className="bg-yellow-900/20 border border-yellow-700/30 rounded-xl p-4">
                         <p className="text-xs text-yellow-300 font-bold mb-1">⏳ {L('Kont Stripe ou an atant verifikasyon', 'Your Stripe account is pending verification', 'Votre compte Stripe est en attente de vérification')}</p>
-                        <p className="text-[11px] text-gray-400 mb-3">{L('Ranpli onboarding Stripe a pou aktive peman kart.', 'Complete Stripe onboarding to activate card payments.', 'Complétez l'onboarding Stripe pour activer les paiements par carte.')}</p>
+                        <p className="text-[11px] text-gray-400 mb-3">{L('Ranpli onboarding Stripe a pou aktive peman kart.', 'Complete Stripe onboarding to activate card payments.', 'Complétez l&apos;onboarding Stripe pour activer les paiements par carte.')}</p>
                         <button onClick={handleConnectStripe} disabled={stripeConnecting}
                           className="text-xs text-orange hover:underline font-bold">
-                          {L('Kontinye onboarding →', 'Continue onboarding →', 'Continuer l'onboarding →')}
+                          {L('Kontinye onboarding →', 'Continue onboarding →', 'Continuer l&apos;onboarding →')}
                         </button>
                       </div>
                     )}
