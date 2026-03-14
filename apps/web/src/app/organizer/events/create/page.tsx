@@ -635,7 +635,7 @@ function CreateEventInner() {
 
               <div className="space-y-4">
                 {sections.map((sec, i) => (
-                  <SectionRow key={sec.id} sec={sec} index={i}
+                  <SectionRow key={sec.id} sec={sec}
                     onChange={updated => setSections(s => s.map(x => x.id === sec.id ? updated : x))}
                     onRemove={() => setSections(s => s.filter(x => x.id !== sec.id))}
                     onAddZone={() => {
