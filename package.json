@@ -2,9 +2,15 @@
   "name": "anbyans",
   "version": "0.1.0",
   "private": true,
-  "workspaces": ["apps/*", "packages/*"],
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
     "dev": "npm run dev --workspace=apps/web",
     "build": "npm run build --workspace=apps/web"
+  },
+  "devDependencies": {
+    "sharp": "^0.34.5"
   }
 }

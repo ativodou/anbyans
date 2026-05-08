@@ -21,7 +21,6 @@ import { db } from './firebase';
 // ─── Event Types ─────────────────────────────────────────────────
 
 export interface EventSection {
-  id?: string;          // present after creation, keyed by index or uuid
   name: string;
   capacity: number;
   price: number;          // fan price
@@ -1017,21 +1016,14 @@ export async function vendorBulkPurchase(params: {
 
   const ref = await addDoc(collection(db, 'vendorPurchases'), purchaseDoc);
 
-  // Update event totalSold + revenue + section.sold
+  // Update event totalSold + revenue
   const eventRef = doc(db, 'events', params.eventId);
   const eventSnap = await getDoc(eventRef);
   if (eventSnap.exists()) {
     const data = eventSnap.data();
-    const updatedSections = (data.sections || []).map((s: any) => {
-      if (s.name === params.section || s.id === params.section) {
-        return { ...s, sold: (s.sold || 0) + params.qty };
-      }
-      return s;
-    });
     await updateDoc(eventRef, {
       totalSold: (data.totalSold || 0) + params.qty,
       revenue: (data.revenue || 0) + totalPaid,
-      sections: updatedSections,
       updatedAt: serverTimestamp(),
     });
   }
@@ -1575,25 +1567,23 @@ export async function markEventLive(eventId: string): Promise<void> {
  * Only writes to Firestore if status needs to change — no unnecessary writes.
  */
 export async function autoUpdateEventStatus(event: EventData): Promise<EventData> {
-  if (!event.id) return event;
   if (event.status === 'cancelled' || event.status === 'ended') return event;
   if (event.status === 'draft') return event;
 
-  const endStr       = event.endDate  || event.startDate;
-  const endTimeStr   = event.endTime  || '23:59';
-  const startStr     = event.startDate;
+  const endStr     = event.endDate  || event.startDate;
+  const endTimeStr = event.endTime  || '23:59';
+  const startStr   = event.startDate;
   const startTimeStr = event.startTime || '00:00';
 
-  if (!endStr || !startStr) return event;
+  if (!endStr) return event;
 
-  const eventId = event.id;
-  const now     = new Date();
-  const endDt   = new Date(`${endStr}T${endTimeStr}`);
-  const startDt = new Date(`${startStr}T${startTimeStr}`);
+  const now       = new Date();
+  const endDt     = new Date(`${endStr}T${endTimeStr}`);
+  const startDt   = new Date(`${startStr}T${startTimeStr}`);
 
   // Past end time → ended
   if (now > endDt) {
-    await updateDoc(doc(db, 'events', eventId), {
+    await updateDoc(doc(db, 'events', event.id!), {
       status: 'ended',
       endedAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
@@ -1601,9 +1591,9 @@ export async function autoUpdateEventStatus(event: EventData): Promise<EventData
     return { ...event, status: 'ended' };
   }
 
-  // Within event window → live
+  // Within event window (started but not ended) → live
   if (now >= startDt && now <= endDt && event.status === 'published') {
-    await updateDoc(doc(db, 'events', eventId), {
+    await updateDoc(doc(db, 'events', event.id!), {
       status: 'live',
       liveAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
@@ -1620,104 +1610,4 @@ export async function autoUpdateEventStatus(event: EventData): Promise<EventData
  */
 export async function autoUpdateAllEventStatuses(events: EventData[]): Promise<EventData[]> {
   return Promise.all(events.map(e => autoUpdateEventStatus(e)));
-}
-
-// ─── Floor Plans (public — shared by venue) ───────────────────────────────────
-
-export interface FloorPlan {
-  placeId: string;       // Google Place ID — primary key
-  venueName: string;
-  image: string;         // base64 compressed image
-  createdBy: string;     // uid of first uploader
-  isVerified: boolean;   // Anbyans-verified official plan
-  createdAt: any;
-  updatedAt: any;
-}
-
-/** Get floor plan for a venue by Google Place ID */
-export async function getFloorPlan(placeId: string): Promise<FloorPlan | null> {
-  if (!placeId) return null;
-  const snap = await getDoc(doc(db, 'floorPlans', placeId));
-  return snap.exists() ? (snap.data() as FloorPlan) : null;
-}
-
-/** Save or update a floor plan for a venue (public — keyed by placeId) */
-export async function saveFloorPlan(placeId: string, data: {
-  venueName: string;
-  image: string;
-  createdBy: string;
-}): Promise<void> {
-  const ref = doc(db, 'floorPlans', placeId);
-  const existing = await getDoc(ref);
-  if (existing.exists()) {
-    // Only update the image — preserve original creator and verified status
-    await updateDoc(ref, {
-      image: data.image,
-      updatedAt: serverTimestamp(),
-    });
-  } else {
-    await setDoc(ref, {
-      placeId,
-      venueName: data.venueName,
-      image: data.image,
-      createdBy: data.createdBy,
-      isVerified: false,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    });
-  }
-}
-
-// ─── Event Layouts (private — organizer's section arrangement) ────────────────
-
-export interface LayoutZone {
-  id: string;
-  sectionId: string;
-  x: number;   // % from left
-  y: number;   // % from top
-  w: number;   // % width
-  h: number;   // % height
-}
-
-export interface EventLayout {
-  eventId: string;
-  organizerId: string;
-  placeId: string;       // links to floorPlans collection
-  venueName: string;
-  zones: LayoutZone[];
-  createdAt: any;
-  updatedAt: any;
-}
-
-/** Get the section layout for a specific event */
-export async function getEventLayout(eventId: string): Promise<EventLayout | null> {
-  const snap = await getDoc(doc(db, 'eventLayouts', eventId));
-  return snap.exists() ? (snap.data() as EventLayout) : null;
-}
-
-/** Save organizer's section arrangement for an event */
-export async function saveEventLayout(eventId: string, data: {
-  organizerId: string;
-  placeId: string;
-  venueName: string;
-  zones: LayoutZone[];
-}): Promise<void> {
-  await setDoc(doc(db, 'eventLayouts', eventId), {
-    eventId,
-    ...data,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  }, { merge: true });
-}
-
-/** Get organizer's previous layout for a venue (to pre-fill a new event) */
-export async function getOrganizerVenueLayout(organizerId: string, placeId: string): Promise<EventLayout | null> {
-  const snap = await getDocs(query(
-    collection(db, 'eventLayouts'),
-    where('organizerId', '==', organizerId),
-    where('placeId', '==', placeId),
-    limit(1)
-  ));
-  if (snap.empty) return null;
-  return snap.docs[0].data() as EventLayout;
 }
