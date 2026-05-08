@@ -1286,6 +1286,88 @@ export async function denyRefund(requestId: string, eventId: string, ticketId: s
 }
 
 // ═══════════════════════════════════════════════════════════════════
+// FLOOR PLAN / EVENT LAYOUT
+// ═══════════════════════════════════════════════════════════════════
+
+export interface FloorPlanDoc {
+  placeId: string;
+  venueName: string;
+  image: string;
+  isVerified?: boolean;
+  createdAt?: any;
+  updatedAt?: any;
+}
+
+export interface EventLayoutZone {
+  id: string;
+  sectionId: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+export interface EventLayoutDoc {
+  eventId: string;
+  placeId: string;
+  zones: EventLayoutZone[];
+  createdAt?: any;
+  updatedAt?: any;
+}
+
+export async function getFloorPlan(placeId: string): Promise<FloorPlanDoc | null> {
+  const snap = await getDoc(doc(db, 'floorPlans', placeId));
+  if (!snap.exists()) return null;
+  return { placeId: snap.id, ...snap.data() } as FloorPlanDoc;
+}
+
+export async function saveFloorPlan(
+  placeId: string,
+  data: { venueName: string; image: string; createdBy: string },
+): Promise<void> {
+  await setDoc(doc(db, 'floorPlans', placeId), {
+    ...data,
+    isVerified: false,
+    updatedAt: serverTimestamp(),
+    createdAt: serverTimestamp(),
+  }, { merge: true });
+}
+
+export async function getEventLayout(eventId: string): Promise<EventLayoutDoc | null> {
+  const snap = await getDoc(doc(db, 'eventLayouts', eventId));
+  if (!snap.exists()) return null;
+  return { eventId: snap.id, ...snap.data() } as EventLayoutDoc;
+}
+
+export async function saveEventLayout(
+  eventId: string,
+  data: { organizerId: string; placeId: string; venueName: string; zones: EventLayoutZone[] },
+): Promise<void> {
+  await setDoc(doc(db, 'eventLayouts', eventId), {
+    ...data,
+    updatedAt: serverTimestamp(),
+    createdAt: serverTimestamp(),
+  }, { merge: true });
+}
+
+export async function getOrganizerVenueLayout(
+  organizerId: string,
+  placeId: string,
+): Promise<EventLayoutDoc | null> {
+  const q = query(
+    collection(db, 'eventLayouts'),
+    where('organizerId', '==', organizerId),
+    where('placeId', '==', placeId),
+    orderBy('updatedAt', 'desc'),
+    limit(1),
+  );
+  const snap = await getDocs(q);
+  if (snap.empty) return null;
+  const d = snap.docs[0];
+  return { eventId: d.id, ...d.data() } as EventLayoutDoc;
+}
+
+// ═══════════════════════════════════════════════════════════════════
 // VENUE MANAGEMENT
 // ═══════════════════════════════════════════════════════════════════
 
