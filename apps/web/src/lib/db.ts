@@ -491,11 +491,12 @@ function getOrCreateDeviceId(): string {
 // ─── Update Door Staff Scan Counts ──────────────────────────────
 
 export async function updateDoorStaffStats(
-  eventId: string,
-  staffId: string,
+  _eventId: string,
+  assignmentId: string,
   admitted: boolean
 ) {
-  const ref = doc(db, 'events', eventId, 'doorStaff', staffId);
+  // assignmentId is a staffAssignments document — that's where the scanner stores stats
+  const ref = doc(db, 'staffAssignments', assignmentId);
   const snap = await getDoc(ref);
   if (!snap.exists()) return;
   const data = snap.data();
@@ -1253,8 +1254,7 @@ export async function requestRefund(
     status: 'pending', requestedAt: serverTimestamp(),
   };
   await setDoc(ref, data);
-  // Mark ticket as refund pending
-  await updateDoc(doc(db, 'events', eventId, 'tickets', ticketId), {
+  await updateDoc(doc(db, 'tickets', ticketId), {
     status: 'refunded',
     refundRequestId: ref.id,
   });
@@ -1267,20 +1267,20 @@ export async function getRefundRequests(eventId: string): Promise<RefundRequest[
   return snap.docs.map(d => ({ id: d.id, ...d.data() } as RefundRequest));
 }
 
-export async function approveRefund(requestId: string, eventId: string, ticketId: string): Promise<void> {
+export async function approveRefund(requestId: string, _eventId: string, ticketId: string): Promise<void> {
   await updateDoc(doc(db, 'refundRequests', requestId), {
     status: 'approved', resolvedAt: serverTimestamp(),
   });
-  await updateDoc(doc(db, 'events', eventId, 'tickets', ticketId), {
+  await updateDoc(doc(db, 'tickets', ticketId), {
     status: 'refunded',
   });
 }
 
-export async function denyRefund(requestId: string, eventId: string, ticketId: string, denialNote: string): Promise<void> {
+export async function denyRefund(requestId: string, _eventId: string, ticketId: string, denialNote: string): Promise<void> {
   await updateDoc(doc(db, 'refundRequests', requestId), {
     status: 'denied', denialNote, resolvedAt: serverTimestamp(),
   });
-  await updateDoc(doc(db, 'events', eventId, 'tickets', ticketId), {
+  await updateDoc(doc(db, 'tickets', ticketId), {
     status: 'used',
   });
 }

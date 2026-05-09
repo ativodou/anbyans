@@ -51,7 +51,7 @@ function MoncashReturnInner() {
         const vData = await vRes.json();
         if (!vData.success) throw new Error(vData.error ?? 'Peman pa konfime pa MonCash.');
 
-        // 2. Create tickets in Firestore
+        // 2. Create tickets in Firestore — payment already verified, mark as paid immediately
         setStatus('creating');
         const tix = await purchaseTickets(
           order.eventId,
@@ -65,6 +65,7 @@ function MoncashReturnInner() {
           undefined,
           transactionId,
           'moncash',
+          { paymentStatus: 'paid', txnId: transactionId },
         );
 
         // 3. Clean up + store tickets for /tickets page

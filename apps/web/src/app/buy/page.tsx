@@ -1,10 +1,10 @@
 'use client';
 
 import { useEffect, useState, Suspense } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import { collection, query, where, getDocs, doc, getDoc, addDoc, serverTimestamp } from 'firebase/firestore';
+import { useSearchParams, useRouter } from 'next/navigation';
+import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
-import { getEventByPrivateToken } from '../../lib/db';
+import { getEventByPrivateToken, purchaseTickets } from '../../lib/db';
 import { useT } from '../../i18n';
 import Link from 'next/link';
 
@@ -44,10 +44,6 @@ type Step = 'detail' | 'seats' | 'info' | 'payment' | 'done';
 type PayMethod = 'stripe' | 'moncash' | 'natcash' | 'cash';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function genCode() {
-  return Math.random().toString(36).substring(2, 10).toUpperCase();
-}
 
 function dateStr(ts: any, locale = 'fr-HT') {
   if (!ts) return '';
@@ -125,9 +121,10 @@ function BuyPageInner() {
   const { locale } = useT();
   const L = (ht: string, en: string, fr: string) =>
     ({ ht, en, fr } as Record<string, string>)[locale] ?? ht;
-  const params  = useParams();
+  const searchParams = useSearchParams();
   const router  = useRouter();
-  const slug    = params?.slug as string;
+  // event ID comes from ?event=xxx; also support legacy ?slug= and ?token=
+  const eventKey = searchParams.get('event') || searchParams.get('slug') || searchParams.get('token') || '';
 
   const [event, setEvent]       = useState<EventData | null>(null);
   const [loading, setLoading]   = useState(true);
@@ -153,27 +150,28 @@ function BuyPageInner() {
 
   // ── Load event ────────────────────────────────────────────────
   useEffect(() => {
-    if (!slug) return;
+    if (!eventKey) return;
     (async () => {
       try {
-        // Try slug first, then fall back to document ID
+        // Try document ID first (most common path from /events/[id])
         let eventId = '';
         let data: any = null;
-        const snap = await getDocs(query(collection(db, 'events'), where('slug', '==', slug)));
-        if (!snap.empty) {
-          eventId = snap.docs[0].id;
-          data = snap.docs[0].data();
-        } else {
-          // Try direct document ID lookup
-          const docSnap = await getDoc(doc(db, 'events', slug));
-          if (docSnap.exists()) {
-            eventId = docSnap.id;
-            data = docSnap.data();
+        const docSnap = await getDoc(doc(db, 'events', eventKey));
+        if (docSnap.exists()) {
+          eventId = docSnap.id;
+          data = docSnap.data();
+        }
+        // Fallback: try as slug
+        if (!data) {
+          const snap = await getDocs(query(collection(db, 'events'), where('slug', '==', eventKey)));
+          if (!snap.empty) {
+            eventId = snap.docs[0].id;
+            data = snap.docs[0].data();
           }
         }
-        // Third fallback: try as private token
+        // Fallback: try as private token
         if (!data) {
-          const privateEv = await getEventByPrivateToken(slug);
+          const privateEv = await getEventByPrivateToken(eventKey);
           if (privateEv?.id) {
             eventId = privateEv.id;
             data = privateEv;
@@ -205,7 +203,7 @@ function BuyPageInner() {
       } catch (e) { console.error(e); }
       finally { setLoading(false); }
     })();
-  }, [slug]);
+  }, [eventKey]);
 
   // ── Load taken seats when section selected ────────────────────
   useEffect(() => {
@@ -247,41 +245,35 @@ function BuyPageInner() {
   // ── Complete purchase ─────────────────────────────────────────
   const completePurchase = async () => {
     if (!event || !selSection || !payMethod) return;
+    // Stripe is not yet integrated — block submission to prevent free tickets
+    if (payMethod === 'stripe') return;
     setProcessing(true);
     try {
-      const codes: string[] = [];
-      const seats = selSection.type === 'reserved' ? selSeats : Array(qty).fill(null);
+      const seats = selSection.type === 'reserved'
+        ? selSeats
+        : Array.from({ length: qty }, (_, i) => `GA-${i + 1}`);
 
-      for (let i = 0; i < qty; i++) {
-        const code = genCode();
-        const paymentStatus =
-          payMethod === 'stripe'              ? 'paid' :
-          payMethod === 'moncash' || payMethod === 'natcash' ? 'pending_verification' :
-          'pending_cash';
+      const tickets = await purchaseTickets(
+        event.id,
+        name.trim(),
+        email.trim(),
+        phone.trim(),
+        selSection.name,
+        selSection.color,
+        seats,
+        selSection.price,
+        undefined,
+        txnId.trim() || undefined,
+        payMethod,
+        {
+          organizerId: event.organizerId,
+          sectionName: selSection.name,
+          priceHTG:    htg(selSection.price),
+          ...(txnId.trim() ? { txnId: txnId.trim() } : {}),
+        },
+      );
 
-        await addDoc(collection(db, 'tickets'), {
-          ticketCode:    code,
-          qrData:        code,
-          eventId:       event.id,
-          organizerId:   event.organizerId,
-          buyerName:     name.trim(),
-          buyerPhone:    phone.trim(),
-          buyerEmail:    email.trim() || null,
-          section:       selSection.id,
-          sectionName:   selSection.name,
-          sectionColor:  selSection.color,
-          seat:          seats[i] || null,
-          price:         selSection.price,
-          priceHTG:      htg(selSection.price),
-          paymentMethod: payMethod,
-          paymentStatus,
-          txnId:         txnId.trim() || null,
-          status:        paymentStatus === 'paid' ? 'valid' : 'pending',
-          purchasedAt:   serverTimestamp(),
-        });
-        codes.push(code);
-      }
-      setTicketCodes(codes);
+      setTicketCodes(tickets.map(t => t.ticketCode));
       setStep('done');
     } catch (e) {
       console.error(e);
@@ -581,7 +573,7 @@ function BuyPageInner() {
         </div>
 
         <button
-          disabled={!payMethod || processing || ((payMethod === 'moncash' || payMethod === 'natcash') && !txnId.trim())}
+          disabled={!payMethod || processing || payMethod === 'stripe' || ((payMethod === 'moncash' || payMethod === 'natcash') && !txnId.trim())}
           onClick={completePurchase}
           className="w-full py-3.5 rounded-xl font-heading text-base bg-orange text-white disabled:opacity-30 hover:bg-orange/90 transition-all flex items-center justify-center gap-2">
           {processing

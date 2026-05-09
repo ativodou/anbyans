@@ -446,7 +446,16 @@ function ScannerPageInner() {
     const trimmed = code.trim().toUpperCase();
     if (!trimmed) return;
 
-    const ticket = tickets.find(t => t.ticketCode === trimmed || t.qrData === trimmed);
+    // The live ticket page appends a rotating window number: "qrData:12345"
+    // Strip that suffix so we match the stored qrData correctly
+    const trimmedBase = trimmed.includes(':') && !trimmed.startsWith('ANB-')
+      ? trimmed.split(':').slice(0, -1).join(':')
+      : trimmed;
+    const ticket = tickets.find(t =>
+      t.ticketCode === trimmed ||
+      t.qrData === trimmed ||
+      t.qrData === trimmedBase
+    );
     const now = new Date().toLocaleTimeString('fr', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
     let record: ScanRecord;
