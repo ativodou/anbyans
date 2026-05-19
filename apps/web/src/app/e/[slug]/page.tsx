@@ -75,11 +75,12 @@ function SeatMap({ section, takenIds, selected, onToggle }: {
   selected: string[];
   onToggle: (id: string) => void;
 }) {
+  const { t } = useT();
   const rows = 'ABCDEFGHIJ'.split('');
   const cols = 10;
   return (
     <div className="overflow-auto">
-      <div className="w-full bg-white/[0.06] rounded-lg text-center text-[10px] font-bold text-gray-400 py-2 mb-6 tracking-widest">ESTAJ / SCENE</div>
+      <div className="w-full bg-white/[0.06] rounded-lg text-center text-[10px] font-bold text-gray-400 py-2 mb-6 tracking-widest">{t('buy_seat_stage')}</div>
       <div className="flex flex-col gap-1.5 items-center">
         {rows.map(row => (
           <div key={row} className="flex gap-1.5 items-center">
@@ -103,9 +104,9 @@ function SeatMap({ section, takenIds, selected, onToggle }: {
       </div>
       <div className="flex gap-4 mt-5 justify-center">
         {[
-          { color: 'bg-white/[0.08]', label: 'Disponib / Available' },
-          { color: 'bg-orange',       label: 'Seleksyone / Selected' },
-          { color: 'bg-white/[0.04]', label: 'Pran / Taken' },
+          { color: 'bg-white/[0.08]', label: t('buy_seat_available') },
+          { color: 'bg-orange',       label: t('buy_seat_selected') },
+          { color: 'bg-white/[0.04]', label: t('buy_seat_taken') },
         ].map(l => (
           <div key={l.label} className="flex items-center gap-1.5">
             <div className={`w-3.5 h-3.5 rounded ${l.color}`} />
@@ -166,9 +167,7 @@ function StripeForm({ onSuccess, processing, setProcessing }: {
 // ─── Main component ───────────────────────────────────────────────────────────
 
 function BuyPageInner() {
-  const { locale } = useT();
-  const L = (ht: string, en: string, fr: string) =>
-    ({ ht, en, fr } as Record<string, string>)[locale] ?? ht;
+  const { t } = useT();
   const params = useParams();
   const slug   = params?.slug as string;
 
@@ -355,9 +354,9 @@ function BuyPageInner() {
   // ── Validate ──────────────────────────────────────────────────
   const validateInfo = () => {
     const e: Record<string, string> = {};
-    if (!name.trim())  e.name  = L('Non obligatwa', 'Name required', 'Nom requis');
-    if (!phone.trim()) e.phone = L('Telefòn obligatwa', 'Phone required', 'Téléphone requis');
-    if (email && !/\S+@\S+\.\S+/.test(email)) e.email = L('Email pa valab', 'Invalid email', 'Email invalide');
+    if (!name.trim())  e.name  = t('buy_name_required');
+    if (!phone.trim()) e.phone = t('buy_phone_required');
+    if (email && !/\S+@\S+\.\S+/.test(email)) e.email = t('buy_email_invalid');
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -398,7 +397,7 @@ function BuyPageInner() {
       setStep('done');
     } catch (e) {
       console.error(e);
-      alert(L('Erè. Eseye ankò.', 'Error. Please try again.', 'Erreur. Veuillez réessayer.'));
+      alert(t('buy_error_retry'));
     } finally { setProcessing(false); }
   };
 
@@ -412,8 +411,8 @@ function BuyPageInner() {
   if (!event) return (
     <div className="min-h-screen bg-black flex flex-col items-center justify-center text-white gap-4">
       <p className="text-5xl">🎭</p>
-      <p className="text-gray-400">{L('Evènman pa jwenn.', 'Event not found.', 'Événement introuvable.')}</p>
-      <Link href="/events" className="text-orange text-sm">← {L('Tounen', 'Back', 'Retour')}</Link>
+      <p className="text-gray-400">{t('buy_event_not_found')}</p>
+      <Link href="/events" className="text-orange text-sm">← {t('back')}</Link>
     </div>
   );
 
@@ -441,7 +440,7 @@ function BuyPageInner() {
       <div className="relative h-56 md:h-72 bg-gradient-to-br from-orange/20 to-purple-900/40">
         {event.coverImage && <img src={event.coverImage} alt={event.title} className="w-full h-full object-cover" />}
         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
-        <Link href="/events" className="absolute top-4 left-4 text-white/70 hover:text-white text-sm">← {L('Tounen', 'Back', 'Retour')}</Link>
+        <Link href="/events" className="absolute top-4 left-4 text-white/70 hover:text-white text-sm">← {t('back')}</Link>
         {event.status === 'live' && (
           <span className="absolute top-4 right-4 bg-red-500 text-white text-[10px] font-black px-2.5 py-1 rounded-full animate-pulse">● LIVE</span>
         )}
@@ -468,7 +467,7 @@ function BuyPageInner() {
                 target="_blank" rel="noopener noreferrer"
                 onClick={ev => ev.stopPropagation()}
                 className="ml-auto text-[10px] text-orange font-bold hover:underline">
-                {L('Ouvri nan Maps', 'Open in Maps', 'Ouvrir dans Maps')} ↗
+                {t('slug_open_maps')} ↗
               </a>
             </div>
             <iframe
@@ -500,7 +499,7 @@ function BuyPageInner() {
           </div>
         )}
 
-        <h2 className="font-heading text-lg mb-3">{L('Chwazi Tikè', 'Choose Tickets', 'Choisir Billets')}</h2>
+        <h2 className="font-heading text-lg mb-3">{t('slug_choose_tickets')}</h2>
 
         <div className="space-y-3">
           {event.sections.map(sec => {
@@ -527,12 +526,12 @@ function BuyPageInner() {
                   <div className="flex-1 min-w-0">
                     <p className="font-bold text-sm">{sec.name}</p>
                     <p className="text-[11px] text-gray-400">
-                      {soldOut ? L('Fin', 'Sold out', 'Épuisé')
-                        : `${avail} ${L('plas', 'available', 'places')} · ${sec.type === 'reserved' ? L('Rezève', 'Reserved', 'Réservé') : 'GA'}`}
+                      {soldOut ? t('slug_sold_out')
+                        : `${avail} ${t('slug_places')} · ${sec.type === 'reserved' ? t('slug_reserved') : 'GA'}`}
                     </p>
                     {qty > 0 && (
                       <p className="text-[11px] text-orange font-bold mt-0.5">
-                        {qty} {L('nan panie', 'in cart', 'dans panier')}
+                        {qty} {t('slug_in_cart')}
                         {item && item.seats.length > 0 && ` · ${item.seats.join(', ')}`}
                       </p>
                     )}
@@ -559,13 +558,13 @@ function BuyPageInner() {
                         <button
                           onClick={() => adjustQty(sec, 1)}
                           className="flex-1 py-2.5 rounded-xl bg-orange text-white font-heading text-sm hover:bg-orange/90 transition-all">
-                          {L('Ajoute nan Panie', 'Add to Cart', 'Ajouter au Panier')}
+                          {t('slug_add_to_cart')}
                         </button>
                       ) : (
                         <button
                           onClick={() => { setCart(prev => prev.filter(c => c.section.id !== sec.id)); setExpandedSection(''); }}
                           className="flex-1 py-2.5 rounded-xl bg-white/[0.06] border border-white/10 text-gray-400 font-heading text-sm hover:border-red-500/50 hover:text-red-400 transition-all">
-                          {L('Retire', 'Remove', 'Retirer')}
+                          {t('slug_remove')}
                         </button>
                       )}
                     </div>
@@ -582,7 +581,7 @@ function BuyPageInner() {
         <div className="fixed bottom-0 left-0 right-0 bg-black/95 backdrop-blur border-t border-white/[0.08] px-4 py-4 z-50">
           <div className="max-w-2xl mx-auto flex items-center gap-4">
             <div className="flex-1">
-              <p className="text-xs text-gray-400">{cartCount} {L('tikè', 'ticket(s)', 'billet(s)')} · <span className="text-gray-500">+${serviceFee.toFixed(2)} frè</span></p>
+              <p className="text-xs text-gray-400">{cartCount} {t('slug_tickets_label')} · <span className="text-gray-500">+${serviceFee.toFixed(2)} frè</span></p>
               <div className="flex items-center gap-2">
                 <p className="font-heading text-lg text-green">${chargeTotal.toFixed(2)}</p>
                 <p className="text-xs text-red-400">{htg(chargeTotal).toLocaleString('fr-HT')} HTG</p>
@@ -590,7 +589,7 @@ function BuyPageInner() {
             </div>
             <button onClick={() => setStep('info')}
               className="px-8 py-3 rounded-xl font-heading text-base bg-orange text-white hover:bg-orange/90 transition-all">
-              {L('Kontinye', 'Continue', 'Continuer')} →
+              {t('buy_continue')}
             </button>
           </div>
         </div>
@@ -603,15 +602,15 @@ function BuyPageInner() {
     <div className="min-h-screen bg-black text-white">
       <div className="max-w-2xl mx-auto px-4 py-6">
         <button onClick={() => { setSeatSection(null); setPendingSeats([]); setStep('detail'); }}
-          className="text-gray-400 hover:text-white text-sm mb-4">← {L('Tounen', 'Back', 'Retour')}</button>
-        <h2 className="font-heading text-xl mb-1">{L('Chwazi Plas', 'Choose Seats', 'Choisir Places')}</h2>
+          className="text-gray-400 hover:text-white text-sm mb-4">← {t('back')}</button>
+        <h2 className="font-heading text-xl mb-1">{t('slug_confirm_seats')}</h2>
         <p className="text-gray-400 text-xs mb-6">
-          {pendingSeats.length} {L('plas seleksyone', 'seats selected', 'places sélectionnées')} · {seatSection.name}
+          {pendingSeats.length} {t('slug_seats_selected')} · {seatSection.name}
         </p>
         <SeatMap section={seatSection} takenIds={takenSeats} selected={pendingSeats} onToggle={togglePendingSeat} />
         <button disabled={pendingSeats.length === 0} onClick={confirmSeats}
           className="w-full mt-8 py-3.5 rounded-xl font-heading text-base bg-orange text-white disabled:opacity-30 hover:bg-orange/90 transition-all">
-          {L('Konfime Plas', 'Confirm Seats', 'Confirmer Places')} ({pendingSeats.length}) →
+          {t('slug_confirm_seats')} ({pendingSeats.length}) →
         </button>
       </div>
     </div>
@@ -621,23 +620,23 @@ function BuyPageInner() {
   if (step === 'info') return (
     <div className="min-h-screen bg-black text-white">
       <div className="max-w-2xl mx-auto px-4 py-6">
-        <button onClick={() => setStep('detail')} className="text-gray-400 hover:text-white text-sm mb-4">← {L('Tounen', 'Back', 'Retour')}</button>
-        <h2 className="font-heading text-xl mb-6">{L('Enfòmasyon Ou', 'Your Info', 'Vos Informations')}</h2>
+        <button onClick={() => setStep('detail')} className="text-gray-400 hover:text-white text-sm mb-4">← {t('back')}</button>
+        <h2 className="font-heading text-xl mb-6">{t('buy_your_info_h')}</h2>
         <div className="space-y-4">
           <div>
-            <label className="block text-xs font-bold text-gray-400 mb-1.5">{L('Non Konplè *', 'Full Name *', 'Nom Complet *')}</label>
+            <label className="block text-xs font-bold text-gray-400 mb-1.5">{t('buy_full_name_req')}</label>
             <input value={name} onChange={e => setName(e.target.value)} placeholder="Jean Paul"
               className={`w-full px-4 py-3 rounded-xl bg-white/[0.06] border text-white text-sm outline-none focus:border-orange ${errors.name ? 'border-red-500' : 'border-white/[0.1]'}`} />
             {errors.name && <p className="text-red-400 text-[10px] mt-1">{errors.name}</p>}
           </div>
           <div>
-            <label className="block text-xs font-bold text-gray-400 mb-1.5">{L('Nimewo Telefòn *', 'Phone Number *', 'Numéro de Téléphone *')}</label>
+            <label className="block text-xs font-bold text-gray-400 mb-1.5">{t('buy_phone_req')}</label>
             <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="+509 xxxx-xxxx" type="tel"
               className={`w-full px-4 py-3 rounded-xl bg-white/[0.06] border text-white text-sm outline-none focus:border-orange ${errors.phone ? 'border-red-500' : 'border-white/[0.1]'}`} />
             {errors.phone && <p className="text-red-400 text-[10px] mt-1">{errors.phone}</p>}
           </div>
           <div>
-            <label className="block text-xs font-bold text-gray-400 mb-1.5">{L('Email (opsyonèl)', 'Email (optional)', 'Email (facultatif)')}</label>
+            <label className="block text-xs font-bold text-gray-400 mb-1.5">{t('buy_email_optional')}</label>
             <input value={email} onChange={e => setEmail(e.target.value)} placeholder="you@email.com" type="email"
               className={`w-full px-4 py-3 rounded-xl bg-white/[0.06] border text-white text-sm outline-none focus:border-orange ${errors.email ? 'border-red-500' : 'border-white/[0.1]'}`} />
             {errors.email && <p className="text-red-400 text-[10px] mt-1">{errors.email}</p>}
@@ -646,7 +645,7 @@ function BuyPageInner() {
 
         {/* Cart summary */}
         <div className="mt-6 bg-white/[0.04] rounded-xl p-4 text-sm">
-          <p className="font-bold mb-3">{L('Rezime', 'Summary', 'Résumé')}</p>
+          <p className="font-bold mb-3">{t('buy_summary')}</p>
           <div className="space-y-2">
             {cart.map(item => (
               <div key={item.section.id} className="flex justify-between text-xs">
@@ -662,21 +661,21 @@ function BuyPageInner() {
             ))}
           </div>
           <div className="flex justify-between text-xs border-t border-white/[0.06] pt-2 mt-2 text-gray-400">
-            <span>{L('Frè sèvis (9%)', 'Service fee (9%)', 'Frais de service (9%)')}</span>
+            <span>{t('slug_service_fee')}</span>
             <span className="text-gray-400">${serviceFee.toFixed(2)}</span>
           </div>
           <div className="flex justify-between font-bold pt-1.5">
-            <span>{L('Total', 'Total', 'Total')}</span>
+            <span>{t('total')}</span>
             <span>
               <span className="text-green">${chargeTotal.toFixed(2)}</span>
               <span className="text-red-400 ml-1 text-xs">{htg(chargeTotal).toLocaleString('fr-HT')} HTG</span>
             </span>
           </div>
-          <p className="text-[10px] text-gray-600 mt-1">{L('Frè sèvis yo pa ranbousab', 'Service fees are non-refundable', 'Les frais de service ne sont pas remboursables')}</p>
+          <p className="text-[10px] text-gray-600 mt-1">{t('slug_fee_nonrefund')}</p>
         </div>
         <button onClick={() => { if (validateInfo()) setStep('payment'); }}
           className="w-full mt-4 py-3.5 rounded-xl font-heading text-base bg-orange text-white hover:bg-orange/90 transition-all">
-          {L('Kontinye', 'Continue', 'Continuer')} →
+          {t('buy_continue')}
         </button>
       </div>
     </div>
@@ -686,8 +685,8 @@ function BuyPageInner() {
   if (step === 'payment') return (
     <div className="min-h-screen bg-black text-white">
       <div className="max-w-2xl mx-auto px-4 py-6">
-        <button onClick={() => setStep('info')} className="text-gray-400 hover:text-white text-sm mb-4">← {L('Tounen', 'Back', 'Retour')}</button>
-        <h2 className="font-heading text-xl mb-6">{L('Peman', 'Payment', 'Paiement')}</h2>
+        <button onClick={() => setStep('info')} className="text-gray-400 hover:text-white text-sm mb-4">← {t('back')}</button>
+        <h2 className="font-heading text-xl mb-6">{t('buy_payment_h')}</h2>
 
         <div className="space-y-3 mb-6">
           {availMethods.map(m => (
@@ -726,17 +725,13 @@ function BuyPageInner() {
           <div className="bg-white/[0.04] rounded-xl p-4 mb-4 text-sm">
             <p className="font-bold mb-2">📱 {payMethod === 'moncash' ? 'MonCash' : 'Natcash'}</p>
             <p className="text-gray-400 text-xs mb-3">
-              {L(
-                `Voye $${chargeTotal.toFixed(2)} bay nimewo sa a, answit antre ID tranzaksyon ou a.`,
-                `Send $${chargeTotal.toFixed(2)} to the number below, then enter your transaction ID.`,
-                `Envoyez $${chargeTotal.toFixed(2)} au numéro ci-dessous, puis entrez votre ID de transaction.`
-              )}
+              {t('buy_send_prefix')} ${chargeTotal.toFixed(2)} {t('buy_send_suffix')}
             </p>
             <div className="bg-black/40 rounded-lg p-3 text-center mb-3">
               <p className="text-[10px] text-gray-500 mb-0.5">{payMethod === 'moncash' ? 'MonCash' : 'Natcash'} #</p>
               <p className="font-heading text-xl text-orange">{event.paymentMethods?.[payMethod]?.values?.[0] || '—'}</p>
             </div>
-            <label className="block text-[10px] font-bold text-gray-400 mb-1.5">{L('ID Tranzaksyon', 'Transaction ID', 'ID de Transaction')}</label>
+            <label className="block text-[10px] font-bold text-gray-400 mb-1.5">{t('buy_txn_id')}</label>
             <input value={txnId} onChange={e => setTxnId(e.target.value)} placeholder="ex: TXN123456"
               className="w-full px-4 py-3 rounded-xl bg-white/[0.06] border border-white/[0.1] text-white text-sm outline-none focus:border-orange" />
           </div>
@@ -746,11 +741,7 @@ function BuyPageInner() {
           <div className="bg-white/[0.04] rounded-xl p-4 mb-4 text-sm">
             <p className="font-bold mb-2">💵 Cash · Zelle · CashApp</p>
             <p className="text-gray-400 text-xs">
-              {L(
-                'Tikè ou a pral gen estati "ann atant". Ou ka peye nan pòt oswa bay òganizatè a.',
-                'Your ticket will be marked "pending". Pay at the door or contact the organizer.',
-                'Votre billet sera marqué "en attente". Payez à l\'entrée ou contactez l\'organisateur.'
-              )}
+              {t('buy_cash_pending')}
             </p>
             {(event.paymentMethods?.cash?.values?.length ?? 0) > 0 && (
               <div className="mt-3 bg-black/40 rounded-lg p-3">
@@ -799,12 +790,12 @@ function BuyPageInner() {
         {payMethod === 'stripe' && !clientSecret && (
           <div className="bg-white/[0.04] rounded-xl p-4 mb-4 text-sm text-center text-gray-400">
             <div className="w-5 h-5 border-2 border-orange border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-            {L('Ap chaje...', 'Loading...', 'Chargement...')}
+            {t('loading')}
           </div>
         )}
 
         <div className="bg-white/[0.04] rounded-xl p-4 mb-4 text-sm">
-          <p className="font-bold mb-2">{L('Rezime', 'Summary', 'Résumé')}</p>
+          <p className="font-bold mb-2">{t('buy_summary')}</p>
           {cart.map(item => (
             <div key={item.section.id} className="flex justify-between text-xs text-gray-400 mb-1">
               <span>{item.section.name} × {item.qty}</span>
@@ -812,17 +803,17 @@ function BuyPageInner() {
             </div>
           ))}
           <div className="flex justify-between text-xs text-gray-500 border-t border-white/[0.06] pt-2 mt-1">
-            <span>{L('Frè sèvis (9%)', 'Service fee (9%)', 'Frais (9%)')}</span>
+            <span>{t('slug_fee_short')}</span>
             <span>${serviceFee.toFixed(2)}</span>
           </div>
           <div className="flex justify-between font-bold pt-1.5">
-            <span>Total</span>
+            <span>{t('total')}</span>
             <div className="text-right">
               <p className="text-green">${chargeTotal.toFixed(2)}</p>
               <p className="text-[11px] text-red-400">{htg(chargeTotal).toLocaleString('fr-HT')} HTG</p>
             </div>
           </div>
-          <p className="text-[10px] text-gray-600 mt-1">{L('Frè pa ranbousab', 'Service fees non-refundable', 'Frais non remboursables')}</p>
+          <p className="text-[10px] text-gray-600 mt-1">{t('slug_fee_nonrefund')}</p>
         </div>
 
         {payMethod !== 'stripe' && <button
@@ -830,8 +821,8 @@ function BuyPageInner() {
           onClick={completePurchase}
           className="w-full py-3.5 rounded-xl font-heading text-base bg-orange text-white disabled:opacity-30 hover:bg-orange/90 transition-all flex items-center justify-center gap-2">
           {processing
-            ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> {L('Tann...', 'Processing...', 'Traitement...')}</>
-            : L('Konfime Peman', 'Confirm Payment', 'Confirmer Paiement')}
+            ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> {t('buy_processing_btn')}</>
+            : t('buy_confirm_payment')}
         </button>}
       </div>
     </div>
@@ -844,20 +835,20 @@ function BuyPageInner() {
         <div className="text-6xl mb-4">🎉</div>
         <h2 className="font-heading text-2xl mb-2">
           {payMethod === 'cash' || payMethod === 'moncash' || payMethod === 'natcash'
-            ? L('Tikè ou ann atant!', 'Ticket pending!', 'Billet en attente!')
-            : L('Tikè konfime!', 'Ticket confirmed!', 'Billet confirmé!')}
+            ? t('buy_pending_ticket')
+            : t('buy_confirmed_ticket')}
         </h2>
         <p className="text-gray-400 text-sm mb-8">
           {payMethod === 'cash'
-            ? L('Peye nan pòt pou konfime plas ou.', 'Pay at the door to confirm your spot.', 'Payez à l\'entrée pour confirmer.')
+            ? t('buy_cash_confirm_msg')
             : payMethod === 'moncash' || payMethod === 'natcash'
-            ? L('Nou pral verifye peman ou a. Tikè ou ap aktive nan kèk minit.', 'We\'ll verify your payment. Your ticket will activate shortly.', 'Nous vérifierons votre paiement.')
-            : L('Tikè ou prèt. Montre kòd la nan pòt.', 'Your ticket is ready. Show the code at the door.', 'Votre billet est prêt.')}
+            ? t('buy_moncash_pending_msg')
+            : t('buy_stripe_ready_msg')}
         </p>
         <div className="space-y-3 mb-8">
           {ticketCodes.map((code, i) => (
             <div key={code} className="bg-white/[0.06] rounded-xl p-4">
-              <p className="text-[10px] text-gray-500 mb-1">{L('Tikè', 'Ticket', 'Billet')} #{i + 1}</p>
+              <p className="text-[10px] text-gray-500 mb-1">{t('tickets')} #{i + 1}</p>
               <p className="font-heading text-2xl tracking-widest text-orange">{code}</p>
             </div>
           ))}
@@ -865,11 +856,11 @@ function BuyPageInner() {
         <div className="flex gap-3">
           <Link href={`/ticket/${ticketCodes[0]}`}
             className="flex-1 py-3 rounded-xl bg-orange text-white font-bold text-sm hover:bg-orange/90 transition-all">
-            {L('Wè Tikè', 'View Ticket', 'Voir Billet')}
+            {t('buy_view_ticket_btn')}
           </Link>
           <Link href="/events"
             className="flex-1 py-3 rounded-xl bg-white/[0.08] text-white font-bold text-sm hover:bg-white/[0.12] transition-all">
-            {L('Tounen', 'Back', 'Retour')}
+            {t('back')}
           </Link>
         </div>
       </div>

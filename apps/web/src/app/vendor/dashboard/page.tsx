@@ -72,9 +72,7 @@ const requestVendorAccess = async (data: VendorAccessRequestInput): Promise<Vend
 };
 
 export default function VendorDashboardPage() {
-  const { locale } = useT();
-  const L = (ht: string, en: string, fr: string) =>
-    ({ ht, en, fr } as Record<string, string>)[locale] ?? ht;
+  const { t } = useT();
 
   const [tab, setTab] = useState<Tab>('sell');
   const [loading, setLoading] = useState(true);
@@ -294,29 +292,25 @@ export default function VendorDashboardPage() {
     <div style={{ minHeight: '100vh', background: '#0a0a0f', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24 }}>
       <p style={{ fontSize: 48 }}>⏳</p>
       <p style={{ color: '#fff', fontWeight: 800, fontSize: 20, textAlign: 'center' }}>
-        {L('Kont ou an atant apwobasyon', 'Account pending approval', 'Compte en attente d\'approbation')}
+        {t('vend_dash_pending_approval')}
       </p>
       <p style={{ color: '#666', fontSize: 13, textAlign: 'center', maxWidth: 320 }}>
-        {L(
-          'Òganizatè a poko aktive kont vande ou. Kontakte yo pou konfirmasyon.',
-          'The organizer has not yet activated your reseller account. Contact them for confirmation.',
-          'L\'organisateur n\'a pas encore activé votre compte revendeur. Contactez-les pour confirmation.'
-        )}
+        {t('vend_dash_pending_body')}
       </p>
       <button
         onClick={() => auth.signOut().then(() => { window.location.href = '/vendor/auth'; })}
         style={{ marginTop: 8, padding: '10px 28px', borderRadius: 8, border: 'none', background: '#1e1e2e', color: '#888', cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>
-        🚪 {L('Dekonekte', 'Sign out', 'Déconnexion')}
+        🚪 {t('logout')}
       </button>
     </div>
   );
 
   const TABS: { id: Tab; icon: string; label: string }[] = [
-    { id: 'events', icon: '🎪', label: L('Evènman', 'Events', 'Événements') },
-    { id: 'sell', icon: '🎫', label: L('Vann', 'Sell', 'Vendre') },
-    { id: 'buy', icon: '🛒', label: L('Achte', 'Buy', 'Acheter') },
-    { id: 'inventory', icon: '📦', label: L('Envantè', 'Inventory', 'Inventaire') },
-    { id: 'sales', icon: '📋', label: L('Istwa', 'History', 'Historique') },
+    { id: 'events', icon: '🎪', label: t('vend_dash_events_tab') },
+    { id: 'sell', icon: '🎫', label: t('vend_dash_sell') },
+    { id: 'buy', icon: '🛒', label: t('vend_dash_buy') },
+    { id: 'inventory', icon: '📦', label: t('vend_dash_inventory') },
+    { id: 'sales', icon: '📋', label: t('vend_dash_history') },
   ];
   const card: React.CSSProperties = { background: '#12121a', border: '1px solid #1e1e2e', borderRadius: 12, padding: 16 };
   const btn = (color: string): React.CSSProperties => ({ padding: '12px 20px', borderRadius: 10, border: 'none', background: color, color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer', width: '100%' });
@@ -329,7 +323,7 @@ export default function VendorDashboardPage() {
           <span style={{ fontWeight: 800, fontSize: 14, letterSpacing: 2 }}>ANBYANS</span>
           <div style={{ width: 1, height: 20, background: '#1e1e2e' }} />
           <span style={{ flex: 1, fontSize: 13, fontWeight: 700 }}>{vendor?.name || 'VANDE'}</span>
-          <span style={{ background: '#a855f722', color: '#a855f7', fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 4 }}>🏪 {L('REVANDÈ', 'RESELLER', 'VENDEUR')}</span>
+          <span style={{ background: '#a855f722', color: '#a855f7', fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 4 }}>🏪 {t('vend_dash_reseller_badge')}</span>
           <button onClick={() => auth.signOut().then(() => { window.location.href = '/vendor/auth'; })}
             style={{ background: 'none', border: 'none', color: '#555', fontSize: 18, cursor: 'pointer' }}>🚪</button>
         </div>
@@ -337,10 +331,10 @@ export default function VendorDashboardPage() {
 
       <div style={{ position: 'sticky', top: 52, zIndex: 40, background: '#0a0a0f', borderBottom: '1px solid #1e1e2e' }}>
         <div style={{ maxWidth: 800, margin: '0 auto', display: 'flex' }}>
-          {TABS.map(t => (
-            <button key={t.id} onClick={() => { setTab(t.id); resetSell(); resetBuy(); setShowSellConfirm(false); setShowBuyConfirm(false); }}
-              style={{ flex: 1, padding: '14px 0', border: 'none', background: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, color: tab === t.id ? '#a855f7' : '#555', borderBottom: `2px solid ${tab === t.id ? '#a855f7' : 'transparent'}` }}>
-              {t.icon} {t.label}
+          {TABS.map(tbItem => (
+            <button key={tbItem.id} onClick={() => { setTab(tbItem.id); resetSell(); resetBuy(); setShowSellConfirm(false); setShowBuyConfirm(false); }}
+              style={{ flex: 1, padding: '14px 0', border: 'none', background: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, color: tab === tbItem.id ? '#a855f7' : '#555', borderBottom: `2px solid ${tab === tbItem.id ? '#a855f7' : 'transparent'}` }}>
+              {tbItem.icon} {tbItem.label}
             </button>
           ))}
         </div>
@@ -351,17 +345,15 @@ export default function VendorDashboardPage() {
         {/* EVENTS TAB */}
         {tab === 'events' && (
           <div>
-            <h2 style={{ fontSize: 20, fontWeight: 800, marginBottom: 4 }}>{L('Evènman', 'Events', 'Événements')}</h2>
+            <h2 style={{ fontSize: 20, fontWeight: 800, marginBottom: 4 }}>{t('vend_dash_events_tab')}</h2>
             <p style={{ color: '#666', fontSize: 12, marginBottom: 20 }}>
-              {L('Chwazi evènman ou vle travay. Demande aksè — òganizatè a ap konfime ou.',
-                'Choose events you want to work. Request access — the organizer will confirm you.',
-                'Choisissez les événements pour lesquels vous voulez travailler. Demandez l\'accès.')}
+              {t('vend_dash_events_desc')}
             </p>
 
             {allEvents.length === 0 ? (
               <div style={{ ...card, textAlign: 'center', padding: 40 }}>
                 <p style={{ fontSize: 40, marginBottom: 12 }}>📭</p>
-                <p style={{ color: '#888' }}>{L('Pa gen evènman piblik disponib.', 'No public events available.', 'Aucun événement public disponible.')}</p>
+                <p style={{ color: '#888' }}>{t('vend_dash_no_pub_events')}</p>
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -374,9 +366,9 @@ export default function VendorDashboardPage() {
                   const hasBulk = isApproved && !!myEv && myEv.pricing && myEv.pricing.length > 0;
 
                   const statusBadge = () => {
-                    if (isApproved) return <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 4, background: '#22c55e22', color: '#22c55e' }}>✓ {L('APWOUVE', 'APPROVED', 'APPROUVÉ')}</span>;
-                    if (isPending) return <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 4, background: '#f9731622', color: '#f97316' }}>⏳ {L('AN ATANT', 'PENDING', 'EN ATTENTE')}</span>;
-                    if (isDenied) return <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 4, background: '#ef444422', color: '#ef4444' }}>✕ {L('REFIZE', 'DENIED', 'REFUSÉ')}</span>;
+                    if (isApproved) return <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 4, background: '#22c55e22', color: '#22c55e' }}>✓ {t('vend_dash_approved')}</span>;
+                    if (isPending) return <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 4, background: '#f9731622', color: '#f97316' }}>⏳ {t('vend_dash_pending')}</span>;
+                    if (isDenied) return <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 4, background: '#ef444422', color: '#ef4444' }}>✕ {t('vend_dash_denied')}</span>;
                     return null;
                   };
 
@@ -414,14 +406,14 @@ export default function VendorDashboardPage() {
                                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                     <span style={{ width: 10, height: 10, borderRadius: '50%', background: sec.sectionColor, display: 'inline-block', flexShrink: 0 }} />
                                     <span style={{ fontWeight: 700, fontSize: 13 }}>{sec.section}</span>
-                                    <span style={{ color: '#555', fontSize: 11 }}>{sec.available} {L('disponib', 'avail', 'dispo')}</span>
+                                    <span style={{ color: '#555', fontSize: 11 }}>{sec.available} {t('vend_dash_avail')}</span>
                                   </div>
                                   <div style={{ textAlign: 'right' }}>
                                     <span style={{ color: '#888', fontSize: 10, textDecoration: 'line-through', marginRight: 6 }}>${sec.onlinePrice}</span>
                                     {isOpen && activePrice
                                       ? <><span style={{ color: '#22c55e', fontWeight: 800, fontSize: 15 }}>${activePrice}</span>
                                           {discount > 0 && <span style={{ color: '#22c55e', fontSize: 10, marginLeft: 4 }}>-{discount}%</span>}</>
-                                      : <span style={{ color: '#ef4444', fontSize: 11 }}>🔒 {L('Fèmen', 'Closed', 'Fermé')}</span>}
+                                      : <span style={{ color: '#ef4444', fontSize: 11 }}>🔒 {t('vend_dash_closed')}</span>}
                                   </div>
                                 </div>
 
@@ -441,7 +433,7 @@ export default function VendorDashboardPage() {
 
                                 {!activeTier && nextTier && (
                                   <p style={{ color: '#f97316', fontSize: 10, marginBottom: 6 }}>
-                                    ⏳ {L('Pwochen:', 'Next:', 'Prochain :')} {nextTier.label} ${nextTier.priceEach} — {L('ouvè', 'opens', 'ouvre')} {nextTier.openDate}
+                                    ⏳ {t('vend_dash_next')} {nextTier.label} ${nextTier.priceEach} — {t('vend_dash_opens')} {nextTier.openDate}
                                   </p>
                                 )}
 
@@ -455,7 +447,7 @@ export default function VendorDashboardPage() {
                                       setTab('buy');
                                     }}
                                     style={{ width: '100%', padding: '9px 0', borderRadius: 8, border: 'none', background: '#a855f7', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
-                                    🛒 {L('Achte bulk', 'Buy bulk', 'Achat en gros')} — ${activePrice}/{L('tikè', 'ticket', 'billet')}
+                                    🛒 {t('vend_dash_buy_bulk_btn')} — ${activePrice}/{t('vend_dash_ticket_lbl')}
                                   </button>
                                 )}
                               </div>
@@ -468,7 +460,7 @@ export default function VendorDashboardPage() {
                       {isApproved && !hasBulk && (
                         <div style={{ background: '#0a0a0f', border: '1px solid #1e1e2e', borderRadius: 8, padding: '10px 12px', marginBottom: 10 }}>
                           <p style={{ color: '#888', fontSize: 12, margin: 0 }}>
-                            ⏳ {L('Apwouve! Òganizatè a poko fikse pri bulk pou evènman sa a.', 'Approved! Organizer hasn\'t set bulk pricing yet.', "Approuvé ! L'organisateur n'a pas encore fixé les tarifs.")}
+                            ⏳ {t('vend_dash_approved_no_bulk')}
                           </p>
                         </div>
                       )}
@@ -477,7 +469,7 @@ export default function VendorDashboardPage() {
                       {isPending && (
                         <div style={{ background: '#f9731610', border: '1px solid #f9731633', borderRadius: 8, padding: '10px 12px', marginBottom: 10 }}>
                           <p style={{ color: '#f97316', fontSize: 12, margin: 0 }}>
-                            ⏳ {L('Demann ou voye. Òganizatè a ap revize li.', 'Request sent. The organizer is reviewing it.', "Demande envoyée. L'organisateur l'examine.")}
+                            ⏳ {t('vend_dash_req_sent')}
                           </p>
                         </div>
                       )}
@@ -486,7 +478,7 @@ export default function VendorDashboardPage() {
                       {isDenied && (
                         <div style={{ background: '#ef444410', border: '1px solid #ef444433', borderRadius: 8, padding: '10px 12px', marginBottom: 10 }}>
                           <p style={{ color: '#ef4444', fontSize: 12, margin: 0 }}>
-                            ✕ {L('Demann ou pa aksepte. Kontakte òganizatè a dirèkteman.', 'Request was not accepted. Contact the organizer directly.', "Demande non acceptée. Contactez l'organisateur directement.")}
+                            ✕ {t('vend_dash_req_denied')}
                           </p>
                         </div>
                       )}
@@ -515,7 +507,7 @@ export default function VendorDashboardPage() {
                             finally { setRequesting(null); }
                           }}
                           style={{ width: '100%', padding: '11px 0', borderRadius: 8, border: '2px solid #a855f7', background: 'transparent', color: '#a855f7', fontSize: 13, fontWeight: 700, cursor: requesting === ev.id ? 'not-allowed' : 'pointer', opacity: requesting === ev.id ? 0.6 : 1 }}>
-                          {requesting === ev.id ? '...' : `🙋 ${L('Mande travay evènman sa a', 'Request to work this event', 'Demander à travailler cet événement')}`}
+                          {requesting === ev.id ? '...' : `🙋 ${t('vend_dash_request_btn')}`}
                         </button>
                       )}
                     </div>
@@ -530,13 +522,13 @@ export default function VendorDashboardPage() {
         {/* SELL TAB */}
         {tab === 'sell' && !showSellConfirm && !sellSuccess && (
           <div>
-            <h2 style={{ fontSize: 20, fontWeight: 800, marginBottom: 16 }}>{L('Vann Tikè', 'Sell Tickets', 'Vendre des Billets')}</h2>
+            <h2 style={{ fontSize: 20, fontWeight: 800, marginBottom: 16 }}>{t('vend_dash_sell_title')}</h2>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 20 }}>
               {[
-                { label: L('Envantè', 'Stock', 'Stock'), value: totalRemaining },
-                { label: L('Vann', 'Sold', 'Vendus'), value: totalSold, color: '#22c55e' },
-                { label: L('Revni', 'Revenue', 'Revenu'), value: `$${totalRevenue}` },
-                { label: L('Pwofi', 'Profit', 'Profit'), value: `$${totalProfit}`, color: '#22c55e' },
+                { label: t('vend_dash_stock_label'), value: totalRemaining },
+                { label: t('vend_dash_sold_label'), value: totalSold, color: '#22c55e' },
+                { label: t('vend_dash_revenue'), value: `$${totalRevenue}` },
+                { label: t('vend_dash_profit'), value: `$${totalProfit}`, color: '#22c55e' },
               ].map(s => (
                 <div key={s.label} style={{ ...card, textAlign: 'center', padding: 12 }}>
                   <p style={{ color: '#555', fontSize: 9, textTransform: 'uppercase', marginBottom: 4 }}>{s.label}</p>
@@ -547,13 +539,13 @@ export default function VendorDashboardPage() {
             {owned.filter(s => s.qty - s.sold > 0).length === 0 ? (
               <div style={{ ...card, textAlign: 'center', padding: 40 }}>
                 <p style={{ fontSize: 40, marginBottom: 12 }}>📦</p>
-                <p style={{ color: '#888', marginBottom: 16 }}>{L('Pa gen tikè nan envantè ou.', 'No tickets in your inventory.', 'Aucun billet en inventaire.')}</p>
-                <button onClick={() => setTab('buy')} style={{ ...btn('#a855f7'), width: 'auto', padding: '10px 24px' }}>🛒 {L('Achte tikè bulk', 'Buy bulk tickets', 'Acheter des billets en gros')}</button>
+                <p style={{ color: '#888', marginBottom: 16 }}>{t('vend_dash_no_inventory')}</p>
+                <button onClick={() => setTab('buy')} style={{ ...btn('#a855f7'), width: 'auto', padding: '10px 24px' }}>🛒 {t('vend_dash_buy_bulk_link')}</button>
               </div>
             ) : (
               <div style={{ ...card, borderColor: '#a855f733' }}>
                 <div style={{ marginBottom: 16 }}>
-                  <p style={{ color: '#888', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', marginBottom: 8 }}>{L('Chwazi tikè ou vle vann', 'Select tickets to sell', 'Sélectionner les billets')}</p>
+                  <p style={{ color: '#888', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', marginBottom: 8 }}>{t('vend_dash_select_stock')}</p>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                     {owned.map((s, i) => {
                       const rem = s.qty - s.sold;
@@ -569,8 +561,8 @@ export default function VendorDashboardPage() {
                             </div>
                           </div>
                           <div style={{ textAlign: 'right' }}>
-                            <p style={{ color: '#fff', fontSize: 12, fontWeight: 700 }}>{rem} {L('rete', 'left', 'restants')}</p>
-                            <p style={{ color: '#555', fontSize: 10 }}>${s.priceEach}/{L('tikè', 'ticket', 'billet')}</p>
+                            <p style={{ color: '#fff', fontSize: 12, fontWeight: 700 }}>{rem} {t('vend_dash_left')}</p>
+                            <p style={{ color: '#555', fontSize: 10 }}>${s.priceEach}/{t('vend_dash_ticket_lbl')}</p>
                           </div>
                         </button>
                       );
@@ -579,7 +571,7 @@ export default function VendorDashboardPage() {
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
                   <div>
-                    <p style={{ color: '#888', fontSize: 11, fontWeight: 700, marginBottom: 8 }}>{L('Kantite', 'Quantity', 'Quantité')}</p>
+                    <p style={{ color: '#888', fontSize: 11, fontWeight: 700, marginBottom: 8 }}>{t('quantity')}</p>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <button onClick={() => setSellQty(Math.max(1, sellQty - 1))} style={{ width: 36, height: 36, borderRadius: 8, border: '1px solid #1e1e2e', background: 'none', color: '#fff', fontSize: 18, cursor: 'pointer' }}>−</button>
                       <span style={{ fontSize: 28, fontWeight: 800, minWidth: 40, textAlign: 'center' }}>{sellQty}</span>
@@ -587,21 +579,21 @@ export default function VendorDashboardPage() {
                     </div>
                   </div>
                   <div>
-                    <p style={{ color: '#888', fontSize: 11, fontWeight: 700, marginBottom: 8 }}>{L('Pri vant', 'Sell price', 'Prix de vente')}</p>
+                    <p style={{ color: '#888', fontSize: 11, fontWeight: 700, marginBottom: 8 }}>{t('vend_dash_sell_price')}</p>
                     <input type="number" value={sellPrice} onChange={e => setSellPrice(e.target.value)} placeholder={`$${suggestedPrice}`} style={inp} />
-                    <p style={{ color: '#555', fontSize: 10, marginTop: 4 }}>{L('Ou te peye', 'You paid', 'Vous avez payé')} ${currentStock?.priceEach}/{L('tikè', 'ticket', 'billet')}</p>
+                    <p style={{ color: '#555', fontSize: 10, marginTop: 4 }}>{t('vend_dash_you_paid')} ${currentStock?.priceEach}/{t('vend_dash_ticket_lbl')}</p>
                   </div>
                 </div>
                 <div style={{ background: '#0a0a0f', border: '1px solid #1e1e2e', borderRadius: 10, padding: 12, display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
-                  <div><p style={{ color: '#666', fontSize: 10 }}>Total</p><p style={{ fontSize: 24, fontWeight: 800 }}>${saleTotal}</p></div>
-                  <div style={{ textAlign: 'right' }}><p style={{ color: '#666', fontSize: 10 }}>{L('Pwofi', 'Profit', 'Profit')}</p><p style={{ fontSize: 24, fontWeight: 800, color: saleProfit >= 0 ? '#22c55e' : '#ef4444' }}>{saleProfit >= 0 ? '+' : ''}${saleProfit}</p></div>
+                  <div><p style={{ color: '#666', fontSize: 10 }}>{t('total')}</p><p style={{ fontSize: 24, fontWeight: 800 }}>${saleTotal}</p></div>
+                  <div style={{ textAlign: 'right' }}><p style={{ color: '#666', fontSize: 10 }}>{t('vend_dash_profit')}</p><p style={{ fontSize: 24, fontWeight: 800, color: saleProfit >= 0 ? '#22c55e' : '#ef4444' }}>{saleProfit >= 0 ? '+' : ''}${saleProfit}</p></div>
                 </div>
                 <div style={{ borderTop: '1px solid #1e1e2e', paddingTop: 16, marginBottom: 16 }}>
-                  <p style={{ color: '#a855f7', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>{L('Enfòmasyon Kliyan', 'Customer Info', 'Informations Client')}</p>
+                  <p style={{ color: '#a855f7', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>{t('vend_dash_customer_info')}</p>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                     <div>
-                      <label style={{ color: '#888', fontSize: 11, display: 'block', marginBottom: 4 }}>{L('Non *', 'Name *', 'Nom *')}</label>
-                      <input value={buyerName} onChange={e => setBuyerName(e.target.value)} placeholder={L('Non konplè', 'Full name', 'Nom complet')} style={inp} />
+                      <label style={{ color: '#888', fontSize: 11, display: 'block', marginBottom: 4 }}>{t('vend_dash_name_req')}</label>
+                      <input value={buyerName} onChange={e => setBuyerName(e.target.value)} placeholder={t('tickets_full_name_ph')} style={inp} />
                     </div>
                     <div>
                       <label style={{ color: '#888', fontSize: 11, display: 'block', marginBottom: 4 }}>WhatsApp *</label>
@@ -610,10 +602,10 @@ export default function VendorDashboardPage() {
                   </div>
                 </div>
                 {sellError && <p style={{ color: '#ef4444', fontSize: 12, marginBottom: 10 }}>{sellError}</p>}
-                <button onClick={() => { if (!buyerName || !buyerPhone) { setSellError(L('Ranpli non ak telefòn kliyan an.', 'Fill in customer name and phone.', 'Remplissez nom et téléphone.')); return; } setSellError(''); setShowSellConfirm(true); }} disabled={remaining === 0} style={{ ...btn('#a855f7'), opacity: remaining === 0 ? 0.4 : 1 }}>
-                  🎫 {L('Vann', 'Sell', 'Vendre')} {sellQty} {L('tikè', 'ticket(s)', 'billet(s)')} — ${saleTotal}
+                <button onClick={() => { if (!buyerName || !buyerPhone) { setSellError(t('vend_dash_fill_customer')); return; } setSellError(''); setShowSellConfirm(true); }} disabled={remaining === 0} style={{ ...btn('#a855f7'), opacity: remaining === 0 ? 0.4 : 1 }}>
+                  🎫 {t('vend_dash_sell')} {sellQty} {t('vend_dash_ticket_lbl')} — ${saleTotal}
                 </button>
-                <p style={{ color: '#555', fontSize: 10, textAlign: 'center', marginTop: 6 }}>{L('Tikè ap voye bay kliyan an via WhatsApp', 'Ticket sent to customer via WhatsApp', 'Billet envoyé au client via WhatsApp')}</p>
+                <p style={{ color: '#555', fontSize: 10, textAlign: 'center', marginTop: 6 }}>{t('vend_dash_ticket_whatsapp')}</p>
               </div>
             )}
           </div>
@@ -622,9 +614,9 @@ export default function VendorDashboardPage() {
         {tab === 'sell' && showSellConfirm && (
           <div style={{ ...card, borderColor: '#a855f733', textAlign: 'center', padding: 32 }}>
             <p style={{ fontSize: 48, marginBottom: 12 }}>🎫</p>
-            <h3 style={{ fontSize: 20, fontWeight: 800, marginBottom: 16 }}>{L('Konfime Vant', 'Confirm Sale', 'Confirmer la vente')}</h3>
+            <h3 style={{ fontSize: 20, fontWeight: 800, marginBottom: 16 }}>{t('vend_dash_confirm_sale_h')}</h3>
             <div style={{ ...card, textAlign: 'left', maxWidth: 320, margin: '0 auto 20px', padding: 14 }}>
-              {([[L('Evènman','Event','Événement'), currentStock?.eventName],[L('Seksyon','Section','Section'), currentStock?.section],[L('Kantite','Qty','Quantité'), sellQty],[L('Pri/tikè','Price/ticket','Prix/billet'), `$${actualSellPrice}`],[L('Kliyan','Customer','Client'), buyerName],['WhatsApp', buyerPhone],[L('Total','Total','Total'), `$${saleTotal}`],[L('Pwofi ou','Your profit','Votre profit'), `+$${saleProfit}`]] as [string, any][]).map(([k, v]) => (
+              {([[t('vend_dash_event_label'), currentStock?.eventName],[t('vend_dash_section_label'), currentStock?.section],[t('vend_dash_qty_label'), sellQty],[t('vend_dash_price_per'), `$${actualSellPrice}`],[t('vend_dash_customer'), buyerName],['WhatsApp', buyerPhone],[t('total'), `$${saleTotal}`],[t('vend_dash_your_profit'), `+$${saleProfit}`]] as [string, any][]).map(([k, v]) => (
                 <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid #1e1e2e', fontSize: 12 }}>
                   <span style={{ color: '#666' }}>{k}</span><span style={{ fontWeight: 700 }}>{v}</span>
                 </div>
@@ -632,8 +624,8 @@ export default function VendorDashboardPage() {
             </div>
             {sellError && <p style={{ color: '#ef4444', fontSize: 12, marginBottom: 10 }}>{sellError}</p>}
             <div style={{ display: 'flex', gap: 10, maxWidth: 320, margin: '0 auto' }}>
-              <button onClick={() => setShowSellConfirm(false)} style={{ ...btn('#1e1e2e'), flex: 1 }}>← {L('Retounen', 'Back', 'Retour')}</button>
-              <button onClick={handleConfirmSell} disabled={sellLoading} style={{ ...btn('#22c55e'), flex: 1, opacity: sellLoading ? 0.6 : 1 }}>{sellLoading ? '...' : `✓ ${L('Konfime', 'Confirm', 'Confirmer')}`}</button>
+              <button onClick={() => setShowSellConfirm(false)} style={{ ...btn('#1e1e2e'), flex: 1 }}>← {t('back')}</button>
+              <button onClick={handleConfirmSell} disabled={sellLoading} style={{ ...btn('#22c55e'), flex: 1, opacity: sellLoading ? 0.6 : 1 }}>{sellLoading ? '...' : `✓ ${t('confirm')}`}</button>
             </div>
           </div>
         )}
@@ -641,34 +633,34 @@ export default function VendorDashboardPage() {
         {tab === 'sell' && sellSuccess && (
           <div style={{ ...card, borderColor: '#22c55e', textAlign: 'center', padding: 40 }}>
             <p style={{ fontSize: 56, marginBottom: 12 }}>✅</p>
-            <h3 style={{ fontSize: 24, fontWeight: 800, color: '#22c55e', marginBottom: 8 }}>{L('Vant reyisi!', 'Sale complete!', 'Vente réussie !')}</h3>
-            <p style={{ color: '#888', fontSize: 13, marginBottom: 4 }}>{L('Tikè voye bay', 'Ticket sent to', 'Billet envoyé à')} <strong style={{ color: '#fff' }}>{buyerPhone}</strong></p>
+            <h3 style={{ fontSize: 24, fontWeight: 800, color: '#22c55e', marginBottom: 8 }}>{t('vend_dash_sale_success')}</h3>
+            <p style={{ color: '#888', fontSize: 13, marginBottom: 4 }}>{t('vend_dash_ticket_sent_to')} <strong style={{ color: '#fff' }}>{buyerPhone}</strong></p>
             {sellCodes.length > 0 && (
               <div style={{ background: '#0a0a0f', border: '1px solid #1e1e2e', borderRadius: 8, padding: 12, margin: '12px auto', maxWidth: 300 }}>
                 <p style={{ color: '#555', fontSize: 10, marginBottom: 6 }}>Kòd tikè</p>
                 {sellCodes.map(c => <p key={c} style={{ fontFamily: 'monospace', fontSize: 13, color: '#22c55e' }}>{c}</p>)}
               </div>
             )}
-            <p style={{ color: '#22c55e', fontWeight: 700, fontSize: 16, marginTop: 8 }}>+${saleProfit} {L('pwofi', 'profit', 'profit')}</p>
-            <button onClick={resetSell} style={{ ...btn('#a855f7'), width: 'auto', padding: '10px 24px', marginTop: 16 }}>🎫 {L('Vann ankò', 'Sell more', 'Vendre encore')}</button>
+            <p style={{ color: '#22c55e', fontWeight: 700, fontSize: 16, marginTop: 8 }}>+${saleProfit} {t('vend_dash_profit_label')}</p>
+            <button onClick={resetSell} style={{ ...btn('#a855f7'), width: 'auto', padding: '10px 24px', marginTop: 16 }}>🎫 {t('vend_dash_sell_more')}</button>
           </div>
         )}
 
         {/* BUY TAB */}
         {tab === 'buy' && !showBuyConfirm && !buySuccess && (
           <div>
-            <h2 style={{ fontSize: 20, fontWeight: 800, marginBottom: 6 }}>{L('Achte Tikè Bulk', 'Buy Bulk Tickets', 'Achat en Gros')}</h2>
-            <p style={{ color: '#666', fontSize: 12, marginBottom: 20 }}>{L('Achte tikè an gwo pou pri redwi, epi vann yo pou pwofi.', 'Buy tickets in bulk at reduced prices and resell for profit.', 'Achetez en gros à prix réduit, revendez avec profit.')}</p>
+            <h2 style={{ fontSize: 20, fontWeight: 800, marginBottom: 6 }}>{t('vend_dash_buy_title')}</h2>
+            <p style={{ color: '#666', fontSize: 12, marginBottom: 20 }}>{t('vend_dash_buy_desc')}</p>
             {approvedEvents.length === 0 ? (
               <div style={{ ...card, textAlign: 'center', padding: 40 }}>
                 <p style={{ fontSize: 40, marginBottom: 12 }}>🎪</p>
-                <p style={{ color: '#888' }}>{L('Pa gen evènman disponib pou vann kounye a.', 'No events available for resale right now.', 'Aucun événement disponible pour la revente.')}</p>
-                <p style={{ color: '#555', fontSize: 11, marginTop: 8 }}>{L('Mande òganizatè a aktive vant bulk.', 'Ask the organizer to enable bulk pricing.', "Demandez à l'organisateur d'activer la vente en gros.")}</p>
+                <p style={{ color: '#888' }}>{t('vend_dash_no_events_resale')}</p>
+                <p style={{ color: '#555', fontSize: 11, marginTop: 8 }}>{t('vend_dash_ask_org_bulk')}</p>
               </div>
             ) : (
               <>
                 <div style={{ marginBottom: 16 }}>
-                  <p style={{ color: '#888', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', marginBottom: 8 }}>{L('Evènman', 'Event', 'Événement')}</p>
+                  <p style={{ color: '#888', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', marginBottom: 8 }}>{t('vend_dash_event_h')}</p>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                     {approvedEvents.map((ev, i) => (
                       <button key={ev.id} onClick={() => { setBuyEventIdx(i); setBuySectionIdx(0); setBuyQty(10); }}
@@ -681,14 +673,14 @@ export default function VendorDashboardPage() {
                 </div>
                 {selectedEvent && (
                   <div style={{ marginBottom: 16 }}>
-                    <p style={{ color: '#888', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', marginBottom: 8 }}>{L('Seksyon', 'Section', 'Section')}</p>
+                    <p style={{ color: '#888', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', marginBottom: 8 }}>{t('vend_dash_section_label')}</p>
                     <div style={{ display: 'flex', gap: 8 }}>
                       {selectedEvent.pricing.map((sec, i) => (
                         <button key={i} onClick={() => { setBuySectionIdx(i); setBuyQty(10); }}
                           style={{ flex: 1, padding: 10, borderRadius: 10, textAlign: 'center', border: `1px solid ${buySectionIdx === i ? '#a855f7' : '#1e1e2e'}`, background: buySectionIdx === i ? '#a855f715' : 'transparent', cursor: 'pointer' }}>
                           <span style={{ color: sec.sectionColor, fontWeight: 700, fontSize: 13 }}>{sec.section}</span>
                           <p style={{ color: '#666', fontSize: 10, marginTop: 2 }}>Online: ${sec.onlinePrice}</p>
-                          <p style={{ color: '#555', fontSize: 10 }}>{sec.available} {L('disponib', 'available', 'disponibles')}</p>
+                          <p style={{ color: '#555', fontSize: 10 }}>{sec.available} {t('vend_dash_avail')}</p>
                         </button>
                       ))}
                     </div>
@@ -699,11 +691,11 @@ export default function VendorDashboardPage() {
                   const activeCal = calT.find((t: CalTier) => today >= t.openDate && today <= t.closeDate);
                   return (
                     <div style={{ ...card, marginBottom: 16 }}>
-                      <p style={{ color: '#a855f7', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', marginBottom: 10 }}>📅 {L('Pri pa Dat', 'Calendar Pricing', 'Tarifs par date')} — {selectedSection.section}</p>
+                      <p style={{ color: '#a855f7', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', marginBottom: 10 }}>📅 {t('vend_dash_cal_pricing')} — {selectedSection.section}</p>
                       {calT.length > 0 ? (
                         <>
                           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                            <thead><tr style={{ borderBottom: '1px solid #1e1e2e' }}>{['Fenèt', L('Dat','Dates','Dates'), L('Pri','Price','Prix'), L('Rabè','Discount','Rabais')].map(h => <th key={h} style={{ color: '#555', fontSize: 9, textTransform: 'uppercase', paddingBottom: 8, textAlign: 'left' }}>{h}</th>)}</tr></thead>
+                            <thead><tr style={{ borderBottom: '1px solid #1e1e2e' }}>{['Fenèt', t('vend_dash_dates'), t('vend_dash_price'), t('vend_dash_discount')].map(h => <th key={h} style={{ color: '#555', fontSize: 9, textTransform: 'uppercase', paddingBottom: 8, textAlign: 'left' }}>{h}</th>)}</tr></thead>
                             <tbody>
                               {calT.map((t: CalTier, i: number) => {
                                 const disc = Math.round(((selectedSection.onlinePrice - t.priceEach) / selectedSection.onlinePrice) * 100);
@@ -722,17 +714,17 @@ export default function VendorDashboardPage() {
                           </table>
                           {activeCal ? (
                             <div style={{ background: '#a855f715', border: '1px solid #a855f733', borderRadius: 6, padding: '6px 10px', marginTop: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                              <p style={{ color: '#a855f7', fontSize: 11, fontWeight: 700 }}>✓ {activeCal.label} — ${activeCal.priceEach}/{L('tikè','ticket','billet')}</p>
-                              <p style={{ color: '#666', fontSize: 10 }}>{L('Fèmen','Closes','Ferme')} {activeCal.closeDate}</p>
+                              <p style={{ color: '#a855f7', fontSize: 11, fontWeight: 700 }}>✓ {activeCal.label} — ${activeCal.priceEach}/{t('vend_dash_ticket_lbl')}</p>
+                              <p style={{ color: '#666', fontSize: 10 }}>{t('vend_dash_closes')} {activeCal.closeDate}</p>
                             </div>
                           ) : (
                             <div style={{ background: '#ef444415', border: '1px solid #ef444433', borderRadius: 6, padding: '6px 10px', marginTop: 10 }}>
-                              <p style={{ color: '#ef4444', fontSize: 11 }}>⚠️ {L('Pa gen fenèt ouvert kounye a.','No pricing window open now.','Aucune fenêtre ouverte.')}</p>
+                              <p style={{ color: '#ef4444', fontSize: 11 }}>⚠️ {t('vend_dash_no_window')}</p>
                             </div>
                           )}
                         </>
                       ) : (
-                        <p style={{ color: '#555', fontSize: 12 }}>{L('Pa gen kalandriye pri.','No calendar pricing set.','Pas de tarification calendaire.')}</p>
+                        <p style={{ color: '#555', fontSize: 12 }}>{t('vend_dash_no_cal')}</p>
                       )}
                     </div>
                   );
@@ -740,7 +732,7 @@ export default function VendorDashboardPage() {
                 {selectedSection && (
                   <>
                     <div style={{ marginBottom: 16 }}>
-                      <p style={{ color: '#888', fontSize: 11, fontWeight: 700, marginBottom: 10 }}>{L('Kantite', 'Quantity', 'Quantité')}</p>
+                      <p style={{ color: '#888', fontSize: 11, fontWeight: 700, marginBottom: 10 }}>{t('quantity')}</p>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         {[-5, -1].map(d => <button key={d} onClick={() => setBuyQty(Math.max(1, buyQty + d))} style={{ width: 36, height: 36, borderRadius: 8, border: '1px solid #1e1e2e', background: 'none', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>{d}</button>)}
                         <span style={{ fontSize: 32, fontWeight: 800, minWidth: 60, textAlign: 'center' }}>{buyQty}</span>
@@ -748,12 +740,12 @@ export default function VendorDashboardPage() {
                       </div>
                     </div>
                     <div style={{ background: '#a855f715', border: '1px solid #a855f733', borderRadius: 12, padding: 14, display: 'flex', justifyContent: 'space-between', marginBottom: 14 }}>
-                      <div><p style={{ color: '#888', fontSize: 10 }}>{L('Pri bulk','Bulk price','Prix en gros')}</p><p style={{ fontSize: 13 }}>${bulkPrice} × {buyQty} {L('tikè','tickets','billets')}</p></div>
-                      <div style={{ textAlign: 'right' }}><p style={{ color: '#888', fontSize: 10 }}>{L('Ou peye','You pay','Vous payez')}</p><p style={{ fontSize: 28, fontWeight: 800 }}>${buyTotal.toLocaleString()}</p></div>
+                      <div><p style={{ color: '#888', fontSize: 10 }}>{t('vend_dash_bulk_price')}</p><p style={{ fontSize: 13 }}>${bulkPrice} × {buyQty} {t('vend_dash_tickets_lbl')}</p></div>
+                      <div style={{ textAlign: 'right' }}><p style={{ color: '#888', fontSize: 10 }}>{t('vend_dash_you_pay')}</p><p style={{ fontSize: 28, fontWeight: 800 }}>${buyTotal.toLocaleString()}</p></div>
                     </div>
                     {buyError && <p style={{ color: '#ef4444', fontSize: 12, marginBottom: 10 }}>{buyError}</p>}
                     <button onClick={() => setShowBuyConfirm(true)} disabled={!buyWindowOpen || buyQty < 1} style={{ ...btn('#a855f7'), opacity: (!buyWindowOpen || buyQty < 1) ? 0.4 : 1 }}>
-                      🛒 {L('Achte','Buy','Acheter')} {buyQty} {L('tikè','tickets','billets')} — ${buyTotal.toLocaleString()}
+                      🛒 {t('vend_dash_buy_btn')} {buyQty} {t('vend_dash_tickets_lbl')} — ${buyTotal.toLocaleString()}
                     </button>
                   </>
                 )}
@@ -765,46 +757,46 @@ export default function VendorDashboardPage() {
         {tab === 'buy' && showBuyConfirm && !buySuccess && (
           <div style={{ ...card, borderColor: '#a855f733', textAlign: 'center', padding: 32 }}>
             <p style={{ fontSize: 48, marginBottom: 12 }}>🛒</p>
-            <h3 style={{ fontSize: 20, fontWeight: 800, marginBottom: 16 }}>{L('Konfime Acha', 'Confirm Purchase', "Confirmer l'achat")}</h3>
+            <h3 style={{ fontSize: 20, fontWeight: 800, marginBottom: 16 }}>{t('vend_dash_confirm_purch_h')}</h3>
             <div style={{ ...card, textAlign: 'left', maxWidth: 320, margin: '0 auto 20px', padding: 14 }}>
-              {([[L('Evènman','Event','Événement'), selectedEvent?.name],[L('Seksyon','Section','Section'), selectedSection?.section],[L('Kantite','Qty','Quantité'), `${buyQty} ${L('tikè','tickets','billets')}`],[L('Pri bulk','Bulk price','Prix en gros'), `$${bulkPrice} ${L('chak','each','chacun')}`],[L('Total','Total','Total'), `$${buyTotal.toLocaleString()}`]] as [string,any][]).map(([k,v]) => (
+              {([[t('vend_dash_event_label'), selectedEvent?.name],[t('vend_dash_section_label'), selectedSection?.section],[t('vend_dash_qty_label'), `${buyQty} ${t('vend_dash_tickets_lbl')}`],[t('vend_dash_bulk_price'), `$${bulkPrice}`],[t('total'), `$${buyTotal.toLocaleString()}`]] as [string,any][]).map(([k,v]) => (
                 <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #1e1e2e', fontSize: 12 }}>
                   <span style={{ color: '#666' }}>{k}</span><span style={{ fontWeight: 700 }}>{v}</span>
                 </div>
               ))}
             </div>
-            <p style={{ color: '#666', fontSize: 12, marginBottom: 14 }}>{L('Chwazi metòd peman:', 'Choose payment method:', 'Choisissez le mode de paiement :')}</p>
+            <p style={{ color: '#666', fontSize: 12, marginBottom: 14 }}>{t('vend_dash_choose_payment')}</p>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, maxWidth: 360, margin: '0 auto 16px' }}>
               {['📱 MonCash', '💚 Natcash', '⚡ Zelle', '💲 Cash App', '🅿️ PayPal'].map(m => (
                 <button key={m} onClick={handleConfirmBuy} disabled={buyLoading} style={{ padding: '10px 6px', borderRadius: 10, border: '1px solid #1e1e2e', background: 'none', color: '#ccc', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>{m}</button>
               ))}
               {(vendor as any)?.trusted && (
                 <button onClick={handleConfirmBuy} disabled={buyLoading} style={{ padding: '10px 6px', borderRadius: 10, border: '1px solid #22c55e', background: '#22c55e15', color: '#22c55e', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
-                  💳 {L('Kat Kredi','Credit Card','Carte')}
+                  💳 {t('vend_dash_credit_card')}
                   <span style={{ display: 'block', fontSize: 8, color: '#22c55e99', marginTop: 2 }}>✓ Trusted</span>
                 </button>
               )}
             </div>
             {buyError && <p style={{ color: '#ef4444', fontSize: 12, marginBottom: 10 }}>{buyError}</p>}
-            <button onClick={() => setShowBuyConfirm(false)} style={{ color: '#555', background: 'none', border: 'none', cursor: 'pointer', fontSize: 12 }}>← {L('Retounen', 'Back', 'Retour')}</button>
+            <button onClick={() => setShowBuyConfirm(false)} style={{ color: '#555', background: 'none', border: 'none', cursor: 'pointer', fontSize: 12 }}>← {t('back')}</button>
           </div>
         )}
 
         {tab === 'buy' && buySuccess && (
           <div style={{ ...card, borderColor: '#22c55e', textAlign: 'center', padding: 40 }}>
             <p style={{ fontSize: 56, marginBottom: 12 }}>✅</p>
-            <h3 style={{ fontSize: 24, fontWeight: 800, color: '#22c55e', marginBottom: 8 }}>{L('Achte reyisi!', 'Purchase complete!', 'Achat réussi !')}</h3>
-            <p style={{ color: '#888', fontSize: 13 }}><strong>{buyQty}</strong> {L('tikè','tickets','billets')} <span style={{ color: selectedSection?.sectionColor }}>{selectedSection?.section}</span> {L('pou','for','pour')} <strong>{selectedEvent?.name}</strong></p>
-            <button onClick={() => { resetBuy(); setTab('sell'); }} style={{ ...btn('#a855f7'), width: 'auto', padding: '10px 24px', marginTop: 16 }}>🎫 {L('Ale vann', 'Go sell', 'Aller vendre')}</button>
+            <h3 style={{ fontSize: 24, fontWeight: 800, color: '#22c55e', marginBottom: 8 }}>{t('vend_dash_purch_success')}</h3>
+            <p style={{ color: '#888', fontSize: 13 }}><strong>{buyQty}</strong> {t('vend_dash_tickets_lbl')} <span style={{ color: selectedSection?.sectionColor }}>{selectedSection?.section}</span> {t('vend_dash_for_label')} <strong>{selectedEvent?.name}</strong></p>
+            <button onClick={() => { resetBuy(); setTab('sell'); }} style={{ ...btn('#a855f7'), width: 'auto', padding: '10px 24px', marginTop: 16 }}>🎫 {t('vend_dash_go_sell')}</button>
           </div>
         )}
 
         {/* INVENTORY */}
         {tab === 'inventory' && (
           <div>
-            <h2 style={{ fontSize: 20, fontWeight: 800, marginBottom: 16 }}>{L('Envantè', 'Inventory', 'Inventaire')}</h2>
+            <h2 style={{ fontSize: 20, fontWeight: 800, marginBottom: 16 }}>{t('vend_dash_inv_title')}</h2>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 20 }}>
-              {[{label:L('Achte','Bought','Achetés'),value:totalStock},{label:L('Vann','Sold','Vendus'),value:totalSold,color:'#22c55e'},{label:L('Rete','Remaining','Restants'),value:totalRemaining},{label:L('Envesti','Invested','Investi'),value:`$${totalInvested}`},{label:L('Revni','Revenue','Revenu'),value:`$${totalRevenue}`},{label:L('Pwofi','Profit','Profit'),value:`$${totalProfit}`,color:'#22c55e'}].map(s => (
+              {[{label:t('vend_dash_bought'),value:totalStock},{label:t('vend_dash_sold_label'),value:totalSold,color:'#22c55e'},{label:t('vend_dash_remaining'),value:totalRemaining},{label:t('vend_dash_invested'),value:`$${totalInvested}`},{label:t('vend_dash_revenue'),value:`$${totalRevenue}`},{label:t('vend_dash_profit'),value:`$${totalProfit}`,color:'#22c55e'}].map(s => (
                 <div key={s.label} style={{ ...card, textAlign: 'center', padding: 12 }}>
                   <p style={{ color: '#555', fontSize: 9, textTransform: 'uppercase', marginBottom: 4 }}>{s.label}</p>
                   <p style={{ fontSize: 20, fontWeight: 800, color: s.color || '#fff' }}>{s.value}</p>
@@ -812,7 +804,7 @@ export default function VendorDashboardPage() {
               ))}
             </div>
             {owned.length === 0 ? (
-              <div style={{ ...card, textAlign: 'center', padding: 40 }}><p style={{ fontSize: 40, marginBottom: 10 }}>📦</p><p style={{ color: '#888' }}>{L('Envantè vid.','Empty inventory.','Inventaire vide.')}</p></div>
+              <div style={{ ...card, textAlign: 'center', padding: 40 }}><p style={{ fontSize: 40, marginBottom: 10 }}>📦</p><p style={{ color: '#888' }}>{t('vend_dash_empty_inv')}</p></div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {owned.map((s, i) => {
@@ -828,36 +820,36 @@ export default function VendorDashboardPage() {
                         <span style={{ color: s.sectionColor, border: `1px solid ${s.sectionColor}`, padding: '2px 8px', borderRadius: 4, fontSize: 10, fontWeight: 700 }}>{s.section}</span>
                       </div>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8, textAlign: 'center', marginBottom: 10 }}>
-                        {[{l:L('Achte','Bought','Achetés'),v:s.qty},{l:L('Vann','Sold','Vendus'),v:s.sold,c:'#22c55e'},{l:L('Rete','Left','Restants'),v:rem,c:rem<=5&&rem>0?'#f97316':'#fff'},{l:L('Pri','Cost','Coût'),v:`$${s.priceEach}`},{l:L('Envesti','Invested','Investi'),v:`$${s.totalPaid}`}].map(x => (
+                        {[{l:t('vend_dash_bought'),v:s.qty},{l:t('vend_dash_sold_label'),v:s.sold,c:'#22c55e'},{l:t('vend_dash_left'),v:rem,c:rem<=5&&rem>0?'#f97316':'#fff'},{l:t('vend_dash_cost'),v:`$${s.priceEach}`},{l:t('vend_dash_invested'),v:`$${s.totalPaid}`}].map(x => (
                           <div key={x.l}><p style={{ color: '#555', fontSize: 9, marginBottom: 2 }}>{x.l}</p><p style={{ fontWeight: 700, fontSize: 13, color: x.c || '#fff' }}>{x.v}</p></div>
                         ))}
                       </div>
                       <div style={{ height: 6, background: '#1e1e2e', borderRadius: 3, overflow: 'hidden' }}>
                         <div style={{ height: '100%', width: `${pct}%`, background: '#a855f7', borderRadius: 3 }} />
                       </div>
-                      <p style={{ color: '#555', fontSize: 10, textAlign: 'right', marginTop: 4 }}>{pct}% {L('vann','sold','vendu')}</p>
+                      <p style={{ color: '#555', fontSize: 10, textAlign: 'right', marginTop: 4 }}>{pct}% {t('vend_dash_sold_pct')}</p>
                     </div>
                   );
                 })}
               </div>
             )}
-            <button onClick={() => setTab('buy')} style={{ ...btn('transparent'), border: '2px dashed #a855f7', color: '#a855f7', marginTop: 12 }}>🛒 {L('Achte plis tikè','Buy more tickets','Acheter plus de billets')}</button>
+            <button onClick={() => setTab('buy')} style={{ ...btn('transparent'), border: '2px dashed #a855f7', color: '#a855f7', marginTop: 12 }}>🛒 {t('vend_dash_buy_more')}</button>
           </div>
         )}
 
         {/* SALES */}
         {tab === 'sales' && (
           <div>
-            <h2 style={{ fontSize: 20, fontWeight: 800, marginBottom: 16 }}>{L('Istwa Vant', 'Sales History', 'Historique des Ventes')}</h2>
+            <h2 style={{ fontSize: 20, fontWeight: 800, marginBottom: 16 }}>{t('vend_dash_sales_title')}</h2>
             <div style={{ ...card, marginBottom: 16 }}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, textAlign: 'center' }}>
-                {[{l:L('Vant','Sales','Ventes'),v:sales.reduce((a,s)=>a+s.qty,0)},{l:L('Revni','Revenue','Revenu'),v:`$${totalRevenue}`},{l:L('Depans','Cost','Coût'),v:`$${totalCost}`},{l:L('Pwofi','Profit','Profit'),v:`$${totalProfit}`,c:'#22c55e'}].map(s => (
+                {[{l:t('vend_dash_sales'),v:sales.reduce((a,s)=>a+s.qty,0)},{l:t('vend_dash_revenue'),v:`$${totalRevenue}`},{l:t('vend_dash_cost_label'),v:`$${totalCost}`},{l:t('vend_dash_profit'),v:`$${totalProfit}`,c:'#22c55e'}].map(s => (
                   <div key={s.l}><p style={{ color: '#555', fontSize: 9, textTransform: 'uppercase', marginBottom: 4 }}>{s.l}</p><p style={{ fontSize: 18, fontWeight: 800, color: s.c||'#fff' }}>{s.v}</p></div>
                 ))}
               </div>
             </div>
             {sales.length === 0 ? (
-              <div style={{ ...card, textAlign: 'center', padding: 40 }}><p style={{ fontSize: 40, marginBottom: 10 }}>📋</p><p style={{ color: '#888' }}>{L('Okenn vant poko fèt.','No sales yet.',"Aucune vente pour l'instant.")}</p></div>
+              <div style={{ ...card, textAlign: 'center', padding: 40 }}><p style={{ fontSize: 40, marginBottom: 10 }}>📋</p><p style={{ color: '#888' }}>{t('vend_dash_no_sales')}</p></div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {sales.map((s, i) => {
@@ -870,7 +862,7 @@ export default function VendorDashboardPage() {
                       </div>
                       <div style={{ textAlign: 'right', flexShrink: 0 }}>
                         <p style={{ fontWeight: 700, fontSize: 13 }}>${s.qty * s.sellPriceEach}</p>
-                        <p style={{ color: '#22c55e', fontSize: 10, fontWeight: 700 }}>+${profit} {L('pwofi','profit','profit')}</p>
+                        <p style={{ color: '#22c55e', fontSize: 10, fontWeight: 700 }}>+${profit} {t('vend_dash_profit_label')}</p>
                       </div>
                     </div>
                   );

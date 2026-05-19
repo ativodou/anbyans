@@ -35,9 +35,7 @@ function formatDate(ts: PendingTicket['purchasedAt'], locale: string): string {
 
 export default function PendingTicketsPage() {
   const { user } = useAuth();
-  const { locale } = useT();
-  const L = (ht: string, en: string, fr: string) =>
-    ({ ht, en, fr } as Record<string, string>)[locale] ?? ht;
+  const { t, locale } = useT();
 
   const [tickets, setTickets]     = useState<PendingTicket[]>([]);
   const [filter, setFilter]       = useState<Filter>('all');
@@ -53,10 +51,10 @@ export default function PendingTicketsPage() {
   // ── Derived data ───────────────────────────────────────────────
   const displayed = filter === 'all'
     ? tickets
-    : tickets.filter((t) => t.paymentStatus === filter);
+    : tickets.filter((tk) => tk.paymentStatus === filter);
 
-  const countOf    = (s: string) => tickets.filter((t) => t.paymentStatus === s).length;
-  const totalValue = tickets.reduce((sum, t) => sum + (t.priceHTG ?? t.price ?? 0), 0);
+  const countOf    = (s: string) => tickets.filter((tk) => tk.paymentStatus === s).length;
+  const totalValue = tickets.reduce((sum, tk) => sum + (tk.priceHTG ?? tk.price ?? 0), 0);
 
   // ── Approve / Reject ───────────────────────────────────────────
   async function handle(id: string, action: 'approve' | 'reject') {
@@ -92,7 +90,7 @@ export default function PendingTicketsPage() {
       {/* ── Header ── */}
       <div className="flex items-center gap-3 mb-6">
         <h2 className="font-heading text-xl tracking-wide uppercase">
-          {L('Tikè Ann Atant', 'Pending Tickets', 'Billets en attente')}
+          {t('pending_title')}
         </h2>
         {tickets.length > 0 && (
           <span className="px-2.5 py-0.5 rounded-full bg-orange-dim text-orange text-[11px] font-bold">
@@ -105,31 +103,31 @@ export default function PendingTicketsPage() {
       <div className="grid grid-cols-3 gap-3 mb-6">
         <div className="bg-dark-card border border-border rounded-card p-4">
           <p className="text-[10px] text-gray-muted uppercase tracking-widest mb-1.5">
-            {L('MonKach / NatKach', 'MonCash / NatCash', 'MonCash / NatCash')}
+            {t('pending_moncash_natcash')}
           </p>
           <p className="font-heading text-3xl tracking-wide">{countOf('pending_verification')}</p>
           <p className="text-[10px] text-gray-muted mt-1">
-            {L('Nan atant verifikasyon', 'Awaiting verification', 'En attente de vérification')}
+            {t('pending_awaiting_verify')}
           </p>
         </div>
         <div className="bg-dark-card border border-border rounded-card p-4">
           <p className="text-[10px] text-gray-muted uppercase tracking-widest mb-1.5">
-            {L('Lajan Kach', 'Cash', 'Espèces')}
+            {t('pending_cash')}
           </p>
           <p className="font-heading text-3xl tracking-wide">{countOf('pending_cash')}</p>
           <p className="text-[10px] text-gray-muted mt-1">
-            {L('Nan atant konfirmasyon', 'Awaiting confirmation', 'En attente de confirmation')}
+            {t('pending_awaiting_confirm')}
           </p>
         </div>
         <div className="bg-dark-card border border-border rounded-card p-4">
           <p className="text-[10px] text-gray-muted uppercase tracking-widest mb-1.5">
-            {L('Total Valè', 'Total Value', 'Valeur totale')}
+            {t('pending_total_value')}
           </p>
           <p className="font-heading text-3xl tracking-wide text-orange">
             {totalValue.toLocaleString()} HTG
           </p>
           <p className="text-[10px] text-gray-muted mt-1">
-            {L('Ann atant', 'Pending', 'En attente')}
+            {t('pending')}
           </p>
         </div>
       </div>
@@ -137,13 +135,13 @@ export default function PendingTicketsPage() {
       {/* ── Filter tabs ── */}
       <div className="flex border-b border-border mb-5">
         <button className={tabCls('all')} onClick={() => setFilter('all')}>
-          {L('Tout', 'All', 'Tous')} ({tickets.length})
+          {t('pending_filter_all')} ({tickets.length})
         </button>
         <button className={tabCls('pending_verification')} onClick={() => setFilter('pending_verification')}>
           MonCash / NatCash ({countOf('pending_verification')})
         </button>
         <button className={tabCls('pending_cash')} onClick={() => setFilter('pending_cash')}>
-          {L('Kach', 'Cash', 'Espèces')} ({countOf('pending_cash')})
+          {t('pending_filter_cash')} ({countOf('pending_cash')})
         </button>
       </div>
 
@@ -152,14 +150,10 @@ export default function PendingTicketsPage() {
         <div className="bg-dark-card border border-border rounded-card p-12 text-center">
           <p className="text-4xl mb-3">✅</p>
           <p className="text-gray-light font-semibold mb-1">
-            {L('Pa gen tikè ann atant', 'No pending tickets', 'Aucun billet en attente')}
+            {t('pending_empty')}
           </p>
           <p className="text-gray-muted text-xs">
-            {L(
-              'Tout tikè yo konfime, oswa pa gen tikè ki soumèt.',
-              'All tickets are confirmed, or none have been submitted yet.',
-              'Tous les billets sont confirmés, ou aucun n\'a encore été soumis.',
-            )}
+            {t('pending_empty_sub')}
           </p>
         </div>
       ) : (
@@ -170,11 +164,11 @@ export default function PendingTicketsPage() {
             <thead className="border-b border-border">
               <tr>
                 {[
-                  L('Achetè', 'Buyer', 'Acheteur'),
-                  L('Metòd', 'Method', 'Méthode'),
+                  t('pending_col_buyer'),
+                  t('pending_col_method'),
                   'Txn ID',
-                  L('Pri', 'Price', 'Prix'),
-                  L('Dat', 'Date', 'Date'),
+                  t('pending_col_price'),
+                  t('pending_col_date'),
                   '',
                 ].map((h, i) => (
                   <th
@@ -187,58 +181,58 @@ export default function PendingTicketsPage() {
               </tr>
             </thead>
             <tbody>
-              {displayed.map((t) => (
+              {displayed.map((tk) => (
                 <tr
-                  key={t.id}
+                  key={tk.id}
                   className="border-b border-border last:border-0 hover:bg-white/[0.02] transition-colors"
                 >
                   {/* Buyer */}
                   <td className="px-4 py-3">
-                    <p className="font-semibold text-[13px]">{t.buyerName}</p>
+                    <p className="font-semibold text-[13px]">{tk.buyerName}</p>
                     <p className="text-[11px] text-gray-muted mt-0.5">
-                      {t.buyerPhone}
-                      {t.sectionName && <span className="ml-2 text-gray-muted/60">· {t.sectionName}</span>}
+                      {tk.buyerPhone}
+                      {tk.sectionName && <span className="ml-2 text-gray-muted/60">· {tk.sectionName}</span>}
                     </p>
                   </td>
 
                   {/* Method pill */}
                   <td className="px-4 py-3">
-                    <span className={`text-[11px] font-bold px-2.5 py-1 rounded-lg ${METHOD_COLOR[t.paymentMethod] ?? 'bg-white/[0.06] text-gray-light'}`}>
-                      {METHOD_LABEL[t.paymentMethod] ?? t.paymentMethod}
+                    <span className={`text-[11px] font-bold px-2.5 py-1 rounded-lg ${METHOD_COLOR[tk.paymentMethod] ?? 'bg-white/[0.06] text-gray-light'}`}>
+                      {METHOD_LABEL[tk.paymentMethod] ?? tk.paymentMethod}
                     </span>
                   </td>
 
                   {/* Txn ID */}
                   <td className="px-4 py-3 font-mono text-[11px] text-gray-muted">
-                    {t.txnId || '—'}
+                    {tk.txnId || '—'}
                   </td>
 
                   {/* Price */}
                   <td className="px-4 py-3 text-right font-bold text-[13px]">
-                    {(t.priceHTG ?? t.price ?? 0).toLocaleString()} HTG
+                    {(tk.priceHTG ?? tk.price ?? 0).toLocaleString()} HTG
                   </td>
 
                   {/* Date */}
                   <td className="px-4 py-3 text-right text-[11px] text-gray-muted">
-                    {formatDate(t.purchasedAt, locale)}
+                    {formatDate(tk.purchasedAt, locale)}
                   </td>
 
                   {/* Actions */}
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-2">
                       <button
-                        disabled={loadingId === t.id}
-                        onClick={() => handle(t.id, 'approve')}
+                        disabled={loadingId === tk.id}
+                        onClick={() => handle(tk.id, 'approve')}
                         className="px-3 py-1.5 rounded-lg bg-green-900/30 text-green text-[11px] font-bold border border-green/20 hover:bg-green-900/50 disabled:opacity-40 transition-all"
                       >
-                        {loadingId === t.id ? '…' : L('Valide', 'Approve', 'Valider')}
+                        {loadingId === tk.id ? '…' : t('pending_approve')}
                       </button>
                       <button
-                        disabled={loadingId === t.id}
-                        onClick={() => handle(t.id, 'reject')}
+                        disabled={loadingId === tk.id}
+                        onClick={() => handle(tk.id, 'reject')}
                         className="px-3 py-1.5 rounded-lg bg-red-900/30 text-red text-[11px] font-bold border border-red/20 hover:bg-red-900/50 disabled:opacity-40 transition-all"
                       >
-                        {L('Rejte', 'Reject', 'Rejeter')}
+                        {t('pending_reject')}
                       </button>
                     </div>
                   </td>

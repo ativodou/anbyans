@@ -31,9 +31,7 @@ interface VendorPurchase {
 export default function OrganizerDashboardPage() {
   const { user } = useAuth();
   const { fmt } = useCurrency(user?.uid);
-  const { locale } = useT();
-  const L = (ht: string, en: string, fr: string) =>
-    ({ ht, en, fr } as Record<string, string>)[locale] ?? ht;
+  const { t } = useT();
 
   const { events: contextEvents, selectedEvent } = useOrganizerEvent();
 
@@ -80,17 +78,17 @@ export default function OrganizerDashboardPage() {
 
   // ── Filter tickets by view mode ──
   const filteredTickets = viewMode === 'selected' && selectedEvent
-    ? allTickets.filter(t => t.eventId === selectedEvent.id)
+    ? allTickets.filter(tk => tk.eventId === selectedEvent.id)
     : allTickets;
 
   const filteredEvents = viewMode === 'selected' && selectedEvent
     ? events.filter(e => e.id === selectedEvent.id)
     : events;
 
-  const validTickets   = filteredTickets.filter(t => t.status !== 'cancelled' && t.status !== 'refunded');
-  const totalRevenue   = validTickets.reduce((a, t) => a + (t.price || 0), 0);
+  const validTickets   = filteredTickets.filter(tk => tk.status !== 'cancelled' && tk.status !== 'refunded');
+  const totalRevenue   = validTickets.reduce((a, tk) => a + (tk.price || 0), 0);
   const totalSold      = validTickets.length;
-  const admittedCount  = filteredTickets.filter(t => t.status === 'used').length;
+  const admittedCount  = filteredTickets.filter(tk => tk.status === 'used').length;
   const admittedPct    = totalSold > 0 ? Math.round((admittedCount / totalSold) * 100) : 0;
   const activeEvents   = filteredEvents.filter(e => e.status === 'published' || e.status === 'live').length;
 
@@ -104,18 +102,18 @@ export default function OrganizerDashboardPage() {
 
   // ── Recent Sales ──
   const recentSales = [...filteredTickets]
-    .filter(t => t.purchasedAt)
+    .filter(tk => tk.purchasedAt)
     .sort((a, b) => (b.purchasedAt?.seconds || 0) - (a.purchasedAt?.seconds || 0))
     .slice(0, 10)
-    .map(t => {
-      const ev = events.find(e => e.id === t.eventId);
-      const secAgo = Math.floor(Date.now() / 1000 - (t.purchasedAt?.seconds || 0));
+    .map(tk => {
+      const ev = events.find(e => e.id === tk.eventId);
+      const secAgo = Math.floor(Date.now() / 1000 - (tk.purchasedAt?.seconds || 0));
       const timeLabel =
         secAgo < 60    ? `${secAgo}s` :
         secAgo < 3600  ? `${Math.floor(secAgo / 60)} min` :
         secAgo < 86400 ? `${Math.floor(secAgo / 3600)}h` :
                          `${Math.floor(secAgo / 86400)}j`;
-      return { ...t, eventName: ev?.name || '—', timeLabel, source: t.vendorId ? 'vendor' : 'online' };
+      return { ...tk, eventName: ev?.name || '—', timeLabel, source: tk.vendorId ? 'vendor' : 'online' };
     });
 
   if (loading) return (
@@ -131,8 +129,8 @@ export default function OrganizerDashboardPage() {
       <div className="flex items-center justify-between mb-6">
         <h2 className="font-heading text-lg tracking-wide">
           {viewMode === 'all'
-            ? L('Tout Evènman', 'All Events', 'Tous les événements')
-            : selectedEvent?.name || L('Evènman Chwazi', 'Selected Event', 'Événement sélectionné')}
+            ? t('org_all_events')
+            : selectedEvent?.name || t('org_selected_event')}
         </h2>
         <div className="flex items-center gap-1 bg-white/[0.04] border border-border rounded-lg p-1">
           <button
@@ -140,7 +138,7 @@ export default function OrganizerDashboardPage() {
             className={`px-3 py-1.5 rounded text-[11px] font-bold transition-all ${
               viewMode === 'all' ? 'bg-orange text-white' : 'text-gray-muted hover:text-white'
             }`}>
-            {L('Tout', 'All', 'Tous')}
+            {t('all')}
           </button>
           <button
             onClick={() => setViewMode('selected')}
@@ -155,7 +153,7 @@ export default function OrganizerDashboardPage() {
                   <span className="w-1.5 h-1.5 rounded-full bg-current inline-block" />
                   {selectedEvent.name.length > 18 ? selectedEvent.name.slice(0, 18) + '…' : selectedEvent.name}
                 </span>
-              : L('Chwazi evènman', 'Select event', 'Choisir')}
+              : t('org_select_event')}
           </button>
         </div>
       </div>
@@ -163,10 +161,10 @@ export default function OrganizerDashboardPage() {
       {/* ── Stats ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
         {[
-          { label: L('REVNI TOTAL', 'TOTAL REVENUE', 'REVENU TOTAL'),        value: '__PRICE__', priceUsd: totalRevenue, sub: `${totalSold} ${L('tikè vann', 'tickets sold', 'billets vendus')}` },
-          { label: L('TIKÈ VANN', 'TICKETS SOLD', 'BILLETS VENDUS'),         value: totalSold.toLocaleString(),             sub: `${activeEvents} ${L('evènman aktif', 'active events', 'événements actifs')}` },
-          { label: L('EVÈNMAN AKTIF', 'ACTIVE EVENTS', 'ÉVÉNEMENTS ACTIFS'), value: activeEvents.toString(),               sub: `${filteredEvents.length} ${L('total', 'total', 'total')}` },
-          { label: L('REVANDÈ DWE', 'RESELLERS OWE', 'REVENDEURS DWE'),      value: '__PRICE__', priceUsd: totalVendorOwed, sub: `${vendors.length} ${L('revandè', 'resellers', 'revendeurs')}`, warn: totalVendorOwed > 0 },
+          { label: t('rev_total_revenue'),  value: '__PRICE__', priceUsd: totalRevenue, sub: `${totalSold} ${t('org_stat_tickets_sold')}` },
+          { label: t('analytics_tickets_sold'), value: totalSold.toLocaleString(), sub: `${activeEvents} ${t('active')} ${t('org_nav_events').toLowerCase()}` },
+          { label: t('active').toUpperCase() + ' ' + t('org_nav_events').toUpperCase(), value: activeEvents.toString(), sub: `${filteredEvents.length} total` },
+          { label: t('rev_resellers_owe'), value: '__PRICE__', priceUsd: totalVendorOwed, sub: `${vendors.length} ${t('org_nav_resellers').toLowerCase()}`, warn: totalVendorOwed > 0 },
         ].map((s, i) => (
           <div key={i} className="bg-dark-card border border-border rounded-card p-4">
             <p className="text-[10px] text-gray-muted uppercase tracking-widest mb-1.5">{s.label}</p>
@@ -185,17 +183,17 @@ export default function OrganizerDashboardPage() {
             <div className="flex items-center gap-2">
               <span className="text-base">🚪</span>
               <p className="text-[11px] font-bold uppercase tracking-widest text-gray-muted">
-                {L('Antre Evènman', 'Door Admissions', 'Admissions')}
+                {t('org_door_admissions')}
               </p>
             </div>
             <div className="flex items-center gap-1.5">
               <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-              <span className="text-[10px] text-green-400 font-bold">{L('AN DIRÈK', 'LIVE', 'EN DIRECT')}</span>
+              <span className="text-[10px] text-green-400 font-bold">{t('org_live')}</span>
             </div>
           </div>
           <div className="flex items-end gap-3 mb-2">
             <p className="font-heading text-4xl tracking-wide text-green-400">{admittedCount}</p>
-            <p className="text-gray-muted text-sm mb-1">/ {totalSold} {L('tikè', 'tickets', 'billets')} • {admittedPct}%</p>
+            <p className="text-gray-muted text-sm mb-1">/ {totalSold} {t('rev_ticket_count')} • {admittedPct}%</p>
           </div>
           <div className="w-full h-2 bg-white/[0.06] rounded-full overflow-hidden">
             <div className="h-full bg-green-500 rounded-full transition-all duration-500" style={{ width: `${admittedPct}%` }} />
@@ -206,10 +204,10 @@ export default function OrganizerDashboardPage() {
       {/* ── Quick Actions ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
         {[
-          { href: selectedEvent ? `/organizer/scanner?event=${selectedEvent.id}` : '/organizer/scanner', icon: '📷', title: L('Eskane Tikè', 'Scan Tickets', 'Scanner Billets'), sub: L('Ouvri eskanè pou admèt moun', 'Open scanner to admit guests', 'Ouvrir le scanner pour admettre') },
-          { href: '/organizer/vendors',       icon: '🏪', title: L('Jere Revandè',   'Manage Resellers','Gérer les revendeurs'), sub: L('Asiyen tikè epi swiv vant revandè yo', 'Assign tickets and track reseller sales', 'Assigner billets et suivre les ventes') },
-          { href: selectedEvent ? `/organizer/staff?event=${selectedEvent.id}` : '/organizer/staff', icon: '👥', title: L('Jere Staff', 'Manage Staff', 'Gérer le personnel'), sub: L('Eskane tikè ak jere ekip ou', 'Scan tickets and manage your team', 'Scanner billets et gérer votre équipe') },
-          { href: '/organizer/revenue',       icon: '📈', title: L('Wè Rapò',        'View Reports',    'Voir les rapports'),    sub: L('Analiz vant, revni, ak pèfòmans', 'Analyze sales, revenue, and performance', 'Analyser ventes et revenus') },
+          { href: selectedEvent ? `/organizer/scanner?event=${selectedEvent.id}` : '/organizer/scanner', icon: '📷', title: t('org_scan_tickets'), sub: t('scanner_scan_qr') },
+          { href: '/organizer/vendors',       icon: '🏪', title: t('org_nav_resellers'), sub: t('resellers_invite') },
+          { href: selectedEvent ? `/organizer/staff?event=${selectedEvent.id}` : '/organizer/staff', icon: '👥', title: t('org_manage_staff'), sub: t('staff_tab_assigned') },
+          { href: '/organizer/revenue',       icon: '📈', title: t('org_view_revenue'), sub: t('org_page_revenue') },
         ].map(a => (
           <Link key={a.href} href={a.href}
             className="bg-dark-card border border-border rounded-card p-4 flex items-center gap-3 hover:border-orange-border hover:bg-dark-hover transition-all">
@@ -225,16 +223,16 @@ export default function OrganizerDashboardPage() {
       {/* ── Events Overview ── */}
       <div className="mb-6">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="font-heading text-lg tracking-wide">{L('EVÈNMAN', 'EVENTS', 'ÉVÉNEMENTS')}</h2>
+          <h2 className="font-heading text-lg tracking-wide">{t('org_nav_events').toUpperCase()}</h2>
           <Link href="/organizer/events" className="text-[11px] text-orange hover:underline">
-            {L('Wè tout', 'See all', 'Voir tout')} →
+            {t('all')} →
           </Link>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
               <tr className="border-b border-border">
-                {[L('Evènman','Event','Événement'), L('Dat','Date','Date'), L('Estati','Status','Statut'), L('Tikè','Tickets','Billets'), L('Revni','Revenue','Revenu')].map(h => (
+                {[t('name'), t('pending_col_date'), t('verify_status_label'), t('rev_ticket_count'), t('org_page_revenue')].map(h => (
                   <th key={h} className="text-[10px] text-gray-muted uppercase tracking-widest pb-2.5 pl-3">{h}</th>
                 ))}
               </tr>
@@ -242,9 +240,9 @@ export default function OrganizerDashboardPage() {
             <tbody>
               {filteredEvents.length === 0 ? (
                 <tr><td colSpan={5} className="text-center py-8 text-gray-muted text-sm">
-                  {L('Pa gen evènman —', 'No events —', 'Aucun événement —')}{' '}
+                  {t('org_no_events')}{' '}
                   <Link href="/organizer/events/create" className="text-orange hover:underline">
-                    {L('Kreye premye a', 'Create the first one', 'Créer le premier')}
+                    {t('org_create_event_btn')}
                   </Link>
                 </td></tr>
               ) : filteredEvents.slice(0, 5).map(e => {
@@ -266,10 +264,10 @@ export default function OrganizerDashboardPage() {
                         e.status === 'published' ? 'bg-cyan-dim text-cyan' :
                         'bg-white/[0.05] text-gray-muted'
                       }`}>
-                        {e.status === 'live'      ? `● ${L('AN DIRÈK','LIVE','EN DIRECT')}` :
-                         e.status === 'published' ? L('PIBLIYE','PUBLISHED','PUBLIÉ') :
-                         e.status === 'draft'     ? L('BOUYON','DRAFT','BROUILLON') :
-                                                    L('PASE','PAST','PASSÉ')}
+                        {e.status === 'live'      ? `● ${t('status_live')}` :
+                         e.status === 'published' ? t('status_published') :
+                         e.status === 'draft'     ? t('status_draft') :
+                                                    t('status_ended')}
                       </span>
                     </td>
                     <td className="text-xs text-gray-light pl-3">{evTickets.length}</td>
@@ -284,11 +282,11 @@ export default function OrganizerDashboardPage() {
 
       {/* ── Recent Sales ── */}
       <div>
-        <h2 className="font-heading text-lg tracking-wide mb-3">{L('DÈNYE VANT', 'RECENT SALES', 'VENTES RÉCENTES')}</h2>
+        <h2 className="font-heading text-lg tracking-wide mb-3">{t('org_recent_sales').toUpperCase()}</h2>
         {recentSales.length === 0 ? (
           <div className="bg-dark-card border border-border rounded-card p-8 text-center">
             <p className="text-4xl mb-2">🎫</p>
-            <p className="text-gray-muted text-sm">{L("Pa gen vant ankò.", "No sales yet.", "Aucune vente pour l'instant.")}</p>
+            <p className="text-gray-muted text-sm">{t('org_no_sales')}</p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -298,7 +296,7 @@ export default function OrganizerDashboardPage() {
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-semibold truncate">{s.eventName}</p>
                   <p className="text-[10px] text-gray-light">
-                    {s.section || 'GA'} · {s.source === 'vendor' ? `🏪 ${s.vendorName || L('Revandè','Reseller','Revendeur')}` : `🌐 ${L('Online','Online','En ligne')}`} · {s.buyerName || '—'}
+                    {s.section || 'GA'} · {s.source === 'vendor' ? `🏪 ${s.vendorName || t('org_nav_resellers')}` : `🌐 Online`} · {s.buyerName || '—'}
                   </p>
                 </div>
                 <PriceDisplay usd={s.price || 0} fmt={fmt} className="text-base" />

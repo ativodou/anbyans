@@ -81,16 +81,15 @@ export async function signOut() {
 
 const googleProvider = new GoogleAuthProvider();
 
-export async function signInWithGoogle(role: UserRole = 'fan') {
+export async function signInWithGoogle(role: UserRole = 'fan'): Promise<{ user: User; role: UserRole }> {
   const cred = await signInWithPopup(auth, googleProvider);
   const user = cred.user;
 
-  // Check if user profile already exists in Firestore
   const userRef = doc(db, 'users', user.uid);
   const userSnap = await getDoc(userRef);
 
   if (!userSnap.exists()) {
-    // First time — create profile from Google data
+    // First-time Google user — create profile with the selected role
     const nameParts = (user.displayName || '').split(' ');
     const firstName = nameParts[0] || '';
     const lastName = nameParts.slice(1).join(' ') || '';
@@ -115,9 +114,12 @@ export async function signInWithGoogle(role: UserRole = 'fan') {
     };
 
     await setDoc(userRef, userDoc);
+    return { user, role };
   }
 
-  return user;
+  // Existing user — return their stored role so the caller redirects correctly
+  const existingProfile = userSnap.data() as UserProfile;
+  return { user, role: existingProfile.role ?? role };
 }
 
 // ─── Get User Profile ────────────────────────────────────────────

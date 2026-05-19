@@ -257,14 +257,13 @@ function RoleSettingsEditor({ role, settings, onChange }: { role: StaffRole; set
 // ─── Pool member card (extracted to avoid hook-in-loop) ──────────
 
 function PoolMemberCard({
-  s, locale, RL, L,
+  s, RL,
   isExpanded, onToggleExpand,
   onRegenPin, onDelete, onAssign,
   onSaveSettings,
 }: {
-  s: StaffMember; locale: string;
+  s: StaffMember;
   RL: (r: { ht: string; en: string; fr: string }) => string;
-  L: (ht: string, en: string, fr: string) => string;
   isExpanded: boolean;
   onToggleExpand: () => void;
   onRegenPin: (m: StaffMember) => void;
@@ -272,9 +271,9 @@ function PoolMemberCard({
   onAssign: (m: StaffMember) => void;
   onSaveSettings: (m: StaffMember, settings: any) => void;
 }) {
+  const { t } = useT();
   const r = roleInfo(s.role);
   const [localSettings, setLocalSettings] = useState<any>({ ...DEFAULT_SETTINGS[s.role], ...(s.settings || {}) });
-  const evCount = 0; // passed in if needed later
 
   return (
     <div className={`bg-dark-card border rounded-card overflow-hidden transition-all ${isExpanded ? `${r.border}` : 'border-border'}`}>
@@ -292,7 +291,7 @@ function PoolMemberCard({
         <div className="flex items-center gap-2">
           <button onClick={e => { e.stopPropagation(); onAssign(s); }}
             className="px-2.5 py-1.5 rounded-lg text-[9px] font-bold border border-border text-gray-light hover:text-orange hover:border-orange transition-all">
-            📋 {L('Asiyen', 'Assign', 'Assigner')}
+            📋 {t('staff_assign_btn')}
           </button>
           <button onClick={e => { e.stopPropagation(); onDelete(s.id); }}
             className="px-2.5 py-1.5 rounded-lg text-[9px] font-bold border border-border text-gray-muted hover:text-red hover:border-red/30 transition-all">
@@ -303,11 +302,11 @@ function PoolMemberCard({
       </div>
       {isExpanded && (
         <div className="border-t border-border p-4">
-          <p className="text-[10px] uppercase tracking-widest text-gray-muted font-bold mb-3">{L('Paramèt', 'Settings', 'Paramètres')} · {RL(r)}</p>
+          <p className="text-[10px] uppercase tracking-widest text-gray-muted font-bold mb-3">{t('staff_member_settings')} · {RL(r)}</p>
           <RoleSettingsEditor role={s.role} settings={localSettings} onChange={setLocalSettings} />
           <button onClick={() => onSaveSettings(s, localSettings)}
             className="mt-4 px-4 py-2 rounded-lg bg-orange text-white text-[10px] font-bold hover:bg-orange/80 transition-all">
-            💾 {L('Sove Paramèt', 'Save Settings', 'Sauvegarder')}
+            💾 {t('staff_save_settings')}
           </button>
         </div>
       )}
@@ -318,9 +317,8 @@ function PoolMemberCard({
 // ─── Main page ───────────────────────────────────────────────────
 
 function OrganizerStaffPageInner() {
-  const { user }   = useAuth();
-  const { locale } = useT();
-  const L  = (ht: string, en: string, fr: string) => ({ ht, en, fr } as Record<string, string>)[locale] ?? ht;
+  const { user }       = useAuth();
+  const { t, locale }  = useT();
   const RL = (r: { ht: string; en: string; fr: string }) => locale === 'ht' ? r.ht : locale === 'fr' ? r.fr : r.en;
 
   const { selectedEvent } = useOrganizerEvent();
@@ -400,7 +398,7 @@ function OrganizerStaffPageInner() {
   };
 
   const handleDeleteFromPool = async (id: string) => {
-    if (!confirm(L('Retire moun sa?', 'Remove this person?', 'Retirer cette personne?'))) return;
+    if (!confirm(t('staff_remove_confirm'))) return;
     await deleteDoc(doc(db, 'staffPool', id));
     setPool(prev => prev.filter(s => s.id !== id));
     const toRemove = assignments.filter(a => a.staffId === id);
@@ -439,7 +437,7 @@ function OrganizerStaffPageInner() {
       window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
     } else {
       navigator.clipboard?.writeText(msg);
-      alert(L('PIN kopye!', 'PIN copied!', 'PIN copié!'));
+      alert(t('staff_pin_copied'));
     }
   };
 
@@ -459,7 +457,7 @@ function OrganizerStaffPageInner() {
   const overviewEvents = focusEventId ? events.filter(e => e.id === focusEventId) : events;
   const getAssigned  = (eventId: string, role?: StaffRole) => assignments.filter(a => a.eventId === eventId && (!role || a.role === role));
   const getActive    = (eventId: string, role?: StaffRole) => getAssigned(eventId, role).filter(a => a.active);
-  const getStaffScans = (staffId: string) => tickets.filter(t => t.scannedBy === staffId && t.status === 'used').length;
+  const getStaffScans = (staffId: string) => tickets.filter(tk => tk.scannedBy === staffId && tk.status === 'used').length;
 
   if (loading) return (
     <div className="flex items-center justify-center py-32">
@@ -472,10 +470,10 @@ function OrganizerStaffPageInner() {
       {/* ── Page tabs ── */}
       <div className="flex gap-1 mb-6 border-b border-border overflow-x-auto">
         {([
-          ['overview',    '📊', L('Apèsi',     'Overview',    'Aperçu')],
-          ['pool',        '👥', L('Pool',       'Pool',        'Pool')],
-          ['assignments', '📋', L('Asiyman',    'Assignments', 'Assignations')],
-          ['performance', '📈', L('Pèfòmans',   'Performance', 'Performance')],
+          ['overview',    '📊', t('staff_tab_overview')],
+          ['pool',        '👥', t('staff_tab_pool_label')],
+          ['assignments', '📋', t('staff_tab_assignments')],
+          ['performance', '📈', t('staff_tab_performance')],
         ] as const).map(([key, icon, label]) => (
           <button key={key} onClick={() => setTab(key as PageTab)}
             className={`px-4 py-2.5 text-xs font-bold border-b-2 whitespace-nowrap transition-colors ${tab === key ? 'border-orange text-orange' : 'border-transparent text-gray-muted hover:text-white'}`}>
@@ -489,13 +487,13 @@ function OrganizerStaffPageInner() {
         <div className="space-y-4">
           {overviewEvents.length === 0 ? (
             <div className="bg-dark-card border border-border rounded-card p-10 text-center">
-              <p className="text-gray-muted text-sm">{L('Pa gen evènman.', 'No events.', 'Aucun événement.')}</p>
+              <p className="text-gray-muted text-sm">{t('staff_no_events')}</p>
             </div>
           ) : overviewEvents.map(ev => {
             const evAssigned = getAssigned(ev.id!);
             const evActive   = getActive(ev.id!);
-            const evTickets  = tickets.filter(t => t.eventId === ev.id && t.status !== 'cancelled');
-            const evScanned  = evTickets.filter(t => t.status === 'used').length;
+            const evTickets  = tickets.filter(tk => tk.eventId === ev.id && tk.status !== 'cancelled');
+            const evScanned  = evTickets.filter(tk => tk.status === 'used').length;
             return (
               <div key={ev.id} className="bg-dark-card border border-border rounded-card overflow-hidden">
                 <div className="flex items-center justify-between p-4 border-b border-border">
@@ -504,9 +502,9 @@ function OrganizerStaffPageInner() {
                     <p className="text-[10px] text-gray-muted">📅 {ev.startDate || '—'}</p>
                   </div>
                   <div className="flex gap-4 text-right">
-                    <div><p className="text-[9px] text-gray-muted uppercase">{L('Asiyen', 'Assigned', 'Assignés')}</p><p className="font-bold">{evAssigned.length}</p></div>
-                    <div><p className="text-[9px] text-gray-muted uppercase">{L('Aktif', 'Active', 'Actifs')}</p><p className="font-bold text-green">{evActive.length}</p></div>
-                    <div><p className="text-[9px] text-gray-muted uppercase">{L('Eskane', 'Scanned', 'Scannés')}</p><p className="font-bold text-cyan">{evScanned}/{evTickets.length}</p></div>
+                    <div><p className="text-[9px] text-gray-muted uppercase">{t('staff_tab_assigned')}</p><p className="font-bold">{evAssigned.length}</p></div>
+                    <div><p className="text-[9px] text-gray-muted uppercase">{t('active')}</p><p className="font-bold text-green">{evActive.length}</p></div>
+                    <div><p className="text-[9px] text-gray-muted uppercase">{t('staff_scanned')}</p><p className="font-bold text-cyan">{evScanned}/{evTickets.length}</p></div>
                   </div>
                 </div>
                 <div className="grid grid-cols-3 sm:grid-cols-6 divide-x divide-border">
@@ -554,12 +552,12 @@ function OrganizerStaffPageInner() {
               {(() => {
                 const r = roleInfo(poolTab);
                 const descriptions: Record<StaffRole, string> = {
-                  scanner:  L('Eskane tikè nan antre', 'Scan tickets at entry', 'Scanner les billets à l\'entrée'),
-                  door:     L('Jere antre ak flou', 'Manage entry flow', 'Gérer le flux d\'entrée'),
-                  sales:    L('Vann tikè ak pwen vant', 'Sell tickets at POS', 'Vendre des billets au point de vente'),
-                  security: L('Sekirize evènman an', 'Secure the event', 'Sécuriser l\'événement'),
-                  fb:       L('Jere manje ak bweson', 'Manage food & drinks', 'Gérer nourriture et boissons'),
-                  manager:  L('Sipèvize tout operasyon', 'Supervise all operations', 'Superviser toutes les opérations'),
+                  scanner:  t('staff_role_desc_scanner'),
+                  door:     t('staff_role_desc_door'),
+                  sales:    t('staff_role_desc_sales'),
+                  security: t('staff_role_desc_security'),
+                  fb:       t('staff_role_desc_fb'),
+                  manager:  t('staff_role_desc_manager'),
                 };
                 return (
                   <div className="flex items-center gap-2">
@@ -574,7 +572,7 @@ function OrganizerStaffPageInner() {
             </div>
             <button onClick={() => setShowPoolForm(!showPoolForm)}
               className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-orange text-white text-xs font-bold hover:bg-orange/80 transition-all">
-              ➕ {L('Ajoute', 'Add', 'Ajouter')} {RL(roleInfo(poolTab))}
+              ➕ {t('staff_add_label')} {RL(roleInfo(poolTab))}
             </button>
           </div>
 
@@ -582,17 +580,17 @@ function OrganizerStaffPageInner() {
           {showPoolForm && (
             <div className="bg-dark-card border border-orange-border rounded-card p-5 mb-5">
               <p className="text-[10px] uppercase tracking-widest text-orange font-bold mb-4">
-                {roleInfo(poolTab).icon} {L('NOUVO', 'NEW', 'NOUVEAU')} {RL(roleInfo(poolTab)).toUpperCase()}
+                {roleInfo(poolTab).icon} {t('staff_new_label')} {RL(roleInfo(poolTab)).toUpperCase()}
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
                 <div>
-                  <label className="block text-[11px] font-semibold text-gray-light mb-1.5">{L('Non', 'Name', 'Nom')} *</label>
+                  <label className="block text-[11px] font-semibold text-gray-light mb-1.5">{t('name')} *</label>
                   <input value={poolForm.name} onChange={e => setPoolForm(f => ({ ...f, name: e.target.value }))}
                     placeholder="Jean Pierre"
                     className="w-full px-3.5 py-2.5 rounded-[10px] bg-white/[0.04] border border-border text-white text-[13px] outline-none focus:border-orange placeholder:text-gray-muted" />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-semibold text-gray-light mb-1.5">{L('Telefòn', 'Phone', 'Téléphone')} *</label>
+                  <label className="block text-[11px] font-semibold text-gray-light mb-1.5">{t('phone')} *</label>
                   <input value={poolForm.phone} onChange={e => setPoolForm(f => ({ ...f, phone: e.target.value }))}
                     placeholder="+509 ..."
                     className="w-full px-3.5 py-2.5 rounded-[10px] bg-white/[0.04] border border-border text-white text-[13px] outline-none focus:border-orange placeholder:text-gray-muted" />
@@ -600,17 +598,17 @@ function OrganizerStaffPageInner() {
               </div>
               {/* Role-specific settings */}
               <div className="border border-border rounded-xl p-4 mb-4">
-                <p className="text-[10px] uppercase tracking-widest text-gray-muted font-bold mb-3">{L('Paramèt Wòl', 'Role Settings', 'Paramètres du rôle')}</p>
+                <p className="text-[10px] uppercase tracking-widest text-gray-muted font-bold mb-3">{t('staff_role_settings')}</p>
                 <RoleSettingsEditor role={poolTab} settings={poolFormSettings} onChange={setPoolFormSettings} />
               </div>
               <div className="flex gap-2">
                 <button onClick={handleAddToPool} disabled={saving || !poolForm.name || !poolForm.phone}
                   className="px-5 py-2.5 rounded-[10px] bg-orange text-white text-xs font-bold disabled:opacity-50 hover:bg-orange/80 transition-all">
-                  {saving ? '...' : L('Ajoute', 'Add', 'Ajouter')}
+                  {saving ? '...' : t('staff_add_label')}
                 </button>
                 <button onClick={() => setShowPoolForm(false)}
                   className="px-5 py-2.5 rounded-[10px] border border-border text-xs font-bold text-gray-light hover:text-white transition-all">
-                  {L('Anile', 'Cancel', 'Annuler')}
+                  {t('cancel')}
                 </button>
               </div>
             </div>
@@ -620,7 +618,7 @@ function OrganizerStaffPageInner() {
           {pool.filter(s => s.role === poolTab).length === 0 ? (
             <div className="bg-dark-card border border-border rounded-card p-10 text-center">
               <p className="text-4xl mb-2">{roleInfo(poolTab).icon}</p>
-              <p className="text-gray-muted text-sm">{L('Pa gen moun nan kategori sa.', 'No one in this category yet.', 'Personne dans cette catégorie.')}</p>
+              <p className="text-gray-muted text-sm">{t('staff_no_category')}</p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -628,9 +626,7 @@ function OrganizerStaffPageInner() {
                 <PoolMemberCard
                   key={s.id}
                   s={s}
-                  locale={locale}
                   RL={RL}
-                  L={L}
                   isExpanded={expandedMember === s.id}
                   onToggleExpand={() => setExpandedMember(expandedMember === s.id ? null : s.id)}
                   onRegenPin={handleRegenPin}
@@ -649,26 +645,26 @@ function OrganizerStaffPageInner() {
         <div>
           <div className="flex items-center justify-between mb-4">
             <p className="text-xs text-gray-light">
-              {assignments.length} {L('total', 'total', 'total')} · {assignments.filter(a => a.active).length} {L('aktif', 'active', 'actifs')}
+              {assignments.length} {t('total')} · {assignments.filter(a => a.active).length} {t('active')}
             </p>
             <button onClick={() => setShowAssignForm(!showAssignForm)}
               className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-orange text-white text-xs font-bold hover:bg-orange/80 transition-all">
-              ➕ {L('Nouvo Asiyman', 'New Assignment', 'Nouvelle Assignation')}
+              ➕ {t('staff_new_assignment')}
             </button>
           </div>
 
           {showAssignForm && (
             <div className="bg-dark-card border border-orange-border rounded-card p-5 mb-5">
-              <p className="text-[10px] uppercase tracking-widest text-orange font-bold mb-4">{L('ASIYEN AK EVÈNMAN', 'ASSIGN TO EVENT', 'ASSIGNER À ÉVÉNEMENT')}</p>
-              <p className="text-[10px] text-gray-muted mb-3">💡 {L('Staff ap dezaktive — aktive yo jou evènman an.', 'Staff starts inactive — activate on event day.', 'Inactif par défaut — activez le jour J.')}</p>
+              <p className="text-[10px] uppercase tracking-widest text-orange font-bold mb-4">{t('staff_assign_to_event')}</p>
+              <p className="text-[10px] text-gray-muted mb-3">💡 {t('staff_assign_inactive_hint')}</p>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
                 <div>
-                  <label className="block text-[11px] font-semibold text-gray-light mb-1.5">{L('Moun', 'Person', 'Personne')} *</label>
+                  <label className="block text-[11px] font-semibold text-gray-light mb-1.5">{t('staff_person')} *</label>
                   <select value={assignForm.staffId} onChange={e => {
                     const m = pool.find(p => p.id === e.target.value);
                     setAssignForm(f => ({ ...f, staffId: e.target.value, role: m?.role || f.role }));
                   }} className="w-full px-3.5 py-2.5 rounded-[10px] bg-white/[0.04] border border-border text-white text-[13px] outline-none focus:border-orange">
-                    <option value="">{L('Chwazi...', 'Choose...', 'Choisir...')}</option>
+                    <option value="">{t('staff_choose_placeholder')}</option>
                     {ROLES.map(r => {
                       const rpool = pool.filter(p => p.role === r.key);
                       if (rpool.length === 0) return null;
@@ -681,15 +677,15 @@ function OrganizerStaffPageInner() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-[11px] font-semibold text-gray-light mb-1.5">{L('Evènman', 'Event', 'Événement')} *</label>
+                  <label className="block text-[11px] font-semibold text-gray-light mb-1.5">{t('staff_event_label')} *</label>
                   <select value={assignForm.eventId} onChange={e => setAssignForm(f => ({ ...f, eventId: e.target.value }))}
                     className="w-full px-3.5 py-2.5 rounded-[10px] bg-white/[0.04] border border-border text-white text-[13px] outline-none focus:border-orange">
-                    <option value="">{L('Chwazi...', 'Choose...', 'Choisir...')}</option>
+                    <option value="">{t('staff_choose_placeholder')}</option>
                     {events.map(e => <option key={e.id} value={e.id!} className="bg-dark-card">{e.name}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-[11px] font-semibold text-gray-light mb-1.5">{L('Wòl', 'Role', 'Rôle')}</label>
+                  <label className="block text-[11px] font-semibold text-gray-light mb-1.5">{t('staff_role_label')}</label>
                   <select value={assignForm.role} onChange={e => setAssignForm(f => ({ ...f, role: e.target.value as StaffRole }))}
                     className="w-full px-3.5 py-2.5 rounded-[10px] bg-white/[0.04] border border-border text-white text-[13px] outline-none focus:border-orange">
                     {ROLES.map(r => <option key={r.key} value={r.key} className="bg-dark-card">{r.icon} {RL(r)}</option>)}
@@ -699,11 +695,11 @@ function OrganizerStaffPageInner() {
               <div className="flex gap-2">
                 <button onClick={handleAssign} disabled={saving || !assignForm.staffId || !assignForm.eventId}
                   className="px-5 py-2.5 rounded-[10px] bg-orange text-white text-xs font-bold disabled:opacity-50 hover:bg-orange/80 transition-all">
-                  {saving ? '...' : L('Asiyen', 'Assign', 'Assigner')}
+                  {saving ? '...' : t('staff_assign_btn')}
                 </button>
                 <button onClick={() => setShowAssignForm(false)}
                   className="px-5 py-2.5 rounded-[10px] border border-border text-xs font-bold text-gray-light hover:text-white transition-all">
-                  {L('Anile', 'Cancel', 'Annuler')}
+                  {t('cancel')}
                 </button>
               </div>
             </div>
@@ -716,7 +712,7 @@ function OrganizerStaffPageInner() {
               <div key={ev.id} className="mb-5">
                 <div className="flex items-center gap-2 mb-2 pb-2 border-b border-border">
                   <p className="text-sm font-bold">{ev.name}</p>
-                  <span className="text-[10px] text-gray-muted">{evA.filter(a => a.active).length}/{evA.length} {L('aktif', 'active', 'actifs')}</span>
+                  <span className="text-[10px] text-gray-muted">{evA.filter(a => a.active).length}/{evA.length} {t('active')}</span>
                 </div>
                 <div className="space-y-2">
                   {evA.map(a => {
@@ -727,10 +723,10 @@ function OrganizerStaffPageInner() {
                         <div className="w-8 h-8 rounded-lg bg-white/[0.05] flex items-center justify-center text-base flex-shrink-0">{r.icon}</div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <p className="text-xs font-bold">{member?.name || L('Efase', 'Deleted', 'Supprimé')}</p>
+                            <p className="text-xs font-bold">{member?.name || t('staff_deleted')}</p>
                             <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase border ${r.border} ${r.color}`}>{RL(r)}</span>
                             <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase ${a.active ? 'bg-green-dim text-green' : 'bg-white/[0.05] text-gray-muted'}`}>
-                              {a.active ? L('AKTIF', 'ACTIVE', 'ACTIF') : L('INAKTIF', 'INACTIVE', 'INACTIF')}
+                              {a.active ? t('active').toUpperCase() : t('inactive').toUpperCase()}
                             </span>
                           </div>
                           <div className="flex items-center gap-2 mt-1">
@@ -748,7 +744,7 @@ function OrganizerStaffPageInner() {
                             className={`px-3 py-1.5 rounded-lg text-[9px] font-bold border transition-all ${
                               a.active ? 'border-border text-gray-light hover:text-red hover:border-red/30' : 'border-green text-green bg-green-dim hover:bg-green hover:text-white'
                             }`}>
-                            {a.active ? L('Dezaktive', 'Deactivate', 'Désactiver') : L('Aktive', 'Activate', 'Activer')}
+                            {a.active ? t('staff_deactivate') : t('staff_activate')}
                           </button>
                           <button onClick={() => handleRemoveAssignment(a.id)}
                             className="px-2.5 py-1.5 rounded-lg text-[9px] font-bold border border-border text-gray-muted hover:text-red hover:border-red/30 transition-all">
@@ -766,7 +762,7 @@ function OrganizerStaffPageInner() {
           {assignments.length === 0 && (
             <div className="bg-dark-card border border-border rounded-card p-12 text-center">
               <p className="text-4xl mb-3">📋</p>
-              <p className="text-gray-muted text-sm">{L('Pa gen asiyman ankò.', 'No assignments yet.', 'Aucune assignation encore.')}</p>
+              <p className="text-gray-muted text-sm">{t('staff_no_assignments')}</p>
             </div>
           )}
         </div>
@@ -809,17 +805,17 @@ function OrganizerStaffPageInner() {
                       <p className="text-[10px] text-gray-muted">{s.phone}</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-[9px] text-gray-muted">{L('Evèn', 'Events', 'Évén.')}</p>
+                      <p className="text-[9px] text-gray-muted">{t('staff_events_label')}</p>
                       <p className="font-bold">{myA.length} <span className="text-green text-[10px]">({myA.filter(a => a.active).length} on)</span></p>
                     </div>
                   </div>
                   <div className="grid grid-cols-3 gap-2">
                     <div className="bg-white/[0.03] rounded-lg p-2.5 text-center">
-                      <p className="text-[9px] text-gray-muted uppercase mb-1">📱 {L('Eskane', 'Scanned', 'Scannés')}</p>
+                      <p className="text-[9px] text-gray-muted uppercase mb-1">📱 {t('staff_scanned')}</p>
                       <p className={`font-heading text-2xl ${scans > 0 ? 'text-cyan' : 'text-gray-muted'}`}>{scans}</p>
                     </div>
                     <div className="bg-white/[0.03] rounded-lg p-2.5 text-center">
-                      <p className="text-[9px] text-gray-muted uppercase mb-1">📅 {L('Evèn', 'Events', 'Évén.')}</p>
+                      <p className="text-[9px] text-gray-muted uppercase mb-1">📅 {t('staff_events_label')}</p>
                       <p className="font-heading text-2xl">{myA.length}</p>
                     </div>
                     <div className="bg-white/[0.03] rounded-lg p-2.5 text-center">
@@ -837,7 +833,7 @@ function OrganizerStaffPageInner() {
             })}
             {pool.filter(s => s.role === poolTab).length === 0 && (
               <div className="bg-dark-card border border-border rounded-card p-10 text-center">
-                <p className="text-gray-muted text-sm">{L('Pa gen done.', 'No data.', 'Aucune donnée.')}</p>
+                <p className="text-gray-muted text-sm">{t('staff_no_data')}</p>
               </div>
             )}
           </div>

@@ -13,8 +13,7 @@ function getQrWindow(): number {
 export default function TicketPage() {
   const params = useParams();
   const code = (params.code as string) || '';
-  const { locale } = useT();
-  const L = (ht: string, en: string, fr: string) => ({ ht, en, fr }[locale as 'ht' | 'en' | 'fr']);
+  const { t } = useT();
 
   const [loading, setLoading] = useState(true);
   const [ticket, setTicket] = useState<TicketData | null>(null);
@@ -141,7 +140,7 @@ export default function TicketPage() {
       // Static QR notice
       ctx.fillStyle = '#f97316';
       ctx.font = 'bold 11px Arial, sans-serif';
-      ctx.fillText(L('⚠️ Pou antre pi rapid, ouvri lyen WhatsApp la', '⚠️ For faster entry, open the WhatsApp link', '⚠️ Pour une entrée plus rapide, ouvrez le lien WhatsApp') || '', W / 2, 506);
+      ctx.fillText(t('ticket_faster_entry'), W / 2, 506);
 
       // Dashed line
       ctx.setLineDash([8, 4]);
@@ -164,10 +163,10 @@ export default function TicketPage() {
 
       // Details grid
       const details = [
-        [L('NON', 'NAME', 'NOM') || '', ticket.buyerName || 'Guest'],
-        [L('SEKSYON', 'SECTION', 'SECTION') || '', ticket.section || ''],
-        [L('PLAS', 'SEAT', 'PLACE') || '', ticket.seat || ''],
-        [L('KÒD TIKÈ', 'TICKET CODE', 'CODE BILLET') || '', ticket.ticketCode || ''],
+        [t('ticket_download_canvas_name'), ticket.buyerName || 'Guest'],
+        [t('ticket_canvas_section'), ticket.section || ''],
+        [t('ticket_canvas_seat'), ticket.seat || ''],
+        [t('ticket_canvas_code'), ticket.ticketCode || ''],
       ];
       let dy = 565;
       details.forEach(([label, val], i) => {
@@ -198,7 +197,7 @@ export default function TicketPage() {
       ctx.fillRect(20, H - 56, W - 40, 36);
       ctx.fillStyle = '#000';
       ctx.font = 'bold 14px Arial, sans-serif';
-      ctx.fillText(L('PREZANTE TIKÈ SA A NAN ANTRE A', 'SHOW THIS TICKET AT THE ENTRANCE', 'PRÉSENTEZ CE BILLET À L\'ENTRÉE') || '', W / 2, H - 33);
+      ctx.fillText(t('ticket_show_entrance'), W / 2, H - 33);
 
       // Download
       const link = document.createElement('a');
@@ -207,7 +206,7 @@ export default function TicketPage() {
       link.click();
     } catch (err) {
       console.error('Download failed:', err);
-      alert(L('Ere. Eseye ankò.', 'Error. Try again.', 'Erreur. Réessayez.'));
+      alert(t('buy_error_retry'));
     }
     setDownloading(false);
   };
@@ -217,7 +216,7 @@ export default function TicketPage() {
       <div style={{ minHeight: '100vh', background: '#0a0a0f', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ textAlign: 'center' }}>
           <div style={{ width: 40, height: 40, border: '4px solid #06b6d4', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto' }} />
-          <p style={{ color: '#888', fontSize: 13, marginTop: 12 }}>{L('Ap chaje tikè...', 'Loading ticket...', 'Chargement du billet...')}</p>
+          <p style={{ color: '#888', fontSize: 13, marginTop: 12 }}>{t('ticket_loading')}</p>
           <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </div>
       </div>
@@ -230,13 +229,13 @@ export default function TicketPage() {
         <div style={{ textAlign: 'center', maxWidth: 400 }}>
           <div style={{ fontSize: 64, marginBottom: 16 }}>❌</div>
           <h1 style={{ fontSize: 24, fontWeight: 800, color: '#ef4444', marginBottom: 8 }}>
-            {L('TIKÈ PA JWENN', 'TICKET NOT FOUND', 'BILLET NON TROUVÉ')}
+            {t('ticket_not_found')}
           </h1>
           <p style={{ color: '#888', fontSize: 14, marginBottom: 24 }}>
-            {L('Kòd sa a pa egziste nan sistèm Anbyans.', 'This code does not exist in the Anbyans system.', 'Ce code n\'existe pas dans le système Anbyans.')}
+            {t('ticket_not_found_body')}
           </p>
           <Link href="/verify" style={{ padding: '12px 24px', borderRadius: 10, background: '#06b6d4', color: '#000', fontWeight: 700, fontSize: 14, textDecoration: 'none' }}>
-            🔍 {L('Verifye yon tikè', 'Verify a ticket', 'Vérifier un billet')}
+            🔍 {t('ticket_verify_link')}
           </Link>
         </div>
       </div>
@@ -283,7 +282,7 @@ ${acceptUrl}`
       setRefundDone(true);
       setShowRefund(false);
     } catch (e) {
-      alert(L('Erè — eseye ankò.', 'Error — please try again.', 'Erreur — réessayez.'));
+      alert(t('ticket_refund_error'));
     }
     setRefunding(false);
   }
@@ -302,7 +301,7 @@ ${acceptUrl}`
             color: isValid ? '#22c55e' : isUsed ? '#f97316' : '#ef4444',
             border: `1px solid ${isValid ? '#22c55e40' : isUsed ? '#f9731640' : '#ef444440'}`,
           }}>
-            {isValid ? L('VALID', 'VALID', 'VALIDE') : isUsed ? L('ITILIZE', 'USED', 'UTILISÉ') : L('ANILE', 'CANCELLED', 'ANNULÉ')}
+            {isValid ? t('ticket_status_valid') : isUsed ? t('ticket_status_used') : t('ticket_status_cancelled')}
           </span>
         </div>
       </nav>
@@ -359,7 +358,7 @@ ${acceptUrl}`
                   {qrCountdown}
                 </div>
                 <p style={{ color: '#888', fontSize: 10 }}>
-                  {L('QR kòd ap chanje', 'QR code refreshes', 'Le QR code change')}
+                  {t('ticket_qr_refreshes')}
                 </p>
               </div>
             </div>
@@ -367,9 +366,7 @@ ${acceptUrl}`
             <div style={{ textAlign: 'center', padding: '24px 0', marginBottom: 16 }}>
               <div style={{ fontSize: 48 }}>{isUsed ? '✅' : '❌'}</div>
               <p style={{ color: '#888', fontSize: 13, marginTop: 8 }}>
-                {isUsed
-                  ? L('Tikè sa a deja itilize.', 'This ticket has already been used.', 'Ce billet a déjà été utilisé.')
-                  : L('Tikè sa a anile.', 'This ticket has been cancelled.', 'Ce billet a été annulé.')}
+                {isUsed ? t('ticket_already_used') : t('ticket_cancelled')}
               </p>
             </div>
           )}
@@ -381,13 +378,13 @@ ${acceptUrl}`
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
               <div style={{ color: '#555', fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 }}>
-                {L('Non', 'Name', 'Nom')}
+                {t('name')}
               </div>
               <div style={{ fontWeight: 700, fontSize: 14, marginTop: 2 }}>{ticket.buyerName}</div>
             </div>
             <div>
               <div style={{ color: '#555', fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 }}>
-                {L('Kòd Tikè', 'Ticket Code', 'Code Billet')}
+                {t('ticket_code_label')}
               </div>
               <div style={{ fontWeight: 800, fontSize: 13, marginTop: 2, fontFamily: 'monospace', letterSpacing: 1 }}>{ticket.ticketCode}</div>
             </div>
@@ -405,7 +402,7 @@ ${acceptUrl}`
                 fontWeight: 700, fontSize: 13, border: 'none', cursor: downloading ? 'wait' : 'pointer',
               }}
             >
-              {downloading ? '...' : `📥 ${L('Telechaje Tikè', 'Download Ticket', 'Télécharger le Billet')}`}
+              {downloading ? '...' : `📥 ${t('ticket_download')}`}
             </button>
           )}
           {isValid && !transferDone && (
@@ -417,12 +414,12 @@ ${acceptUrl}`
                 border: '1px solid #6366f1', cursor: 'pointer',
               }}
             >
-              🔄 {L('Transfere', 'Transfer', 'Transférer')}
+              🔄 {t('ticket_transfer_btn')}
             </button>
           )}
           {ticket?.status === 'refunded' && refundDone && (
             <span style={{ padding: '12px 20px', color: '#22c55e', fontSize: 13, fontWeight: 700 }}>
-              ✅ {L('Demann ranbousman voye!', 'Refund request sent!', 'Demande envoyée!')}
+              ✅ {t('ticket_refund_sent')}
             </span>
           )}
           {event?.status === 'ended' && ticket?.status === 'used' && !refundDone && (
@@ -434,19 +431,19 @@ ${acceptUrl}`
                 border: '1px solid #ef4444', cursor: 'pointer',
               }}
             >
-              💸 {L('Mande Ranbousman', 'Request Refund', 'Demander Remboursement')}
+              💸 {t('ticket_refund_btn')}
             </button>
           )}
           {transferDone && (
             <span style={{ padding: '12px 20px', color: '#f59e0b', fontSize: 13, fontWeight: 700 }}>
-              ⏳ {L('Ap tann akseptasyon...', 'Awaiting acceptance...', 'En attente...')}
+              ⏳ {t('ticket_awaiting_accept')}
             </span>
           )}
           <Link href="/events" style={{
             padding: '12px 20px', borderRadius: 10, background: '#06b6d4', color: '#000',
             fontWeight: 700, fontSize: 13, textDecoration: 'none',
           }}>
-            🎫 {L('Plis Evènman', 'More Events', "Plus d'événements")}
+            🎫 {t('ticket_more_events')}
           </Link>
         </div>
 
@@ -454,25 +451,17 @@ ${acceptUrl}`
         {isValid && (
           <div style={{ textAlign: 'center', marginTop: 20 }}>
             <p style={{ color: '#888', fontSize: 12, lineHeight: 1.6 }}>
-              {L(
-                '📱 Prezante QR kòd sa a nan antre a. Pa fè screenshot — kòd la ap chanje chak 15 segonn.',
-                '📱 Show this QR code at the entrance. Don\'t screenshot — the code rotates every 15 seconds.',
-                '📱 Présentez ce QR code à l\'entrée. Ne faites pas de capture — le code change toutes les 15 secondes.'
-              )}
+              {t('ticket_qr_notice')}
             </p>
             <p style={{ color: '#555', fontSize: 10, marginTop: 8 }}>
-              {L(
-                '💾 Ou ka telechaje tikè a kòm imaj pou backup. Yo ka verifye kòd la manyèlman tou.',
-                '💾 You can download the ticket as an image for backup. The code can also be verified manually.',
-                '💾 Vous pouvez télécharger le billet en image. Le code peut aussi être vérifié manuellement.'
-              )}
+              {t('ticket_backup_notice')}
             </p>
           </div>
         )}
 
         {/* Branding */}
         <div style={{ textAlign: 'center', marginTop: 32, color: '#333', fontSize: 10 }}>
-          🛡️ {L('Pwoteje pa Anbyans', 'Protected by Anbyans', 'Protégé par Anbyans')}
+          🛡️ {t('ticket_protected')}
         </div>
       </div>
 
@@ -484,25 +473,25 @@ ${acceptUrl}`
         }}>
           <div style={{ background: '#12121a', border: '1px solid #1e1e2e', borderRadius: 20, width: '100%', maxWidth: 480, padding: 24 }}>
             <h3 style={{ fontSize: 18, fontWeight: 800, marginBottom: 4 }}>
-              🔄 {L('Transfere Tikè', 'Transfer Ticket', 'Transférer le Billet')}
+              🔄 {t('ticket_transfer_modal_h')}
             </h3>
             <p style={{ color: '#888', fontSize: 12, marginBottom: 20 }}>
-              {event?.name} · {ticket?.section} · {L('Plas', 'Seat', 'Place')} {ticket?.seat}
+              {event?.name} · {ticket?.section} · {t('tickets_seat_label')} {ticket?.seat}
             </p>
             <div style={{ marginBottom: 12 }}>
               <label style={{ color: '#888', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, display: 'block', marginBottom: 6 }}>
-                {L('Non Moun Nan', 'Recipient Name', 'Nom du destinataire')}
+                {t('tickets_recipient_name')}
               </label>
               <input
                 value={transferName}
                 onChange={e => setTransferName(e.target.value)}
-                placeholder={L('Non konplè', 'Full name', 'Nom complet')}
+                placeholder={t('tickets_full_name_ph')}
                 style={{ width: '100%', padding: 12, borderRadius: 8, border: '1px solid #1e1e2e', background: '#0a0a0f', color: '#fff', fontSize: 15, boxSizing: 'border-box' }}
               />
             </div>
             <div style={{ marginBottom: 20 }}>
               <label style={{ color: '#888', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, display: 'block', marginBottom: 6 }}>
-                {L('Nimewo WhatsApp', 'WhatsApp Number', 'Numéro WhatsApp')}
+                {t('auth_whatsapp')}
               </label>
               <input
                 value={transferPhone}
@@ -513,14 +502,14 @@ ${acceptUrl}`
               />
             </div>
             <p style={{ color: '#555', fontSize: 11, marginBottom: 16 }}>
-              ⚠️ {L('Tikè a ap bloke 24è jouk moun nan aksepte.', 'Ticket locked 24h until accepted.', "Billet bloqué 24h jusqu'à acceptation.")}
+              ⚠️ {t('ticket_locked_24h')}
             </p>
             <div style={{ display: 'flex', gap: 10 }}>
               <button
                 onClick={() => { setShowTransfer(false); setTransferName(''); setTransferPhone(''); }}
                 style={{ flex: 1, padding: 12, borderRadius: 10, border: '1px solid #1e1e2e', background: 'transparent', color: '#888', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
               >
-                {L('Tounen', 'Back', 'Retour')}
+                {t('back')}
               </button>
               <button
                 onClick={handleTransfer}
@@ -533,7 +522,7 @@ ${acceptUrl}`
                   cursor: transferName.trim() && transferPhone.trim() ? 'pointer' : 'not-allowed',
                 }}
               >
-                {transferring ? '...' : `🔄 ${L('Voye Transfè', 'Send Transfer', 'Envoyer')}`}
+                {transferring ? '...' : `🔄 ${t('ticket_send_transfer')}`}
               </button>
             </div>
           </div>

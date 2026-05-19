@@ -131,9 +131,7 @@ function SectionRow({ sec, onChange, onRemove, onAddZone, hasZone }: {
 }
 
 function EditEventInner() {
-  const { locale } = useT();
-  const L = (ht: string, en: string, fr: string) =>
-    ({ ht, en, fr } as Record<string, string>)[locale] ?? ht;
+  const { t } = useT();
   const { user } = useAuth();
   const router = useRouter();
   const params = useParams();
@@ -358,9 +356,9 @@ function EditEventInner() {
   };
 
   const TABS = [
-    { id: 'info',    label: L('Enfòmasyon', 'Info',          'Infos'),    num: '1' },
-    { id: 'venue',   label: L('Kay + Seksyon', 'Venue + Sections', 'Lieu + Sections'), num: '2' },
-    { id: 'payment', label: L('Peman',       'Payment',      'Paiement'), num: '3' },
+    { id: 'info',    label: t('create_tab_details'), num: '1' },
+    { id: 'venue',   label: t('create_tab_seat_map'), num: '2' },
+    { id: 'payment', label: t('settings_tab_payments'), num: '3' },
   ] as const;
 
   if (loadingEvent) return (
@@ -372,15 +370,15 @@ function EditEventInner() {
   if (notFound) return (
     <div className="text-center py-32">
       <p className="text-5xl mb-4">🔍</p>
-      <p className="text-gray-400">{L('Evènman pa jwenn', 'Event not found', 'Événement introuvable')}</p>
+      <p className="text-gray-400">{t('event_not_found')}</p>
     </div>
   );
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-6 pb-28">
       <div className="flex items-center gap-3 mb-6">
-        <button onClick={() => router.back()} className="text-gray-400 hover:text-white text-sm">← {L('Tounen', 'Back', 'Retour')}</button>
-        <h1 className="font-heading text-2xl">{L('Edite Evènman', 'Edit Event', 'Modifier l\'événement')}</h1>
+        <button onClick={() => router.back()} className="text-gray-400 hover:text-white text-sm">← {t('create_back')}</button>
+        <h1 className="font-heading text-2xl">{t('event_edit_title')}</h1>
       </div>
 
       {/* Tabs */}
@@ -402,7 +400,7 @@ function EditEventInner() {
         {tab === 'info' && (
           <>
             <div>
-              <label className="block text-[11px] font-bold text-gray-400 mb-1.5">{L('TIT EVÈNMAN *', 'EVENT TITLE *', 'TITRE *')}</label>
+              <label className="block text-[11px] font-bold text-gray-400 mb-1.5">{t('create_event_name').toUpperCase()} *</label>
               <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Festival Soley 2026"
                 className={`w-full px-4 py-3 rounded-xl bg-white/[0.05] border text-white text-sm outline-none focus:border-orange ${errors.title ? 'border-red-500' : 'border-border'}`} />
               {errors.title && <p className="text-red-400 text-[10px] mt-1">{errors.title}</p>}
@@ -416,43 +414,43 @@ function EditEventInner() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-[11px] font-bold text-gray-400 mb-1.5">{L('DAT KÒMANSMAN *', 'START DATE *', 'DATE DÉBUT *')}</label>
+                <label className="block text-[11px] font-bold text-gray-400 mb-1.5">{t('create_event_date').toUpperCase()} *</label>
                 <input type="date" value={dateStr} onChange={e => setDateStr(e.target.value)}
                   className={`w-full px-4 py-3 rounded-xl bg-white/[0.05] border text-white text-sm outline-none focus:border-orange ${errors.date ? 'border-red-500' : 'border-border'}`} />
               </div>
               <div>
-                <label className="block text-[11px] font-bold text-gray-400 mb-1.5">{L('LÈ', 'TIME', 'HEURE')}</label>
+                <label className="block text-[11px] font-bold text-gray-400 mb-1.5">{t('create_event_time').toUpperCase()}</label>
                 <input type="time" value={timeStr} onChange={e => setTimeStr(e.target.value)}
                   className="w-full px-4 py-3 rounded-xl bg-white/[0.05] border border-border text-white text-sm outline-none focus:border-orange" />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-[11px] font-bold text-gray-400 mb-1.5">{L('DAT FEN', 'END DATE', 'DATE FIN')}</label>
+                <label className="block text-[11px] font-bold text-gray-400 mb-1.5">END {t('create_event_date').toUpperCase()}</label>
                 <input type="date" value={endDateStr} min={dateStr} onChange={e => setEndDateStr(e.target.value)}
                   className="w-full px-4 py-3 rounded-xl bg-white/[0.05] border border-border text-white text-sm outline-none focus:border-orange" />
               </div>
               <div>
-                <label className="block text-[11px] font-bold text-gray-400 mb-1.5">{L('LÈ FEN', 'END TIME', 'HEURE FIN')}</label>
+                <label className="block text-[11px] font-bold text-gray-400 mb-1.5">END {t('create_event_time').toUpperCase()}</label>
                 <input type="time" value={endTimeStr} onChange={e => setEndTimeStr(e.target.value)}
                   className="w-full px-4 py-3 rounded-xl bg-white/[0.05] border border-border text-white text-sm outline-none focus:border-orange" />
               </div>
             </div>
             <div>
-              <label className="block text-[11px] font-bold text-gray-400 mb-1.5">{L('IMAJ KOUVÈTI (URL)', 'COVER IMAGE (URL)', 'IMAGE (URL)')}</label>
+              <label className="block text-[11px] font-bold text-gray-400 mb-1.5">{t('create_upload_cover').toUpperCase()} (URL)</label>
               <input value={coverImage} onChange={e => setCoverImage(e.target.value)} placeholder="https://..."
                 className="w-full px-4 py-3 rounded-xl bg-white/[0.05] border border-border text-white text-sm outline-none focus:border-orange" />
               {coverImage && <img src={coverImage} alt="preview" className="mt-2 h-28 w-full object-cover rounded-xl opacity-80" onError={e => (e.currentTarget.style.display='none')} />}
             </div>
             <div>
-              <label className="block text-[11px] font-bold text-gray-400 mb-1.5">{L('DESKRIPSYON', 'DESCRIPTION', 'DESCRIPTION')}</label>
+              <label className="block text-[11px] font-bold text-gray-400 mb-1.5">{t('create_event_description').toUpperCase()}</label>
               <textarea value={description} onChange={e => setDescription(e.target.value)} rows={3}
                 className="w-full px-4 py-3 rounded-xl bg-white/[0.05] border border-border text-white text-sm outline-none focus:border-orange resize-none" />
             </div>
             <div className="flex items-center justify-between p-4 rounded-xl bg-white/[0.03] border border-border">
               <div>
-                <p className="text-sm font-bold">{L('Evènman Prive', 'Private Event', 'Événement Privé')}</p>
-                <p className="text-[10px] text-gray-500">{L('Sèlman moun ki gen lyen an', 'Only people with the link', 'Visible uniquement via le lien')}</p>
+                <p className="text-sm font-bold">{t('create_event_private')}</p>
+                <p className="text-[10px] text-gray-500">{t('create_private_hint')}</p>
               </div>
               <button type="button" onClick={() => setIsPrivate(v => !v)}
                 className={`w-12 h-6 rounded-full transition-all relative ${isPrivate ? 'bg-orange' : 'bg-white/[0.1]'}`}>
@@ -461,7 +459,7 @@ function EditEventInner() {
             </div>
             <button type="button" onClick={() => setTab('venue')}
               className="w-full py-3 rounded-xl bg-orange text-white font-heading text-sm hover:bg-orange/90 transition-all">
-              {L('Kontinye →', 'Continue →', 'Continuer →')}
+              {t('create_continue')}
             </button>
           </>
         )}
@@ -469,7 +467,7 @@ function EditEventInner() {
         {tab === 'venue' && (
           <>
             <div>
-              <label className="block text-[11px] font-bold text-gray-400 mb-1.5">{L('KAY EVÈNMAN *', 'VENUE *', 'LIEU *')}</label>
+              <label className="block text-[11px] font-bold text-gray-400 mb-1.5">{t('create_event_location').toUpperCase()} *</label>
               <div style={{ position: 'relative' }}>
                 <input value={venueQuery} onChange={e => handleVenueInput(e.target.value)}
                   onBlur={() => setTimeout(() => setVenueSuggestions([]), 200)}
@@ -510,11 +508,11 @@ function EditEventInner() {
             )}
 
             <div>
-              <label className="block text-[11px] font-bold text-gray-400 mb-1.5">{L('PLAN SAL (Opsyonèl)', 'FLOOR PLAN (Optional)', 'PLAN DE SALLE (Optionnel)')}</label>
+              <label className="block text-[11px] font-bold text-gray-400 mb-1.5">{t('create_upload_floor_plan').toUpperCase()} (Optional)</label>
               {!floorPlanImage ? (
                 <label className="flex flex-col items-center justify-center gap-2 p-6 rounded-xl border border-dashed border-orange/30 cursor-pointer hover:border-orange/60 transition-all">
                   <span style={{ fontSize:32 }}>🏟️</span>
-                  <span className="text-sm text-gray-400">{L('Telechaje foto plan sal la', 'Upload floor plan image', 'Télécharger le plan')}</span>
+                  <span className="text-sm text-gray-400">{t('create_upload_floor_plan')}</span>
                   <input type="file" accept="image/*" className="hidden"
                     onChange={e => {
                       const file = e.target.files?.[0]; if (!file) return;
@@ -572,14 +570,14 @@ function EditEventInner() {
                   </div>
                   <button type="button" onClick={() => { setFloorPlanImage(null); setMapZones([]); }}
                     style={{ marginTop:8, fontSize:11, color:'#666', background:'none', border:'none', cursor:'pointer', textDecoration:'underline' }}>
-                    {L('Chanje imaj la', 'Replace image', "Changer l'image")}
+                    Replace image
                   </button>
                 </div>
               )}
             </div>
 
             <div>
-              <label className="block text-[11px] font-bold text-gray-400 mb-2">{L('SEKSYON *', 'SECTIONS *', 'SECTIONS *')}</label>
+              <label className="block text-[11px] font-bold text-gray-400 mb-2">SECTIONS *</label>
               {errors.sections && <p className="text-red-400 text-xs bg-red-400/10 rounded-lg px-3 py-2 mb-3">{errors.sections}</p>}
               <div className="flex items-center gap-2 text-xs text-gray-500 bg-white/[0.03] rounded-lg px-3 py-2 mb-3">
                 <span>💱</span><span>1 USD = {exchangeRate} HTG</span>
@@ -590,7 +588,7 @@ function EditEventInner() {
                     onChange={updated => setSections(s => s.map(x => x.id === sec.id ? updated : x))}
                     onRemove={() => setSections(s => s.filter(x => x.id !== sec.id))}
                     onAddZone={() => {
-                      if (!floorPlanImage) { alert(L('Telechaje plan sal la anvan', 'Upload a floor plan first', "Téléchargez d'abord le plan")); return; }
+                      if (!floorPlanImage) { alert(t('create_upload_floor_plan_first')); return; }
                       addZoneForSection(sec.id);
                     }}
                     hasZone={mapZones.some(z => z.sectionId === sec.id)}
@@ -600,11 +598,11 @@ function EditEventInner() {
               <button type="button"
                 onClick={() => setSections(s => [...s, { id: uid6(), name: '', price: 0, capacity: 100, color: COLORS[s.length % COLORS.length], type: 'ga' }])}
                 className="w-full mt-4 py-3 rounded-xl border border-dashed border-orange/40 text-orange text-sm font-bold hover:bg-orange/5 transition-all">
-                + {L('Ajoute Seksyon', 'Add Section', 'Ajouter Section')}
+                + {t('create_add_ticket_type')}
               </button>
               {sections.length > 0 && (
                 <div className="bg-white/[0.03] rounded-xl p-4 mt-4">
-                  <p className="text-[10px] font-bold text-gray-500 mb-2">{L('REZIME', 'SUMMARY', 'RÉSUMÉ')}</p>
+                  <p className="text-[10px] font-bold text-gray-500 mb-2">{t('create_tab_summary').toUpperCase()}</p>
                   <div className="space-y-1.5">
                     {sections.map(s => (
                       <div key={s.id} className="flex items-center gap-2 text-xs">
@@ -624,11 +622,11 @@ function EditEventInner() {
             <div className="flex gap-3">
               <button type="button" onClick={() => setTab('info')}
                 className="flex-1 py-3 rounded-xl border border-border text-gray-400 text-sm font-bold hover:text-white transition-all">
-                ← {L('Tounen', 'Back', 'Retour')}
+                ← {t('create_back')}
               </button>
               <button type="button" onClick={() => setTab('payment')}
                 className="flex-1 py-3 rounded-xl bg-orange text-white font-heading text-sm hover:bg-orange/90 transition-all">
-                {L('Kontinye →', 'Continue →', 'Continuer →')}
+                {t('create_continue')}
               </button>
             </div>
           </>
@@ -636,9 +634,9 @@ function EditEventInner() {
 
         {tab === 'payment' && (
           <>
-            <p className="text-[11px] text-gray-500">{L('Modifye metòd peman pou evènman sa a.', 'Modify payment methods for this event.', 'Modifiez les méthodes de paiement.')}</p>
+            <p className="text-[11px] text-gray-500">Modify payment methods for this event.</p>
             <div>
-              <label className="block text-[11px] font-bold text-gray-400 mb-1.5">💱 {L('TO ECHANJ 1 USD =', 'EXCHANGE RATE 1 USD =', 'TAUX 1 USD =')}</label>
+              <label className="block text-[11px] font-bold text-gray-400 mb-1.5">💱 EXCHANGE RATE 1 USD =</label>
               <div className="flex items-center gap-3">
                 <input type="number" min={1} value={exchangeRate} onChange={e => setExchangeRate(Number(e.target.value))}
                   className="w-32 px-4 py-3 rounded-xl bg-white/[0.05] border border-border text-white text-sm font-bold outline-none focus:border-orange" />
@@ -676,7 +674,7 @@ function EditEventInner() {
             </div>
             <button type="button" onClick={() => setTab('venue')}
               className="w-full py-3 rounded-xl border border-border text-gray-400 text-sm font-bold hover:text-white transition-all">
-              ← {L('Tounen', 'Back', 'Retour')}
+              ← {t('create_back')}
             </button>
           </>
         )}
@@ -685,13 +683,13 @@ function EditEventInner() {
       {/* Fixed save bar */}
       <div className="fixed bottom-0 left-0 right-0 bg-black/90 backdrop-blur border-t border-border px-4 py-3 flex items-center gap-3">
         <div className="flex-1 text-xs text-gray-500">
-          {sections.length} {L('seksyon', 'sections', 'sections')} · {sections.reduce((a,s) => a+s.capacity, 0)} {L('plas', 'seats', 'places')}
+          {sections.length} sections · {sections.reduce((a,s) => a+s.capacity, 0)} seats
           {mapZones.length > 0 && <span className="ml-2 text-orange">· 🗺 {mapZones.length} zones</span>}
         </div>
         <button onClick={save} disabled={saving}
           className="px-6 py-3 rounded-xl bg-orange text-white font-heading text-sm hover:bg-orange/90 disabled:opacity-40 transition-all flex items-center gap-2">
           {saving && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
-          {L('Sove Chanjman', 'Save Changes', 'Enregistrer')}
+          {t('save_changes')}
         </button>
       </div>
     </div>

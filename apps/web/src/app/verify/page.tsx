@@ -6,8 +6,7 @@ import { useT } from '@/i18n';
 import { verifyTicketByCode, type TicketData, type EventData } from '@/lib/db';
 
 export default function VerifyPage() {
-  const { locale } = useT();
-  const L = (ht: string, en: string, fr: string) => ({ ht, en, fr }[locale as 'ht' | 'en' | 'fr']);
+  const { t } = useT();
 
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
@@ -27,10 +26,10 @@ export default function VerifyPage() {
   }
 
   const statusMap: Record<string, { color: string; bg: string; icon: string; label: string }> = {
-    valid: { color: '#22c55e', bg: '#0a2a0a', icon: '✅', label: L('TIKE VALID', 'VALID TICKET', 'BILLET VALIDE') },
-    used: { color: '#f97316', bg: '#2a1a00', icon: '⚠️', label: L('DEJA ITILIZE', 'ALREADY USED', 'DÉJÀ UTILISÉ') },
-    cancelled: { color: '#ef4444', bg: '#2a0a0a', icon: '❌', label: L('ANILE', 'CANCELLED', 'ANNULÉ') },
-    refunded: { color: '#888', bg: '#1a1a1a', icon: '↩️', label: L('RANBOUSE', 'REFUNDED', 'REMBOURSÉ') },
+    valid: { color: '#22c55e', bg: '#0a2a0a', icon: '✅', label: t('verify_status_valid') },
+    used: { color: '#f97316', bg: '#2a1a00', icon: '⚠️', label: t('verify_status_used') },
+    cancelled: { color: '#ef4444', bg: '#2a0a0a', icon: '❌', label: t('verify_status_cancelled') },
+    refunded: { color: '#888', bg: '#1a1a1a', icon: '↩️', label: t('verify_status_refunded') },
   };
 
   return (
@@ -41,7 +40,7 @@ export default function VerifyPage() {
           <Link href="/" style={{ fontWeight: 800, fontSize: 15, letterSpacing: 2, color: '#fff', textDecoration: 'none' }}>ANBYANS</Link>
           <span style={{ flex: 1 }} />
           <Link href="/events" style={{ padding: '6px 14px', borderRadius: 8, border: '1px solid #1e1e2e', color: '#888', fontSize: 11, textDecoration: 'none' }}>
-            🎫 {L('Evenman', 'Events', 'Événements')}
+            🎫 {t('verify_events_link')}
           </Link>
         </div>
       </nav>
@@ -51,21 +50,17 @@ export default function VerifyPage() {
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
           <div style={{ fontSize: 48, marginBottom: 12 }}>🔍</div>
           <h1 style={{ fontSize: 24, fontWeight: 800, marginBottom: 6 }}>
-            {L('Verifye Tikè Ou', 'Verify Your Ticket', 'Vérifiez Votre Billet')}
+            {t('verify_title')}
           </h1>
           <p style={{ color: '#888', fontSize: 13, lineHeight: 1.5 }}>
-            {L(
-              'Antre kòd tikè ou a pou tcheke si li otantik.',
-              'Enter your ticket code to check if it\'s authentic.',
-              'Entrez votre code de billet pour vérifier son authenticité.'
-            )}
+            {t('verify_desc')}
           </p>
         </div>
 
         {/* Search */}
         <div style={{ background: '#12121a', border: '1px solid #1e1e2e', borderRadius: 12, padding: 20, marginBottom: 24 }}>
           <label style={{ color: '#888', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, display: 'block', marginBottom: 8 }}>
-            {L('Kòd Tikè', 'Ticket Code', 'Code du Billet')}
+            {t('verify_code_label')}
           </label>
           <div style={{ display: 'flex', gap: 8 }}>
             <input
@@ -92,7 +87,7 @@ export default function VerifyPage() {
                 cursor: code.trim() ? 'pointer' : 'not-allowed',
               }}
             >
-              {loading ? '...' : L('Verifye', 'Verify', 'Vérifier')}
+              {loading ? '...' : t('verify_btn')}
             </button>
           </div>
         </div>
@@ -105,31 +100,23 @@ export default function VerifyPage() {
           }}>
             <div style={{ fontSize: 48, marginBottom: 8 }}>❌</div>
             <h2 style={{ fontSize: 20, fontWeight: 800, color: '#ef4444', marginBottom: 8 }}>
-              {L('TIKE PA JWENN', 'TICKET NOT FOUND', 'BILLET NON TROUVÉ')}
+              {t('verify_not_found_title')}
             </h2>
             <p style={{ color: '#888', fontSize: 13, marginBottom: 16 }}>
-              {L(
-                'Kòd sa a pa egziste nan sistèm Anbyans. Verifye kòd la epi eseye ankò.',
-                'This code does not exist in the Anbyans system. Check the code and try again.',
-                'Ce code n\'existe pas dans le système Anbyans. Vérifiez le code et réessayez.'
-              )}
+              {t('verify_not_found_desc')}
             </p>
             <div style={{ padding: '10px 16px', borderRadius: 8, background: '#ef444415', display: 'inline-block' }}>
               <span style={{ color: '#ef4444', fontSize: 12, fontWeight: 700 }}>
-                ⚠️ {L(
-                  'Si ou achte tikè sa a nan men yon lòt moun, li ka fo.',
-                  'If you bought this ticket from someone else, it may be fake.',
-                  'Si vous avez acheté ce billet auprès de quelqu\'un d\'autre, il peut être faux.'
-                )}
+                ⚠️ {t('verify_fake_warning')}
               </span>
             </div>
           </div>
         )}
 
         {result && result.valid && result.ticket && (() => {
-          const t = result.ticket;
+          const tk = result.ticket;
           const ev = result.event;
-          const s = statusMap[t.status] || statusMap.valid;
+          const s = statusMap[tk.status] || statusMap.valid;
           return (
             <div style={{
               background: s.bg, border: `1px solid ${s.color}40`, borderRadius: 12,
@@ -149,7 +136,7 @@ export default function VerifyPage() {
               }}>
                 <span style={{ fontSize: 12 }}>🛡️</span>
                 <span style={{ color: '#06b6d4', fontSize: 10, fontWeight: 700 }}>
-                  {L('VERIFYE PA ANBYANS', 'VERIFIED BY ANBYANS', 'VÉRIFIÉ PAR ANBYANS')}
+                  {t('verify_badge')}
                 </span>
               </div>
 
@@ -173,25 +160,25 @@ export default function VerifyPage() {
               }}>
                 <div style={{ background: '#0a0a0f', borderRadius: 8, padding: 12, border: '1px solid #1e1e2e' }}>
                   <div style={{ color: '#888', fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>
-                    {L('Seksyon', 'Section', 'Section')}
+                    {t('verify_section_label')}
                   </div>
-                  <div style={{ fontWeight: 700, color: t.sectionColor || '#fff' }}>{t.section}</div>
+                  <div style={{ fontWeight: 700, color: tk.sectionColor || '#fff' }}>{tk.section}</div>
                 </div>
                 <div style={{ background: '#0a0a0f', borderRadius: 8, padding: 12, border: '1px solid #1e1e2e' }}>
                   <div style={{ color: '#888', fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>
-                    {L('Plas', 'Seat', 'Place')}
+                    {t('verify_seat_label')}
                   </div>
-                  <div style={{ fontWeight: 700 }}>{t.seat}</div>
+                  <div style={{ fontWeight: 700 }}>{tk.seat}</div>
                 </div>
                 <div style={{ background: '#0a0a0f', borderRadius: 8, padding: 12, border: '1px solid #1e1e2e' }}>
                   <div style={{ color: '#888', fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>
-                    {L('Achte Pa', 'Purchased By', 'Acheté par')}
+                    {t('verify_bought_by')}
                   </div>
-                  <div style={{ fontWeight: 700 }}>{t.buyerName}</div>
+                  <div style={{ fontWeight: 700 }}>{tk.buyerName}</div>
                 </div>
                 <div style={{ background: '#0a0a0f', borderRadius: 8, padding: 12, border: '1px solid #1e1e2e' }}>
                   <div style={{ color: '#888', fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>
-                    {L('Statu', 'Status', 'Statut')}
+                    {t('verify_status_label')}
                   </div>
                   <div style={{ fontWeight: 700, color: s.color }}>{s.label}</div>
                 </div>
@@ -204,13 +191,13 @@ export default function VerifyPage() {
                 display: 'inline-block',
               }}>
                 <span style={{ fontFamily: 'monospace', fontSize: 14, fontWeight: 800, letterSpacing: 2 }}>
-                  {t.ticketCode}
+                  {tk.ticketCode}
                 </span>
               </div>
 
-              {t.status === 'used' && t.usedAt && (
+              {tk.status === 'used' && tk.usedAt && (
                 <p style={{ color: '#888', fontSize: 11, marginTop: 12 }}>
-                  {L('Itilize pa', 'Used by', 'Utilisé par')}: {t.usedBy || '—'}
+                  {t('verify_used_by')}: {tk.usedBy || '—'}
                 </p>
               )}
             </div>
@@ -219,13 +206,9 @@ export default function VerifyPage() {
 
         {/* Footer info */}
         <div style={{ textAlign: 'center', marginTop: 32, color: '#555', fontSize: 11, lineHeight: 1.8 }}>
-          <p>{L(
-            'Sèlman tikè achte sou anbyans.events garanti otantik.',
-            'Only tickets purchased on anbyans.events are guaranteed authentic.',
-            'Seuls les billets achetés sur anbyans.events sont garantis authentiques.'
-          )}</p>
+          <p>{t('verify_authentic_only')}</p>
           <p style={{ marginTop: 8 }}>
-            🛡️ {L('Pwoteje pa Anbyans', 'Protected by Anbyans', 'Protégé par Anbyans')}
+            🛡️ {t('verify_protected')}
           </p>
         </div>
       </div>

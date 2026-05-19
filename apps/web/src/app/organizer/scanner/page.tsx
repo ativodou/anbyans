@@ -66,11 +66,11 @@ function loadScanHistory(eventId: string): ScanRecord[] {
 // F&B LOGGING COMPONENT
 // ═══════════════════════════════════════════════════════════════
 
-function FbView({ eventId, eventName, organizerId, staffId, staffName, L, onBack }: {
+function FbView({ eventId, eventName, organizerId, staffId, staffName, onBack }: {
   eventId: string; eventName: string; organizerId: string; staffId: string; staffName: string;
-  L: (ht: string, en: string, fr: string) => string | undefined;
   onBack: () => void;
 }) {
+  const { t } = useT();
   const CATEGORIES = ['Food', 'Drinks', 'Merch'];
   const PAY_METHODS = ['Cash', 'MonCash', 'Natcash'];
 
@@ -110,11 +110,11 @@ function FbView({ eventId, eventName, organizerId, staffId, staffName, L, onBack
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
           <div>
-            <h1 style={{ fontSize: 18, fontWeight: 800, margin: 0 }}>🍽️ {L('Manje & Bweson', 'Food & Drinks', 'Nourriture & Boissons')}</h1>
+            <h1 style={{ fontSize: 18, fontWeight: 800, margin: 0 }}>🍽️ {t('rev_food_bev')}</h1>
             <p style={{ color: '#888', fontSize: 11, margin: '4px 0 0' }}>👤 {staffName} • {eventName}</p>
           </div>
           <div style={{ textAlign: 'right' }}>
-            <p style={{ color: '#888', fontSize: 10, margin: 0 }}>{L('Total jodi a', 'Today\'s total', 'Total aujourd\'hui')}</p>
+            <p style={{ color: '#888', fontSize: 10, margin: 0 }}>Today's total</p>
             <p style={{ fontSize: 20, fontWeight: 800, color: '#f97316', margin: 0 }}>${totalToday.toFixed(2)}</p>
           </div>
         </div>
@@ -122,11 +122,11 @@ function FbView({ eventId, eventName, organizerId, staffId, staffName, L, onBack
         {/* Entry form */}
         <div style={{ ...cardStyle, marginBottom: 16 }}>
           <p style={{ color: '#888', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>
-            {L('Anrejistre Vant', 'Log Sale', 'Enregistrer Vente')}
+            Log Sale
           </p>
 
           {/* Category */}
-          <p style={{ color: '#888', fontSize: 11, marginBottom: 6 }}>{L('Kategori', 'Category', 'Catégorie')}</p>
+          <p style={{ color: '#888', fontSize: 11, marginBottom: 6 }}>Category</p>
           <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
             {CATEGORIES.map(c => (
               <button key={c} onClick={() => setCategory(c)} style={{
@@ -138,7 +138,7 @@ function FbView({ eventId, eventName, organizerId, staffId, staffName, L, onBack
           </div>
 
           {/* Amount */}
-          <p style={{ color: '#888', fontSize: 11, marginBottom: 6 }}>{L('Montan ($)', 'Amount ($)', 'Montant ($)')}</p>
+          <p style={{ color: '#888', fontSize: 11, marginBottom: 6 }}>Amount ($)</p>
           <input
             type="number" inputMode="decimal" value={amount}
             onChange={e => setAmount(e.target.value)}
@@ -147,7 +147,7 @@ function FbView({ eventId, eventName, organizerId, staffId, staffName, L, onBack
           />
 
           {/* Payment method */}
-          <p style={{ color: '#888', fontSize: 11, marginBottom: 6 }}>{L('Metòd Peman', 'Payment Method', 'Méthode de Paiement')}</p>
+          <p style={{ color: '#888', fontSize: 11, marginBottom: 6 }}>Payment Method</p>
           <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
             {PAY_METHODS.map(m => (
               <button key={m} onClick={() => setPayMethod(m)} style={{
@@ -161,7 +161,7 @@ function FbView({ eventId, eventName, organizerId, staffId, staffName, L, onBack
           {/* Note (optional) */}
           <input
             value={note} onChange={e => setNote(e.target.value)}
-            placeholder={L('Nòt (opsyonèl)', 'Note (optional)', 'Note (optionnel)') as string}
+            placeholder="Note (optional)"
             style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid #1e1e2e', background: '#0a0a0f', color: '#fff', fontSize: 13, marginBottom: 14, boxSizing: 'border-box', outline: 'none' }}
           />
 
@@ -171,7 +171,7 @@ function FbView({ eventId, eventName, organizerId, staffId, staffName, L, onBack
             color: amount && Number(amount) > 0 ? '#000' : '#555',
             fontSize: 15, fontWeight: 800, cursor: amount ? 'pointer' : 'not-allowed',
           }}>
-            {saving ? '...' : `✓ ${L('Anrejistre', 'Log Sale', 'Enregistrer')} ${amount ? `$${Number(amount).toFixed(2)}` : ''}`}
+            {saving ? '...' : `✓ Log Sale ${amount ? `$${Number(amount).toFixed(2)}` : ''}`}
           </button>
         </div>
 
@@ -179,7 +179,7 @@ function FbView({ eventId, eventName, organizerId, staffId, staffName, L, onBack
         {recentSales.length > 0 && (
           <div style={cardStyle}>
             <p style={{ color: '#888', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>
-              {L('Dènye Vant', 'Recent Sales', 'Ventes Récentes')}
+              Recent Sales
             </p>
             {recentSales.map(s => (
               <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #1e1e2e' }}>
@@ -195,7 +195,7 @@ function FbView({ eventId, eventName, organizerId, staffId, staffName, L, onBack
         )}
 
         <button onClick={onBack} style={{ marginTop: 20, padding: '10px 0', background: 'transparent', border: 'none', color: '#555', fontSize: 13, cursor: 'pointer', width: '100%', textAlign: 'center' }}>
-          ← {L('Retounen', 'Back', 'Retour')}
+          ← {t('scanner_go_back')}
         </button>
       </div>
     </div>
@@ -204,9 +204,8 @@ function FbView({ eventId, eventName, organizerId, staffId, staffName, L, onBack
 
 function ScannerPageInner() {
   const { user } = useAuth();
-  const { locale } = useT();
+  const { t } = useT();
   const searchParams = useSearchParams();
-  const L = (ht: string, en: string, fr: string) => ({ ht, en, fr }[locale]);
 
   const role = (user as any)?.role || 'fan';
   const isOrganizer = role === 'organizer';
@@ -358,7 +357,7 @@ function ScannerPageInner() {
       navigator.share({ title: 'Anbyans Scanner', text: msg });
     } else {
       navigator.clipboard.writeText(msg);
-      alert(L('Kopye!', 'Copied!', 'Copie!'));
+      alert('Copied!');
     }
   }
 
@@ -376,7 +375,7 @@ function ScannerPageInner() {
 
   async function handlePinSubmit() {
     if (!eventId || pin.length < 6) {
-      setPinError(L('Mete PIN 6 chif la', 'Enter the 6-digit PIN', 'Entrez le PIN a 6 chiffres'));
+      setPinError(t('scanner_enter_pin'));
       return;
     }
     setPinError('');
@@ -414,10 +413,10 @@ function ScannerPageInner() {
           } catch {}
         }, 5000);
       } else {
-        setPinError(result.error || L('PIN pa bon', 'Invalid PIN', 'PIN invalide'));
+        setPinError(result.error || t('scanner_wrong_pin'));
       }
     } catch {
-      setPinError(L('Ere koneksyon', 'Connection error', 'Erreur de connexion'));
+      setPinError('Connection error');
     }
   }
 
@@ -429,13 +428,9 @@ function ScannerPageInner() {
       const fresh = await downloadEventTickets(eventId);
       setTickets(fresh);
       saveTicketsLocal(eventId, fresh);
-      alert(L(
-        `${fresh.length} tike telechaje! Eskane mache san entenet kounye a.`,
-        `${fresh.length} tickets downloaded! Scanner works offline now.`,
-        `${fresh.length} billets telecharges! Scanner fonctionne hors ligne.`
-      ));
+      alert(`${fresh.length} ${t('scanner_downloaded_msg')}`);
     } catch {
-      alert(L('Ere. Eseye anko.', 'Error. Try again.', 'Erreur. Reessayez.'));
+      alert('Error. Try again.');
     }
     setDownloading(false);
   }
@@ -584,7 +579,7 @@ function ScannerPageInner() {
   async function handleSync() {
     const unsynced = scanHistory.filter(h => !h.synced && h.status === 'admitted');
     if (unsynced.length === 0) {
-      alert(L('Tout sinkronize deja!', 'Everything synced!', 'Tout synchronise!'));
+      alert('Everything synced!');
       return;
     }
     setSyncing(true);
@@ -595,9 +590,9 @@ function ScannerPageInner() {
       const updated = scanHistory.map(h => ({ ...h, synced: true }));
       setScanHistory(updated);
       saveScanHistory(eventId, updated);
-      alert(L(`${count} tike sinkronize!`, `${count} tickets synced!`, `${count} billets synchronises!`));
+      alert(`${count} ${t('scanner_synced_msg')}`);
     } catch {
-      alert(L('Ere sinkronizasyon', 'Sync error', 'Erreur sync'));
+      alert('Sync error');
     }
     setSyncing(false);
   }
@@ -613,9 +608,9 @@ function ScannerPageInner() {
   };
 
   const statusConfig = {
-    'admitted':     { bg: '#0a2a0a', border: '#22c55e', color: '#22c55e', icon: '✅', label: L('Antre!', 'Admitted!', 'Admis!') },
-    'already-used': { bg: '#2a1a00', border: '#f97316', color: '#f97316', icon: '⚠️', label: L('Deja Itilize!', 'Already Used!', 'Deja utilise!') },
-    'not-found':    { bg: '#2a0a0a', border: '#ef4444', color: '#ef4444', icon: '❌', label: L('Pa Jwenn!', 'Not Found!', 'Non trouve!') },
+    'admitted':     { bg: '#0a2a0a', border: '#22c55e', color: '#22c55e', icon: '✅', label: t('scanner_result_valid') },
+    'already-used': { bg: '#2a1a00', border: '#f97316', color: '#f97316', icon: '⚠️', label: t('scanner_result_used') },
+    'not-found':    { bg: '#2a0a0a', border: '#ef4444', color: '#ef4444', icon: '❌', label: t('scanner_result_invalid') },
   };
 
   // ─── Styles ───────────────────────────────────────────────────
@@ -648,10 +643,10 @@ function ScannerPageInner() {
           <div style={{ textAlign: 'center', marginBottom: 32 }}>
             <div style={{ fontSize: 48, marginBottom: 12 }}>🔒</div>
             <h1 style={{ fontSize: 22, fontWeight: 800, marginBottom: 4 }}>
-              {L('Eskane Tike', 'Ticket Scanner', 'Scanner de Billets')}
+              {t('scanner_title')}
             </h1>
             <p style={{ color: '#888', fontSize: 13 }}>
-              {L('Mete kod PIN oganizate a ba ou a', 'Enter the PIN code from the organizer', "Entrez le code PIN de l'organisateur")}
+              {t('scanner_enter_pin')}
             </p>
           </div>
 
@@ -683,7 +678,7 @@ function ScannerPageInner() {
             <button onClick={handlePinSubmit} disabled={pin.length < 6} style={{
               ...btnOrange, opacity: pin.length < 6 ? 0.4 : 1, cursor: pin.length < 6 ? 'not-allowed' : 'pointer',
             }}>
-              {L('Antre', 'Enter', 'Entrer')} →
+              Enter →
             </button>
           </div>
         </div>
@@ -701,22 +696,18 @@ function ScannerPageInner() {
         <div style={{ maxWidth: 360, width: '100%', textAlign: 'center' }}>
           <div style={{ fontSize: 64, marginBottom: 24 }}>⏳</div>
           <h1 style={{ fontSize: 22, fontWeight: 800, marginBottom: 12 }}>
-            {L('Ap tann aktivasyon...', 'Waiting for activation...', 'En attente d\'activation...')}
+            {t('scanner_waiting')}
           </h1>
           <p style={{ color: '#888', fontSize: 14, marginBottom: 32, lineHeight: 1.6 }}>
-            {L(
-              'PIN ou an bon. Òganizatè a dwe aktive ou anvan ou ka kòmanse eskane.',
-              'Your PIN is correct. The organizer needs to activate you before you can start scanning.',
-              'Votre PIN est correct. L\'organisateur doit vous activer avant de scanner.'
-            )}
+            Your PIN is correct. The organizer needs to activate you before you can start scanning.
           </p>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, color: '#f97316', fontSize: 13 }}>
             <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#f97316', animation: 'pulse 1.5s infinite' }} />
-            {L('Y ap chèche otorizasyon...', 'Checking for authorization...', 'Vérification en cours...')}
+            Checking for authorization...
           </div>
           <button onClick={() => { setView('pin-entry'); setPin(''); }}
             style={{ marginTop: 40, background: 'transparent', border: 'none', color: '#555', fontSize: 13, cursor: 'pointer' }}>
-            ← {L('Retounen', 'Back', 'Retour')}
+            ← {t('scanner_go_back')}
           </button>
         </div>
       </div>
@@ -732,15 +723,15 @@ function ScannerPageInner() {
       <div style={{ ...pageStyle, padding: 20 }}>
         <div style={{ maxWidth: 500, margin: '0 auto' }}>
           <h1 style={{ fontSize: 22, fontWeight: 800, marginBottom: 4 }}>
-            📱 {L('Chwazi Evenman', 'Select Event', 'Choisir un evenement')}
+            📱 {t('scanner_select_event')}
           </h1>
           <p style={{ color: '#888', fontSize: 13, marginBottom: 24 }}>
-            {L('Ki evenman ou vle jere eskane a?', 'Which event to manage scanning?', 'Quel evenement gerer?')}
+            {'Which event to manage scanning?'}
           </p>
 
           {orgEvents.length === 0 && (
             <div style={cardStyle}>
-              <p style={{ color: '#666', textAlign: 'center' }}>{L('Pa gen evenman pibliye', 'No published events', 'Aucun evenement publie')}</p>
+              <p style={{ color: '#666', textAlign: 'center' }}>{t('scanner_no_orgs')}</p>
             </div>
           )}
 
@@ -777,29 +768,29 @@ function ScannerPageInner() {
               padding: '10px 18px', borderRadius: 8, border: 'none',
               background: '#f97316', color: '#000', fontSize: 12, fontWeight: 700, cursor: 'pointer',
             }}>
-              📷 {L('Eskane', 'Scan', 'Scanner')}
+              📷 {t('event_action_scanner')}
             </button>
           </div>
 
           <div style={{ ...cardStyle, marginBottom: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div>
-              <div style={{ fontWeight: 700, fontSize: 13 }}>👥 {L('Ekip Pot la', 'Door Team', 'Équipe Porte')}</div>
-              <div style={{ color: '#888', fontSize: 11, marginTop: 2 }}>{L('Jere staff nan paj Staff la', 'Manage staff from the Staff page', 'Gérez le staff depuis la page Staff')}</div>
+              <div style={{ fontWeight: 700, fontSize: 13 }}>👥 {t('scanner_staff_title')}</div>
+              <div style={{ color: '#888', fontSize: 11, marginTop: 2 }}>{'Manage staff from the Staff page'}</div>
             </div>
             <a href={`/organizer/staff?event=${eventId}`}
               style={{ padding: '8px 14px', borderRadius: 8, border: '1px solid #f97316', color: '#f97316', fontSize: 11, fontWeight: 700, textDecoration: 'none', whiteSpace: 'nowrap' }}>
-              ➕ {L('Jere Staff', 'Manage Staff', 'Gérer Staff')}
+              ➕ {t('org_manage_staff')}
             </a>
           </div>
 
           <div style={{ color: '#888', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>
-            {L('Ekip nan Pot', 'Door Team', 'Equipe Porte')} ({staffList.length})
+            {t('scanner_staff_title')} ({staffList.length})
           </div>
 
           {staffList.length === 0 && (
             <div style={{ ...cardStyle, textAlign: 'center' }}>
               <div style={{ fontSize: 32, marginBottom: 8 }}>👥</div>
-              <p style={{ color: '#666', fontSize: 13 }}>{L('Pa gen staff asiyen pou evènman sa. Ale nan paj Staff pou asiyen moun.', 'No staff assigned to this event. Go to the Staff page to assign people.', 'Aucun staff assigné. Allez sur la page Staff.')}</p>
+              <p style={{ color: '#666', fontSize: 13 }}>{'No staff assigned to this event.'}</p>
             </div>
           )}
 
@@ -822,16 +813,16 @@ function ScannerPageInner() {
                   <div style={{ marginTop: 8, display: 'flex', gap: 8, alignItems: 'center' }}>
                     {staff.activated ? (
                       <span style={{ fontSize: 10, color: '#22c55e', background: '#22c55e15', padding: '2px 8px', borderRadius: 4, fontWeight: 700 }}>
-                        ✓ {L('Aktive', 'Active', 'Actif')}
+                        ✓ {t('active')}
                       </span>
                     ) : (
                       <span style={{ fontSize: 10, color: '#888', background: '#ffffff08', padding: '2px 8px', borderRadius: 4 }}>
-                        {L('Pa anko konekte', 'Not connected yet', 'Pas encore connecte')}
+                        {'Not connected yet'}
                       </span>
                     )}
                     {staff.scansCount > 0 && (
                       <span style={{ fontSize: 10, color: '#888' }}>
-                        {staff.scansCount} {L('eskan', 'scans', 'scans')} • {staff.admittedCount} ✅ • {staff.deniedCount} ❌
+                        {staff.scansCount} {'scans'} • {staff.admittedCount} ✅ • {staff.deniedCount} ❌
                       </span>
                     )}
                   </div>
@@ -840,7 +831,7 @@ function ScannerPageInner() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
                   <button onClick={() => shareStaffPin(staff)}
                     style={{ padding: '6px 12px', borderRadius: 6, border: `1px solid ${staff.phone ? '#22c55e' : '#f97316'}`, background: staff.phone ? '#22c55e15' : 'transparent', color: staff.phone ? '#22c55e' : '#f97316', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>
-                    {staff.phone ? '💬 WhatsApp' : L('Pataje', 'Share', 'Partager')}
+                    {staff.phone ? '💬 WhatsApp' : 'Share'}
                   </button>
                 </div>
               </div>
@@ -849,7 +840,7 @@ function ScannerPageInner() {
 
           <button onClick={() => { setEventId(''); setEvent(null); setStaffList([]); setView('organizer-select'); }}
             style={{ marginTop: 16, padding: '10px 0', background: 'transparent', border: 'none', color: '#888', fontSize: 13, cursor: 'pointer' }}>
-            ← {L('Retounen', 'Back', 'Retour')}
+            ← {t('scanner_go_back')}
           </button>
         </div>
       </div>
@@ -861,7 +852,7 @@ function ScannerPageInner() {
   // ═══════════════════════════════════════════════════════════════
 
   if (view === 'fb') {
-    return <FbView eventId={eventId} eventName={event?.name || ''} organizerId={(event as any)?.organizerId || (event as any)?.uid || ''} staffId={staffId} staffName={staffName} L={L} onBack={() => setView('pin-entry')} />;
+    return <FbView eventId={eventId} eventName={event?.name || ''} organizerId={(event as any)?.organizerId || (event as any)?.uid || ''} staffId={staffId} staffName={staffName} onBack={() => setView('pin-entry')} />;
   }
 
   // ═══════════════════════════════════════════════════════════════
@@ -873,8 +864,8 @@ function ScannerPageInner() {
       <div style={{ ...pageStyle, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
         <div style={{ textAlign: 'center' }}>
           <div style={{ fontSize: 64, marginBottom: 16 }}>💰</div>
-          <p style={{ color: '#888', fontSize: 14 }}>{L('Vant tikè — Ap vini', 'Ticket sales — Coming soon', 'Ventes billets — Bientôt')}</p>
-          <button onClick={() => setView('pin-entry')} style={{ marginTop: 24, background: 'transparent', border: 'none', color: '#555', fontSize: 13, cursor: 'pointer' }}>← {L('Retounen', 'Back', 'Retour')}</button>
+          <p style={{ color: '#888', fontSize: 14 }}>{'Ticket sales — Coming soon'}</p>
+          <button onClick={() => setView('pin-entry')} style={{ marginTop: 24, background: 'transparent', border: 'none', color: '#555', fontSize: 13, cursor: 'pointer' }}>← {t('scanner_go_back')}</button>
         </div>
       </div>
     );
@@ -889,8 +880,8 @@ function ScannerPageInner() {
       <div style={{ ...pageStyle, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
         <div style={{ textAlign: 'center' }}>
           <div style={{ fontSize: 64, marginBottom: 16 }}>🛡️</div>
-          <p style={{ color: '#888', fontSize: 14 }}>{L('Rapò ensidan — Ap vini', 'Incident reports — Coming soon', 'Rapports incidents — Bientôt')}</p>
-          <button onClick={() => setView('pin-entry')} style={{ marginTop: 24, background: 'transparent', border: 'none', color: '#555', fontSize: 13, cursor: 'pointer' }}>← {L('Retounen', 'Back', 'Retour')}</button>
+          <p style={{ color: '#888', fontSize: 14 }}>{'Incident reports — Coming soon'}</p>
+          <button onClick={() => setView('pin-entry')} style={{ marginTop: 24, background: 'transparent', border: 'none', color: '#555', fontSize: 13, cursor: 'pointer' }}>← {t('scanner_go_back')}</button>
         </div>
       </div>
     );
@@ -905,8 +896,8 @@ function ScannerPageInner() {
       <div style={{ ...pageStyle, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
         <div style={{ textAlign: 'center' }}>
           <div style={{ fontSize: 64, marginBottom: 16 }}>🧑‍💼</div>
-          <p style={{ color: '#888', fontSize: 14 }}>{L('Tableau manadjè — Ap vini', 'Manager dashboard — Coming soon', 'Tableau gestionnaire — Bientôt')}</p>
-          <button onClick={() => setView('pin-entry')} style={{ marginTop: 24, background: 'transparent', border: 'none', color: '#555', fontSize: 13, cursor: 'pointer' }}>← {L('Retounen', 'Back', 'Retour')}</button>
+          <p style={{ color: '#888', fontSize: 14 }}>{'Manager dashboard — Coming soon'}</p>
+          <button onClick={() => setView('pin-entry')} style={{ marginTop: 24, background: 'transparent', border: 'none', color: '#555', fontSize: 13, cursor: 'pointer' }}>← {t('scanner_go_back')}</button>
         </div>
       </div>
     );
@@ -941,15 +932,15 @@ function ScannerPageInner() {
         {/* Stats */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 16 }}>
           <div style={{ ...cardStyle, padding: 12, textAlign: 'center' }}>
-            <div style={{ color: '#888', fontSize: 9, textTransform: 'uppercase', letterSpacing: 1 }}>{L('Eskane', 'Scanned', 'Scannes')}</div>
+            <div style={{ color: '#888', fontSize: 9, textTransform: 'uppercase', letterSpacing: 1 }}>{t('scanner_stats_scanned')}</div>
             <div style={{ fontSize: 24, fontWeight: 800 }}>{stats.total}</div>
           </div>
           <div style={{ ...cardStyle, padding: 12, textAlign: 'center' }}>
-            <div style={{ color: '#888', fontSize: 9, textTransform: 'uppercase', letterSpacing: 1 }}>{L('Antre', 'Admitted', 'Admis')}</div>
+            <div style={{ color: '#888', fontSize: 9, textTransform: 'uppercase', letterSpacing: 1 }}>{t('scanner_stats_admitted')}</div>
             <div style={{ fontSize: 24, fontWeight: 800, color: '#22c55e' }}>{stats.admitted}</div>
           </div>
           <div style={{ ...cardStyle, padding: 12, textAlign: 'center' }}>
-            <div style={{ color: '#888', fontSize: 9, textTransform: 'uppercase', letterSpacing: 1 }}>{L('Refize', 'Denied', 'Refuses')}</div>
+            <div style={{ color: '#888', fontSize: 9, textTransform: 'uppercase', letterSpacing: 1 }}>{t('scanner_stats_denied')}</div>
             <div style={{ fontSize: 24, fontWeight: 800, color: '#ef4444' }}>{stats.denied}</div>
           </div>
         </div>
@@ -963,7 +954,7 @@ function ScannerPageInner() {
               cursor: downloading || !isOnline ? 'not-allowed' : 'pointer',
               opacity: downloading || !isOnline ? 0.4 : 1,
             }}>
-            {downloading ? '...' : `⬇️ ${L('Telechaje', 'Download', 'Telecharger')} (${stats.downloaded})`}
+            {downloading ? '...' : `⬇️ ${t('scanner_download')} (${stats.downloaded})`}
           </button>
           <button onClick={handleSync} disabled={syncing || !isOnline || stats.unsynced === 0}
             style={{
@@ -975,7 +966,7 @@ function ScannerPageInner() {
               cursor: syncing || !isOnline || stats.unsynced === 0 ? 'not-allowed' : 'pointer',
               opacity: syncing || !isOnline ? 0.4 : 1,
             }}>
-            {syncing ? '...' : `🔄 ${L('Sinkronize', 'Sync', 'Sync')} (${stats.unsynced})`}
+            {syncing ? '...' : `🔄 ${t('scanner_sync')} (${stats.unsynced})`}
           </button>
         </div>
 
@@ -1004,7 +995,7 @@ function ScannerPageInner() {
               <span style={{ padding: '4px 10px', borderRadius: 4, fontSize: 11, fontWeight: 700, border: `1px solid ${lastScan.sectionColor}`, color: lastScan.sectionColor, background: lastScan.sectionColor + '15' }}>
                 {lastScan.section}
               </span>
-              <span style={{ color: '#888', fontSize: 12 }}>{L('Plas', 'Seat', 'Place')} {lastScan.seat}</span>
+              <span style={{ color: '#888', fontSize: 12 }}>{'Seat'} {lastScan.seat}</span>
             </div>
             <div style={{ color: '#555', fontSize: 10, fontFamily: 'monospace', marginTop: 8 }}>{lastScan.ticketCode}</div>
           </div>
@@ -1017,7 +1008,7 @@ function ScannerPageInner() {
               style={{ width: '100%', borderRadius: 12, border: '2px solid #f97316', display: 'block', maxHeight: 300, objectFit: 'cover' }} />
             <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: 180, height: 180, border: '2px solid #f97316', borderRadius: 12, pointerEvents: 'none', boxShadow: '0 0 0 9999px rgba(0,0,0,0.45)' }} />
             <button onClick={stopCamera} style={{ position: 'absolute', top: 8, right: 8, padding: '6px 12px', borderRadius: 6, border: 'none', background: '#ef4444', color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
-              ✕ {L('Femen', 'Close', 'Fermer')}
+              ✕ {t('close')}
             </button>
           </div>
         )}
@@ -1032,8 +1023,8 @@ function ScannerPageInner() {
           <button onClick={cameraActive ? stopCamera : startCamera}
             style={{ ...btnOrange, flex: 1, background: cameraActive ? '#ef4444' : '#f97316' }}>
             {cameraActive
-              ? `⏹ ${L('Kanpe Eskane', 'Stop Scanning', 'Arreter')}`
-              : `📷 ${lastScan ? L('Eskane Anko', 'Scan Again', 'Scanner encore') : L('Eskane QR Code', 'Scan QR Code', 'Scanner QR Code')}`}
+              ? `⏹ ${'Stop Scanning'}`
+              : `📷 ${lastScan ? 'Scan Again' : t('scanner_scan_qr')}`}
           </button>
           <button onClick={() => setShowManual(!showManual)}
             style={{ padding: '14px 20px', borderRadius: 8, border: '1px solid #1e1e2e', background: 'transparent', color: '#888', cursor: 'pointer', fontSize: 16 }}>
@@ -1045,14 +1036,14 @@ function ScannerPageInner() {
         {showManual && (
           <div style={{ ...cardStyle, marginBottom: 16 }}>
             <div style={{ color: '#f97316', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>
-              {L('Antre kod tike a', 'Enter ticket code', 'Entrez le code du billet')}
+              {t('scanner_or_enter_code')}
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
               <input value={manualCode} onChange={e => setManualCode(e.target.value.toUpperCase())}
                 onKeyDown={e => e.key === 'Enter' && handleManualScan()}
                 placeholder="ANB-XXXX..." style={{ flex: 1, padding: 12, borderRadius: 8, border: '1px solid #1e1e2e', background: '#0a0a0f', color: '#fff', fontSize: 14, fontFamily: 'monospace' }} />
               <button onClick={handleManualScan} style={{ padding: '12px 20px', borderRadius: 8, border: 'none', background: '#f97316', color: '#000', fontWeight: 700, cursor: 'pointer' }}>
-                {L('Cheke', 'Check', 'Verifier')}
+                {'Check'}
               </button>
             </div>
           </div>
@@ -1061,13 +1052,13 @@ function ScannerPageInner() {
         {/* Scan history */}
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-            <h3 style={{ fontSize: 12, fontWeight: 700, color: '#888', margin: 0 }}>{L('Istwa Eskane', 'Scan History', 'Historique')}</h3>
-            {stats.unsynced > 0 && <span style={{ fontSize: 10, color: '#f97316' }}>{stats.unsynced} {L('pa sinkronize', 'not synced', 'non sync')}</span>}
+            <h3 style={{ fontSize: 12, fontWeight: 700, color: '#888', margin: 0 }}>{'Scan History'}</h3>
+            {stats.unsynced > 0 && <span style={{ fontSize: 10, color: '#f97316' }}>{stats.unsynced} {'not synced'}</span>}
           </div>
 
           {scanHistory.length === 0 && (
             <div style={{ ...cardStyle, textAlign: 'center' }}>
-              <p style={{ color: '#555', fontSize: 13 }}>{L('Pa gen eskan anko', 'No scans yet', 'Aucun scan')}</p>
+              <p style={{ color: '#555', fontSize: 13 }}>{'No scans yet'}</p>
             </div>
           )}
 
@@ -1104,7 +1095,7 @@ function ScannerPageInner() {
         {isOrganizer && (
           <button onClick={() => setView('organizer-staff')}
             style={{ marginTop: 20, padding: '10px 0', background: 'transparent', border: 'none', color: '#888', fontSize: 13, cursor: 'pointer', width: '100%', textAlign: 'center' }}>
-            ← {L('Retounen jere ekip la', 'Back to staff management', 'Retour gestion equipe')}
+            ← {t('scanner_go_back')}
           </button>
         )}
       </div>

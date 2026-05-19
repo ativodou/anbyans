@@ -144,9 +144,7 @@ function SectionRow({ sec, onChange, onRemove, onAddZone, hasZone }: {
 // ─── Main form ───────────────────────────────────────────────────────────────
 
 function CreateEventInner() {
-  const { locale } = useT();
-  const L = (ht: string, en: string, fr: string) =>
-    ({ ht, en, fr } as Record<string, string>)[locale] ?? ht;
+  const { t } = useT();
   const { user } = useAuth();
   const router = useRouter();
 
@@ -354,15 +352,15 @@ function CreateEventInner() {
   };
 
   const TABS = [
-    { id: 'info',    label: L('Enfòmasyon', 'Info',          'Infos'),    num: '1' },
-    { id: 'venue',   label: L('Kay + Seksyon', 'Venue + Sections', 'Lieu + Sections'), num: '2' },
-    { id: 'payment', label: L('Peman',       'Payment',      'Paiement'), num: '3' },
+    { id: 'info',    label: t('create_tab_details'), num: '1' },
+    { id: 'venue',   label: t('create_tab_seat_map'), num: '2' },
+    { id: 'payment', label: t('settings_tab_payments'), num: '3' },
   ] as const;
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-6 pb-28">
       <h1 className="font-heading text-2xl mb-6">
-        {L('Kreye Evènman', 'Create Event', 'Créer un événement')}
+        {t('org_page_create_event')}
       </h1>
 
       {/* Tab nav */}
@@ -387,7 +385,7 @@ function CreateEventInner() {
             {/* Title */}
             <div>
               <label className="block text-[11px] font-bold text-gray-400 mb-1.5">
-                {L('TIT EVÈNMAN *', 'EVENT TITLE *', 'TITRE *')}
+                {t('create_event_name').toUpperCase()} *
               </label>
               <input value={title} onChange={e => setTitle(e.target.value)}
                 placeholder="Festival Soley 2026"
@@ -409,12 +407,12 @@ function CreateEventInner() {
             {/* Start date + time */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-[11px] font-bold text-gray-400 mb-1.5">{L('DAT KÒMANSMAN *', 'START DATE *', 'DATE DÉBUT *')}</label>
+                <label className="block text-[11px] font-bold text-gray-400 mb-1.5">{t('create_event_date').toUpperCase()} *</label>
                 <input type="date" value={dateStr} onChange={e => setDateStr(e.target.value)}
                   className={`w-full px-4 py-3 rounded-xl bg-white/[0.05] border text-white text-sm outline-none focus:border-orange ${errors.date ? 'border-red-500' : 'border-border'}`} />
               </div>
               <div>
-                <label className="block text-[11px] font-bold text-gray-400 mb-1.5">{L('LÈ', 'TIME', 'HEURE')}</label>
+                <label className="block text-[11px] font-bold text-gray-400 mb-1.5">{t('create_event_time').toUpperCase()}</label>
                 <input type="time" value={timeStr} onChange={e => setTimeStr(e.target.value)}
                   className="w-full px-4 py-3 rounded-xl bg-white/[0.05] border border-border text-white text-sm outline-none focus:border-orange" />
               </div>
@@ -423,13 +421,13 @@ function CreateEventInner() {
             {/* End date + time */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-[11px] font-bold text-gray-400 mb-1.5">{L('DAT FEN', 'END DATE', 'DATE FIN')}</label>
+                <label className="block text-[11px] font-bold text-gray-400 mb-1.5">END {t('create_event_date').toUpperCase()}</label>
                 <input type="date" value={endDateStr} min={dateStr} onChange={e => setEndDateStr(e.target.value)}
                   className="w-full px-4 py-3 rounded-xl bg-white/[0.05] border border-border text-white text-sm outline-none focus:border-orange" />
-                <p className="text-[10px] text-gray-500 mt-1">{L('Kite vid si menm jou', 'Leave blank if same day', 'Vide si même jour')}</p>
+                <p className="text-[10px] text-gray-500 mt-1">Leave blank if same day</p>
               </div>
               <div>
-                <label className="block text-[11px] font-bold text-gray-400 mb-1.5">{L('LÈ FEN', 'END TIME', 'HEURE FIN')}</label>
+                <label className="block text-[11px] font-bold text-gray-400 mb-1.5">END {t('create_event_time').toUpperCase()}</label>
                 <input type="time" value={endTimeStr} onChange={e => setEndTimeStr(e.target.value)}
                   className="w-full px-4 py-3 rounded-xl bg-white/[0.05] border border-border text-white text-sm outline-none focus:border-orange" />
               </div>
@@ -437,7 +435,7 @@ function CreateEventInner() {
 
             {/* Cover image */}
             <div>
-              <label className="block text-[11px] font-bold text-gray-400 mb-1.5">{L('IMAJ KOUVÈTI (URL)', 'COVER IMAGE (URL)', 'IMAGE (URL)')}</label>
+              <label className="block text-[11px] font-bold text-gray-400 mb-1.5">{t('create_upload_cover').toUpperCase()} (URL)</label>
               <input value={coverImage} onChange={e => setCoverImage(e.target.value)}
                 placeholder="https://..."
                 className="w-full px-4 py-3 rounded-xl bg-white/[0.05] border border-border text-white text-sm outline-none focus:border-orange" />
@@ -449,17 +447,17 @@ function CreateEventInner() {
 
             {/* Description */}
             <div>
-              <label className="block text-[11px] font-bold text-gray-400 mb-1.5">{L('DESKRIPSYON', 'DESCRIPTION', 'DESCRIPTION')}</label>
+              <label className="block text-[11px] font-bold text-gray-400 mb-1.5">{t('create_event_description').toUpperCase()}</label>
               <textarea value={description} onChange={e => setDescription(e.target.value)}
-                rows={3} placeholder={L('Di moun plis enfòmasyon...', 'Tell people more...', 'Plus d\'informations...')}
+                rows={3} placeholder={t('create_event_description')}
                 className="w-full px-4 py-3 rounded-xl bg-white/[0.05] border border-border text-white text-sm outline-none focus:border-orange resize-none" />
             </div>
 
             {/* Private toggle */}
             <div className="flex items-center justify-between p-4 rounded-xl bg-white/[0.03] border border-border">
               <div>
-                <p className="text-sm font-bold">{L('Evènman Prive', 'Private Event', 'Événement Privé')}</p>
-                <p className="text-[10px] text-gray-500">{L('Sèlman moun ki gen lyen an', 'Only people with the link', 'Visible uniquement via le lien')}</p>
+                <p className="text-sm font-bold">{t('create_event_private')}</p>
+                <p className="text-[10px] text-gray-500">{t('create_private_hint')}</p>
               </div>
               <button type="button" onClick={() => setIsPrivate(v => !v)}
                 className={`w-12 h-6 rounded-full transition-all relative ${isPrivate ? 'bg-orange' : 'bg-white/[0.1]'}`}>
@@ -469,7 +467,7 @@ function CreateEventInner() {
 
             <button type="button" onClick={() => setTab('venue')}
               className="w-full py-3 rounded-xl bg-orange text-white font-heading text-sm hover:bg-orange/90 transition-all">
-              {L('Kontinye →', 'Continue →', 'Continuer →')}
+              {t('create_continue')}
             </button>
           </>
         )}
@@ -479,7 +477,7 @@ function CreateEventInner() {
           <>
             {/* ─ Venue search ─ */}
             <div>
-              <label className="block text-[11px] font-bold text-gray-400 mb-1.5">{L('KAY EVÈNMAN *', 'VENUE *', 'LIEU *')}</label>
+              <label className="block text-[11px] font-bold text-gray-400 mb-1.5">{t('create_event_location').toUpperCase()} *</label>
               <div style={{ position: 'relative' }}>
                 <input
                   value={venueQuery}
@@ -534,12 +532,12 @@ function CreateEventInner() {
             {/* ─ Floor plan upload ─ */}
             <div>
               <label className="block text-[11px] font-bold text-gray-400 mb-1.5">
-                {L('PLAN SAL (Opsyonèl)', 'FLOOR PLAN (Optional)', 'PLAN DE SALLE (Optionnel)')}
+                {t('create_upload_floor_plan').toUpperCase()} (Optional)
               </label>
               {!floorPlanImage ? (
                 <label className="flex flex-col items-center justify-center gap-2 p-6 rounded-xl border border-dashed border-orange/30 cursor-pointer hover:border-orange/60 transition-all">
                   <span style={{ fontSize: 32 }}>🏟️</span>
-                  <span className="text-sm text-gray-400">{L('Telechaje foto plan sal la', 'Upload floor plan image', 'Télécharger le plan')}</span>
+                  <span className="text-sm text-gray-400">{t('create_upload_floor_plan')}</span>
                   <span className="text-[11px] text-gray-600">JPG, PNG · Anything works</span>
                   <input type="file" accept="image/*" className="hidden"
                     onChange={e => {
@@ -619,7 +617,7 @@ function CreateEventInner() {
                     onClick={() => { setFloorPlanImage(null); setMapZones([]); }}
                     style={{ marginTop: 8, fontSize: 11, color: '#666', background: 'none',
                       border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
-                    {L('Chanje imaj la', 'Replace image', 'Changer l\'image')}
+                    Replace image
                   </button>
                 </div>
               )}
@@ -628,7 +626,7 @@ function CreateEventInner() {
             {/* ─ Sections ─ */}
             <div>
               <label className="block text-[11px] font-bold text-gray-400 mb-2">
-                {L('SEKSYON *', 'SECTIONS *', 'SECTIONS *')}
+                SECTIONS *
               </label>
 
               {errors.sections && (
@@ -647,7 +645,7 @@ function CreateEventInner() {
                     onRemove={() => setSections(s => s.filter(x => x.id !== sec.id))}
                     onAddZone={() => {
                       if (!floorPlanImage) {
-                        alert(L('Telechaje plan sal la anvan', 'Upload a floor plan first', 'Téléchargez d\'abord le plan'));
+                        alert(t('create_upload_floor_plan_first'));
                         return;
                       }
                       addZoneForSection(sec.id);
@@ -663,13 +661,13 @@ function CreateEventInner() {
                   color: COLORS[s.length % COLORS.length], type: 'ga',
                 }])}
                 className="w-full mt-4 py-3 rounded-xl border border-dashed border-orange/40 text-orange text-sm font-bold hover:bg-orange/5 transition-all">
-                + {L('Ajoute Seksyon', 'Add Section', 'Ajouter Section')}
+                + {t('create_add_ticket_type')}
               </button>
 
               {/* Summary */}
               {sections.length > 0 && (
                 <div className="bg-white/[0.03] rounded-xl p-4 mt-4">
-                  <p className="text-[10px] font-bold text-gray-500 mb-2">{L('REZIME', 'SUMMARY', 'RÉSUMÉ')}</p>
+                  <p className="text-[10px] font-bold text-gray-500 mb-2">{t('create_tab_summary').toUpperCase()}</p>
                   <div className="space-y-1.5">
                     {sections.map(s => (
                       <div key={s.id} className="flex items-center gap-2 text-xs">
@@ -684,7 +682,7 @@ function CreateEventInner() {
                       </div>
                     ))}
                     <div className="border-t border-border pt-1.5 flex justify-between text-[10px] text-gray-500">
-                      <span>{L('Total', 'Total capacity', 'Capacité totale')}</span>
+                      <span>Total {t('create_ticket_quantity').toLowerCase()}</span>
                       <span>{sections.reduce((a, s) => a + s.capacity, 0).toLocaleString()}</span>
                     </div>
                   </div>
@@ -695,11 +693,11 @@ function CreateEventInner() {
             <div className="flex gap-3">
               <button type="button" onClick={() => setTab('info')}
                 className="flex-1 py-3 rounded-xl border border-border text-gray-400 text-sm font-bold hover:text-white transition-all">
-                ← {L('Tounen', 'Back', 'Retour')}
+                ← {t('create_back')}
               </button>
               <button type="button" onClick={() => setTab('payment')}
                 className="flex-1 py-3 rounded-xl bg-orange text-white font-heading text-sm hover:bg-orange/90 transition-all">
-                {L('Kontinye →', 'Continue →', 'Continuer →')}
+                {t('create_continue')}
               </button>
             </div>
           </>
@@ -709,15 +707,13 @@ function CreateEventInner() {
         {tab === 'payment' && (
           <>
             <p className="text-[11px] text-gray-500">
-              {L('Metòd peman yo enpòte soti nan Settings.',
-                 'Payment methods are inherited from Settings.',
-                 'Méthodes héritées des Paramètres.')}
+              Payment methods are inherited from Settings.
             </p>
 
             {/* Exchange rate */}
             <div>
               <label className="block text-[11px] font-bold text-gray-400 mb-1.5">
-                💱 {L('TO ECHANJ 1 USD =', 'EXCHANGE RATE 1 USD =', 'TAUX 1 USD =')}
+                💱 EXCHANGE RATE 1 USD =
               </label>
               <div className="flex items-center gap-3">
                 <input type="number" min={1} value={exchangeRate}
@@ -766,7 +762,7 @@ function CreateEventInner() {
 
             <button type="button" onClick={() => setTab('venue')}
               className="w-full py-3 rounded-xl border border-border text-gray-400 text-sm font-bold hover:text-white transition-all">
-              ← {L('Tounen', 'Back', 'Retour')}
+              ← {t('create_back')}
             </button>
           </>
         )}
@@ -775,14 +771,14 @@ function CreateEventInner() {
       {/* ── Fixed publish bar ── */}
       <div className="fixed bottom-0 left-0 right-0 bg-black/90 backdrop-blur border-t border-border px-4 py-3 flex items-center gap-3">
         <div className="flex-1 text-xs text-gray-500">
-          {sections.length} {L('seksyon', 'sections', 'sections')} ·{' '}
-          {sections.reduce((a, s) => a + s.capacity, 0)} {L('plas', 'seats', 'places')}
+          {sections.length} sections ·{' '}
+          {sections.reduce((a, s) => a + s.capacity, 0)} seats
           {mapZones.length > 0 && <span className="ml-2 text-orange">· 🗺 {mapZones.length} zones</span>}
         </div>
         <button onClick={save} disabled={saving}
           className="px-6 py-3 rounded-xl bg-orange text-white font-heading text-sm hover:bg-orange/90 disabled:opacity-40 transition-all flex items-center gap-2">
           {saving && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
-          {L('Pibliye Evènman', 'Publish Event', 'Publier')}
+          {t('create_publish')}
         </button>
       </div>
     </div>

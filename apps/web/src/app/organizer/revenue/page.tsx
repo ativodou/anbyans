@@ -30,9 +30,7 @@ interface VendorPurchase {
 export default function OrganizerRevenuePage() {
   const { user } = useAuth();
   const { fmt } = useCurrency(user?.uid);
-  const { locale } = useT();
-  const L = (ht: string, en: string, fr: string) =>
-    ({ ht, en, fr } as Record<string, string>)[locale] ?? ht;
+  const { t } = useT();
 
   const { selectedEvent } = useOrganizerEvent();
   const [viewMode, setViewMode] = useState<'all' | 'selected'>('selected');
@@ -76,16 +74,16 @@ export default function OrganizerRevenuePage() {
 
   // ── Filter by view mode ──
   const filteredTickets = viewMode === 'selected' && selectedEvent
-    ? allTickets.filter(t => t.eventId === selectedEvent.id)
+    ? allTickets.filter(tk => tk.eventId === selectedEvent.id)
     : allTickets;
 
   const filteredVendorPurchases = viewMode === 'selected' && selectedEvent
     ? vendorPurchases.filter(vp => vp.eventId === selectedEvent.id)
     : vendorPurchases;
 
-  const validTickets        = filteredTickets.filter(t => t.status !== 'cancelled' && t.status !== 'refunded');
-  const totalRevenue        = validTickets.reduce((a, t) => a + (t.price || 0), 0);
-  const vendorTicketRevenue = validTickets.filter(t => t.vendorId).reduce((a, t) => a + (t.price || 0), 0);
+  const validTickets        = filteredTickets.filter(tk => tk.status !== 'cancelled' && tk.status !== 'refunded');
+  const totalRevenue        = validTickets.reduce((a, tk) => a + (tk.price || 0), 0);
+  const vendorTicketRevenue = validTickets.filter(tk => tk.vendorId).reduce((a, tk) => a + (tk.price || 0), 0);
   const onlineRevenue       = totalRevenue - vendorTicketRevenue;
 
   const vendorStats = vendors.map(v => {
@@ -103,12 +101,12 @@ export default function OrganizerRevenuePage() {
       const d = new Date();
       d.setDate(d.getDate() - i);
       const label = `${d.getMonth() + 1}/${d.getDate()}`;
-      const dayTickets = validTickets.filter(t => {
-        if (!t.purchasedAt?.seconds) return false;
-        const td = new Date(t.purchasedAt.seconds * 1000);
+      const dayTickets = validTickets.filter(tk => {
+        if (!tk.purchasedAt?.seconds) return false;
+        const td = new Date(tk.purchasedAt.seconds * 1000);
         return td.getDate() === d.getDate() && td.getMonth() === d.getMonth() && td.getFullYear() === d.getFullYear();
       });
-      days.push({ label, revenue: dayTickets.reduce((a, t) => a + (t.price || 0), 0), count: dayTickets.length });
+      days.push({ label, revenue: dayTickets.reduce((a, tk) => a + (tk.price || 0), 0), count: dayTickets.length });
     }
     return days;
   })();
@@ -116,11 +114,11 @@ export default function OrganizerRevenuePage() {
 
   // ── Section breakdown ──
   const sectionMap: Record<string, { count: number; revenue: number; color: string }> = {};
-  validTickets.forEach(t => {
-    const sec = t.section || 'GA';
-    if (!sectionMap[sec]) sectionMap[sec] = { count: 0, revenue: 0, color: t.sectionColor || '#888' };
+  validTickets.forEach(tk => {
+    const sec = tk.section || 'GA';
+    if (!sectionMap[sec]) sectionMap[sec] = { count: 0, revenue: 0, color: tk.sectionColor || '#888' };
     sectionMap[sec].count++;
-    sectionMap[sec].revenue += t.price || 0;
+    sectionMap[sec].revenue += tk.price || 0;
   });
 
   if (loading) return (
@@ -136,13 +134,13 @@ export default function OrganizerRevenuePage() {
       <div className="flex items-center justify-between mb-6">
         <h2 className="font-heading text-lg tracking-wide">
           {viewMode === 'all'
-            ? L('Tout Evènman', 'All Events', 'Tous les événements')
-            : selectedEvent?.name || L('Evènman Chwazi', 'Selected Event', 'Événement sélectionné')}
+            ? t('rev_all_events')
+            : selectedEvent?.name || t('rev_selected_event')}
         </h2>
         <div className="flex items-center gap-1 bg-white/[0.04] border border-border rounded-lg p-1">
           <button onClick={() => setViewMode('all')}
             className={`px-3 py-1.5 rounded text-[11px] font-bold transition-all ${viewMode === 'all' ? 'bg-orange text-white' : 'text-gray-muted hover:text-white'}`}>
-            {L('Tout', 'All', 'Tous')}
+            {t('all')}
           </button>
           <button onClick={() => setViewMode('selected')} disabled={!selectedEvent}
             className={`px-3 py-1.5 rounded text-[11px] font-bold transition-all ${
@@ -152,7 +150,7 @@ export default function OrganizerRevenuePage() {
             }`}>
             {selectedEvent
               ? selectedEvent.name.length > 18 ? selectedEvent.name.slice(0, 18) + '…' : selectedEvent.name
-              : L('Chwazi evènman', 'Select event', 'Choisir')}
+              : t('rev_select_event')}
           </button>
         </div>
       </div>
@@ -160,11 +158,11 @@ export default function OrganizerRevenuePage() {
       {/* ── Stats ── */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
         {[
-          { label: L('REVNI TOTAL', 'TOTAL REVENUE', 'REVENU TOTAL'),        value: '__PRICE__', priceUsd: totalRevenue,           sub: `${validTickets.length} ${L('tikè', 'tickets', 'billets')}` },
-          { label: L('VANT ONLINE', 'ONLINE SALES', 'VENTES EN LIGNE'),       value: '__PRICE__', priceUsd: onlineRevenue,           sub: totalRevenue > 0 ? `${Math.round(onlineRevenue / totalRevenue * 100)}% total` : '—', color: 'text-green' },
-          { label: L('VANT REVANDÈ', 'RESELLER SALES', 'VENTES REVENDEURS'), value: '__PRICE__', priceUsd: vendorTicketRevenue,     sub: totalRevenue > 0 ? `${Math.round(vendorTicketRevenue / totalRevenue * 100)}% total` : '—', color: 'text-orange' },
-          { label: L('REVANDÈ DWE', 'RESELLERS OWE', 'REVENDEURS DWE'),      value: '__PRICE__', priceUsd: totalVendorOwed,         color: totalVendorOwed > 0 ? 'text-orange' : 'text-green' },
-          { label: L('MANJE & BWESON', 'FOOD & DRINKS', 'NOURRITURE & BOISSONS'), value: '$0', sub: L('Poko disponib', 'Coming soon', 'Bientôt disponible'), color: 'text-gray-muted' },
+          { label: t('rev_total_revenue'),   value: '__PRICE__', priceUsd: totalRevenue,       sub: `${validTickets.length} ${t('rev_ticket_count')}` },
+          { label: t('rev_online_sales'),    value: '__PRICE__', priceUsd: onlineRevenue,       sub: totalRevenue > 0 ? `${Math.round(onlineRevenue / totalRevenue * 100)}% total` : '—', color: 'text-green' },
+          { label: t('rev_reseller_sales'),  value: '__PRICE__', priceUsd: vendorTicketRevenue, sub: totalRevenue > 0 ? `${Math.round(vendorTicketRevenue / totalRevenue * 100)}% total` : '—', color: 'text-orange' },
+          { label: t('rev_resellers_owe'),   value: '__PRICE__', priceUsd: totalVendorOwed,     color: totalVendorOwed > 0 ? 'text-orange' : 'text-green' },
+          { label: t('rev_food_bev'),        value: '$0', sub: t('rev_coming_soon'), color: 'text-gray-muted' },
         ].map((s, i) => (
           <div key={i} className="bg-dark-card border border-border rounded-card p-4">
             <p className="text-[10px] text-gray-muted uppercase tracking-widest mb-1.5">{s.label}</p>
@@ -177,13 +175,13 @@ export default function OrganizerRevenuePage() {
       {/* ── Daily Revenue Chart ── */}
       <div className="bg-dark-card border border-border rounded-card p-5 mb-6">
         <h3 className="font-heading text-sm tracking-widest text-gray-muted uppercase mb-4">
-          {L('VANT 14 DÈNYE JOU', 'LAST 14 DAYS', '14 DERNIERS JOURS')}
+          {t('rev_sales_chart')}
         </h3>
         <div className="flex items-end gap-1 h-28">
           {dailyData.map((d, i) => (
             <div key={i} className="flex-1 flex flex-col items-center gap-1 group relative">
               <div className="absolute -top-7 left-1/2 -translate-x-1/2 bg-dark border border-border rounded px-1.5 py-0.5 text-[9px] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-                <PriceDisplay usd={d.revenue} fmt={fmt} className="text-[10px]" /> · {d.count} {L('tikè', 'tickets', 'billets')}
+                <PriceDisplay usd={d.revenue} fmt={fmt} className="text-[10px]" /> · {d.count} {t('rev_ticket_count')}
               </div>
               <div
                 className="w-full rounded-t transition-all bg-orange/70 hover:bg-orange"
@@ -199,9 +197,9 @@ export default function OrganizerRevenuePage() {
 
         {/* ── Section Breakdown ── */}
         <div className="bg-dark-card border border-border rounded-card p-5">
-          <h3 className="font-heading text-lg tracking-wide mb-4">{L('PA SEKSYON', 'BY SECTION', 'PAR SECTION')}</h3>
+          <h3 className="font-heading text-lg tracking-wide mb-4">{t('rev_by_section')}</h3>
           {Object.keys(sectionMap).length === 0 ? (
-            <p className="text-gray-muted text-sm text-center py-6">{L('Pa gen done.', 'No data.', 'Aucune donnée.')}</p>
+            <p className="text-gray-muted text-sm text-center py-6">{t('rev_no_data')}</p>
           ) : (
             <div className="space-y-3">
               {Object.entries(sectionMap).sort((a, b) => b[1].revenue - a[1].revenue).map(([sec, data]) => (
@@ -210,7 +208,7 @@ export default function OrganizerRevenuePage() {
                     <div className="flex items-center gap-2">
                       <span className="w-2.5 h-2.5 rounded-full" style={{ background: data.color }} />
                       <span className="text-xs font-bold">{sec}</span>
-                      <span className="text-[10px] text-gray-muted">{data.count} {L('tikè', 'tickets', 'billets')}</span>
+                      <span className="text-[10px] text-gray-muted">{data.count} {t('rev_ticket_count')}</span>
                     </div>
                     <span className="text-xs font-bold"><PriceDisplay usd={data.revenue} fmt={fmt} className="text-xs" /></span>
                   </div>
@@ -225,25 +223,25 @@ export default function OrganizerRevenuePage() {
 
         {/* ── Reseller Balances ── */}
         <div className="bg-dark-card border border-border rounded-card p-5">
-          <h3 className="font-heading text-lg tracking-wide mb-4">{L('BALANS REVANDÈ', 'RESELLER BALANCES', 'BALANCES REVENDEURS')}</h3>
+          <h3 className="font-heading text-lg tracking-wide mb-4">{t('rev_reseller_balance')}</h3>
           {vendorStats.length === 0 ? (
-            <p className="text-gray-muted text-sm text-center py-6">{L('Pa gen revandè ankò.', 'No resellers yet.', "Aucun revendeur pour l'instant.")}</p>
+            <p className="text-gray-muted text-sm text-center py-6">{t('rev_no_resellers')}</p>
           ) : (
             <div className="space-y-2">
               {vendorStats.map(v => (
                 <div key={v.id} className="flex items-center gap-3 py-2.5 border-b border-border last:border-0">
                   <span className="text-base">🏪</span>
                   <p className="text-xs font-semibold flex-1">{v.name}</p>
-                  <p className="text-xs text-gray-light">{v.totalVSold} {L('tikè', 'tickets', 'billets')}</p>
+                  <p className="text-xs text-gray-light">{v.totalVSold} {t('rev_ticket_count')}</p>
                   {v.totalOwed > 0 ? (
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-bold"><PriceDisplay usd={v.totalOwed} fmt={fmt} className="text-xs" /></span>
                       <button className="px-2.5 py-1 rounded-lg bg-orange text-white text-[9px] font-bold hover:bg-orange/80 transition-all">
-                        {L('Mande', 'Request', 'Demander')}
+                        {t('rev_request')}
                       </button>
                     </div>
                   ) : (
-                    <span className="text-xs font-bold text-green">✓ {L('Regle', 'Settled', 'Réglé')}</span>
+                    <span className="text-xs font-bold text-green">✓ {t('rev_settled')}</span>
                   )}
                 </div>
               ))}

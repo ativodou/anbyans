@@ -4,12 +4,14 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { getTransferByToken, acceptTransfer, getEvent } from '@/lib/db';
 import type { EventData } from '@/lib/db';
+import { useT } from '@/i18n';
 
 type Status = 'loading' | 'ready' | 'accepting' | 'done' | 'error';
 
 export default function TransferAcceptPage() {
   const { token } = useParams<{ token: string }>();
   const router = useRouter();
+  const { t } = useT();
 
   const [status, setStatus] = useState<Status>('loading');
   const [errMsg, setErrMsg] = useState('');
@@ -25,21 +27,22 @@ export default function TransferAcceptPage() {
   useEffect(() => {
     const load = async () => {
       try {
-        const t = await getTransferByToken(token);
-        if (!t) throw new Error('Lyen transfè sa pa valid.');
-        if (t.status !== 'pending') throw new Error('Transfè sa deja itilize oswa anile.');
-        if (new Date() > t.expiry) throw new Error('Transfè a ekspire. Mande moun nan voye yon lòt.');
+        const transferData = await getTransferByToken(token);
+        if (!transferData) throw new Error(t('transfer_err_invalid'));
+        if (transferData.status !== 'pending') throw new Error(t('transfer_err_used'));
+        if (new Date() > transferData.expiry) throw new Error(t('transfer_err_expired'));
 
-        const ev = await getEvent(t.eventId);
-        setTransfer(t);
+        const ev = await getEvent(transferData.eventId);
+        setTransfer(transferData);
         setEvent(ev);
         setStatus('ready');
       } catch (err) {
-        setErrMsg(err instanceof Error ? err.message : 'Erè enkoni.');
+        setErrMsg(err instanceof Error ? err.message : t('error_unknown'));
         setStatus('error');
       }
     };
     load();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
   const handleAccept = async () => {
@@ -48,7 +51,7 @@ export default function TransferAcceptPage() {
       await acceptTransfer(token);
       setStatus('done');
     } catch (err) {
-      setErrMsg(err instanceof Error ? err.message : 'Erè.');
+      setErrMsg(err instanceof Error ? err.message : t('error_unknown'));
       setStatus('error');
     }
   };
@@ -67,10 +70,10 @@ export default function TransferAcceptPage() {
   if (status === 'error') return (
     <div style={{ minHeight: '100vh', background: '#0a0a0f', color: '#fff', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, gap: 16 }}>
       <div style={{ fontSize: 52 }}>❌</div>
-      <h1 style={{ fontSize: 20, fontWeight: 800, textAlign: 'center' }}>Transfè pa valid</h1>
+      <h1 style={{ fontSize: 20, fontWeight: 800, textAlign: 'center' }}>{t('transfer_invalid_title')}</h1>
       <p style={{ color: '#888', fontSize: 14, textAlign: 'center', maxWidth: 320 }}>{errMsg}</p>
       <button onClick={() => router.push('/')} style={{ padding: '12px 24px', borderRadius: 10, background: '#6366f1', color: '#fff', fontWeight: 700, fontSize: 14, border: 'none', cursor: 'pointer' }}>
-        Retounen Akèy
+        {t('transfer_go_home')}
       </button>
     </div>
   );
@@ -78,15 +81,15 @@ export default function TransferAcceptPage() {
   if (status === 'done') return (
     <div style={{ minHeight: '100vh', background: '#0a0a0f', color: '#fff', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, gap: 16 }}>
       <div style={{ fontSize: 52 }}>🎉</div>
-      <h1 style={{ fontSize: 24, fontWeight: 800, textAlign: 'center' }}>Tikè ou a prèt!</h1>
+      <h1 style={{ fontSize: 24, fontWeight: 800, textAlign: 'center' }}>{t('transfer_done_title')}</h1>
       <p style={{ color: '#888', fontSize: 14, textAlign: 'center', maxWidth: 320 }}>
-        Transfè a aksepte. Ou ka wè tikè ou a nan paj tikè yo ak nimewo telefòn ou ak PIN ou.
+        {t('transfer_done_desc')}
       </p>
       <button
         onClick={() => router.push('/tickets')}
         style={{ padding: '14px 32px', borderRadius: 12, background: '#6366f1', color: '#fff', fontWeight: 700, fontSize: 15, border: 'none', cursor: 'pointer' }}
       >
-        🎫 Wè Tikè Mwen
+        {t('transfer_view_ticket')}
       </button>
     </div>
   );
@@ -104,9 +107,9 @@ export default function TransferAcceptPage() {
         {/* Icon */}
         <div style={{ textAlign: 'center', marginBottom: 24 }}>
           <div style={{ fontSize: 56 }}>🎫</div>
-          <h1 style={{ fontSize: 22, fontWeight: 800, marginTop: 12 }}>Ou resevwa yon tikè!</h1>
+          <h1 style={{ fontSize: 22, fontWeight: 800, marginTop: 12 }}>{t('transfer_received_title')}</h1>
           <p style={{ color: '#888', fontSize: 13, marginTop: 6 }}>
-            Yon moun ap transfere yon tikè ba ou. Aksepte l anvan li ekspire.
+            {t('transfer_received_desc')}
           </p>
         </div>
 
@@ -128,12 +131,12 @@ export default function TransferAcceptPage() {
         <div style={{ background: '#12121a', border: '1px solid #6366f1', borderRadius: 14, padding: 20, marginBottom: 24 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
-              <div style={{ color: '#888', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 }}>Pou</div>
+              <div style={{ color: '#888', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 }}>{t('transfer_for')}</div>
               <div style={{ fontWeight: 700, fontSize: 16, marginTop: 2 }}>{transfer?.transferToName}</div>
               <div style={{ color: '#888', fontSize: 12 }}>{transfer?.transferToPhone}</div>
             </div>
             <div style={{ textAlign: 'right' }}>
-              <div style={{ color: '#f59e0b', fontSize: 11, fontWeight: 700 }}>⏳ {hoursLeft}è ki rete</div>
+              <div style={{ color: '#f59e0b', fontSize: 11, fontWeight: 700 }}>⏳ {hoursLeft} {t('transfer_hours_left')}</div>
             </div>
           </div>
         </div>
@@ -148,11 +151,11 @@ export default function TransferAcceptPage() {
             cursor: 'pointer', opacity: status === 'accepting' ? 0.7 : 1,
           }}
         >
-          {status === 'accepting' ? 'Ap aksepte...' : '✅ Aksepte Tikè Sa'}
+          {status === 'accepting' ? t('transfer_accepting') : t('transfer_accept_btn')}
         </button>
 
         <p style={{ color: '#555', fontSize: 11, textAlign: 'center', marginTop: 14 }}>
-          Lè ou aksepte, tikè a ap anrejistre sou nimewo telefòn ou bay la.
+          {t('transfer_note')}
         </p>
       </div>
     </div>

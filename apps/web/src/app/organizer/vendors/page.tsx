@@ -38,8 +38,7 @@ const sectionColors: Record<string, string> = {
 
 export default function OrganizerVendorsPage() {
   const { user } = useAuth();
-  const { t, locale } = useT();
-  const L = (ht: string, en: string, fr: string) => ({ ht, en, fr } as Record<string, string>)[locale] ?? ht;
+  const { t } = useT();
   const { selectedEvent } = useOrganizerEvent();
 
   const [events, setEvents]       = useState<EventData[]>([]);
@@ -220,9 +219,9 @@ Konekte sou dachbod ou pou achte tikè bulk:
       {/* ── Main tabs ── */}
       <div className="flex gap-2 mb-5 border-b border-border">
         {([
-          ['my', `👥 ${L('Revandè Mwen', 'My Resellers', 'Mes Revendeurs')}`, resellers.length],
-          ['available', `🔍 ${L('Revandè Disponib', 'Available Resellers', 'Revendeurs Disponibles')}`, unassigned.length],
-          ['requests', `🙋 ${L('Demann', 'Requests', 'Demandes')}`, vendorRequests.length],
+          ['my', `👥 ${t('org_my_resellers')}`, resellers.length],
+          ['available', `🔍 ${t('org_available_resellers')}`, unassigned.length],
+          ['requests', `🙋 ${t('org_requests')}`, vendorRequests.length],
         ] as const).map(([id, label, count]) => (
           <button key={id} onClick={() => setMainTab(id)}
             className={`px-4 py-2 text-xs font-bold border-b-2 transition-colors ${mainTab === id ? 'border-orange text-orange' : 'border-transparent text-gray-muted hover:text-white'}`}>
@@ -235,14 +234,12 @@ Konekte sou dachbod ou pou achte tikè bulk:
       {mainTab === 'requests' && (
         <div>
           <p className="text-xs text-gray-muted mb-4">
-            {L('Vande ki mande pou travay evènman ou yo. Apwouve oswa refize yo.',
-              'Vendors requesting to work your events. Approve or deny them.',
-              'Vendeurs demandant à travailler vos événements. Approuvez ou refusez.')}
+            {t('org_requests_desc')}
           </p>
           {vendorRequests.length === 0 ? (
             <div className="bg-dark-card border border-border rounded-card p-10 text-center">
               <p className="text-2xl mb-2">🙌</p>
-              <p className="text-xs text-gray-muted">{L('Pa gen demann annatant.', 'No pending requests.', 'Aucune demande en attente.')}</p>
+              <p className="text-xs text-gray-muted">{t('org_no_requests')}</p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -268,13 +265,13 @@ Konekte sou dachbod ou pou achte tikè bulk:
                         onClick={() => handleResolveRequest(req, 'approved')}
                         disabled={resolvingReq === req.id}
                         className="px-4 py-2 rounded-lg bg-green text-white text-xs font-bold hover:opacity-80 disabled:opacity-40 transition-all">
-                        {resolvingReq === req.id ? '...' : `✓ ${L('Apwouve', 'Approve', 'Approuver')}`}
+                        {resolvingReq === req.id ? '...' : `✓ ${t('org_approve')}`}
                       </button>
                       <button
                         onClick={() => handleResolveRequest(req, 'denied')}
                         disabled={resolvingReq === req.id}
                         className="px-4 py-2 rounded-lg border border-border text-gray-muted text-xs font-bold hover:border-red hover:text-red disabled:opacity-40 transition-all">
-                        ✕ {L('Refize', 'Deny', 'Refuser')}
+                        ✕ {t('org_deny')}
                       </button>
                     </div>
                   </div>
@@ -308,7 +305,7 @@ Konekte sou dachbod ou pou achte tikè bulk:
                         <p className="font-bold text-sm">{v.name}</p>
                         {interestedInMyEvents.length > 0 && (
                           <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange/20 text-orange">
-                            🎯 {L('Enterese', 'Interested', 'Intéressé')}
+                            🎯 {t('org_interested')}
                           </span>
                         )}
                       </div>

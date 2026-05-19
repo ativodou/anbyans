@@ -57,9 +57,7 @@ function Toggle({ label, hint, value, onChange, warn }: { label: string; hint?: 
 function OrganizerSettingsInner() {
   const { user } = useAuth();
   const searchParams = useSearchParams();
-  const { locale } = useT();
-  const L = (ht: string, en: string, fr: string) =>
-    ({ ht, en, fr } as Record<string, string>)[locale] ?? ht;
+  const { t } = useT();
 
   const [activeTab, setActiveTab] = useState<SettingsTab>('profile');
   const [events, setEvents]       = useState<EventData[]>([]);
@@ -257,11 +255,11 @@ function OrganizerSettingsInner() {
   };
 
   const TABS: { key: SettingsTab; icon: string; label: string }[] = [
-    { key: 'profile',       icon: '🏢', label: L('Pwofil',        'Profile',       'Profil') },
-    { key: 'payments',      icon: '💳', label: L('Peman',         'Payments',      'Paiements') },
-    { key: 'scanner',       icon: '📱', label: L('Eskanè',        'Scanner',       'Scanner') },
-    { key: 'staff',         icon: '👥', label: L('Staff',         'Staff',         'Personnel') },
-    { key: 'notifications', icon: '🔔', label: L('Notifikasyon',  'Notifications', 'Notifications') },
+    { key: 'profile',       icon: '🏢', label: t('settings_tab_profile') },
+    { key: 'payments',      icon: '💳', label: t('settings_tab_payments') },
+    { key: 'scanner',       icon: '📱', label: t('settings_tab_scanner') },
+    { key: 'staff',         icon: '👥', label: t('settings_tab_staff') },
+    { key: 'notifications', icon: '🔔', label: t('settings_tab_notifications') },
   ];
 
   const sections = ['GA', 'VIP', 'VVIP'];
@@ -271,24 +269,24 @@ function OrganizerSettingsInner() {
 
       {/* ── Tabs ── */}
       <div className="flex gap-1 mb-6 border-b border-border overflow-x-auto">
-        {TABS.map(t => (
-          <button key={t.key} onClick={() => setActiveTab(t.key)}
+        {TABS.map(tab => (
+          <button key={tab.key} onClick={() => setActiveTab(tab.key)}
             className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-bold border-b-2 whitespace-nowrap transition-colors ${
-              activeTab === t.key ? 'border-orange text-orange' : 'border-transparent text-gray-muted hover:text-white'
+              activeTab === tab.key ? 'border-orange text-orange' : 'border-transparent text-gray-muted hover:text-white'
             }`}>
-            {t.icon} {t.label}
+            {tab.icon} {tab.label}
           </button>
         ))}
       </div>
 
       {/* ══ PROFILE ══ */}
       {activeTab === 'profile' && (
-        <SectionCard title={L('Enfòmasyon Biznis', 'Business Info', 'Informations Entreprise')}>
+        <SectionCard title={t('settings_biz_info')}>
           <div className="space-y-3">
 
             {/* ── Logo upload ── */}
             <div>
-              <label className="block text-[11px] font-semibold text-gray-light mb-2">{L('Logo Biznis', 'Business Logo', 'Logo Entreprise')}</label>
+              <label className="block text-[11px] font-semibold text-gray-light mb-2">{t('settings_biz_logo')}</label>
               <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
                 <div style={{ width: 72, height: 72, borderRadius: 12, background: '#1e1e2e', border: '2px dashed #333', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}>
                   {logoURL
@@ -297,7 +295,7 @@ function OrganizerSettingsInner() {
                 </div>
                 <div>
                   <label style={{ display: 'inline-block', padding: '8px 16px', borderRadius: 8, background: '#f97316', color: '#000', fontSize: 12, fontWeight: 700, cursor: logoUploading ? 'not-allowed' : 'pointer', opacity: logoUploading ? 0.6 : 1 }}>
-                    {logoUploading ? L('Ap chaje...', 'Uploading...', 'Chargement...') : L('📷 Chwazi Logo', '📷 Choose Logo', '📷 Choisir Logo')}
+                    {logoUploading ? t('settings_logo_uploading') : t('settings_logo_choose')}
                     <input type="file" accept="image/*" style={{ display: 'none' }} disabled={logoUploading}
                       onChange={async (e) => {
                         const file = e.target.files?.[0];
@@ -314,11 +312,11 @@ function OrganizerSettingsInner() {
                   {logoURL && (
                     <button onClick={async () => { if (!user?.uid) return; await updateOrganizerLogo(user.uid, ''); setLogoURL(null); }}
                       style={{ display: 'block', marginTop: 6, fontSize: 11, color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-                      {L('Retire Logo', 'Remove Logo', 'Supprimer Logo')}
+                      {t('settings_logo_remove')}
                     </button>
                   )}
                   <p style={{ color: '#555', fontSize: 11, marginTop: 6 }}>
-                    {L('JPG, PNG, WebP · Max 5MB · Rezize otomatikman', 'JPG, PNG, WebP · Max 5MB · Auto-resized to 256px', 'JPG, PNG, WebP · Max 5MB · Redimensionné automatiquement')}
+                    {t('settings_logo_hint')}
                   </p>
                 </div>
               </div>
@@ -326,30 +324,30 @@ function OrganizerSettingsInner() {
 
             {/* ── Business Name ── */}
             <div>
-              <label className="block text-[11px] font-semibold text-gray-light mb-1.5">{L('Non Biznis', 'Business Name', 'Nom Entreprise')}</label>
+              <label className="block text-[11px] font-semibold text-gray-light mb-1.5">{t('settings_biz_name')}</label>
               <input value={bizName} onChange={e => setBizName(e.target.value)}
                 className="w-full px-3.5 py-2.5 rounded-[10px] bg-white/[0.04] border border-border text-white text-[13px] outline-none focus:border-orange" />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-[11px] font-semibold text-gray-light mb-1.5">{L('Imèl', 'Email', 'Email')}</label>
+                <label className="block text-[11px] font-semibold text-gray-light mb-1.5">{t('email')}</label>
                 <input value={email} onChange={e => setEmail(e.target.value)}
                   className="w-full px-3.5 py-2.5 rounded-[10px] bg-white/[0.04] border border-border text-white text-[13px] outline-none focus:border-orange" />
               </div>
               <div>
-                <label className="block text-[11px] font-semibold text-gray-light mb-1.5">{L('Telefòn', 'Phone', 'Téléphone')}</label>
+                <label className="block text-[11px] font-semibold text-gray-light mb-1.5">{t('phone')}</label>
                 <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="+509 ..."
                   className="w-full px-3.5 py-2.5 rounded-[10px] bg-white/[0.04] border border-border text-white text-[13px] outline-none focus:border-orange placeholder:text-gray-muted" />
               </div>
             </div>
             <div>
-              <label className="block text-[11px] font-semibold text-gray-light mb-1.5">{L('Sit Entènèt', 'Website', 'Site Web')}</label>
+              <label className="block text-[11px] font-semibold text-gray-light mb-1.5">{t('settings_website')}</label>
               <input value={website} onChange={e => setWebsite(e.target.value)} placeholder="https://..."
                 className="w-full px-3.5 py-2.5 rounded-[10px] bg-white/[0.04] border border-border text-white text-[13px] outline-none focus:border-orange placeholder:text-gray-muted" />
             </div>
 
             <div>
-              <label className="block text-[11px] font-semibold text-gray-light mb-1.5">{L('Monè Default', 'Default Currency', 'Devise par défaut')}</label>
+              <label className="block text-[11px] font-semibold text-gray-light mb-1.5">{t('settings_default_currency')}</label>
               <div className="flex gap-2">
                 {(['USD', 'HTG'] as const).map(c => (
                   <button key={c} onClick={() => setDefaultCurrency(c)}
@@ -366,15 +364,15 @@ function OrganizerSettingsInner() {
       {/* ══ PAYMENTS ══ */}
       {activeTab === 'payments' && (
         <SectionCard
-          title={L('Metòd Peman', 'Payment Methods', 'Méthodes de Paiement')}
-          sub={L('Kijan ou vle resevwa lajan vant tikè ou yo.', 'How you want to receive your ticket sales.', 'Comment vous souhaitez recevoir vos ventes.')}>
+          title={t('settings_pay_methods')}
+          sub={t('settings_pay_methods_sub')}>
           {/* Exchange rate */}
           <div className="border border-border rounded-xl p-4 mb-3">
             <div className="flex items-center gap-3 mb-3">
               <span className="text-xl">💱</span>
               <div className="flex-1">
-                <p className="text-xs font-bold">{L('To Echanj USD → HTG', 'USD → HTG Exchange Rate', 'Taux USD → HTG')}</p>
-                <p className="text-[10px] text-gray-muted">{L('Itilize pou konvèti pri USD an Goud pou peman MonCash/Natcash', 'Used to convert USD prices to Gourdes for MonCash/Natcash payments', 'Utilisé pour convertir les prix USD en Gourdes')}</p>
+                <p className="text-xs font-bold">{t('settings_exchange_rate')}</p>
+                <p className="text-[10px] text-gray-muted">{t('settings_exchange_hint')}</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
@@ -391,7 +389,7 @@ function OrganizerSettingsInner() {
                 </div>
               </div>
               <div className="bg-white/[0.03] border border-border rounded-lg p-3 text-center min-w-[100px]">
-                <p className="text-[9px] text-gray-muted uppercase mb-1">{L('Egzanp', 'Example', 'Exemple')}</p>
+                <p className="text-[9px] text-gray-muted uppercase mb-1">{t('settings_example')}</p>
                 <p className="text-xs font-bold text-white">$10 USD</p>
                 <p className="text-[10px] text-orange font-bold mt-0.5">{(10 * exchangeRate).toLocaleString()} HTG</p>
               </div>
@@ -411,7 +409,7 @@ function OrganizerSettingsInner() {
                           ? 'bg-green-dim text-green border border-green-border'
                           : 'bg-white/[0.05] text-gray-muted border border-border hover:border-white/20'
                       }`}>
-                      {paymentActive[m.key] ? L('AKTIF', 'ACTIVE', 'ACTIF') : L('INAKTIF', 'INACTIVE', 'INACTIF')}
+                      {paymentActive[m.key] ? t('settings_pay_active') : t('settings_pay_inactive')}
                     </button>
                   )}
                   {m.key === 'stripe' && stripeStatus?.chargesEnabled && (
@@ -424,30 +422,30 @@ function OrganizerSettingsInner() {
                   <div>
                     {!stripeAccountId && (
                       <div className="bg-white/[0.03] rounded-xl p-4">
-                        <p className="text-xs text-gray-300 mb-1">{L('Aksepte kart kredi ak debi nan evènman ou yo.', 'Accept credit and debit cards at your events.', 'Acceptez les cartes bancaires à vos événements.')}</p>
-                        <p className="text-[11px] text-gray-500 mb-3">{L('Anbyans pran 9% frè — rès la ale dirèkteman nan kont ou.', 'Anbyans takes 9% — the rest goes directly to your account.', 'Anbyans prend 9% — le reste va directement sur votre compte.')}</p>
+                        <p className="text-xs text-gray-300 mb-1">{t('settings_stripe_accept')}</p>
+                        <p className="text-[11px] text-gray-500 mb-3">{t('settings_stripe_fee')}</p>
                         {stripeError && <p className="text-red-400 text-[11px] mb-2">{stripeError}</p>}
                         <button onClick={handleConnectStripe} disabled={stripeConnecting}
                           className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-purple-700 hover:bg-purple-600 text-white text-xs font-bold transition-all disabled:opacity-50">
-                          {stripeConnecting ? <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> {L('Ap konekte...', 'Connecting...', 'Connexion...')}</> : <>💳 {L('Konekte Stripe', 'Connect Stripe', 'Connecter Stripe')}</>}
+                          {stripeConnecting ? <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> {t('settings_stripe_connecting')}</> : <>💳 {t('settings_stripe_connect')}</>}
                         </button>
                       </div>
                     )}
                     {stripeAccountId && !stripeStatus?.chargesEnabled && (
                       <div className="bg-yellow-900/20 border border-yellow-700/30 rounded-xl p-4">
-                        <p className="text-xs text-yellow-300 font-bold mb-1">⏳ {L('Kont Stripe ou an atant verifikasyon', 'Your Stripe account is pending verification', 'Votre compte Stripe est en attente de vérification')}</p>
-                        <p className="text-[11px] text-gray-400 mb-3">{L('Ranpli onboarding Stripe a pou aktive peman kart.', 'Complete Stripe onboarding to activate card payments.', 'Complétez l&apos;onboarding Stripe pour activer les paiements par carte.')}</p>
+                        <p className="text-xs text-yellow-300 font-bold mb-1">⏳ {t('settings_stripe_pending')}</p>
+                        <p className="text-[11px] text-gray-400 mb-3">{t('settings_stripe_pending_sub')}</p>
                         <button onClick={handleConnectStripe} disabled={stripeConnecting}
                           className="text-xs text-orange hover:underline font-bold">
-                          {L('Kontinye onboarding →', 'Continue onboarding →', 'Continuer l&apos;onboarding →')}
+                          {t('settings_stripe_continue')}
                         </button>
                       </div>
                     )}
                     {stripeAccountId && stripeStatus?.chargesEnabled && (
                       <div className="bg-green-900/20 border border-green-700/30 rounded-xl p-4">
-                        <p className="text-xs text-green-400 font-bold mb-1">✅ {L('Stripe aktif — kart aksepte', 'Stripe active — cards accepted', 'Stripe actif — cartes acceptées')}</p>
+                        <p className="text-xs text-green-400 font-bold mb-1">✅ {t('settings_stripe_active')}</p>
                         <p className="text-[11px] text-gray-400">ID: <span className="font-mono text-gray-300">{stripeAccountId}</span></p>
-                        <p className="text-[11px] text-gray-500 mt-1">{L('Peman yo ale dirèkteman nan kont bank ou aprè 2 jou.', 'Payments go directly to your bank account after 2 days.', 'Les paiements vont directement sur votre compte bancaire après 2 jours.')}</p>
+                        <p className="text-[11px] text-gray-500 mt-1">{t('settings_stripe_active_sub')}</p>
                       </div>
                     )}
                   </div>
@@ -480,23 +478,23 @@ function OrganizerSettingsInner() {
       {/* ══ SCANNER ══ */}
       {activeTab === 'scanner' && (
         <SectionCard
-          title={L('Jestion Eskanè', 'Scanner Management', 'Gestion Scanner')}
-          sub={L('Konfigire eskanè QR pou evènman ou yo.', 'Configure QR scanner for your events.', 'Configurer le scanner QR.')}>
+          title={t('settings_scanner_mgmt')}
+          sub={t('settings_scanner_mgmt_sub')}>
           <div className="space-y-3.5">
             <div>
-              <label className="block text-[11px] font-semibold text-gray-light mb-1.5">{L('Evènman pa defo', 'Default Event', 'Événement par défaut')}</label>
+              <label className="block text-[11px] font-semibold text-gray-light mb-1.5">{t('settings_default_event')}</label>
               <select value={scannerEvent} onChange={e => setScannerEvent(e.target.value)}
                 className="w-full px-3.5 py-2.5 rounded-[10px] bg-white/[0.04] border border-border text-white text-[13px] outline-none focus:border-orange">
-                <option value="">{L('Chwazi yon evènman...', 'Choose an event...', 'Choisir un événement...')}</option>
+                <option value="">{t('settings_choose_event')}</option>
                 {events.map(e => <option key={e.id} value={e.id!}>{e.name}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-[11px] font-semibold text-gray-light mb-1.5">{L('Mòd Eskanè', 'Scanner Mode', 'Mode Scanner')}</label>
+              <label className="block text-[11px] font-semibold text-gray-light mb-1.5">{t('settings_scanner_mode')}</label>
               <div className="flex gap-2">
                 {([
-                  ['single',     L('Yon pa yon', 'One by one', 'Un par un')],
-                  ['continuous', L('Kontinyèl',  'Continuous', 'Continu')],
+                  ['single',     t('settings_mode_single')],
+                  ['continuous', t('settings_mode_continuous')],
                 ] as [string, string][]).map(([val, label]) => (
                   <button key={val} onClick={() => setScannerMode(val as typeof scannerMode)}
                     className={`flex-1 py-2 rounded-lg text-xs font-bold border transition-all ${scannerMode === val ? 'bg-orange text-white border-orange' : 'border-border text-gray-light hover:text-white'}`}>
@@ -506,9 +504,9 @@ function OrganizerSettingsInner() {
               </div>
             </div>
             <div className="border border-border rounded-xl p-4 space-y-0">
-              <Toggle label={L('Son', 'Sound feedback', 'Son')}         hint={L('Bip lè tikè eskane', 'Beep on scan', 'Bip lors du scan')} value={scannerSound}    onChange={setScannerSound} />
-              <Toggle label={L('Vibre', 'Vibration', 'Vibration')}      hint={L('Vibre sou telefòn', 'Vibrate on phone', 'Vibration téléphone')} value={scannerVibrate}  onChange={setScannerVibrate} />
-              <Toggle label={L('Montre non', 'Show guest name', 'Afficher nom')} hint={L('Afiche non moun apre eskane', 'Show name after scan', 'Afficher nom après scan')} value={scannerShowName} onChange={setScannerShowName} />
+              <Toggle label={t('settings_sound_label')}     hint={t('settings_sound_hint')}     value={scannerSound}    onChange={setScannerSound} />
+              <Toggle label={t('settings_vibrate_label')}   hint={t('settings_vibrate_hint')}   value={scannerVibrate}  onChange={setScannerVibrate} />
+              <Toggle label={t('settings_show_name_label')} hint={t('settings_show_name_hint')} value={scannerShowName} onChange={setScannerShowName} />
             </div>
           </div>
         </SectionCard>
@@ -518,27 +516,27 @@ function OrganizerSettingsInner() {
       {activeTab === 'staff' && (
         <>
           <SectionCard
-            title={L('Règ PIN', 'PIN Policy', 'Politique PIN')}
-            sub={L('Paramèt default pou tout nouvo manm staff.', 'Default settings applied to all new staff members.', 'Paramètres par défaut pour tout nouveau personnel.')}>
+            title={t('settings_pin_policy')}
+            sub={t('settings_pin_policy_sub')}>
             <div className="space-y-4">
               <div>
-                <label className="block text-[11px] font-semibold text-gray-light mb-1.5">{L('Longè PIN', 'PIN Length', 'Longueur PIN')}</label>
+                <label className="block text-[11px] font-semibold text-gray-light mb-1.5">{t('settings_pin_length')}</label>
                 <div className="flex gap-2">
                   {([4, 6] as const).map(n => (
                     <button key={n} onClick={() => setStaffPinLength(n)}
                       className={`flex-1 py-2 rounded-lg text-xs font-bold border transition-all ${staffPinLength === n ? 'bg-orange text-white border-orange' : 'border-border text-gray-light hover:text-white'}`}>
-                      {n} {L('chif', 'digits', 'chiffres')}
+                      {n} {t('settings_pin_digits')}
                     </button>
                   ))}
                 </div>
               </div>
               <div>
-                <label className="block text-[11px] font-semibold text-gray-light mb-1.5">{L('PIN Ekspire', 'PIN Expiry', 'Expiration PIN')}</label>
+                <label className="block text-[11px] font-semibold text-gray-light mb-1.5">{t('settings_pin_expiry')}</label>
                 <div className="flex gap-2">
                   {([
-                    ['never', L('Jamè', 'Never', 'Jamais')],
-                    ['event', L('Apre evèn', 'After event', 'Après événement')],
-                    ['30d',   L('30 jou', '30 days', '30 jours')],
+                    ['never', t('settings_pin_never')],
+                    ['event', t('settings_pin_after_event')],
+                    ['30d',   t('settings_pin_30d')],
                   ] as [string, string][]).map(([val, label]) => (
                     <button key={val} onClick={() => setStaffPinExpiry(val as typeof staffPinExpiry)}
                       className={`flex-1 py-2 rounded-lg text-[11px] font-bold border transition-all ${staffPinExpiry === val ? 'bg-orange text-white border-orange' : 'border-border text-gray-light hover:text-white'}`}>
@@ -551,8 +549,8 @@ function OrganizerSettingsInner() {
           </SectionCard>
 
           <SectionCard
-            title={L('Aksè Default Eskanè', 'Default Scanner Access', 'Accès Scanner par défaut')}
-            sub={L('Seksyon tikè eskanè ka valide pa default.', 'Ticket sections scanners can validate by default.', 'Sections que les scanners peuvent valider par défaut.')}>
+            title={t('settings_scanner_access')}
+            sub={t('settings_scanner_access_sub')}>
             <div className="flex gap-2 flex-wrap">
               {['all', ...sections].map(sec => (
                 <button key={sec} onClick={() => {
@@ -566,21 +564,21 @@ function OrganizerSettingsInner() {
             </div>
           </SectionCard>
 
-          <SectionCard title={L('Sekirite Staff', 'Staff Security', 'Sécurité Personnel')}>
+          <SectionCard title={t('settings_staff_security')}>
             <div className="space-y-0">
               <Toggle
-                label={L('Device Lock', 'Device Lock', 'Verrouillage appareil')}
-                hint={L('Eskanè bloke sou premye aparèy li konekte a', 'Scanner locks to first device that logs in', 'Scanner verrouillé au premier appareil connecté')}
+                label={t('settings_device_lock')}
+                hint={t('settings_device_lock_hint')}
                 value={staffDeviceLock}
                 onChange={setStaffDeviceLock} />
               <Toggle
-                label={L('Dezaktive apre evèn', 'Auto-deactivate after event', 'Désactivation auto après événement')}
-                hint={L('Tout staff dezaktive otomatikman lè evènman fini', 'All staff auto-deactivated when event ends', 'Tout le personnel désactivé automatiquement à la fin')}
+                label={t('settings_auto_deactivate')}
+                hint={t('settings_auto_deactivate_hint')}
                 value={staffAutoDeactivate}
                 onChange={setStaffAutoDeactivate} />
               <Toggle
-                label={L('Pèmèt Override', 'Allow Override', 'Autoriser le contournement')}
-                hint={L('Eskanè ka force-aksepte tikè envalid — Risk segirte', 'Scanners can force-accept invalid tickets — Security risk', 'Risque sécurité — À activer avec précaution')}
+                label={t('settings_allow_override')}
+                hint={t('settings_allow_override_hint')}
                 value={staffAllowOverride}
                 onChange={setStaffAllowOverride}
                 warn />
@@ -593,13 +591,13 @@ function OrganizerSettingsInner() {
       {activeTab === 'notifications' && (
         <>
           <SectionCard
-            title={L('Kanal Notifikasyon', 'Notification Channel', 'Canal de Notification')}
-            sub={L('Ki jan ou vle resevwa alèt yo.', 'How you want to receive alerts.', 'Comment recevoir les alertes.')}>
+            title={t('settings_notif_channel')}
+            sub={t('settings_notif_channel_sub')}>
             <div className="flex gap-2">
               {([
                 ['email',    '📧 Email'],
                 ['whatsapp', '💬 WhatsApp'],
-                ['both',     L('Tou de', 'Both', 'Les deux')],
+                ['both',     t('settings_notif_both')],
               ] as [string, string][]).map(([val, label]) => (
                 <button key={val} onClick={() => setNotifyChannel(val as typeof notifyChannel)}
                   className={`flex-1 py-2 rounded-lg text-[11px] font-bold border transition-all ${notifyChannel === val ? 'bg-orange text-white border-orange' : 'border-border text-gray-light hover:text-white'}`}>
@@ -609,21 +607,21 @@ function OrganizerSettingsInner() {
             </div>
           </SectionCard>
 
-          <SectionCard title={L('Deklanche Notifikasyon', 'Notification Triggers', 'Déclencheurs')}>
+          <SectionCard title={t('settings_notif_triggers')}>
             <div className="space-y-0">
               <Toggle
-                label={L('Staff Aktive', 'Staff Activated', 'Personnel activé')}
-                hint={L('Notifye lè yon manm staff aktive', 'Notify when a staff member is activated', 'Notifier quand un membre est activé')}
+                label={t('settings_notif_staff')}
+                hint={t('settings_notif_staff_hint')}
                 value={notifyStaffActivated}
                 onChange={setNotifyStaffActivated} />
               <Toggle
-                label={L('Rapò Ensidan', 'Incident Report Filed', 'Rapport d\'incident')}
-                hint={L('Notifye imedyatman lè sekirite depoze rapò', 'Notify immediately when security files a report', 'Notifier immédiatement lors d\'un rapport de sécurité')}
+                label={t('settings_notif_incident')}
+                hint={t('settings_notif_incident_hint')}
                 value={notifyIncident}
                 onChange={setNotifyIncident} />
               <Toggle
-                label={L('Kapasite Ba', 'Low Capacity Warning', 'Avertissement capacité')}
-                hint={L(`Notifye lè evènman rive ${notifyLowCapacityPct}% plen`, `Notify when event reaches ${notifyLowCapacityPct}% full`, `Notifier à ${notifyLowCapacityPct}% de la capacité`)}
+                label={t('settings_notif_capacity')}
+                hint={`${t('settings_notif_capacity_hint_prefix')} ${notifyLowCapacityPct}${t('settings_notif_capacity_hint_suffix')}`}
                 value={notifyLowCapacity}
                 onChange={setNotifyLowCapacity} />
               {notifyLowCapacity && (
@@ -638,8 +636,8 @@ function OrganizerSettingsInner() {
                 </div>
               )}
               <Toggle
-                label={L('Nouvo Vant', 'New Sale', 'Nouvelle vente')}
-                hint={L('Notifye pou chak tikè vann — ka anpil mesaj', 'Notify for every ticket sold — can be noisy', 'Notifier pour chaque billet vendu — peut être nombreux')}
+                label={t('settings_notif_sale')}
+                hint={t('settings_notif_sale_hint')}
                 value={notifyNewSale}
                 onChange={setNotifyNewSale} />
             </div>
@@ -651,11 +649,11 @@ function OrganizerSettingsInner() {
       <button onClick={handleSave} disabled={saving}
         className="px-6 py-2.5 rounded-[10px] bg-orange text-white text-xs font-bold hover:bg-orange/80 transition-all disabled:opacity-50 flex items-center gap-2">
         {saving ? (
-          <><div className="w-3.5 h-3.5 rounded-full border-2 border-white border-t-transparent animate-spin" /> {L('Anrejistre...', 'Saving...', 'Enregistrement...')}</>
+          <><div className="w-3.5 h-3.5 rounded-full border-2 border-white border-t-transparent animate-spin" /> {t('settings_saving')}</>
         ) : saved ? (
-          `✓ ${L('Anrejistre!', 'Saved!', 'Enregistré!')}`
+          `✓ ${t('settings_save_done')}`
         ) : (
-          L('Anrejistre Chanjman', 'Save Changes', 'Enregistrer les changements')
+          t('settings_save_changes')
         )}
       </button>
 

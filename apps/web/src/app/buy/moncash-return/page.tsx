@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Suspense } from 'react';
 import { purchaseTickets, type TicketData } from '../../../lib/db';
+import { useT } from '../../../i18n';
 
 // ─── Pending order shape (stored in sessionStorage before redirect) ───
 interface PendingOrder {
@@ -22,6 +23,7 @@ interface PendingOrder {
 type Status = 'verifying' | 'creating' | 'done' | 'error';
 
 function MoncashReturnInner() {
+  const { t }        = useT();
   const searchParams = useSearchParams();
   const router       = useRouter();
 
@@ -32,16 +34,13 @@ function MoncashReturnInner() {
   useEffect(() => {
     const run = async () => {
       try {
-        // MonCash redirects with ?transactionId=xxx&orderId=xxx
         const transactionId = searchParams.get('transactionId') ?? '';
         const orderId       = searchParams.get('orderId')       ?? '';
 
-        // Recover pending order from sessionStorage
         const raw = sessionStorage.getItem('moncash_pending_order');
-        if (!raw) throw new Error('Enfòmasyon kòmand pa jwenn. Eseye ankò.');
+        if (!raw) throw new Error(t('moncash_error_order'));
         const order: PendingOrder = JSON.parse(raw);
 
-        // 1. Verify transaction server-side
         setStatus('verifying');
         const vRes = await fetch('/api/payment/moncash/verify', {
           method: 'POST',
@@ -49,9 +48,8 @@ function MoncashReturnInner() {
           body: JSON.stringify({ orderId: order.orderId || orderId, transactionId }),
         });
         const vData = await vRes.json();
-        if (!vData.success) throw new Error(vData.error ?? 'Peman pa konfime pa MonCash.');
+        if (!vData.success) throw new Error(vData.error ?? t('moncash_error_payment'));
 
-        // 2. Create tickets in Firestore — payment already verified, mark as paid immediately
         setStatus('creating');
         const tix = await purchaseTickets(
           order.eventId,
@@ -68,18 +66,18 @@ function MoncashReturnInner() {
           { paymentStatus: 'paid', txnId: transactionId },
         );
 
-        // 3. Clean up + store tickets for /tickets page
         sessionStorage.removeItem('moncash_pending_order');
         sessionStorage.setItem('moncash_tickets', JSON.stringify(tix));
 
         setTickets(tix);
         setStatus('done');
       } catch (err) {
-        setErrMsg(err instanceof Error ? err.message : 'Erè enkoni');
+        setErrMsg(err instanceof Error ? err.message : t('error_unknown'));
         setStatus('error');
       }
     };
     run();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (status === 'verifying' || status === 'creating') {
@@ -87,7 +85,7 @@ function MoncashReturnInner() {
       <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-dark text-white">
         <div className="w-12 h-12 border-4 border-cyan border-t-transparent rounded-full animate-spin" />
         <p className="text-sm text-gray-light">
-          {status === 'verifying' ? 'Ap verifye peman MonCash...' : 'Ap kreye tikè ou yo...'}
+          {status === 'verifying' ? t('moncash_verifying') : t('moncash_creating')}
         </p>
       </div>
     );
@@ -97,31 +95,30 @@ function MoncashReturnInner() {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-6 bg-dark text-white px-6">
         <div className="text-5xl">❌</div>
-        <h1 className="text-xl font-bold text-center">Peman pa konfime</h1>
+        <h1 className="text-xl font-bold text-center">{t('moncash_error_title')}</h1>
         <p className="text-sm text-gray-light text-center max-w-sm">{errMsg}</p>
         <button
           onClick={() => router.back()}
           className="px-6 py-3 bg-cyan text-dark font-bold rounded-xl text-sm"
         >
-          Retounen
+          {t('back')}
         </button>
       </div>
     );
   }
 
-  // done
   return (
     <div className="min-h-screen flex flex-col items-center justify-center gap-6 bg-dark text-white px-6">
       <div className="text-5xl">🎉</div>
-      <h1 className="text-2xl font-bold text-center">Peman Konfime!</h1>
+      <h1 className="text-2xl font-bold text-center">{t('moncash_success_title')}</h1>
       <p className="text-sm text-gray-light text-center">
-        {tickets.length} tikè kreye pou ou.
+        {tickets.length} {t('moncash_tickets_created')}
       </p>
       <button
         onClick={() => router.push('/tickets')}
         className="px-6 py-3 bg-cyan text-dark font-bold rounded-xl text-sm"
       >
-        Wè Tikè Mwen →
+        {t('buy_view_ticket')}
       </button>
     </div>
   );

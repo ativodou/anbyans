@@ -8,9 +8,8 @@ import { useAuth } from '@/hooks/useAuth';
 
 export default function OrganizerAuth() {
   const router = useRouter();
-  const { locale } = useT();
+  const { t } = useT();
   const { user } = useAuth();
-  const L = (ht: string, en: string, fr: string) => ({ ht, en, fr }[locale]);
 
   const [tab, setTab] = useState<'login' | 'register'>('login');
   const [step, setStep] = useState(1);
@@ -47,7 +46,7 @@ export default function OrganizerAuth() {
       router.push('/organizer/dashboard');
     } catch (err: any) {
       setError(err.code === 'auth/invalid-credential'
-        ? L('Imel oswa modpas pa korek', 'Invalid email or password', 'E-mail ou mot de passe invalide')!
+        ? t('err_invalid_credential')
         : err.message);
     } finally { setLoading(false); }
   }
@@ -55,9 +54,9 @@ export default function OrganizerAuth() {
   async function handleRegister(e: React.FormEvent) {
     e.preventDefault();
     setError('');
-    if (regPass !== confirmPass) { setError(L('Modpas yo pa matche', 'Passwords do not match', 'Les mots de passe ne correspondent pas')!); return; }
-    if (!agreedToTerms) { setError(L('Ou dwe aksepte kondisyon yo', 'You must agree to the Terms & Privacy Policy', 'Vous devez accepter les conditions')!); return; }
-    if (regPass.length < 6) { setError(L('Modpas dwe gen 6+ karakte', 'Password must be 6+ characters', 'Le mot de passe doit contenir 6+ caracteres')!); return; }
+    if (regPass !== confirmPass) { setError(t('err_pw_mismatch')); return; }
+    if (!agreedToTerms) { setError(t('err_must_agree_terms')); return; }
+    if (regPass.length < 6) { setError(t('err_pw_too_short')); return; }
     setLoading(true);
     try {
       await signUp(regEmail, regPass, {
@@ -67,7 +66,7 @@ export default function OrganizerAuth() {
       setStep(3);
     } catch (err: any) {
       setError(err.code === 'auth/email-already-in-use'
-        ? L('Imel sa a deja itilize', 'Email already in use', 'Cet e-mail est deja utilise')!
+        ? t('err_email_in_use')
         : err.message);
     } finally { setLoading(false); }
   }
@@ -88,10 +87,10 @@ export default function OrganizerAuth() {
     if (/[A-Z]/.test(p) && /[a-z]/.test(p)) s++; if (/\d/.test(p)) s++;
     const labels = [
       { text: '', color: '' },
-      { text: L('Feb', 'Weak', 'Faible'), color: '#ef4444' },
-      { text: L('Mwayen', 'Medium', 'Moyen'), color: '#f59e0b' },
-      { text: L('Fo', 'Strong', 'Fort'), color: '#22c55e' },
-      { text: L('Tre fo', 'Very strong', 'Tres fort'), color: '#06b6d4' },
+      { text: t('auth_pw_weak'), color: '#ef4444' },
+      { text: t('auth_pw_medium'), color: '#f59e0b' },
+      { text: t('auth_pw_strong'), color: '#22c55e' },
+      { text: t('auth_pw_very_strong'), color: '#06b6d4' },
     ];
     return labels[s] || labels[0];
   }
@@ -106,17 +105,17 @@ export default function OrganizerAuth() {
         <div style={{ textAlign: 'center', maxWidth: 400 }}>
           <div style={{ fontSize: 64, marginBottom: 16 }}>&#x1F389;</div>
           <h1 style={{ color: '#fff', fontSize: 28, marginBottom: 8 }}>
-            {L('Byenveni, Organizate!', 'Welcome, Organizer!', 'Bienvenue, Organisateur!')}
+            {t('org_auth_welcome_org')}
           </h1>
           <p style={{ color: '#aaa', marginBottom: 32 }}>
-            {L('Kont ou pare. Kreye premye evenman ou!', 'Account ready. Create your first event!', 'Compte pret. Creez votre premier evenement!')}
+            {t('org_auth_account_ready')}
           </p>
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
             <Link href="/organizer/dashboard" style={{ padding: '14px 28px', background: '#f97316', color: '#000', borderRadius: 8, fontWeight: 700, textDecoration: 'none' }}>
-              {L('Dachbod', 'Dashboard', 'Tableau de bord')}
+              {t('dashboard')}
             </Link>
             <Link href="/organizer/events/create" style={{ padding: '14px 28px', border: '1px solid #f97316', color: '#f97316', borderRadius: 8, fontWeight: 700, textDecoration: 'none' }}>
-              {L('Kreye Evenman', 'Create Event', 'Creer un evenement')}
+              {t('create_event')}
             </Link>
           </div>
         </div>
@@ -129,18 +128,18 @@ export default function OrganizerAuth() {
       <div style={{ width: '100%', maxWidth: 480, background: '#12121a', border: '1px solid #1e1e2e', borderRadius: 16, padding: 32 }}>
         <div style={{ textAlign: 'center', marginBottom: 24 }}>
           <h2 style={{ color: '#f97316', fontSize: 22, fontWeight: 800 }}>ANBYANS</h2>
-          <p style={{ color: '#666', fontSize: 13 }}>{L('Potay Organizate', 'Organizer Portal', 'Portail Organisateur')}</p>
+          <p style={{ color: '#666', fontSize: 13 }}>{t('org_auth_portal_sub')}</p>
         </div>
 
         <div style={{ display: 'flex', marginBottom: 24, borderRadius: 8, overflow: 'hidden', border: '1px solid #1e1e2e' }}>
-          {(['login', 'register'] as const).map(t => (
-            <button key={t} onClick={() => { setTab(t); setError(''); }}
+          {(['login', 'register'] as const).map(tb => (
+            <button key={tb} onClick={() => { setTab(tb); setError(''); }}
               style={{
                 flex: 1, padding: '12px 0', border: 'none', cursor: 'pointer', fontSize: 14, fontWeight: 600,
-                background: tab === t ? '#f97316' : 'transparent',
-                color: tab === t ? '#000' : '#888',
+                background: tab === tb ? '#f97316' : 'transparent',
+                color: tab === tb ? '#000' : '#888',
               }}>
-              {t === 'login' ? L('Konekte', 'Login', 'Connexion') : L('Enskri', 'Register', "S'inscrire")}
+              {tb === 'login' ? t('org_auth_login_label') : t('org_auth_register_label')}
             </button>
           ))}
         </div>
@@ -155,7 +154,7 @@ export default function OrganizerAuth() {
             alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 20,
             opacity: googleLoading ? 0.6 : 1,
           }}>
-          {googleLoading ? L('Ap konekte...', 'Connecting...', 'Connexion...') : (
+          {googleLoading ? t('auth_connecting') : (
             <>
               <svg width="18" height="18" viewBox="0 0 24 24">
                 <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/>
@@ -163,30 +162,30 @@ export default function OrganizerAuth() {
                 <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
                 <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
               </svg>
-              {L('Kontinye ak Google', 'Continue with Google', 'Continuer avec Google')}
+              {t('auth_google')}
             </>
           )}
         </button>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
           <div style={{ flex: 1, height: 1, background: '#1e1e2e' }} />
-          <span style={{ color: '#555', fontSize: 12 }}>{L('oswa', 'or', 'ou')}</span>
+          <span style={{ color: '#555', fontSize: 12 }}>{t('auth_or')}</span>
           <div style={{ flex: 1, height: 1, background: '#1e1e2e' }} />
         </div>
 
         {tab === 'login' && (
           <form onSubmit={handleLogin}>
             <div style={{ marginBottom: 16 }}>
-              <label style={labelStyle}>{L('Imel', 'Email', 'E-mail')}</label>
+              <label style={labelStyle}>{t('email')}</label>
               <input type="email" value={loginEmail} onChange={e => setLoginEmail(e.target.value)} required style={inputStyle} />
             </div>
             <div style={{ marginBottom: 24 }}>
-              <label style={labelStyle}>{L('Modpas', 'Password', 'Mot de passe')}</label>
+              <label style={labelStyle}>{t('password')}</label>
               <input type="password" value={loginPass} onChange={e => setLoginPass(e.target.value)} required style={inputStyle} />
             </div>
             <button type="submit" disabled={loading}
               style={{ width: '100%', padding: 14, borderRadius: 8, border: 'none', background: '#f97316', color: '#000', fontSize: 15, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.6 : 1 }}>
-              {loading ? L('Ap konekte...', 'Signing in...', 'Connexion...') : L('Konekte', 'Sign In', 'Se connecter')}
+              {loading ? t('auth_signing_in') : t('auth_sign_in')}
             </button>
           </form>
         )}
@@ -194,33 +193,33 @@ export default function OrganizerAuth() {
         {tab === 'register' && (
           <form onSubmit={handleRegister}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
-              <div><label style={labelStyle}>{L('Prenon', 'First Name', 'Prenom')}</label><input value={firstName} onChange={e => setFirstName(e.target.value)} required style={inputStyle} /></div>
-              <div><label style={labelStyle}>{L('Non', 'Last Name', 'Nom')}</label><input value={lastName} onChange={e => setLastName(e.target.value)} required style={inputStyle} /></div>
+              <div><label style={labelStyle}>{t('auth_first_name')}</label><input value={firstName} onChange={e => setFirstName(e.target.value)} required style={inputStyle} /></div>
+              <div><label style={labelStyle}>{t('auth_last_name')}</label><input value={lastName} onChange={e => setLastName(e.target.value)} required style={inputStyle} /></div>
             </div>
             <div style={{ marginBottom: 12 }}>
-              <label style={labelStyle}>{L('Non Biznis', 'Business Name', "Nom de l'entreprise")}</label>
+              <label style={labelStyle}>{t('org_auth_biz_name')}</label>
               <input value={businessName} onChange={e => setBusinessName(e.target.value)} required style={inputStyle} />
             </div>
             <div style={{ marginBottom: 12 }}>
-              <label style={labelStyle}>{L('Tip Biznis', 'Business Type', "Type d'entreprise")}</label>
+              <label style={labelStyle}>{t('org_auth_biz_type')}</label>
               <select value={businessType} onChange={e => setBusinessType(e.target.value)} required style={inputStyle}>
-                <option value="">{L('Chwazi...', 'Select...', 'Choisir...')}</option>
-                <option value="promoter">{L('Pwomote', 'Promoter', 'Promoteur')}</option>
-                <option value="venue">{L('Sal Espektak', 'Venue', 'Salle de spectacle')}</option>
-                <option value="artist">{L('Atis / Manadye', 'Artist / Manager', 'Artiste / Manager')}</option>
-                <option value="sports">{L('Ekip Espo', 'Sports Team', 'Equipe sportive')}</option>
-                <option value="nonprofit">{L('Organizasyon', 'Nonprofit', 'Organisation')}</option>
-                <option value="religious">{L('Organizasyon Relijye', 'Religious Org', 'Organisation Religieuse')}</option>
+                <option value="">{t('org_auth_select')}</option>
+                <option value="promoter">{t('org_auth_promoter')}</option>
+                <option value="venue">{t('org_auth_venue')}</option>
+                <option value="artist">{t('org_auth_artist')}</option>
+                <option value="sports">{t('org_auth_sports')}</option>
+                <option value="nonprofit">{t('org_auth_nonprofit')}</option>
+                <option value="religious">{t('org_auth_religious')}</option>
               </select>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
-              <div><label style={labelStyle}>{L('Imel', 'Email', 'E-mail')}</label><input type="email" value={regEmail} onChange={e => setRegEmail(e.target.value)} required style={inputStyle} /></div>
-              <div><label style={labelStyle}>{L('Telefon', 'Phone', 'Telephone')}</label><input type="tel" value={phone} onChange={e => setPhone(e.target.value)} style={inputStyle} placeholder="+509..." /></div>
+              <div><label style={labelStyle}>{t('email')}</label><input type="email" value={regEmail} onChange={e => setRegEmail(e.target.value)} required style={inputStyle} /></div>
+              <div><label style={labelStyle}>{t('phone')}</label><input type="tel" value={phone} onChange={e => setPhone(e.target.value)} style={inputStyle} placeholder="+509..." /></div>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 12 }}>
-              <div><label style={labelStyle}>{L('Vil', 'City', 'Ville')}</label><input value={city} onChange={e => setCity(e.target.value)} style={inputStyle} /></div>
-              <div><label style={labelStyle}>{L('Eta', 'State', 'Etat')}</label><input value={state_} onChange={e => setState_(e.target.value)} style={inputStyle} /></div>
-              <div><label style={labelStyle}>{L('Peyi', 'Country', 'Pays')}</label>
+              <div><label style={labelStyle}>{t('city')}</label><input value={city} onChange={e => setCity(e.target.value)} style={inputStyle} /></div>
+              <div><label style={labelStyle}>{t('auth_state')}</label><input value={state_} onChange={e => setState_(e.target.value)} style={inputStyle} /></div>
+              <div><label style={labelStyle}>{t('auth_country')}</label>
                 <select value={country} onChange={e => setCountry(e.target.value)} style={inputStyle}>
                   <option value="Haiti">Haiti</option><option value="USA">USA</option>
                   <option value="Canada">Canada</option><option value="France">France</option>
@@ -230,22 +229,22 @@ export default function OrganizerAuth() {
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
               <div>
-                <label style={labelStyle}>{L('Metod Peman', 'Payout Method', 'Mode de paiement')}</label>
+                <label style={labelStyle}>{t('org_auth_payout_method')}</label>
                 <select value={payoutMethod} onChange={e => setPayoutMethod(e.target.value)} style={inputStyle}>
-                  <option value="">{L('Chwazi...', 'Select...', 'Choisir...')}</option>
+                  <option value="">{t('org_auth_select')}</option>
                   <option value="moncash">MonCash</option>
                   <option value="natcash">Natcash</option>
                   <option value="stripe">Stripe</option>
-                  <option value="bank">{L('Transfe Bank', 'Bank Transfer', 'Virement bancaire')}</option>
+                  <option value="bank">{t('org_auth_bank')}</option>
                   <option value="zelle">Zelle</option>
                   <option value="paypal">PayPal</option>
                   <option value="cashapp">Cash App</option>
                 </select>
               </div>
-              <div><label style={labelStyle}>{L('Detay Kont', 'Account Details', 'Details du compte')}</label><input value={payoutDetails} onChange={e => setPayoutDetails(e.target.value)} style={inputStyle} /></div>
+              <div><label style={labelStyle}>{t('org_auth_account_details')}</label><input value={payoutDetails} onChange={e => setPayoutDetails(e.target.value)} style={inputStyle} /></div>
             </div>
             <div style={{ marginBottom: 12 }}>
-              <label style={labelStyle}>{L('Modpas', 'Password', 'Mot de passe')}</label>
+              <label style={labelStyle}>{t('password')}</label>
               <input type="password" value={regPass} onChange={e => setRegPass(e.target.value)} required style={inputStyle} />
               {regPass && (
                 <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -257,29 +256,29 @@ export default function OrganizerAuth() {
               )}
             </div>
             <div style={{ marginBottom: 20 }}>
-              <label style={labelStyle}>{L('Konfime Modpas', 'Confirm Password', 'Confirmer le mot de passe')}</label>
+              <label style={labelStyle}>{t('auth_confirm_password')}</label>
               <input type="password" value={confirmPass} onChange={e => setConfirmPass(e.target.value)} required style={inputStyle} />
             </div>
             <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 18, cursor: 'pointer' }}>
               <input type="checkbox" checked={agreedToTerms} onChange={e => setAgreedToTerms(e.target.checked)} style={{ marginTop: 2, flexShrink: 0, accentColor: '#f97316' }} />
               <span style={{ fontSize: 12, color: '#888', lineHeight: 1.6 }}>
-                {L('Mwen li epi mwen dakò ak', 'I have read and agree to the', "J'ai lu et j'accepte les")}{' '}
-                <a href="/legal?tab=tos" target="_blank" style={{ color: '#f97316', textDecoration: 'underline' }}>{L('Kondisyon Sèvis', 'Terms of Service', "Conditions d'Utilisation")}</a>
-                {' '}{L('ak', 'and', 'et')}{' '}
-                <a href="/legal?tab=privacy" target="_blank" style={{ color: '#f97316', textDecoration: 'underline' }}>{L('Politik Konfidansyalite', 'Privacy Policy', 'Politique de Confidentialité')}</a>
-                {' '}{L('nan LaviMiyò LLC.', 'of LaviMiyò LLC.', 'de LaviMiyò LLC.')}
+                {t('auth_read_agree')}{' '}
+                <a href="/legal?tab=tos" target="_blank" style={{ color: '#f97316', textDecoration: 'underline' }}>{t('auth_tos')}</a>
+                {' '}{t('auth_and')}{' '}
+                <a href="/legal?tab=privacy" target="_blank" style={{ color: '#f97316', textDecoration: 'underline' }}>{t('auth_privacy')}</a>
+                {' '}{t('auth_of_company')}
               </span>
             </label>
             <button type="submit" disabled={loading}
               style={{ width: '100%', padding: 14, borderRadius: 8, border: 'none', background: '#f97316', color: '#000', fontSize: 15, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.6 : 1 }}>
-              {loading ? L('Ap kreye...', 'Creating...', 'Creation...') : L('Kreye Kont Organizate', 'Create Organizer Account', 'Creer un compte organisateur')}
+              {loading ? t('auth_creating') : t('org_auth_create_btn')}
             </button>
           </form>
         )}
 
         <div style={{ textAlign: 'center', marginTop: 20, fontSize: 13, color: '#555' }}>
-          {L('Ou se yon fan?', 'Are you a fan?', 'Etes-vous un fan?')}{' '}
-          <Link href="/auth" style={{ color: '#06b6d4' }}>{L('Konekte kom kliyan', 'Sign in as fan', 'Connexion en tant que fan')}</Link>
+          {t('org_auth_fan_link_text')}{' '}
+          <Link href="/auth" style={{ color: '#06b6d4' }}>{t('org_auth_fan_signin')}</Link>
         </div>
       </div>
     </div>

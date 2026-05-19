@@ -20,9 +20,8 @@ const ROLE_CONFIG = {
 function AuthPage() {
   const router = useRouter();
   const params = useSearchParams();
-  const { locale } = useT();
+  const { t } = useT();
   const { user } = useAuth();
-  const L = (ht: string, en: string, fr: string) => ({ ht, en, fr }[locale] ?? ht);
 
   const initialRole = (params.get('tab') as RoleTab) || 'fan';
   const [roleTab, setRoleTab]   = useState<RoleTab>(initialRole);
@@ -74,10 +73,10 @@ function AuthPage() {
     if (/\d/.test(p)) s++;
     const labels = [
       { text: '', color: '' },
-      { text: L('Feb', 'Weak', 'Faible'),         color: '#ef4444' },
-      { text: L('Mwayen', 'Medium', 'Moyen'),      color: '#f59e0b' },
-      { text: L('Fo', 'Strong', 'Fort'),           color: '#22c55e' },
-      { text: L('Tre fo', 'Very strong', 'Tres fort'), color: '#06b6d4' },
+      { text: t('auth_pw_weak'),         color: '#ef4444' },
+      { text: t('auth_pw_medium'),      color: '#f59e0b' },
+      { text: t('auth_pw_strong'),      color: '#22c55e' },
+      { text: t('auth_pw_very_strong'), color: '#06b6d4' },
     ];
     return labels[s] || labels[0];
   }
@@ -91,7 +90,7 @@ function AuthPage() {
       router.push(cfg.redirect);
     } catch (err: any) {
       setError(err.code === 'auth/invalid-credential'
-        ? L('Imel oswa modpas pa korek', 'Invalid email or password', 'E-mail ou mot de passe invalide')
+        ? t('err_invalid_credential')
         : err.message);
     } finally { setLoading(false); }
   }
@@ -100,15 +99,15 @@ function AuthPage() {
     e.preventDefault();
     setError('');
     if (!agreedToTerms) {
-      setError(L('Ou dwe aksepte kondisyon yo', 'You must agree to the Terms & Privacy Policy', 'Vous devez accepter les conditions'));
+      setError(t('err_must_agree_terms'));
       return;
     }
     if (regPass !== confirmPass) {
-      setError(L('Modpas yo pa matche', 'Passwords do not match', 'Les mots de passe ne correspondent pas'));
+      setError(t('err_pw_mismatch'));
       return;
     }
     if (regPass.length < 6) {
-      setError(L('Modpas dwe gen 6+ karakte', 'Password must be 6+ characters', 'Le mot de passe doit contenir 6+ caracteres'));
+      setError(t('err_pw_too_short'));
       return;
     }
     setLoading(true);
@@ -120,7 +119,7 @@ function AuthPage() {
       setStep(3);
     } catch (err: any) {
       setError(err.code === 'auth/email-already-in-use'
-        ? L('Imel sa a deja itilize', 'Email already in use', 'Cet e-mail est deja utilise')
+        ? t('err_email_in_use')
         : err.message);
     } finally { setLoading(false); }
   }
@@ -128,8 +127,9 @@ function AuthPage() {
   async function handleGoogle() {
     setError(''); setGoogleLoading(true);
     try {
-      await signInWithGoogle(roleTab);
-      router.push(cfg.redirect);
+      const { role: actualRole } = await signInWithGoogle(roleTab);
+      const destination = ROLE_CONFIG[actualRole as RoleTab]?.redirect ?? '/events';
+      router.push(destination);
     } catch (err: any) {
       if (err.code !== 'auth/popup-closed-by-user') setError(err.message);
     } finally { setGoogleLoading(false); }
@@ -151,10 +151,10 @@ function AuthPage() {
         <div style={{ textAlign: 'center', maxWidth: 400 }}>
           <div style={{ fontSize: 64, marginBottom: 16 }}>🎉</div>
           <h1 style={{ color: '#fff', fontSize: 28, marginBottom: 8 }}>
-            {L('Byenveni nan Anbyans!', 'Welcome to Anbyans!', 'Bienvenue chez Anbyans!')}
+            {t('auth_welcome_title')}
           </h1>
           <p style={{ color: '#aaa', marginBottom: 32 }}>
-            {L('Kont ou kreye. Ale jwenn evenman!', 'Account created. Go find events!', 'Compte cree. Trouvez des evenements!')}
+            {t('auth_account_created')}
           </p>
           <Link href={cfg.redirect} style={{
             display: 'inline-block', padding: '14px 32px', background: cfg.accent,
@@ -162,10 +162,10 @@ function AuthPage() {
             fontWeight: 700, textDecoration: 'none', fontSize: 16,
           }}>
             {roleTab === 'fan'
-              ? L('Jwenn Evenman', 'Find Events', 'Trouver des evenements')
+              ? t('auth_find_events')
               : roleTab === 'organizer'
-              ? L('Ale nan Dachbod', 'Go to Dashboard', 'Aller au tableau de bord')
-              : L('Ale nan Espas Mwen', 'Go to My Space', 'Aller a mon espace')}
+              ? t('auth_go_dashboard')
+              : t('auth_go_my_space')}
           </Link>
         </div>
       </div>
@@ -178,7 +178,7 @@ function AuthPage() {
       {/* Mini nav */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 20px', borderBottom: '1px solid #1e1e2e' }}>
         <a href="/" style={{ color: '#666', fontSize: 13, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 6 }}>
-          ← {L('Retounen', 'Back', 'Retour')}
+          ← {t('auth_back')}
         </a>
         <span style={{ color: '#06b6d4', fontWeight: 800, fontSize: 15, letterSpacing: 2 }}>ANBYANS</span>
         <LangSwitcher />
@@ -192,7 +192,7 @@ function AuthPage() {
             <h2 style={{ color: cfg.accent, fontSize: 22, fontWeight: 800, margin: 0 }}>ANBYANS</h2>
           </Link>
           <p style={{ color: '#666', fontSize: 13, marginTop: 4 }}>
-            {L('Evenman pou nou, pa nou', 'Events for us, by us', 'Evenements pour nous, par nous')}
+            {t('auth_tagline_short')}
           </p>
         </div>
 
@@ -211,10 +211,10 @@ function AuthPage() {
                 }}>
                 {rc.emoji}{' '}
                 {r === 'fan'
-                  ? L('Fan', 'Fan', 'Fan')
+                  ? t('auth_role_fan')
                   : r === 'organizer'
-                  ? L('Òganizatè', 'Organizer', 'Organisateur')
-                  : L('Revandè', 'Reseller', 'Revendeur')}
+                  ? t('auth_role_organizer')
+                  : t('auth_role_reseller')}
               </button>
             );
           })}
@@ -231,8 +231,8 @@ function AuthPage() {
                 color: authTab === at ? (roleTab === 'fan' ? '#000' : '#fff') : '#666',
               }}>
               {at === 'login'
-                ? L('Konekte', 'Sign In', 'Connexion')
-                : L('Kreye Kont', 'Sign Up', "Creer un compte")}
+                ? t('auth_tab_signin')
+                : t('auth_tab_signup')}
             </button>
           ))}
         </div>
@@ -254,7 +254,7 @@ function AuthPage() {
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
               marginBottom: 18, opacity: googleLoading ? 0.6 : 1,
             }}>
-            {googleLoading ? L('Ap konekte...', 'Connecting...', 'Connexion...') : (
+            {googleLoading ? t('auth_connecting') : (
               <>
                 <svg width="18" height="18" viewBox="0 0 24 24">
                   <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/>
@@ -262,13 +262,13 @@ function AuthPage() {
                   <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
                   <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
                 </svg>
-                {L('Kontinye ak Google', 'Continue with Google', 'Continuer avec Google')}
+                {t('auth_google')}
               </>
             )}
           </button>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
             <div style={{ flex: 1, height: 1, background: '#1e1e2e' }} />
-            <span style={{ color: '#555', fontSize: 12 }}>{L('oswa', 'or', 'ou')}</span>
+            <span style={{ color: '#555', fontSize: 12 }}>{t('auth_or')}</span>
             <div style={{ flex: 1, height: 1, background: '#1e1e2e' }} />
           </div>
         </>
@@ -277,16 +277,16 @@ function AuthPage() {
         {authTab === 'login' && (
           <form onSubmit={handleLogin}>
             <div style={{ marginBottom: 14 }}>
-              <label style={labelStyle}>{L('Imel', 'Email', 'E-mail')}</label>
+              <label style={labelStyle}>{t('email')}</label>
               <input type="email" value={loginEmail} onChange={e => setLoginEmail(e.target.value)} required style={inputStyle} />
             </div>
             <div style={{ marginBottom: 22 }}>
-              <label style={labelStyle}>{L('Modpas', 'Password', 'Mot de passe')}</label>
+              <label style={labelStyle}>{t('password')}</label>
               <input type="password" value={loginPass} onChange={e => setLoginPass(e.target.value)} required style={inputStyle} />
             </div>
             <button type="submit" disabled={loading}
               style={{ width: '100%', padding: 14, borderRadius: 8, border: 'none', background: cfg.accent, color: roleTab === 'fan' ? '#000' : '#fff', fontSize: 15, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.6 : 1 }}>
-              {loading ? L('Ap konekte...', 'Signing in...', 'Connexion...') : L('Konekte', 'Sign In', 'Se connecter')}
+              {loading ? t('auth_signing_in') : t('auth_sign_in')}
             </button>
           </form>
         )}
@@ -295,25 +295,25 @@ function AuthPage() {
         {authTab === 'register' && (
           <form onSubmit={handleRegister}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
-              <div><label style={labelStyle}>{L('Prenon', 'First Name', 'Prenom')}</label>
+              <div><label style={labelStyle}>{t('auth_first_name')}</label>
                 <input value={firstName} onChange={e => setFirstName(e.target.value)} required style={inputStyle} /></div>
-              <div><label style={labelStyle}>{L('Non', 'Last Name', 'Nom')}</label>
+              <div><label style={labelStyle}>{t('auth_last_name')}</label>
                 <input value={lastName} onChange={e => setLastName(e.target.value)} required style={inputStyle} /></div>
             </div>
             <div style={{ marginBottom: 12 }}>
-              <label style={labelStyle}>{L('Imel', 'Email', 'E-mail')}</label>
+              <label style={labelStyle}>{t('email')}</label>
               <input type="email" value={regEmail} onChange={e => setRegEmail(e.target.value)} required style={inputStyle} />
             </div>
             <div style={{ marginBottom: 12 }}>
-              <label style={labelStyle}>{L('Telefon', 'Phone', 'Telephone')}</label>
+              <label style={labelStyle}>{t('phone')}</label>
               <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="+509..." style={inputStyle} />
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 12 }}>
-              <div><label style={labelStyle}>{L('Vil', 'City', 'Ville')}</label>
+              <div><label style={labelStyle}>{t('city')}</label>
                 <input value={city} onChange={e => setCity(e.target.value)} style={inputStyle} /></div>
-              <div><label style={labelStyle}>{L('Eta', 'State', 'Etat')}</label>
+              <div><label style={labelStyle}>{t('auth_state')}</label>
                 <input value={state_} onChange={e => setState_(e.target.value)} style={inputStyle} /></div>
-              <div><label style={labelStyle}>{L('Peyi', 'Country', 'Pays')}</label>
+              <div><label style={labelStyle}>{t('auth_country')}</label>
                 <select value={country} onChange={e => setCountry(e.target.value)} style={inputStyle}>
                   <option>Haiti</option><option>USA</option>
                   <option>Canada</option><option>France</option>
@@ -321,7 +321,7 @@ function AuthPage() {
                 </select></div>
             </div>
             <div style={{ marginBottom: 12 }}>
-              <label style={labelStyle}>{L('Modpas', 'Password', 'Mot de passe')}</label>
+              <label style={labelStyle}>{t('password')}</label>
               <input type="password" value={regPass} onChange={e => setRegPass(e.target.value)} required style={inputStyle} />
               {regPass && (
                 <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -333,11 +333,11 @@ function AuthPage() {
               )}
             </div>
             <div style={{ marginBottom: 14 }}>
-              <label style={labelStyle}>{L('Konfime Modpas', 'Confirm Password', 'Confirmer le mot de passe')}</label>
+              <label style={labelStyle}>{t('auth_confirm_password')}</label>
               <input type="password" value={confirmPass} onChange={e => setConfirmPass(e.target.value)} required style={inputStyle} />
             </div>
             <div style={{ marginBottom: 18 }}>
-              <label style={labelStyle}>{L('Notifikasyon', 'Notifications', 'Notifications')}</label>
+              <label style={labelStyle}>{t('auth_notifications_label')}</label>
               <div style={{ display: 'flex', gap: 12 }}>
                 {['WhatsApp', 'SMS', 'Email'].map(n => (
                   <label key={n} style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#ccc', fontSize: 13, cursor: 'pointer' }}>
@@ -360,20 +360,20 @@ function AuthPage() {
                 style={{ marginTop: 2, flexShrink: 0, accentColor: cfg.accent }}
               />
               <span style={{ fontSize: 12, color: '#888', lineHeight: 1.6 }}>
-                {L('Mwen li epi mwen dakò ak', 'I have read and agree to the', "J'ai lu et j'accepte les")}{' '}
+                {t('auth_read_agree')}{' '}
                 <a href="/legal?tab=tos" target="_blank" style={{ color: cfg.accent, textDecoration: 'underline' }}>
-                  {L('Kondisyon Sèvis', 'Terms of Service', "Conditions d'Utilisation")}
+                  {t('auth_tos')}
                 </a>
-                {' '}{L('ak', 'and', 'et')}{' '}
+                {' '}{t('auth_and')}{' '}
                 <a href="/legal?tab=privacy" target="_blank" style={{ color: cfg.accent, textDecoration: 'underline' }}>
-                  {L('Politik Konfidansyalite', 'Privacy Policy', 'Politique de Confidentialité')}
+                  {t('auth_privacy')}
                 </a>
-                {' '}{L('nan LaviMiyò LLC.', 'of LaviMiyò LLC.', 'de LaviMiyò LLC.')}
+                {' '}{t('auth_of_company')}
               </span>
             </label>
             <button type="submit" disabled={loading}
               style={{ width: '100%', padding: 14, borderRadius: 8, border: 'none', background: cfg.accent, color: roleTab === 'fan' ? '#000' : '#fff', fontSize: 15, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.6 : 1 }}>
-              {loading ? L('Ap kreye...', 'Creating...', 'Creation...') : L('Kreye Kont', 'Create Account', "Creer un compte")}
+              {loading ? t('auth_creating') : t('auth_create_account')}
             </button>
           </form>
         )}

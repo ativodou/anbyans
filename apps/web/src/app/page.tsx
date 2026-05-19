@@ -130,7 +130,7 @@ export default function LandingPage() {
               border: 'none', background: '#06b6d4', color: '#000',
               fontWeight: 800, fontSize: 15, textDecoration: 'none', letterSpacing: 1,
             }}>
-              Antre
+              {t('landing_enter')}
             </Link>
           </div>
 
@@ -146,7 +146,7 @@ export default function LandingPage() {
               />
               <button onClick={() => router.push(`/events?q=${encodeURIComponent(q)}`)}
                 className="px-5 bg-cyan text-dark font-bold text-sm font-body hover:bg-white transition-colors">
-                Chèche
+                {t('search')}
               </button>
             </div>
           </div>
@@ -184,7 +184,7 @@ export default function LandingPage() {
               (e.target as HTMLButtonElement).style.borderColor = '#2a2a3a';
               (e.target as HTMLButtonElement).style.color = '#888';
             }}>
-            🎉 Ou gen yon envitasyon prive?
+            {t('landing_private_btn')}
           </button>
         </div>
 
@@ -204,10 +204,10 @@ export default function LandingPage() {
               <div style={{ textAlign: 'center', marginBottom: 24 }}>
                 <div style={{ fontSize: 40, marginBottom: 10 }}>🎉</div>
                 <h3 style={{ color: '#fff', fontSize: 18, fontWeight: 800, margin: 0 }}>
-                  Fèt Prive
+                  {t('landing_private_title')}
                 </h3>
                 <p style={{ color: '#666', fontSize: 13, marginTop: 6 }}>
-                  Kole lyen oswa kòd envitasyon ou a
+                  {t('landing_private_sub')}
                 </p>
               </div>
 
@@ -221,7 +221,7 @@ export default function LandingPage() {
                     window.location.href = `/e/${token}`;
                   }
                 }}
-                placeholder="anbyans.events/e/abc123  oswa  abc123"
+                placeholder={t('landing_private_placeholder')}
                 style={{
                   width: '100%', padding: '12px 14px', borderRadius: 8,
                   border: '1px solid #a855f7', background: '#0a0a0f',
@@ -244,7 +244,7 @@ export default function LandingPage() {
                   cursor: privateCode.trim() ? 'pointer' : 'not-allowed',
                   transition: 'background .2s',
                 }}>
-                Antre nan Evenman an →
+                {t('landing_private_submit')}
               </button>
 
               <button onClick={() => setPrivateModal(false)}
@@ -252,7 +252,7 @@ export default function LandingPage() {
                   width: '100%', padding: 10, marginTop: 8, border: 'none',
                   background: 'transparent', color: '#555', fontSize: 13, cursor: 'pointer',
                 }}>
-                Anile
+                {t('cancel')}
               </button>
             </div>
           </div>
@@ -270,20 +270,20 @@ export default function LandingPage() {
               <p className="text-xs text-gray-muted mt-3">{t('landing_subtitle')}</p>
             </div>
             <div>
-              <h5 className="text-xs font-bold text-gray-light mb-3 tracking-wide">PLATFÒM</h5>
+              <h5 className="text-xs font-bold text-gray-light mb-3 tracking-wide">{t('footer_platform')}</h5>
               <div className="flex flex-col gap-2">
                 <Link href="/events" className="text-xs text-gray-muted hover:text-cyan transition-colors">{t('footer_browse')}</Link>
                 <Link href="/auth?tab=organizer" className="text-xs text-gray-muted hover:text-orange transition-colors">{t('footer_organizer')}</Link>
                 <Link href="/auth?tab=reseller" className="text-xs text-gray-muted hover:text-purple transition-colors">{t('footer_vendor')}</Link>
-                <span className="text-xs text-gray-muted">FAQ</span>
+                <span className="text-xs text-gray-muted">{t('footer_faq')}</span>
               </div>
             </div>
             <div>
-              <h5 className="text-xs font-bold text-gray-light mb-3 tracking-wide">LEGAL</h5>
+              <h5 className="text-xs font-bold text-gray-light mb-3 tracking-wide">{t('footer_legal_section')}</h5>
               <div className="flex flex-col gap-2">
-                <span className="text-xs text-gray-muted">Terms</span>
-                <span className="text-xs text-gray-muted">Privacy</span>
-                <span className="text-xs text-gray-muted">Refunds</span>
+                <Link href="/terms" className="text-xs text-gray-muted hover:text-white transition-colors">{t('footer_terms_link')}</Link>
+                <Link href="/privacy" className="text-xs text-gray-muted hover:text-white transition-colors">{t('footer_privacy_link')}</Link>
+                <span className="text-xs text-gray-muted">{t('footer_refunds')}</span>
               </div>
             </div>
           </div>

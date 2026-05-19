@@ -11,11 +11,10 @@ import LangSwitcher from '@/components/LangSwitcher';
 type VendorInvite = { id: string; contact: string; organizerId: string; status: string };
 
 function VendorJoinInner() {
-  const { locale } = useT();
+  const { t } = useT();
   const router = useRouter();
   const params = useSearchParams();
   const token = params.get('token') || '';
-  const L = (ht: string, en: string, fr: string) => ({ ht, en, fr }[locale as 'ht' | 'en' | 'fr'] ?? ht);
 
   const [invite, setInvite] = useState<VendorInvite | null>(null);
   const [loadState, setLoadState] = useState<'loading' | 'valid' | 'invalid'>('loading');
@@ -46,10 +45,10 @@ function VendorJoinInner() {
 
   const handleSubmit = async () => {
     setError('');
-    if (!name.trim()) { setError(L('Mete non ou.', 'Enter your name.', 'Entrez votre nom.')); return; }
-    if (!phone.trim()) { setError(L('Mete nimewo telefon ou.', 'Enter your phone number.', 'Entrez votre numero.')); return; }
-    if (pin.length < 4) { setError(L('PIN dwe gen 4 chif omwen.', 'PIN must be at least 4 digits.', 'Le PIN doit avoir au moins 4 chiffres.')); return; }
-    if (pin !== pinConfirm) { setError(L('PIN yo pa menm.', 'PINs do not match.', 'Les PIN ne correspondent pas.')); return; }
+    if (!name.trim()) { setError(t('vend_join_name_err')); return; }
+    if (!phone.trim()) { setError(t('vend_join_phone_err')); return; }
+    if (pin.length < 4) { setError(t('vend_join_pin_short')); return; }
+    if (pin !== pinConfirm) { setError(t('vend_join_pin_mismatch')); return; }
     if (!invite) return;
     setSubmitting(true);
     try {
@@ -69,9 +68,9 @@ function VendorJoinInner() {
       setTimeout(() => router.push('/vendor/dashboard'), 2000);
     } catch (err: any) {
       if (err.code === 'auth/email-already-in-use') {
-        setError(L('Nimewo sa a deja itilize. Konekte nan paj login a.', 'This phone is already registered. Please log in.', 'Ce numero est deja enregistre. Connectez-vous.'));
+        setError(t('vend_join_phone_in_use'));
       } else {
-        setError(err.message || L('Ere. Eseye anko.', 'Error. Try again.', 'Erreur. Reessayez.'));
+        setError(err.message || t('vend_join_error'));
       }
     }
     setSubmitting(false);
@@ -80,8 +79,8 @@ function VendorJoinInner() {
   if (done) return (
     <div className="min-h-screen flex flex-col items-center justify-center px-5 text-center gap-4">
       <div className="text-6xl">🎉</div>
-      <h2 className="font-heading text-3xl tracking-wide">{L('KOT OU AKTIVE!', 'ACCOUNT ACTIVATED!', 'COMPTE ACTIVE !')}</h2>
-      <p className="text-gray-light text-sm">{L("Y ap redirije ou...", 'Redirecting you...', 'Redirection en cours...')}</p>
+      <h2 className="font-heading text-3xl tracking-wide">{t('vend_join_activated')}</h2>
+      <p className="text-gray-light text-sm">{t('vend_join_redirecting')}</p>
     </div>
   );
 
@@ -94,8 +93,8 @@ function VendorJoinInner() {
   if (loadState === 'invalid') return (
     <div className="min-h-screen flex flex-col items-center justify-center px-5 text-center gap-4">
       <div className="text-5xl">⚠️</div>
-      <h2 className="font-heading text-2xl tracking-wide">{L('ENVITASYON PA VALID', 'INVALID INVITATION', 'INVITATION INVALIDE')}</h2>
-      <p className="text-gray-light text-sm max-w-sm">{L("Lyen sa a ekspire oswa deja itilize. Kontakte ogatizate a.", 'This link has expired or already been used. Contact the organizer.', "Ce lien a expire ou a deja ete utilise. Contactez l'organisateur.")}</p>
+      <h2 className="font-heading text-2xl tracking-wide">{t('vend_join_invalid_inv')}</h2>
+      <p className="text-gray-light text-sm max-w-sm">{t('vend_join_inv_expired')}</p>
     </div>
   );
 
@@ -111,30 +110,30 @@ function VendorJoinInner() {
         <div className="w-full max-w-[420px]">
           <div className="text-center mb-8">
             <div className="text-5xl mb-3">🏪</div>
-            <h1 className="font-heading text-3xl tracking-wide mb-1">{L('KREYE KOT VANDE', 'CREATE RESELLER ACCOUNT', 'CREER UN COMPTE VENDEUR')}</h1>
-            <p className="text-xs text-gray-light">{L('Ou te envite kom vande sou Anbyans.', 'You were invited as a reseller on Anbyans.', 'Vous avez ete invite comme vendeur sur Anbyans.')}</p>
+            <h1 className="font-heading text-3xl tracking-wide mb-1">{t('vend_join_title')}</h1>
+            <p className="text-xs text-gray-light">{t('vend_join_invited')}</p>
           </div>
           <div className="bg-dark-card border border-border rounded-2xl p-6 space-y-4">
             <div>
-              <label className="text-[11px] text-gray-light font-bold mb-1.5 block">{L('Non Biznis / Non Ou', 'Business / Your Name', "Nom de l'entreprise / Votre nom")}</label>
+              <label className="text-[11px] text-gray-light font-bold mb-1.5 block">{t('vend_join_biz_name')}</label>
               <input value={name} onChange={e => setName(e.target.value)}
-                placeholder={L('Ex: Tike Rapid', 'Ex: Quick Tickets', 'Ex: Billets Rapides') ?? ''}
+                placeholder={t('vend_join_biz_ph')}
                 className="w-full px-3.5 py-2.5 rounded-[10px] bg-white/[0.04] border border-border text-white text-[13px] outline-none focus:border-cyan placeholder:text-gray-muted" />
             </div>
             <div>
-              <label className="text-[11px] text-gray-light font-bold mb-1.5 block">{L('Nimewo WhatsApp / Telefon', 'WhatsApp / Phone Number', 'Numero WhatsApp / Telephone')}</label>
+              <label className="text-[11px] text-gray-light font-bold mb-1.5 block">{t('vend_join_phone_label')}</label>
               <input value={phone} onChange={e => setPhone(e.target.value)} type="tel"
                 placeholder="+509 XXXX XXXX"
                 className="w-full px-3.5 py-2.5 rounded-[10px] bg-white/[0.04] border border-border text-white text-[13px] outline-none focus:border-cyan placeholder:text-gray-muted" />
             </div>
             <div>
-              <label className="text-[11px] text-gray-light font-bold mb-1.5 block">{L('Kreye PIN (4-6 chif)', 'Create PIN (4-6 digits)', 'Creer un PIN (4-6 chiffres)')}</label>
+              <label className="text-[11px] text-gray-light font-bold mb-1.5 block">{t('vend_join_pin_label')}</label>
               <input value={pin} onChange={e => setPin(e.target.value.replace(/\D/g,'').slice(0,6))} type="password" inputMode="numeric"
                 placeholder="••••••"
                 className="w-full px-3.5 py-2.5 rounded-[10px] bg-white/[0.04] border border-border text-white text-[13px] outline-none focus:border-cyan placeholder:text-gray-muted" />
             </div>
             <div>
-              <label className="text-[11px] text-gray-light font-bold mb-1.5 block">{L('Konfime PIN', 'Confirm PIN', 'Confirmer le PIN')}</label>
+              <label className="text-[11px] text-gray-light font-bold mb-1.5 block">{t('vend_join_pin_confirm')}</label>
               <input value={pinConfirm} onChange={e => setPinConfirm(e.target.value.replace(/\D/g,'').slice(0,6))} type="password" inputMode="numeric"
                 placeholder="••••••"
                 className={`w-full px-3.5 py-2.5 rounded-[10px] bg-white/[0.04] border text-white text-[13px] outline-none placeholder:text-gray-muted ${pinConfirm && pin !== pinConfirm ? 'border-red' : 'border-border focus:border-cyan'}`} />
@@ -142,9 +141,9 @@ function VendorJoinInner() {
             {error && <p className="text-[11px] text-red">{error}</p>}
             <button onClick={handleSubmit} disabled={submitting}
               className={`w-full py-3 rounded-[10px] font-bold text-sm transition-all ${submitting ? 'bg-white/[0.04] text-gray-muted cursor-not-allowed' : 'bg-cyan text-dark hover:bg-white'}`}>
-              {submitting ? L('Ap kreye kot...', 'Creating account...', 'Creation du compte...') : L('Aktive Kot Vande', 'Activate Reseller Account', 'Activer le compte vendeur')}
+              {submitting ? t('vend_join_creating') : t('vend_join_activate_btn')}
             </button>
-            <p className="text-[10px] text-gray-muted text-center">{L('PIN ou se modpas ou pou antre nan dashboard ou.', 'Your PIN is your password to access your reseller dashboard.', 'Votre PIN est votre mot de passe pour votre tableau de bord.')}</p>
+            <p className="text-[10px] text-gray-muted text-center">{t('vend_join_pin_hint')}</p>
           </div>
         </div>
       </div>

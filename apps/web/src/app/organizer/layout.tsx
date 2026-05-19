@@ -20,8 +20,7 @@ interface OrgProfile {
 
 function EventSelector() {
   const { events, selectedEvent, setSelectedEvent, loading } = useOrganizerEvent();
-  const { locale } = useT();
-  const L = (ht: string, en: string, fr: string) => ({ ht, en, fr } as Record<string, string>)[locale] ?? ht;
+  const { t } = useT();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -40,7 +39,7 @@ function EventSelector() {
   if (events.length === 0) return (
     <Link href="/organizer/events/create"
       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed border-orange/40 text-orange text-[11px] font-semibold hover:border-orange transition-all">
-      ➕ {L('Kreye premye evènman ou', 'Create your first event', 'Créer votre premier événement')}
+      ➕ {t('org_create_first_event')}
     </Link>
   );
 
@@ -65,7 +64,7 @@ function EventSelector() {
             <span className="text-[12px] font-semibold truncate text-white">{selectedEvent.name}</span>
           </>
         ) : (
-          <span className="text-[12px] text-gray-muted">{L('Chwazi evènman', 'Select event', 'Choisir événement')}</span>
+          <span className="text-[12px] text-gray-muted">{t('org_select_event')}</span>
         )}
         <span className="text-gray-muted text-[10px] ml-1 flex-shrink-0">▼</span>
       </button>
@@ -73,7 +72,7 @@ function EventSelector() {
       {open && (
         <div className="absolute top-[110%] left-0 w-64 bg-dark-card border border-border rounded-xl shadow-2xl z-50 py-1.5 overflow-hidden">
           <p className="text-[9px] font-bold uppercase tracking-widest text-gray-muted px-3 py-2">
-            {L('Evènman ou yo', 'Your Events', 'Vos Événements')}
+            {t('org_your_events')}
           </p>
           {events.map(ev => (
             <button
@@ -106,10 +105,7 @@ function OrganizerLayoutInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { user, loading } = useAuth();
-  const { locale } = useT();
-
-  const L = (ht: string, en: string, fr: string) =>
-    ({ ht, en, fr } as Record<string, string>)[locale] ?? ht;
+  const { t } = useT();
 
   const [sideOpen, setSideOpen] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
@@ -132,14 +128,14 @@ function OrganizerLayoutInner({ children }: { children: React.ReactNode }) {
   }, [user?.uid]);
 
   const NAV_ITEMS = [
-    { href: '/organizer/dashboard',        icon: '📊', label: L('Dachbòd',         'Dashboard',        'Tableau de bord') },
-    { href: '/organizer/events',           icon: '📅', label: L('Evènman',         'Events',           'Événements') },
-    { href: '/organizer/vendors',          icon: '🏪', label: L('Revandè',         'Resellers',        'Revendeurs') },
-    { href: '/organizer/revenue',          icon: '💰', label: L('Revni',           'Revenue',          'Revenus') },
-    { href: '/organizer/analytics',        icon: '📈', label: L('Analytics',       'Analytics',        'Analytique') },
-    { href: '/organizer/staff',            icon: '👥', label: L('Staff',           'Staff',            'Personnel') },
-    { href: '/organizer/pending-tickets',  icon: '⏳', label: L('Ann Atant',       'Pending',          'En attente'),  badge: pendingCount },
-    { href: '/organizer/settings',         icon: '⚙️', label: L('Paramèt',        'Settings',         'Paramètres') },
+    { href: '/organizer/dashboard',        icon: '📊', label: t('org_nav_dashboard') },
+    { href: '/organizer/events',           icon: '📅', label: t('org_nav_events') },
+    { href: '/organizer/vendors',          icon: '🏪', label: t('org_nav_resellers') },
+    { href: '/organizer/revenue',          icon: '💰', label: t('org_nav_revenue') },
+    { href: '/organizer/analytics',        icon: '📈', label: t('org_nav_analytics') },
+    { href: '/organizer/staff',            icon: '👥', label: t('org_nav_staff') },
+    { href: '/organizer/pending-tickets',  icon: '⏳', label: t('org_nav_pending'),  badge: pendingCount },
+    { href: '/organizer/settings',         icon: '⚙️', label: t('org_nav_settings') },
   ];
 
   useEffect(() => {
@@ -196,15 +192,15 @@ function OrganizerLayoutInner({ children }: { children: React.ReactNode }) {
   };
 
   const pageTitle = (() => {
-    if (pathname.startsWith('/organizer/events/create'))       return L('Kreye Evènman',  'Create Event', 'Créer un événement');
-    if (pathname.startsWith('/organizer/events'))              return L('Evènman',         'Events',       'Événements');
-    if (pathname.startsWith('/organizer/vendors'))             return L('Revandè',         'Resellers',    'Revendeurs');
-    if (pathname.startsWith('/organizer/revenue'))             return L('Revni',           'Revenue',      'Revenus');
-    if (pathname.startsWith('/organizer/analytics'))           return L('Analytics',       'Analytics',    'Analytique');
-    if (pathname.startsWith('/organizer/staff'))               return L('Staff',           'Staff',        'Personnel');
-    if (pathname.startsWith('/organizer/pending-tickets'))     return L('Tikè Ann Atant',  'Pending Tickets', 'Billets en attente');
-    if (pathname.startsWith('/organizer/settings'))            return L('Paramèt',         'Settings',     'Paramètres');
-    return L('Dachbòd', 'Dashboard', 'Tableau de bord');
+    if (pathname.startsWith('/organizer/events/create'))       return t('org_page_create_event');
+    if (pathname.startsWith('/organizer/events'))              return t('org_page_events');
+    if (pathname.startsWith('/organizer/vendors'))             return t('org_page_vendors');
+    if (pathname.startsWith('/organizer/revenue'))             return t('org_page_revenue');
+    if (pathname.startsWith('/organizer/analytics'))           return t('org_page_analytics');
+    if (pathname.startsWith('/organizer/staff'))               return t('org_page_staff');
+    if (pathname.startsWith('/organizer/pending-tickets'))     return t('org_page_pending_tickets');
+    if (pathname.startsWith('/organizer/settings'))            return t('org_page_settings');
+    return t('org_nav_dashboard');
   })();
 
   return (
@@ -227,7 +223,7 @@ function OrganizerLayoutInner({ children }: { children: React.ReactNode }) {
 
         <nav className="flex-1 py-3 px-3 overflow-y-auto">
           <p className="text-[9px] font-bold uppercase tracking-widest text-gray-muted px-3 mb-2">
-            {L('Jeneral', 'General', 'Général')}
+            {t('org_section_general')}
           </p>
           {NAV_ITEMS.map(n => (
             <Link
@@ -261,7 +257,7 @@ function OrganizerLayoutInner({ children }: { children: React.ReactNode }) {
           </div>
           <button
             onClick={handleSignOut}
-            title={L('Dekonekte', 'Sign out', 'Déconnexion')}
+            title={t('org_signout')}
             className="text-gray-muted hover:text-red text-sm transition-colors">
             🚪
           </button>

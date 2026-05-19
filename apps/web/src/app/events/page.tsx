@@ -24,9 +24,7 @@ interface PublicEvent {
 }
 
 function EventsInner() {
-  const { locale } = useT();
-  const L = (ht: string, en: string, fr: string) =>
-    ({ ht, en, fr } as Record<string, string>)[locale] ?? ht;
+  const { t } = useT();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [events, setEvents]   = useState<PublicEvent[]>([]);
@@ -56,7 +54,7 @@ function EventsInner() {
     const matchSearch = !search ||
       ev.title || (ev as any).name.toLowerCase().includes(search.toLowerCase()) ||
       ev.city?.toLowerCase().includes(search.toLowerCase()) ||
-      ev.tags?.some(t => t.toLowerCase().includes(search.toLowerCase()));
+      ev.tags?.some(tag => tag.toLowerCase().includes(search.toLowerCase()));
     const matchFilter = filter === 'all' || ev.status === filter;
     return matchSearch && matchFilter;
   });
@@ -75,16 +73,16 @@ function EventsInner() {
       <div className="bg-gradient-to-b from-orange/10 to-transparent py-12 px-4">
         <div className="max-w-2xl mx-auto text-center">
           <h1 className="font-heading text-4xl md:text-5xl text-white mb-2">
-            {L('Evènman pou nou, pa nou.', 'Events for us, by us.', 'Événements pour nous, par nous.')}
+            {t('browse_tagline')}
           </h1>
           <p className="text-gray-400 text-sm mb-8">
-            {L('Jwenn evènman Ayisyen nan tout kote', 'Find Haitian events everywhere', 'Trouvez des événements haïtiens partout')}
+            {t('browse_subtitle')}
           </p>
           <div className="relative">
             <input
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder={L('Rechèche evènman, vil, artis...', 'Search events, city, artist...', 'Rechercher événements, ville...')}
+              placeholder={t('browse_placeholder')}
               className="w-full px-5 py-3.5 rounded-xl bg-white/[0.08] border border-white/[0.12] text-white placeholder:text-gray-500 text-sm outline-none focus:border-orange"
             />
             <span className="absolute right-4 top-3.5 text-gray-500">🔍</span>
@@ -99,13 +97,13 @@ function EventsInner() {
             className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${
               filter === f ? 'bg-orange text-white' : 'bg-white/[0.06] text-gray-400 hover:bg-white/[0.1]'
             }`}>
-            {f === 'all'      ? L('Tout', 'All', 'Tous') :
-             f === 'live'     ? `● ${L('An Dirèk', 'Live Now', 'En Direct')}` :
-                                L('Pwochen', 'Upcoming', 'À venir')}
+            {f === 'all'      ? t('all') :
+             f === 'live'     ? `● ${t('browse_live_now')}` :
+                                t('browse_upcoming')}
           </button>
         ))}
         <span className="ml-auto text-xs text-gray-500 self-center">
-          {filtered.length} {L('evènman', 'events', 'événements')}
+          {filtered.length} {t('events')}
         </span>
       </div>
 
@@ -120,7 +118,7 @@ function EventsInner() {
         ) : filtered.length === 0 ? (
           <div className="text-center py-24 text-gray-500">
             <p className="text-4xl mb-3">🎭</p>
-            <p>{L('Pa gen evènman pou kounye a.', 'No events found.', 'Aucun événement trouvé.')}</p>
+            <p>{t('browse_no_events_now')}</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -149,7 +147,7 @@ function EventsInner() {
                       {(ev as any).sections ? `$${Math.min(...(ev as any).sections.map((s:any) => s.price))} – $${Math.max(...(ev as any).sections.map((s:any) => s.price))}` : fmt(ev.minPrice)}
                     </span>
                     <span className="text-[10px] font-bold bg-orange/10 text-orange px-3 py-1 rounded-full group-hover:bg-orange group-hover:text-white transition-all">
-                      {L('Achte', 'Buy', 'Acheter')} →
+                      {t('browse_buy_arrow')} →
                     </span>
                   </div>
                 </div>

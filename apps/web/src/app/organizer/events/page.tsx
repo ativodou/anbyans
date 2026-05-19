@@ -11,9 +11,7 @@ import FloorPlanViewer from '@/components/FloorPlanViewer';
 
 export default function OrganizerEventsPage() {
   const { user } = useAuth();
-  const { locale } = useT();
-  const L = (ht: string, en: string, fr: string) =>
-    ({ ht, en, fr } as Record<string, string>)[locale] ?? ht;
+  const { t } = useT();
 
   const [events, setEvents] = useState<EventData[]>([]);
   const [allTickets, setAllTickets] = useState<any[]>([]);
@@ -50,7 +48,7 @@ export default function OrganizerEventsPage() {
     setStatusLoading('');
   }
   async function handleEndEvent(eventId: string) {
-    if (!confirm(L('Fini evènman sa a?', 'End this event?', 'Terminer cet événement?'))) return;
+    if (!confirm(t('event_end_confirm'))) return;
     setStatusLoading(eventId);
     await markEventEnded(eventId);
     setEvents(prev => prev.map(e => e.id === eventId ? { ...e, status: 'ended' } : e));
@@ -66,20 +64,20 @@ export default function OrganizerEventsPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-5">
-        <p className="text-xs text-gray-light">{events.length} {L('evènman', 'events', 'événements')}</p>
+        <p className="text-xs text-gray-light">{events.length} {t('event_count')}</p>
         <Link href="/organizer/events/create"
           className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-orange text-white text-xs font-bold hover:bg-orange/80 transition-all">
-          ➕ {L('Kreye Evènman', 'Create Event', 'Créer un événement')}
+          ➕ {t('org_create_event_btn')}
         </Link>
       </div>
 
       {events.length === 0 ? (
         <div className="bg-dark-card border border-border rounded-card p-12 text-center">
           <p className="text-5xl mb-3">📅</p>
-          <p className="text-gray-muted mb-4">{L('Pa gen evènman ankò.', 'No events yet.', "Aucun événement pour l'instant.")}</p>
+          <p className="text-gray-muted mb-4">{t('event_no_events')}</p>
           <Link href="/organizer/events/create"
             className="inline-flex px-5 py-2.5 rounded-lg bg-orange text-white text-xs font-bold hover:bg-orange/80 transition-all">
-            ➕ {L('Kreye premye evènman ou', 'Create your first event', 'Créer votre premier événement')}
+            ➕ {t('org_create_first_event')}
           </Link>
         </div>
       ) : (
@@ -112,17 +110,17 @@ export default function OrganizerEventsPage() {
                         e.status === 'published' ? 'bg-cyan-dim text-cyan' :
                         'bg-white/[0.05] text-gray-muted'
                       }`}>
-                        {e.status === 'live'      ? `● ${L('AN DIRÈK', 'LIVE', 'EN DIRECT')}` :
-                         e.status === 'published' ? L('PIBLIYE', 'PUBLISHED', 'PUBLIÉ') :
-                         e.status === 'draft'     ? L('BOUYON', 'DRAFT', 'BROUILLON') :
-                                                     L('PASE', 'PAST', 'PASSÉ')}
+                        {e.status === 'live'      ? `● ${t('status_live')}` :
+                         e.status === 'published' ? t('status_published') :
+                         e.status === 'draft'     ? t('status_draft') :
+                                                     t('status_ended')}
                       </span>
                       {e.isPrivate && (
                         <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-orange/20 text-orange border border-orange/30">🔒 PRIVATE</span>
                       )}
                     </div>
                     <p className="text-xs text-gray-light">
-                      📅 {e.startDate || (e as any).date || '—'} · 🎫 {evTickets.length} {L('tikè vann', 'tickets sold', 'billets vendus')}
+                      📅 {e.startDate || (e as any).date || '—'} · 🎫 {evTickets.length} {t('org_stat_tickets_sold')}
                     </p>
                     {cap > 0 && (
                       <div className="flex items-center gap-2 mt-1.5">
@@ -136,7 +134,7 @@ export default function OrganizerEventsPage() {
 
                   <div className="text-right flex-shrink-0 flex flex-col items-end gap-1">
                     <p className="font-heading text-2xl">${evRevenue.toLocaleString()}</p>
-                    <p className="text-[10px] text-gray-muted">{evTickets.length} {L('tikè', 'tickets', 'billets')}</p>
+                    <p className="text-[10px] text-gray-muted">{evTickets.length} {t('rev_ticket_count')}</p>
                     <span className={`text-[10px] mt-0.5 transition-all duration-200 ${isOpen ? 'text-orange' : 'text-gray-muted'}`}>
                       {isOpen ? '▲' : '▼'}
                     </span>
@@ -150,21 +148,21 @@ export default function OrganizerEventsPage() {
                     <div className="flex items-center gap-2 mt-3 pt-3 border-t border-border flex-wrap">
                       <Link href={`/organizer/events/${e.id}/edit`}
                         className="px-3 py-1.5 rounded-lg bg-white/[0.04] border border-border text-[10px] font-bold text-gray-light hover:text-white hover:border-white/20 transition-all">
-                        ✏️ {L('Edite', 'Edit', 'Modifier')}
+                        ✏️ {t('event_action_edit')}
                       </Link>
                       <Link href={`/organizer/staff?event=${e.id}`}
                         className="px-3 py-1.5 rounded-lg bg-white/[0.04] border border-border text-[10px] font-bold text-gray-light hover:text-white hover:border-white/20 transition-all">
-                        👥 {L('Staff', 'Staff', 'Personnel')}
+                        👥 {t('org_nav_staff')}
                       </Link>
                       <Link href={`/organizer/scanner?event=${e.id}`}
                         className="px-3 py-1.5 rounded-lg bg-white/[0.04] border border-border text-[10px] font-bold text-gray-light hover:text-white hover:border-white/20 transition-all">
-                        📷 {L('Eskane', 'Scanner', 'Scanner')}
+                        📷 {t('event_action_scanner')}
                       </Link>
                       {e.isPrivate && e.privateToken && (
                         <button
                           onClick={() => navigator.clipboard.writeText(`${window.location.origin}/e/${e.privateToken}`)}
                           className="px-3 py-1.5 rounded-lg bg-orange/10 border border-orange/30 text-[10px] font-bold text-orange hover:bg-orange hover:text-white transition-all">
-                          📋 {L('Kopye lyen prive', 'Copy private link', 'Copier lien privé')}
+                          📋 {t('event_copy_private_link')}
                         </button>
                       )}
                       {e.status === 'published' && e.id && (
@@ -172,7 +170,7 @@ export default function OrganizerEventsPage() {
                           onClick={() => handleGoLive(e.id!)}
                           disabled={statusLoading === e.id}
                           className="px-3 py-1.5 rounded-lg bg-green-dim border border-green/30 text-[10px] font-bold text-green hover:bg-green hover:text-black transition-all disabled:opacity-50">
-                          {statusLoading === e.id ? '⏳' : `● ${L('Mete An Dirèk', 'Go Live', 'Mettre en Direct')}`}
+                          {statusLoading === e.id ? '⏳' : `● ${t('status_live')}`}
                         </button>
                       )}
                       {(e.status === 'published' || e.status === 'live') && e.id && (
@@ -180,7 +178,7 @@ export default function OrganizerEventsPage() {
                           onClick={() => handleEndEvent(e.id!)}
                           disabled={statusLoading === e.id}
                           className="px-3 py-1.5 rounded-lg bg-red-900/20 border border-red-800/40 text-[10px] font-bold text-red-400 hover:bg-red-800/40 transition-all disabled:opacity-50">
-                          {statusLoading === e.id ? '⏳' : `■ ${L('Fini Evènman', 'End Event', 'Terminer')}`}
+                          {statusLoading === e.id ? '⏳' : `■ ${t('event_action_end')}`}
                         </button>
                       )}
                     </div>
