@@ -1,9 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useT } from '@/i18n';
 import LangSwitcher from '@/components/LangSwitcher';
+import { useAuth } from '@/hooks/useAuth';
 import { auth, db } from '@/lib/firebase';
 import { collection, query, where, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
 import {
@@ -74,6 +76,22 @@ const requestVendorAccess = async (data: VendorAccessRequestInput): Promise<Vend
 
 export default function VendorDashboardPage() {
   const { t } = useT();
+  const { user } = useAuth();
+  const [profileOpen, setProfileOpen] = useState(false);
+  const profileRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (profileRef.current && !profileRef.current.contains(e.target as Node)) setProfileOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const displayName = (user as any)?.firstName
+    ? `${(user as any).firstName} ${(user as any).lastName ?? ''}`.trim()
+    : user?.email?.split('@')[0] ?? '';
+  const initial = displayName.charAt(0).toUpperCase();
 
   const [tab, setTab] = useState<Tab>('sell');
   const [loading, setLoading] = useState(true);
@@ -326,8 +344,35 @@ export default function VendorDashboardPage() {
           <span style={{ flex: 1, fontSize: 13, fontWeight: 700 }}>{vendor?.name || 'VANDE'}</span>
           <span style={{ background: '#a855f722', color: '#a855f7', fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 4 }}>🏪 {t('vend_dash_reseller_badge')}</span>
           <LangSwitcher />
-          <button onClick={() => auth.signOut().then(() => { window.location.href = '/vendor/auth'; })}
-            style={{ background: 'none', border: 'none', color: '#555', fontSize: 18, cursor: 'pointer' }}>🚪</button>
+          <div ref={profileRef} style={{ position: 'relative' }}>
+            <button onClick={() => setProfileOpen(!profileOpen)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 10px 4px 4px', borderRadius: 8, border: `1px solid ${profileOpen ? '#a855f7' : '#1e1e2e'}`, background: profileOpen ? '#a855f722' : 'transparent', cursor: 'pointer' }}>
+              <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#a855f7', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#000', fontWeight: 800, fontSize: 13, flexShrink: 0 }}>
+                {initial}
+              </div>
+              <div style={{ textAlign: 'left' }}>
+                <div style={{ color: '#fff', fontSize: 12, fontWeight: 600, lineHeight: 1.2 }}>{displayName}</div>
+                <div style={{ color: '#a855f7', fontSize: 10, textTransform: 'capitalize' }}>{t('vend_dash_reseller_badge')}</div>
+              </div>
+              <span style={{ color: '#555', fontSize: 10, marginLeft: 4 }}>▼</span>
+            </button>
+            {profileOpen && (
+              <>
+                <div onClick={() => setProfileOpen(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 99 }} />
+                <div style={{ position: 'absolute', top: '110%', right: 0, width: 200, background: '#12121a', border: '1px solid #1e1e2e', borderRadius: 10, padding: 6, zIndex: 100, boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}>
+                  <div style={{ padding: '8px 10px', borderBottom: '1px solid #1e1e2e', marginBottom: 4 }}>
+                    <div style={{ color: '#fff', fontSize: 13, fontWeight: 700 }}>{displayName}</div>
+                    <div style={{ color: '#555', fontSize: 11 }}>{user?.email}</div>
+                  </div>
+                  <Link href="/vendor/profile" onClick={() => setProfileOpen(false)} style={{ display: 'block', padding: '8px 10px', borderRadius: 6, color: '#a855f7', fontSize: 12, fontWeight: 600, textDecoration: 'none' }}>
+                    ✏️ {t('vend_profile_title')}
+                  </Link>
+                  <button onClick={() => { auth.signOut(); window.location.href = '/vendor/auth'; }} style={{ width: '100%', textAlign: 'left', padding: '8px 10px', borderRadius: 6, background: 'none', border: 'none', color: '#888', fontSize: 12, cursor: 'pointer' }}>
+                    🚪 {t('org_signout')}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </nav>
 
