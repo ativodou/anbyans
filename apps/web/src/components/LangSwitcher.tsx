@@ -8,15 +8,19 @@ const LOCALES: Locale[] = ['ht', 'en', 'fr'];
 export default function LangSwitcher() {
   const { locale, setLocale } = useT();
   const [open, setOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    setMounted(true);
     const handler = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
+
+  if (!mounted) return null;
 
   return (
     <div ref={ref} className="relative" style={{ zIndex: 9999 }}>

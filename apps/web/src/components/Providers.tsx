@@ -8,7 +8,11 @@ import { useAuth } from '@/hooks/useAuth';
 function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { user } = useAuth();
-  const noNav = pathname === '/' || pathname.startsWith('/auth');
+  const noNav =
+    pathname === '/' ||
+    pathname.startsWith('/auth') ||
+    pathname.startsWith('/organizer') ||
+    pathname.startsWith('/vendor');
   return (
     <>
       {!noNav && user && <NavBar />}

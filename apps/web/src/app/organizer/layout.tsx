@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useT } from '@/i18n';
+import LangSwitcher from '@/components/LangSwitcher';
 import { auth, db } from '@/lib/firebase';
 import { type EventData } from '@/lib/db';
 import { collection, getDocs, onSnapshot, query, where } from 'firebase/firestore';
@@ -287,6 +288,7 @@ function OrganizerLayoutInner({ children }: { children: React.ReactNode }) {
 
           {/* ── Event Selector ── */}
           <EventSelector />
+          <LangSwitcher />
         </header>
 
         <main className="flex-1 overflow-y-auto p-5">

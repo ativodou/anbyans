@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useT } from '@/i18n';
+import LangSwitcher from '@/components/LangSwitcher';
 import { auth, db } from '@/lib/firebase';
 import { collection, query, where, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
 import {
@@ -324,6 +325,7 @@ export default function VendorDashboardPage() {
           <div style={{ width: 1, height: 20, background: '#1e1e2e' }} />
           <span style={{ flex: 1, fontSize: 13, fontWeight: 700 }}>{vendor?.name || 'VANDE'}</span>
           <span style={{ background: '#a855f722', color: '#a855f7', fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 4 }}>🏪 {t('vend_dash_reseller_badge')}</span>
+          <LangSwitcher />
           <button onClick={() => auth.signOut().then(() => { window.location.href = '/vendor/auth'; })}
             style={{ background: 'none', border: 'none', color: '#555', fontSize: 18, cursor: 'pointer' }}>🚪</button>
         </div>

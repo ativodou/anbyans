@@ -20,8 +20,8 @@ export function I18nProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const saved = localStorage.getItem('anbyans-lang') as Locale | null;
-    if (saved && ['ht', 'en', 'fr'].includes(saved)) {
-      setLocaleState(saved);
+    if (saved && (['ht', 'en', 'fr'] as string[]).includes(saved)) {
+      setLocaleState(saved as Locale);
     }
   }, []);
 

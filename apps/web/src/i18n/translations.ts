@@ -1141,6 +1141,13 @@ revenue_total:        { ht:'Revni Total', en:'Total Revenue', fr:'Revenu Total' 
   event_id_buy_tickets:       { ht: 'Achte Tikè', en: 'Buy Tickets', fr: 'Acheter des billets' },
   event_id_ticket_sold_out:   { ht: 'Tikè Epize', en: 'Sold Out', fr: 'Billets épuisés' },
   event_id_copy_link:         { ht: 'Kopye Lyen', en: 'Copy Link', fr: 'Copier le lien' },
+
+  /* ═══ NEW KEYS ═══ */
+  org_stat_total_revenue_overview: { ht: 'Revni Total', en: 'Total Revenue', fr: 'Revenu total' },
+  create_publish_btn:         { ht: 'Pibliye Evènman', en: 'Publish Event', fr: "Publier l'événement" },
+  browse_public_search_placeholder: { ht: 'Chèche evènman...', en: 'Search events...', fr: 'Rechercher des événements...' },
+  browse_public_filter_all:   { ht: 'Tout', en: 'All', fr: 'Tous' },
+  browse_public_filter_live:  { ht: 'An Dirèk', en: 'Live', fr: 'En direct' },
 } as const;
 
 export type TranslationKey = keyof typeof t;
