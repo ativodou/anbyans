@@ -7,6 +7,10 @@ import { db } from '../../lib/firebase';
 import { getEventByPrivateToken, purchaseTickets } from '../../lib/db';
 import { useT } from '../../i18n';
 import Link from 'next/link';
+import { loadStripe } from '@stripe/stripe-js';
+import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
+
+const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -116,6 +120,45 @@ function SeatMap({ section, takenIds, selected, onToggle }: {
   );
 }
 
+// ─── Stripe inner form (must be inside <Elements>) ───────────────────────────
+
+function StripePaymentForm({ total, onSuccess, onError }: {
+  total: number;
+  onSuccess: () => void;
+  onError: (msg: string) => void;
+}) {
+  const { t } = useT();
+  const stripe = useStripe();
+  const elements = useElements();
+  const [confirming, setConfirming] = useState(false);
+
+  const handlePay = async () => {
+    if (!stripe || !elements) return;
+    setConfirming(true);
+    const { error, paymentIntent } = await stripe.confirmPayment({
+      elements,
+      redirect: 'if_required',
+    });
+    setConfirming(false);
+    if (error) { onError(error.message || 'Peman echwe'); return; }
+    if (paymentIntent?.status === 'succeeded') onSuccess();
+  };
+
+  return (
+    <div>
+      <PaymentElement options={{ layout: 'tabs' }} />
+      <button
+        onClick={handlePay}
+        disabled={!stripe || !elements || confirming}
+        className="w-full mt-4 py-3.5 rounded-xl font-heading text-base bg-orange text-white disabled:opacity-30 hover:bg-orange/90 transition-all flex items-center justify-center gap-2">
+        {confirming
+          ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> {t('buy_processing_btn')}</>
+          : `${t('buy_confirm_payment')} · $${total.toFixed(2)}`}
+      </button>
+    </div>
+  );
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 function BuyPageInner() {
@@ -146,6 +189,8 @@ function BuyPageInner() {
   const [processing, setProcessing] = useState(false);
   const [ticketCodes, setTicketCodes] = useState<string[]>([]);
   const [errors, setErrors]           = useState<Record<string, string>>({});
+  const [stripeClientSecret, setStripeClientSecret] = useState<string | null>(null);
+  const [stripeError, setStripeError] = useState('');
 
   // ── Load event ────────────────────────────────────────────────
   useEffect(() => {
@@ -204,6 +249,32 @@ function BuyPageInner() {
     })();
   }, [eventKey]);
 
+  // ── Fetch Stripe PaymentIntent when Stripe selected ──────────
+  useEffect(() => {
+    const amount = selSection ? selSection.price * qty : 0;
+    if (payMethod !== 'stripe' || !event || !amount) return;
+    setStripeClientSecret(null);
+    setStripeError('');
+    fetch('/api/payment/stripe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        amount,
+        applicationFeeAmount: amount * 0.09,
+        currency: 'usd',
+        eventName: event.title,
+        seats: qty,
+        connectedAccountId: null,
+      }),
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (data.error) setStripeError(data.error);
+        else setStripeClientSecret(data.clientSecret);
+      })
+      .catch(e => setStripeError(e.message));
+  }, [payMethod, selSection, qty]);
+
   // ── Load taken seats when section selected ────────────────────
   useEffect(() => {
     if (!selSection || selSection.type !== 'reserved' || !event) return;
@@ -241,10 +312,29 @@ function BuyPageInner() {
     return Object.keys(e).length === 0;
   };
 
+  // ── Stripe success callback ───────────────────────────────────
+  const completeStripePayment = async () => {
+    if (!event || !selSection) return;
+    setProcessing(true);
+    try {
+      const seats = selSection.type === 'reserved'
+        ? selSeats
+        : Array.from({ length: qty }, (_, i) => `GA-${i + 1}`);
+      const tkts = await purchaseTickets(
+        event.id, name.trim(), email.trim(), phone.trim(),
+        selSection.name, selSection.color, seats, selSection.price,
+        undefined, undefined, 'stripe',
+        { organizerId: event.organizerId, sectionName: selSection.name, priceHTG: htg(selSection.price) },
+      );
+      setTicketCodes(tkts.map(tk => tk.ticketCode));
+      setStep('done');
+    } catch (e) { console.error(e); setStripeError('Erè apre peman. Kontakte sipò.'); }
+    finally { setProcessing(false); }
+  };
+
   // ── Complete purchase ─────────────────────────────────────────
   const completePurchase = async () => {
     if (!event || !selSection || !payMethod) return;
-    // Stripe is not yet integrated — block submission to prevent free tickets
     if (payMethod === 'stripe') return;
     setProcessing(true);
     try {
@@ -538,17 +628,29 @@ function BuyPageInner() {
           </div>
         )}
 
-        {/* Stripe placeholder */}
+        {/* Stripe Elements */}
         {payMethod === 'stripe' && (
           <div className="bg-white/[0.04] rounded-xl p-4 mb-4 text-sm">
-            <p className="font-bold mb-2">💳 {t('vend_dash_credit_card')} / Debi</p>
-            <p className="text-gray-400 text-xs">
-              {t('buy_stripe_charge')}
-            </p>
-            {/* TODO: mount Stripe Elements here */}
-            <div className="mt-3 bg-black/40 rounded-lg p-3 border border-dashed border-white/10 text-center text-gray-600 text-xs">
-              Stripe Elements — {t('buy_stripe_coming')}
-            </div>
+            <p className="font-bold mb-3">💳 {t('vend_dash_credit_card')} / Debi</p>
+            {stripeError && (
+              <p className="text-red-400 text-xs mb-3">{stripeError}</p>
+            )}
+            {!stripeClientSecret && !stripeError && (
+              <div className="flex items-center justify-center py-6">
+                <div className="w-5 h-5 border-2 border-orange border-t-transparent rounded-full animate-spin" />
+              </div>
+            )}
+            {stripeClientSecret && (
+              <Elements
+                stripe={stripePromise}
+                options={{ clientSecret: stripeClientSecret, appearance: { theme: 'night' } }}>
+                <StripePaymentForm
+                  total={total}
+                  onSuccess={completeStripePayment}
+                  onError={msg => setStripeError(msg)}
+                />
+              </Elements>
+            )}
           </div>
         )}
 
@@ -563,14 +665,16 @@ function BuyPageInner() {
           </div>
         </div>
 
-        <button
-          disabled={!payMethod || processing || payMethod === 'stripe' || ((payMethod === 'moncash' || payMethod === 'natcash') && !txnId.trim())}
-          onClick={completePurchase}
-          className="w-full py-3.5 rounded-xl font-heading text-base bg-orange text-white disabled:opacity-30 hover:bg-orange/90 transition-all flex items-center justify-center gap-2">
-          {processing
-            ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> {t('buy_processing_btn')}</>
-            : t('buy_confirm_payment')}
-        </button>
+        {payMethod !== 'stripe' && (
+          <button
+            disabled={!payMethod || processing || ((payMethod === 'moncash' || payMethod === 'natcash') && !txnId.trim())}
+            onClick={completePurchase}
+            className="w-full py-3.5 rounded-xl font-heading text-base bg-orange text-white disabled:opacity-30 hover:bg-orange/90 transition-all flex items-center justify-center gap-2">
+            {processing
+              ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> {t('buy_processing_btn')}</>
+              : t('buy_confirm_payment')}
+          </button>
+        )}
       </div>
     </div>
   );
