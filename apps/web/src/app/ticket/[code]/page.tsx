@@ -30,10 +30,13 @@ export default function TicketPage() {
   const [transferPhone, setTransferPhone] = useState('');
   const [transferring, setTransferring] = useState(false);
   const [transferDone, setTransferDone] = useState(false);
+  const [transferError, setTransferError] = useState('');
   const [showRefund, setShowRefund] = useState(false);
   const [refundReason, setRefundReason] = useState('');
   const [refunding, setRefunding] = useState(false);
   const [refundDone, setRefundDone] = useState(false);
+  const [refundError, setRefundError] = useState('');
+  const [downloadError, setDownloadError] = useState('');
 
   useEffect(() => {
     if (!code) return;
@@ -206,7 +209,7 @@ export default function TicketPage() {
       link.click();
     } catch (err) {
       console.error('Download failed:', err);
-      alert(t('buy_error_retry'));
+      setDownloadError(t('buy_error_retry'));
     }
     setDownloading(false);
   };
@@ -264,7 +267,7 @@ ${acceptUrl}`
       setTransferDone(true);
       setShowTransfer(false);
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Erè. Eseye ankò.');
+      setTransferError(err instanceof Error ? err.message : 'Erè. Eseye ankò.');
     }
     setTransferring(false);
   };
@@ -282,7 +285,7 @@ ${acceptUrl}`
       setRefundDone(true);
       setShowRefund(false);
     } catch (e) {
-      alert(t('ticket_refund_error'));
+      setRefundError(t('ticket_refund_error'));
     }
     setRefunding(false);
   }
@@ -394,16 +397,19 @@ ${acceptUrl}`
         {/* Actions */}
         <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 20 }}>
           {isValid && (
-            <button
-              onClick={downloadTicket}
-              disabled={downloading}
-              style={{
-                padding: '12px 20px', borderRadius: 10, background: '#f97316', color: '#000',
-                fontWeight: 700, fontSize: 13, border: 'none', cursor: downloading ? 'wait' : 'pointer',
-              }}
-            >
-              {downloading ? '...' : `📥 ${t('ticket_download')}`}
-            </button>
+            <>
+              <button
+                onClick={downloadTicket}
+                disabled={downloading}
+                style={{
+                  padding: '12px 20px', borderRadius: 10, background: '#f97316', color: '#000',
+                  fontWeight: 700, fontSize: 13, border: 'none', cursor: downloading ? 'wait' : 'pointer',
+                }}
+              >
+                {downloading ? '...' : `📥 ${t('ticket_download')}`}
+              </button>
+              {downloadError && <p style={{ color: '#ef4444', fontSize: 12, alignSelf: 'center' }}>{downloadError}</p>}
+            </>
           )}
           {isValid && !transferDone && (
             <button
@@ -465,6 +471,37 @@ ${acceptUrl}`
         </div>
       </div>
 
+      {/* Refund Modal */}
+      {showRefund && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', padding: 16 }}>
+          <div style={{ background: '#12121a', border: '1px solid #1e1e2e', borderRadius: 20, width: '100%', maxWidth: 480, padding: 24 }}>
+            <h3 style={{ fontSize: 18, fontWeight: 800, marginBottom: 4 }}>💸 {t('ticket_refund_btn')}</h3>
+            <p style={{ color: '#888', fontSize: 12, marginBottom: 20 }}>{event?.name} · {ticket?.section}</p>
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ color: '#888', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, display: 'block', marginBottom: 6 }}>{t('ticket_refund_reason_label')}</label>
+              <textarea
+                value={refundReason}
+                onChange={e => setRefundReason(e.target.value)}
+                rows={3}
+                placeholder={t('ticket_refund_reason_ph')}
+                style={{ width: '100%', padding: 12, borderRadius: 8, border: '1px solid #1e1e2e', background: '#0a0a0f', color: '#fff', fontSize: 14, boxSizing: 'border-box', resize: 'none' }}
+              />
+            </div>
+            {refundError && <p style={{ color: '#ef4444', fontSize: 12, marginBottom: 10 }}>{refundError}</p>}
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={() => { setShowRefund(false); setRefundError(''); }}
+                style={{ flex: 1, padding: 12, borderRadius: 10, border: '1px solid #1e1e2e', background: 'transparent', color: '#888', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+                {t('back')}
+              </button>
+              <button onClick={handleRefund} disabled={!refundReason.trim() || refunding}
+                style={{ flex: 2, padding: 12, borderRadius: 10, border: 'none', background: refundReason.trim() ? '#ef4444' : '#333', color: refundReason.trim() ? '#fff' : '#666', fontSize: 13, fontWeight: 700, cursor: refundReason.trim() ? 'pointer' : 'not-allowed' }}>
+                {refunding ? '...' : `💸 ${t('ticket_refund_btn')}`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Transfer Modal */}
       {showTransfer && (
         <div style={{
@@ -525,6 +562,7 @@ ${acceptUrl}`
                 {transferring ? '...' : `🔄 ${t('ticket_send_transfer')}`}
               </button>
             </div>
+            {transferError && <p style={{ color: '#ef4444', fontSize: 12, marginTop: 8 }}>{transferError}</p>}
           </div>
         </div>
       )}

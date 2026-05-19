@@ -197,6 +197,7 @@ function BuyPageInner() {
   const [expandedSection, setExpandedSection] = useState('');
   const [organizerStripeId, setOrganizerStripeId] = useState<string | null>(null);
   const [errors, setErrors]           = useState<Record<string, string>>({});
+  const [purchaseError, setPurchaseError] = useState('');
 
   // ── Load event ────────────────────────────────────────────────
   useEffect(() => {
@@ -397,7 +398,7 @@ function BuyPageInner() {
       setStep('done');
     } catch (e) {
       console.error(e);
-      alert(t('buy_error_retry'));
+      setPurchaseError(t('buy_error_retry'));
     } finally { setProcessing(false); }
   };
 
@@ -816,6 +817,7 @@ function BuyPageInner() {
           <p className="text-[10px] text-gray-600 mt-1">{t('slug_fee_nonrefund')}</p>
         </div>
 
+        {purchaseError && <p style={{ color: '#ef4444', fontSize: 13, marginBottom: 8 }}>{purchaseError}</p>}
         {payMethod !== 'stripe' && <button
           disabled={!payMethod || processing || (payMethod && MOBILE_METHODS.includes(payMethod) && !txnId.trim())}
           onClick={completePurchase}

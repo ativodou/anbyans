@@ -191,6 +191,7 @@ function BuyPageInner() {
   const [errors, setErrors]           = useState<Record<string, string>>({});
   const [stripeClientSecret, setStripeClientSecret] = useState<string | null>(null);
   const [stripeError, setStripeError] = useState('');
+  const [purchaseError, setPurchaseError] = useState('');
 
   // ── Load event ────────────────────────────────────────────────
   useEffect(() => {
@@ -366,7 +367,7 @@ function BuyPageInner() {
       setStep('done');
     } catch (e) {
       console.error(e);
-      alert(t('buy_error_retry'));
+      setPurchaseError(t('buy_error_retry'));
     } finally {
       setProcessing(false);
     }
@@ -665,6 +666,7 @@ function BuyPageInner() {
           </div>
         </div>
 
+        {purchaseError && <p className="text-red-400 text-xs mb-3 text-center">{purchaseError}</p>}
         {payMethod !== 'stripe' && (
           <button
             disabled={!payMethod || processing || ((payMethod === 'moncash' || payMethod === 'natcash') && !txnId.trim())}

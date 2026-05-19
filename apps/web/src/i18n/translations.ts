@@ -890,6 +890,8 @@ revenue_total:        { ht:'Revni Total', en:'Total Revenue', fr:'Revenu Total' 
   ticket_download:            { ht: 'Telechaje Tikè', en: 'Download Ticket', fr: 'Télécharger le Billet' },
   ticket_transfer_btn:        { ht: 'Transfere', en: 'Transfer', fr: 'Transférer' },
   ticket_refund_btn:          { ht: 'Mande Ranbousman', en: 'Request Refund', fr: 'Demander Remboursement' },
+  ticket_refund_reason_label: { ht: 'Rezon', en: 'Reason', fr: 'Raison' },
+  ticket_refund_reason_ph:    { ht: 'Eksplike rezon ou...', en: 'Explain your reason...', fr: 'Expliquez votre raison...' },
   ticket_refund_sent:         { ht: 'Demann ranbousman voye!', en: 'Refund request sent!', fr: 'Demande envoyée!' },
   ticket_awaiting_accept:     { ht: 'Ap tann akseptasyon...', en: 'Awaiting acceptance...', fr: 'En attente...' },
   ticket_more_events:         { ht: 'Plis Evènman', en: 'More Events', fr: "Plus d'événements" },

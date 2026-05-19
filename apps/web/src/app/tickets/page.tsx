@@ -26,6 +26,8 @@ export default function MyTicketsPage() {
   const [transferPhone, setTransferPhone] = useState('');
   const [transferring, setTransferring] = useState(false);
   const [transferDone, setTransferDone] = useState<{token: string; ticket: TicketWithEvent} | null>(null);
+  const [transferError, setTransferError] = useState('');
+  const [cancelError, setCancelError] = useState('');
 
   // Guest lookup
   const [phone, setPhone] = useState('');
@@ -135,7 +137,7 @@ ${acceptUrl}`
       setTransferName('');
       setTransferPhone('');
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Erè. Eseye ankò.');
+      setTransferError(err instanceof Error ? err.message : 'Erè. Eseye ankò.');
     }
     setTransferring(false);
   };
@@ -149,7 +151,7 @@ ${acceptUrl}`
         item.id === tk.id ? { ...item, status: 'valid', transferToken: undefined } : item
       ));
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Erè.');
+      setCancelError(err instanceof Error ? err.message : 'Erè.');
     }
   };
 
@@ -423,6 +425,8 @@ ${acceptUrl}`
                 {transferring ? '...' : `🔄 ${t('tickets_send_transfer')}`}
               </button>
             </div>
+            {transferError && <p style={{ color: '#ef4444', fontSize: 12, marginTop: 8 }}>{transferError}</p>}
+            {cancelError && <p style={{ color: '#ef4444', fontSize: 12, marginTop: 8 }}>{cancelError}</p>}
           </div>
         </div>
       )}
