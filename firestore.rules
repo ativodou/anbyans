@@ -144,6 +144,31 @@ service cloud.firestore {
       allow write: if isAuth();
     }
 
+    // ── Vendor sales history ───────────────────────────────────────
+    match /vendorSales/{docId} {
+      allow read: if isAuth() && (
+        resource.data.vendorId == request.auth.uid || isAdmin()
+      );
+      allow create: if isAuth();
+    }
+
+    // ── F&B sales (scanner) ────────────────────────────────────────
+    match /fbSales/{docId} {
+      allow read: if isAuth() && (
+        resource.data.organizerId == request.auth.uid || isAdmin()
+      );
+      allow create: if isAuth();
+    }
+
+    // ── Door staff (events sub-collection) ────────────────────────
+    match /events/{eventId}/doorStaff/{staffId} {
+      allow read: if isAuth();
+      allow write: if isAuth() && (
+        get(/databases/$(database)/documents/events/$(eventId)).data.organizerId == request.auth.uid
+        || isAdmin()
+      );
+    }
+
     // ── Legal docs (public static) ─────────────────────────────────
     match /legal/{file} {
       allow read: if true;

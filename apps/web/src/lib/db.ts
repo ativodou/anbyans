@@ -762,6 +762,8 @@ export interface ResellerSectionPricing {
 
 export interface VendorPurchase {
   id?: string;
+  vendorId: string;
+  vendorName?: string;
   eventId: string;
   eventName: string;
   eventEmoji: string;
@@ -1212,6 +1214,23 @@ export async function vendorSellTicket(params: {
   await updateDoc(purchaseRef, {
     sold: purchase.sold + params.qty,
     updatedAt: serverTimestamp(),
+  });
+
+  // Write sale record so the vendor sales history tab is populated
+  await addDoc(collection(db, 'vendorSales'), {
+    vendorId: purchase.vendorId,
+    eventId: params.eventId,
+    eventName: purchase.eventName,
+    eventDate: purchase.eventDate,
+    section: purchase.section,
+    sectionColor: purchase.sectionColor,
+    qty: params.qty,
+    sellPriceEach: purchase.priceEach,
+    costPriceEach: purchase.priceEach,
+    buyerName: params.buyerName,
+    buyerPhone: params.buyerPhone,
+    codes: assignedCodes,
+    soldAt: serverTimestamp(),
   });
 
   return { codes: assignedCodes, pin: buyerPin };
