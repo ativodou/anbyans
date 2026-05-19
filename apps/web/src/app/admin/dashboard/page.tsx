@@ -70,6 +70,7 @@ export default function AdminDashboardPage() {
   const [editingVenue, setEditingVenue] = useState<VenueData | null>(null);
   const [venueForm, setVenueForm] = useState<Partial<VenueData>>({});
   const [venueLoading, setVenueLoading] = useState(false);
+  const [seedMsg, setSeedMsg] = useState('');
   const [loading, setLoading] = useState(true);
 
   // Search
@@ -183,11 +184,11 @@ export default function AdminDashboardPage() {
   }
 
   async function handleSeedVenues() {
-    if (!confirm('Ajoute 13 sal koni nan Firestore?')) return;
+    if (!confirm('Ajoute 27 sal koni nan Firestore?')) return;
     setVenueLoading(true);
     try {
       const count = await seedKnownVenues();
-      alert(`${count} sal ajoute!`);
+      setSeedMsg(`${count} sal ajoute!`);
       const fresh = await getVenues();
       setVenues(fresh);
     } catch(e) { console.error(e); }
@@ -558,12 +559,11 @@ export default function AdminDashboardPage() {
                   className="px-4 py-3 rounded-xl bg-orange text-black text-xs font-bold whitespace-nowrap">
                   + Ajoute Sal
                 </button>
-                {venues.length === 0 && (
-                  <button onClick={handleSeedVenues} disabled={venueLoading}
-                    className="px-4 py-3 rounded-xl bg-white/[0.06] border border-border text-gray-light text-xs font-bold whitespace-nowrap hover:text-white transition-all">
-                    🌱 Ensemanse
-                  </button>
-                )}
+                <button onClick={handleSeedVenues} disabled={venueLoading}
+                  className="px-4 py-3 rounded-xl bg-white/[0.06] border border-border text-gray-light text-xs font-bold whitespace-nowrap hover:text-white transition-all">
+                  {venueLoading ? '⏳...' : '🌱 Ensemanse 27 sal'}
+                </button>
+                {seedMsg && <span className="text-green-400 text-xs font-bold">{seedMsg}</span>}
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">

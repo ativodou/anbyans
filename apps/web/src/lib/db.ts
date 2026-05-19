@@ -1532,6 +1532,91 @@ export async function seedKnownVenues(): Promise<number> {
       amenities: ['Plaj', 'Bar', 'AC', 'Parking'],
       isVerified: true,
     },
+    // Haiti
+    {
+      name: 'Hotel Montana', address: 'Rue F. Cardozo, Petion-Ville', city: 'Petion-Ville', country: 'Haiti',
+      gps: { lat: 18.5190, lng: -72.2950 }, capacity: 600,
+      amenities: ['Parking', 'AC', 'Bar', 'Piscine', 'Espace VIP', 'Wifi', 'Sekirite'],
+      isVerified: true,
+      sections: [{ name: 'VIP', color: '#f97316', capacity: 100 }, { name: 'Jeneral', color: '#06b6d4', capacity: 500 }],
+    },
+    {
+      name: 'Petionville Club', address: 'Rue Pan Americaine, Petion-Ville', city: 'Petion-Ville', country: 'Haiti',
+      gps: { lat: 18.5085, lng: -72.2870 }, capacity: 1500,
+      amenities: ['Parking', 'AC', 'Bar', 'Piscine', 'Sekirite', 'Espace VIP'],
+      isVerified: true,
+      sections: [{ name: 'VIP', color: '#f97316', capacity: 200 }, { name: 'Jeneral', color: '#22c55e', capacity: 1300 }],
+    },
+    {
+      name: 'Oasis', address: 'Route de l\'Aéroport, Cap-Haïtien', city: 'Cap-Haïtien', country: 'Haiti',
+      gps: { lat: 19.7580, lng: -72.2010 }, capacity: 800,
+      amenities: ['Parking', 'AC', 'Bar', 'Sono', 'Sekirite'],
+      isVerified: true,
+    },
+    {
+      name: 'Ibo Lele', address: 'Kenscoff Road, Petion-Ville', city: 'Petion-Ville', country: 'Haiti',
+      gps: { lat: 18.5070, lng: -72.2780 }, capacity: 500,
+      amenities: ['Parking', 'AC', 'Bar', 'Vue Montay', 'Sekirite'],
+      isVerified: true,
+    },
+    {
+      name: 'Wahoo Bay Beach', address: 'Route Nationale 1, Arcahaie', city: 'Arcahaie', country: 'Haiti',
+      gps: { lat: 18.7680, lng: -72.5480 }, capacity: 2000,
+      amenities: ['Plaj', 'Piscine', 'Bar', 'Parking', 'Sekirite'],
+      isVerified: true,
+    },
+    {
+      name: 'Centre de Convention de Pétion-Ville', address: 'Delmas 75, Petion-Ville', city: 'Petion-Ville', country: 'Haiti',
+      gps: { lat: 18.5320, lng: -72.3050 }, capacity: 3000,
+      amenities: ['Parking', 'AC', 'Bar', 'Sekirite', 'Espace VIP', 'Sono'],
+      isVerified: true,
+      sections: [{ name: 'VIP', color: '#f97316', capacity: 400 }, { name: 'Jeneral', color: '#06b6d4', capacity: 2600 }],
+    },
+    // USA — diaspora
+    {
+      name: 'Bell Works', address: '101 Crawfords Corner Rd, Holmdel, NJ', city: 'Holmdel', country: 'USA',
+      gps: { lat: 40.3615, lng: -74.1860 }, capacity: 5000,
+      amenities: ['Parking', 'AC', 'Bar', 'Sekirite'],
+      isVerified: true,
+    },
+    {
+      name: 'Citi Field', address: '41 Seaver Way, Queens, NY', city: 'New York', country: 'USA',
+      gps: { lat: 40.7571, lng: -73.8458 }, capacity: 41800,
+      amenities: ['Parking', 'AC', 'Bar', 'Gwo Kapasité', 'Sekirite'],
+      isVerified: true,
+    },
+    {
+      name: 'Pier 36', address: '299 South St, New York, NY', city: 'New York', country: 'USA',
+      gps: { lat: 40.7122, lng: -74.0010 }, capacity: 3000,
+      amenities: ['AC', 'Bar', 'Sekirite', 'Vue Dlo'],
+      isVerified: true,
+    },
+    {
+      name: 'Hynes Convention Center', address: '900 Boylston St, Boston, MA', city: 'Boston', country: 'USA',
+      gps: { lat: 42.3484, lng: -71.0862 }, capacity: 20000,
+      amenities: ['Parking', 'AC', 'Wifi', 'Sekirite'],
+      isVerified: true,
+    },
+    {
+      name: 'Hard Rock Live Orlando', address: '6050 Universal Blvd, Orlando, FL', city: 'Orlando', country: 'USA',
+      gps: { lat: 28.4742, lng: -81.4680 }, capacity: 3000,
+      amenities: ['Parking', 'AC', 'Bar', 'Sekirite', 'Espace VIP'],
+      isVerified: true,
+    },
+    // Canada
+    {
+      name: 'Salle Claude-Champagne', address: '220 Vincent-d\'Indy Ave, Montreal', city: 'Montreal', country: 'Canada',
+      gps: { lat: 45.5130, lng: -73.6180 }, capacity: 900,
+      amenities: ['AC', 'Parking', 'Sekirite'],
+      isVerified: true,
+    },
+    // France
+    {
+      name: 'La Cigale', address: '120 Boulevard de Rochechouart, Paris', city: 'Paris', country: 'France',
+      gps: { lat: 48.8843, lng: 2.3402 }, capacity: 1500,
+      amenities: ['AC', 'Bar', 'Sekirite'],
+      isVerified: true,
+    },
   ];
 
   let count = 0;
