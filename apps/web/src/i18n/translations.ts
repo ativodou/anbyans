@@ -19,6 +19,13 @@ const t = {
 
   /* ═══ DASHBOARD / ADMIN ═══ */
   admin_tab_overview:       { ht:'Apersi', en:'Overview', fr:'Aperçu' },
+  admin_tab_events:         { ht:'Evènman', en:'Events', fr:'Événements' },
+  admin_tab_organizers:     { ht:'Òganizatè', en:'Organizers', fr:'Organisateurs' },
+  admin_tab_users:          { ht:'Itilizatè', en:'Users', fr:'Utilisateurs' },
+  admin_tab_refunds:        { ht:'Ranbousman', en:'Refunds', fr:'Remboursements' },
+  admin_tab_finance:        { ht:'Finans', en:'Finance', fr:'Finance' },
+  admin_tab_venues:         { ht:'Sal', en:'Venues', fr:'Lieux' },
+  admin_tab_settings:       { ht:'Paramèt', en:'Settings', fr:'Paramètres' },
   admin_tickets_sold:       { ht:'Tikè Vann', en:'Tickets Sold', fr:'Billets Vendus' },
   admin_pending_refunds:    { ht:'Ranbousman an Atant', en:'Pending Refunds', fr:'Remboursements en Attente' },
   admin_payment_breakdown:  { ht:'Breakdown Peman', en:'Payment Breakdown', fr:'Répartition des Paiements' },
