@@ -165,6 +165,7 @@ function EditEventInner() {
 
   const [sections, setSections] = useState<Section[]>([]);
   const [floorPlanImage, setFloorPlanImage]   = useState<string | null>(null);
+  const [floorPlanError, setFloorPlanError]   = useState('');
   const [mapZones, setMapZones]               = useState<{ id: string; sectionId: string; x: number; y: number; w: number; h: number }[]>([]);
   const [draggingZone, setDraggingZone]       = useState<string | null>(null);
   const [resizingZone, setResizingZone]       = useState<string | null>(null);
@@ -588,13 +589,15 @@ function EditEventInner() {
                     onChange={updated => setSections(s => s.map(x => x.id === sec.id ? updated : x))}
                     onRemove={() => setSections(s => s.filter(x => x.id !== sec.id))}
                     onAddZone={() => {
-                      if (!floorPlanImage) { alert(t('create_upload_floor_plan_first')); return; }
+                      if (!floorPlanImage) { setFloorPlanError(t('create_upload_floor_plan_first')); return; }
+                      setFloorPlanError('');
                       addZoneForSection(sec.id);
                     }}
                     hasZone={mapZones.some(z => z.sectionId === sec.id)}
                   />
                 ))}
               </div>
+              {floorPlanError && <p style={{ color: '#ef4444', fontSize: 12, marginTop: 6 }}>{floorPlanError}</p>}
               <button type="button"
                 onClick={() => setSections(s => [...s, { id: uid6(), name: '', price: 0, capacity: 100, color: COLORS[s.length % COLORS.length], type: 'ga' }])}
                 className="w-full mt-4 py-3 rounded-xl border border-dashed border-orange/40 text-orange text-sm font-bold hover:bg-orange/5 transition-all">

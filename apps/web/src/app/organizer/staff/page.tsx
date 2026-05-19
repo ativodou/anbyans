@@ -343,6 +343,8 @@ function OrganizerStaffPageInner() {
   // Assignment form
   const [showAssignForm, setShowAssignForm] = useState(false);
   const [assignForm, setAssignForm]     = useState({ staffId: '', eventId: eventParam || selectedEvent?.id || '', role: 'scanner' as StaffRole });
+  const [toast, setToast] = useState('');
+  const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 2500); };
 
   const generatePin = () => Math.floor(100000 + Math.random() * 900000).toString();
 
@@ -437,7 +439,7 @@ function OrganizerStaffPageInner() {
       window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
     } else {
       navigator.clipboard?.writeText(msg);
-      alert(t('staff_pin_copied'));
+      showToast(t('staff_pin_copied'));
     }
   };
 
@@ -467,6 +469,7 @@ function OrganizerStaffPageInner() {
 
   return (
     <div>
+      {toast && <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', background: '#1e1e2e', color: '#fff', padding: '10px 20px', borderRadius: 12, fontSize: 13, zIndex: 9999, boxShadow: '0 4px 20px rgba(0,0,0,0.5)' }}>{toast}</div>}
       {/* ── Page tabs ── */}
       <div className="flex gap-1 mb-6 border-b border-border overflow-x-auto">
         {([

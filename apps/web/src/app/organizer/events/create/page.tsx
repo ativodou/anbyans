@@ -177,6 +177,7 @@ function CreateEventInner() {
 
   // Floor plan
   const [floorPlanImage, setFloorPlanImage] = useState<string | null>(null);
+  const [floorPlanError, setFloorPlanError] = useState('');
   const [mapZones, setMapZones] = useState<{ id: string; sectionId: string; x: number; y: number; w: number; h: number }[]>([]);
   const [draggingZone, setDraggingZone]   = useState<string | null>(null);
   const [resizingZone, setResizingZone]   = useState<string | null>(null);
@@ -645,15 +646,17 @@ function CreateEventInner() {
                     onRemove={() => setSections(s => s.filter(x => x.id !== sec.id))}
                     onAddZone={() => {
                       if (!floorPlanImage) {
-                        alert(t('create_upload_floor_plan_first'));
+                        setFloorPlanError(t('create_upload_floor_plan_first'));
                         return;
                       }
+                      setFloorPlanError('');
                       addZoneForSection(sec.id);
                     }}
                     hasZone={mapZones.some(z => z.sectionId === sec.id)}
                   />
                 ))}
               </div>
+              {floorPlanError && <p style={{ color: '#ef4444', fontSize: 12, marginTop: 6 }}>{floorPlanError}</p>}
 
               <button type="button"
                 onClick={() => setSections(s => [...s, {
