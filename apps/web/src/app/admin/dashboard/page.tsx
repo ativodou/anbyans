@@ -62,6 +62,8 @@ export default function AdminDashboardPage() {
   const [editingVenue, setEditingVenue] = useState<VenueData | null>(null);
   const [venueForm, setVenueForm] = useState<Partial<VenueData>>({});
   const [venueLoading, setVenueLoading] = useState(false);
+  const [confirmDeleteVenueId, setConfirmDeleteVenueId] = useState<string | null>(null);
+  const [denyModal, setDenyModal] = useState<{ refund: any; reason: string } | null>(null);
   const [seedMsg, setSeedMsg] = useState('');
   const [loading, setLoading] = useState(true);
 
@@ -170,13 +172,12 @@ export default function AdminDashboardPage() {
   }
 
   async function handleDeleteVenue(id: string) {
-    if (!confirm('Efase sal sa a?')) return;
     await deleteVenue(id);
     setVenues(prev => prev.filter(v => v.id !== id));
+    setConfirmDeleteVenueId(null);
   }
 
   async function handleSeedVenues() {
-    if (!confirm('Ajoute 27 sal koni nan Firestore?')) return;
     setVenueLoading(true);
     try {
       const count = await seedKnownVenues();
@@ -194,7 +195,13 @@ export default function AdminDashboardPage() {
   }
 
   async function denyRefund(r: any) {
-    const note = prompt('Rezon refize:') ?? '';
+    setDenyModal({ refund: r, reason: '' });
+  }
+
+  async function confirmDenyRefund() {
+    if (!denyModal) return;
+    const { refund: r, reason: note } = denyModal;
+    setDenyModal(null);
     await updateDoc(doc(db, 'refundRequests', r.id), { status: 'denied', denialNote: note, resolvedAt: serverTimestamp() });
     await updateDoc(doc(db, 'events', r.eventId, 'tickets', r.ticketId), { status: 'used' });
     setRefunds(prev => prev.map(x => x.id === r.id ? { ...x, status: 'denied', denialNote: note } : x));
@@ -589,10 +596,17 @@ export default function AdminDashboardPage() {
                           className="px-3 py-1.5 rounded-lg text-[10px] font-bold bg-white/[0.05] border border-border text-gray-light hover:text-white transition-all">
                           ✏️ {t('admin_venue_modify')}
                         </button>
-                        <button onClick={() => handleDeleteVenue(v.id!)}
-                          className="px-3 py-1.5 rounded-lg text-[10px] font-bold bg-red/10 border border-red/20 text-red hover:bg-red/20 transition-all">
-                          🗑 {t('admin_venue_delete')}
-                        </button>
+                        {confirmDeleteVenueId === v.id ? (
+                          <div className="flex gap-1">
+                            <button onClick={() => handleDeleteVenue(v.id!)} className="flex-1 px-2 py-1.5 rounded-lg text-[10px] font-bold bg-red text-white">✓</button>
+                            <button onClick={() => setConfirmDeleteVenueId(null)} className="flex-1 px-2 py-1.5 rounded-lg text-[10px] font-bold bg-white/[0.05] border border-border text-gray-light">✕</button>
+                          </div>
+                        ) : (
+                          <button onClick={() => setConfirmDeleteVenueId(v.id!)}
+                            className="px-3 py-1.5 rounded-lg text-[10px] font-bold bg-red/10 border border-red/20 text-red hover:bg-red/20 transition-all">
+                            🗑 {t('admin_venue_delete')}
+                          </button>
+                        )}
                       </div>
                     </div>
                     {v.notes && <p className="text-[10px] text-gray-muted mt-2 italic border-t border-border pt-2">{v.notes}</p>}
@@ -670,7 +684,7 @@ export default function AdminDashboardPage() {
                       <div>
                         <label className="block text-[11px] font-semibold text-gray-muted uppercase tracking-wider mb-1.5">{t('admin_venue_amenities')}</label>
                         <input value={(venueForm.amenities || []).join(', ')} onChange={e => setVenueForm(p => ({ ...p, amenities: e.target.value.split(',').map(s => s.trim()).filter(Boolean) }))}
-                          placeholder="Parking, AC, Bar, Wifi, Sekirite..."
+                          placeholder={t('admin_venue_amenities_ph')}
                           className="w-full px-3 py-2.5 rounded-xl bg-white/[0.04] border border-border text-white text-sm outline-none focus:border-orange placeholder:text-gray-muted" />
                       </div>
                       <div>
@@ -738,6 +752,24 @@ export default function AdminDashboardPage() {
 
         </div>
       </div>
+
+      {/* ── Deny refund modal ── */}
+      {denyModal && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+          <div className="bg-dark-card border border-border rounded-2xl w-full max-w-sm p-6">
+            <h3 className="font-heading text-base mb-4">{t('admin_deny_reason_title')}</h3>
+            <p className="text-xs text-gray-muted mb-3">{denyModal.refund.buyerName} · ${denyModal.refund.amount}</p>
+            <label className="block text-[11px] font-semibold text-gray-muted uppercase tracking-wider mb-1.5">{t('ticket_refund_reason_label')}</label>
+            <textarea rows={3} value={denyModal.reason} onChange={e => setDenyModal(p => p ? { ...p, reason: e.target.value } : p)}
+              placeholder={t('ticket_refund_reason_ph')}
+              className="w-full px-3 py-2.5 rounded-xl bg-white/[0.04] border border-border text-white text-sm outline-none focus:border-orange resize-none placeholder:text-gray-muted mb-4" />
+            <div className="flex gap-2">
+              <button onClick={() => setDenyModal(null)} className="flex-1 py-2.5 rounded-xl bg-white/[0.05] border border-border text-gray-light text-sm font-bold">{t('admin_venue_cancel')}</button>
+              <button onClick={confirmDenyRefund} className="flex-1 py-2.5 rounded-xl bg-red/20 border border-red/30 text-red text-sm font-bold">🚫 {t('admin_deny')}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
