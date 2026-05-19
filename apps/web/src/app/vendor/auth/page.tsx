@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useT } from '@/i18n';
 import { signUp, signIn, signInWithGoogle } from '@/lib/auth';
 import { auth, db } from '@/lib/firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, getDocs, query, where, limit, serverTimestamp } from 'firebase/firestore';
 import LangSwitcher from '@/components/LangSwitcher';
 
 type Tab = 'login' | 'register';
@@ -52,7 +52,26 @@ export default function VendorAuth() {
 
   async function handleGoogleSignIn() {
     setError(''); setGoogleLoading(true);
-    try { await signInWithGoogle('reseller'); router.push('/vendor/dashboard'); }
+    try {
+      const { user } = await signInWithGoogle('reseller');
+      // ensure a vendors doc exists — Google sign-in skips the registration form
+      const existing = await getDocs(query(collection(db, 'vendors'), where('uid', '==', user.uid), limit(1)));
+      if (existing.empty) {
+        const displayName = user.displayName || user.email?.split('@')[0] || 'Vande';
+        await addDoc(collection(db, 'vendors'), {
+          uid: user.uid,
+          name: displayName,
+          contact: user.email || '',
+          phone: user.phoneNumber || '',
+          city: '', country: '',
+          organizerId: '', payMethod: '', payAccount: '',
+          status: 'pending',
+          joinedDate: new Date().toISOString().slice(0, 10),
+          createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
+        });
+      }
+      router.push('/vendor/dashboard');
+    }
     catch (err: any) { if (err.code !== 'auth/popup-closed-by-user') setError(err.message); }
     finally { setGoogleLoading(false); }
   }
