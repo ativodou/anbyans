@@ -241,6 +241,12 @@ function ScannerPageInner() {
   const detectorRef = useRef<any>(null);
   const rafRef = useRef<number>(0);
 
+  const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
+  const showToast = (msg: string, ok = true) => {
+    setToast({ msg, ok });
+    setTimeout(() => setToast(null), 2500);
+  };
+
   // Scanner settings (loaded from organizer settings)
   const [scannerSound, setScannerSound]       = useState(true);
   const [scannerVibrate, setScannerVibrate]   = useState(true);
@@ -357,7 +363,7 @@ function ScannerPageInner() {
       navigator.share({ title: 'Anbyans Scanner', text: msg });
     } else {
       navigator.clipboard.writeText(msg);
-      alert('Copied!');
+      showToast(t('scanner_pin_copied'));
     }
   }
 
@@ -428,9 +434,9 @@ function ScannerPageInner() {
       const fresh = await downloadEventTickets(eventId);
       setTickets(fresh);
       saveTicketsLocal(eventId, fresh);
-      alert(`${fresh.length} ${t('scanner_downloaded_msg')}`);
+      showToast(`${fresh.length} ${t('scanner_downloaded_msg')}`);
     } catch {
-      alert('Error. Try again.');
+      showToast(t('scanner_download_error'), false);
     }
     setDownloading(false);
   }
@@ -579,7 +585,7 @@ function ScannerPageInner() {
   async function handleSync() {
     const unsynced = scanHistory.filter(h => !h.synced && h.status === 'admitted');
     if (unsynced.length === 0) {
-      alert('Everything synced!');
+      showToast(t('scanner_all_synced'));
       return;
     }
     setSyncing(true);
@@ -590,9 +596,9 @@ function ScannerPageInner() {
       const updated = scanHistory.map(h => ({ ...h, synced: true }));
       setScanHistory(updated);
       saveScanHistory(eventId, updated);
-      alert(`${count} ${t('scanner_synced_msg')}`);
+      showToast(`${count} ${t('scanner_synced_msg')}`);
     } catch {
-      alert('Sync error');
+      showToast(t('scanner_sync_error'), false);
     }
     setSyncing(false);
   }
@@ -615,7 +621,12 @@ function ScannerPageInner() {
 
   // ─── Styles ───────────────────────────────────────────────────
 
-  const pageStyle: React.CSSProperties = { minHeight: '100vh', background: '#0a0a0f', color: '#fff' };
+  const pageStyle: React.CSSProperties = { minHeight: '100vh', background: '#0a0a0f', color: '#fff', position: 'relative' };
+  const ToastEl = toast ? (
+    <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 9999, background: toast.ok ? '#14532d' : '#450a0a', border: `1px solid ${toast.ok ? '#22c55e' : '#ef4444'}`, color: toast.ok ? '#22c55e' : '#ef4444', borderRadius: 10, padding: '10px 20px', fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap', boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}>
+      {toast.ok ? '✅' : '❌'} {toast.msg}
+    </div>
+  ) : null;
   const cardStyle: React.CSSProperties = { background: '#12121a', border: '1px solid #1e1e2e', borderRadius: 12, padding: 20 };
   const inputStyle: React.CSSProperties = { width: '100%', padding: 14, borderRadius: 8, border: '1px solid #1e1e2e', background: '#0a0a0f', color: '#fff', fontSize: 16, boxSizing: 'border-box' };
   const btnOrange: React.CSSProperties = { padding: '14px 24px', borderRadius: 8, border: 'none', background: '#f97316', color: '#000', fontSize: 14, fontWeight: 700, cursor: 'pointer', width: '100%' };
@@ -911,6 +922,7 @@ function ScannerPageInner() {
 
   return (
     <div style={pageStyle}>
+      {ToastEl}
       <div style={{ maxWidth: 500, margin: '0 auto', padding: '16px 16px 100px' }}>
 
         {/* Header */}
