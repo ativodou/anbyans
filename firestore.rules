@@ -5,81 +5,137 @@ service cloud.firestore {
     // ── Helpers ────────────────────────────────────────────────────
     function isAuth() { return request.auth != null; }
     function isUser(uid) { return isAuth() && request.auth.uid == uid; }
+    function isAdmin() {
+      return isAuth() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
 
     // ── Public events (anyone can read published events) ───────────
     match /events/{eventId} {
       allow read: if true;
       allow create: if isAuth();
-      allow update, delete: if isAuth() && resource.data.organizerId == request.auth.uid;
+      allow update, delete: if isAuth() && (
+        resource.data.organizerId == request.auth.uid || isAdmin()
+      );
+
+      // Sub-collection tickets (admin + organizer can read all)
+      match /tickets/{ticketId} {
+        allow read: if isAuth() && (
+          resource.data.buyerUid == request.auth.uid ||
+          resource.data.organizerId == request.auth.uid ||
+          resource.data.vendorId == request.auth.uid ||
+          isAdmin()
+        );
+        allow create: if isAuth();
+        allow update: if isAuth() && (
+          resource.data.organizerId == request.auth.uid || isAdmin()
+        );
+      }
     }
 
-    // ── Tickets ────────────────────────────────────────────────────
+    // ── Top-level tickets (legacy path) ───────────────────────────
     match /tickets/{ticketId} {
-      // Fan can read their own ticket; organizer can read their event's tickets
       allow read: if isAuth() && (
         resource.data.buyerUid == request.auth.uid ||
         resource.data.organizerId == request.auth.uid ||
-        resource.data.vendorId == request.auth.uid
+        resource.data.vendorId == request.auth.uid ||
+        isAdmin()
       );
       allow create: if isAuth();
-      // Only organizer can update (approve/reject)
-      allow update: if isAuth() && resource.data.organizerId == request.auth.uid;
+      allow update: if isAuth() && (
+        resource.data.organizerId == request.auth.uid || isAdmin()
+      );
     }
 
     // ── Organizer profiles ─────────────────────────────────────────
     match /organizers/{uid} {
       allow read: if isAuth();
-      allow write: if isUser(uid);
+      allow write: if isUser(uid) || isAdmin();
     }
 
-    // ── Fan profiles ───────────────────────────────────────────────
+    // ── Fan/user profiles ──────────────────────────────────────────
     match /users/{uid} {
-      allow read, write: if isUser(uid);
+      allow read: if isUser(uid) || isAdmin();
+      allow write: if isUser(uid) || isAdmin();
     }
 
     // ── Vendor profiles ────────────────────────────────────────────
-    match /vendors/{uid} {
+    match /vendors/{docId} {
       allow read: if isAuth();
-      allow write: if isUser(uid);
+      allow write: if isAuth() && (
+        resource == null ||
+        resource.data.uid == request.auth.uid ||
+        isAdmin()
+      );
+      allow create: if isAuth();
+    }
+
+    // ── Refund requests ────────────────────────────────────────────
+    match /refundRequests/{docId} {
+      allow read: if isAuth() && (
+        resource.data.buyerUid == request.auth.uid ||
+        resource.data.organizerId == request.auth.uid ||
+        isAdmin()
+      );
+      allow create: if isAuth();
+      allow update: if isAuth() && (
+        resource.data.organizerId == request.auth.uid || isAdmin()
+      );
+    }
+
+    // ── Venues ─────────────────────────────────────────────────────
+    match /venues/{venueId} {
+      allow read: if isAuth();
+      allow write: if isAdmin();
     }
 
     // ── Vendor requests ────────────────────────────────────────────
     match /vendorRequests/{docId} {
       allow read: if isAuth() && (
         resource.data.vendorId == request.auth.uid ||
-        resource.data.organizerId == request.auth.uid
+        resource.data.organizerId == request.auth.uid ||
+        isAdmin()
       );
       allow create: if isAuth();
-      allow update: if isAuth() && resource.data.organizerId == request.auth.uid;
+      allow update: if isAuth() && (
+        resource.data.organizerId == request.auth.uid || isAdmin()
+      );
     }
 
     // ── Vendor purchases ───────────────────────────────────────────
     match /vendorPurchases/{docId} {
       allow read: if isAuth() && (
         resource.data.vendorId == request.auth.uid ||
-        resource.data.organizerId == request.auth.uid
+        resource.data.organizerId == request.auth.uid ||
+        isAdmin()
       );
       allow create: if isAuth();
-      allow update: if isAuth() && resource.data.organizerId == request.auth.uid;
+      allow update: if isAuth() && (
+        resource.data.organizerId == request.auth.uid || isAdmin()
+      );
     }
 
     // ── Staff pool ─────────────────────────────────────────────────
     match /staffPool/{docId} {
       allow read: if isAuth();
-      allow write: if isAuth() && resource.data.organizerId == request.auth.uid;
+      allow write: if isAuth() && (
+        resource.data.organizerId == request.auth.uid || isAdmin()
+      );
     }
 
     match /staffAssignments/{docId} {
       allow read: if isAuth();
-      allow write: if isAuth() && resource.data.organizerId == request.auth.uid;
+      allow write: if isAuth() && (
+        resource.data.organizerId == request.auth.uid || isAdmin()
+      );
     }
 
     // ── Floor plans (public — shared by venue) ─────────────────────
     match /floorPlans/{placeId} {
       allow read: if true;
       allow create: if isAuth();
-      allow update: if isAuth(); // organizer updates their venue's plan
-      allow delete: if false;    // admin only via console
+      allow update: if isAuth();
+      allow delete: if isAdmin();
     }
 
     // ── Event layouts (private — organizer's zone arrangement) ─────

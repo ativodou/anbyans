@@ -275,7 +275,7 @@ export default function LandingPage() {
                 <Link href="/events" className="text-xs text-gray-muted hover:text-cyan transition-colors">{t('footer_browse')}</Link>
                 <Link href="/auth?tab=organizer" className="text-xs text-gray-muted hover:text-orange transition-colors">{t('footer_organizer')}</Link>
                 <Link href="/auth?tab=reseller" className="text-xs text-gray-muted hover:text-purple transition-colors">{t('footer_vendor')}</Link>
-                <span className="text-xs text-gray-muted">{t('footer_faq')}</span>
+                <Link href="/legal" className="text-xs text-gray-muted hover:text-white transition-colors">{t('footer_faq')}</Link>
               </div>
             </div>
             <div>
@@ -283,7 +283,7 @@ export default function LandingPage() {
               <div className="flex flex-col gap-2">
                 <Link href="/terms" className="text-xs text-gray-muted hover:text-white transition-colors">{t('footer_terms_link')}</Link>
                 <Link href="/privacy" className="text-xs text-gray-muted hover:text-white transition-colors">{t('footer_privacy_link')}</Link>
-                <span className="text-xs text-gray-muted">{t('footer_refunds')}</span>
+                <Link href="/legal" className="text-xs text-gray-muted hover:text-white transition-colors">{t('footer_refunds')}</Link>
               </div>
             </div>
           </div>
