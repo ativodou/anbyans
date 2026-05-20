@@ -5,6 +5,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
+import LangSwitcher from '@/components/LangSwitcher';
 import { db } from '@/lib/firebase';
 import {
   collection, getDocs, doc, updateDoc, deleteDoc,
@@ -46,9 +47,10 @@ const NAV_ICONS: Record<string, string> = { overview:'📊', events:'📅', orga
 export default function AdminDashboardPage() {
   const { t } = useT();
   const router = useRouter();
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, logout } = useAuth();
   const [tab, setTab] = useState<Tab>('overview');
   const [sideOpen, setSideOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
 
   // Data
   const [events, setEvents] = useState<EventData[]>([]);
@@ -66,6 +68,10 @@ export default function AdminDashboardPage() {
   const [denyModal, setDenyModal] = useState<{ refund: any; reason: string } | null>(null);
   const [seedMsg, setSeedMsg] = useState('');
   const [loading, setLoading] = useState(true);
+  const [settingsFee, setSettingsFee] = useState(9);
+  const [settingsReserve, setSettingsReserve] = useState(20);
+  const [settingsDelay, setSettingsDelay] = useState(7);
+  const [settingsSaved, setSettingsSaved] = useState(false);
 
   // Search
   const [eventSearch, setEventSearch] = useState('');
@@ -74,10 +80,8 @@ export default function AdminDashboardPage() {
 
   useEffect(() => {
     if (authLoading) return;
-    if (!user || user.role !== 'admin') {
-      router.push('/');
-      return;
-    }
+    if (!user) return; // firebase briefly null during token refresh — wait
+    if (user.role !== 'admin') { router.push('/'); return; }
     loadAll();
   }, [user, authLoading]);
 
@@ -177,6 +181,16 @@ export default function AdminDashboardPage() {
     setConfirmDeleteVenueId(null);
   }
 
+  async function handleSaveSettings() {
+    await updateDoc(doc(db, 'config', 'platform'), {
+      platformFee: settingsFee,
+      chargebackReserve: settingsReserve,
+      payoutDelayDays: settingsDelay,
+    });
+    setSettingsSaved(true);
+    setTimeout(() => setSettingsSaved(false), 2000);
+  }
+
   async function handleSeedVenues() {
     setVenueLoading(true);
     try {
@@ -222,13 +236,11 @@ export default function AdminDashboardPage() {
   const pendingRefunds = refunds.filter(r => r.status === 'pending').length;
   const totalUsers = users.length + organizers.length;
 
-  if (authLoading || loading) return (
+  if (authLoading || !user || user.role !== 'admin') return (
     <div className="min-h-screen bg-dark flex items-center justify-center">
       <div className="w-8 h-8 border-2 border-orange border-t-transparent rounded-full animate-spin" />
     </div>
   );
-
-  if (!user || user.role !== 'admin') return null;
 
   return (
     <div className="min-h-screen flex bg-dark text-white">
@@ -267,9 +279,70 @@ export default function AdminDashboardPage() {
             {NAV_ICONS[tab]} {(t(`admin_tab_${tab}` as any) || tab).toUpperCase()}
           </h1>
           <button onClick={loadAll} className="text-gray-muted hover:text-white text-sm transition-all">🔄</button>
+          <LangSwitcher />
+          <div className="relative flex-shrink-0">
+            <button onClick={() => setProfileOpen(p => !p)} style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              padding: '4px 10px 4px 4px', borderRadius: 8,
+              border: '1px solid ' + (profileOpen ? '#ef4444' : '#1e1e2e'),
+              background: profileOpen ? '#ef444410' : 'transparent', cursor: 'pointer',
+            }}>
+              <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#000', fontWeight: 800, fontSize: 14, flexShrink: 0 }}>
+                {(user.firstName?.[0] || user.email?.[0] || 'A').toUpperCase()}
+              </div>
+              <div style={{ textAlign: 'left' }}>
+                <div style={{ color: '#fff', fontSize: 12, fontWeight: 600, lineHeight: 1.2 }}>{user.firstName || user.email?.split('@')[0]}</div>
+                <div style={{ color: '#ef4444', fontSize: 10 }}>Admin</div>
+              </div>
+              <span style={{ color: '#555', fontSize: 10, marginLeft: 4 }}>▼</span>
+            </button>
+
+            {profileOpen && (
+              <>
+                <div onClick={() => setProfileOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 99 }} />
+                <div style={{ position: 'absolute', top: '110%', right: 0, width: 240, background: '#12121a', border: '1px solid #1e1e2e', borderRadius: 10, padding: 6, zIndex: 100, boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}>
+                  <div style={{ padding: '10px 12px', borderBottom: '1px solid #1e1e2e', marginBottom: 4 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                      <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#000', fontWeight: 800, fontSize: 18, flexShrink: 0 }}>
+                        {(user.firstName?.[0] || 'A').toUpperCase()}
+                      </div>
+                      <div>
+                        <div style={{ color: '#fff', fontSize: 14, fontWeight: 700 }}>{user.firstName} {user.lastName}</div>
+                        <div style={{ display: 'inline-block', marginTop: 2, padding: '2px 8px', borderRadius: 4, fontSize: 10, fontWeight: 700, background: '#ef444422', color: '#ef4444' }}>ADMIN</div>
+                      </div>
+                    </div>
+                    <div style={{ color: '#555', fontSize: 10 }}>{user.email}</div>
+                    <Link href="/profile" onClick={() => setProfileOpen(false)} style={{ display: 'inline-block', marginTop: 6, fontSize: 11, color: '#ef4444', textDecoration: 'none', fontWeight: 600 }}>
+                      ✏️ {t('nav_change_photo' as any) || 'Chanje Foto'}
+                    </Link>
+                  </div>
+                  <Link href="/events" onClick={() => setProfileOpen(false)} style={{ display: 'block', padding: '8px 12px', borderRadius: 6, color: '#ccc', fontSize: 12, textDecoration: 'none' }}>
+                    {t('nav_browse_events' as any) || 'Jwenn Evenman'}
+                  </Link>
+                  <Link href="/tickets" onClick={() => setProfileOpen(false)} style={{ display: 'block', padding: '8px 12px', borderRadius: 6, color: '#ccc', fontSize: 12, textDecoration: 'none' }}>
+                    {t('nav_my_tickets' as any) || 'Tikè Mwen'}
+                  </Link>
+                  <div style={{ borderTop: '1px solid #1e1e2e', margin: '4px 0' }} />
+                  <Link href="/legal" onClick={() => setProfileOpen(false)} style={{ display: 'block', padding: '8px 12px', borderRadius: 6, color: '#666', fontSize: 12, textDecoration: 'none' }}>
+                    ⚖️ {t('nav_legal' as any) || 'Legal'}
+                  </Link>
+                  <div style={{ borderTop: '1px solid #1e1e2e', margin: '4px 0' }} />
+                  <button onClick={async () => { await logout(); window.location.href = '/'; }} style={{ width: '100%', padding: '8px 12px', borderRadius: 6, border: 'none', background: 'transparent', color: '#ef4444', fontSize: 12, cursor: 'pointer', textAlign: 'left' }}>
+                    {t('logout')}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </header>
 
         <div className="flex-1 overflow-y-auto p-5 max-w-6xl w-full mx-auto">
+
+          {loading && (
+            <div className="flex items-center justify-center py-20">
+              <div className="w-8 h-8 border-2 border-orange border-t-transparent rounded-full animate-spin" />
+            </div>
+          )}
 
           {/* ═══ OVERVIEW ═══ */}
           {tab === 'overview' && (
@@ -326,7 +399,7 @@ export default function AdminDashboardPage() {
                   {Object.entries(byMethod).map(([m, amt]) => (
                     <div key={m} className="flex justify-between py-2 border-b border-border last:border-0 text-xs">
                       <span className="font-bold capitalize">{m === 'stripe' ? '💳 Kat' : m === 'moncash' ? '📱 MonCash' : m === 'cash' ? '💵 Kach' : m}</span>
-                      <span className="text-gray-light">${(amt as number).toLocaleString()} ({Math.round((amt as number)/grossRevenue*100)}%)</span>
+                      <span className="text-gray-light">${(amt as number).toLocaleString()} ({grossRevenue > 0 ? Math.round((amt as number)/grossRevenue*100) : 0}%)</span>
                     </div>
                   ))}
                   {Object.keys(byMethod).length === 0 && <p className="text-gray-muted text-xs py-4 text-center">{t('admin_no_data')}</p>}
@@ -438,7 +511,7 @@ export default function AdminDashboardPage() {
                       <p className="text-[11px] text-gray-muted">{u.email} {u.phone ? '· ' + u.phone : ''}</p>
                       <p className="text-[11px] text-gray-muted">{u.city} {u.country} · <span className="text-orange capitalize">{u.role}</span></p>
                     </div>
-                    {u.suspended && <span className="text-[9px] bg-red/20 text-red px-2 py-0.5 rounded font-bold">SISPANN</span>}
+                    {u.suspended && <span className="text-[9px] bg-red/20 text-red px-2 py-0.5 rounded font-bold">{t('admin_suspended').toUpperCase()}</span>}
                     <button
                       onClick={() => toggleSuspendUser(u.id, !!u.suspended)}
                       className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${u.suspended ? 'bg-green-dim text-green border border-green/30' : 'bg-red/10 text-red border border-red/30'}`}>
@@ -520,7 +593,7 @@ export default function AdminDashboardPage() {
                     <div key={m}>
                       <div className="flex justify-between text-xs mb-1.5">
                         <span className="font-bold capitalize">{m === 'stripe' ? '💳 Kat Kredi/Debi' : m === 'moncash' ? '📱 MonCash' : m === 'natcash' ? '💚 Natcash' : m === 'cash' ? '💵 Kach' : m}</span>
-                        <span className="text-gray-muted">${(amt as number).toLocaleString()} ({Math.round((amt as number)/grossRevenue*100)}%)</span>
+                        <span className="text-gray-muted">${(amt as number).toLocaleString()} ({grossRevenue > 0 ? Math.round((amt as number)/grossRevenue*100) : 0}%)</span>
                       </div>
                       <div className="w-full bg-white/[0.05] rounded-full h-2">
                         <div className="bg-orange h-2 rounded-full" style={{ width: `${Math.round((amt as number)/grossRevenue*100)}%` }} />
@@ -728,18 +801,20 @@ export default function AdminDashboardPage() {
                 <div className="space-y-3">
                   <div>
                     <label className="block text-[11px] font-semibold text-gray-light mb-1">{t('admin_platform_fee_lbl')}</label>
-                    <input defaultValue="9" type="number" className="w-32 px-3 py-2 rounded-lg bg-white/[0.04] border border-border text-white text-sm outline-none focus:border-orange" />
+                    <input value={settingsFee} onChange={e => setSettingsFee(Number(e.target.value))} type="number" className="w-32 px-3 py-2 rounded-lg bg-white/[0.04] border border-border text-white text-sm outline-none focus:border-orange" />
                   </div>
                   <div>
                     <label className="block text-[11px] font-semibold text-gray-light mb-1">{t('admin_chargeback_reserve')}</label>
-                    <input defaultValue="20" type="number" className="w-32 px-3 py-2 rounded-lg bg-white/[0.04] border border-border text-white text-sm outline-none focus:border-orange" />
+                    <input value={settingsReserve} onChange={e => setSettingsReserve(Number(e.target.value))} type="number" className="w-32 px-3 py-2 rounded-lg bg-white/[0.04] border border-border text-white text-sm outline-none focus:border-orange" />
                   </div>
                   <div>
                     <label className="block text-[11px] font-semibold text-gray-light mb-1">{t('admin_payout_delay')}</label>
-                    <input defaultValue="7" type="number" className="w-32 px-3 py-2 rounded-lg bg-white/[0.04] border border-border text-white text-sm outline-none focus:border-orange" />
+                    <input value={settingsDelay} onChange={e => setSettingsDelay(Number(e.target.value))} type="number" className="w-32 px-3 py-2 rounded-lg bg-white/[0.04] border border-border text-white text-sm outline-none focus:border-orange" />
                   </div>
                 </div>
-                <button className="mt-4 px-5 py-2 rounded-lg bg-orange text-white text-xs font-bold hover:bg-orange/80 transition-all">{t('admin_save')}</button>
+                <button onClick={handleSaveSettings} className="mt-4 px-5 py-2 rounded-lg bg-orange text-white text-xs font-bold hover:bg-orange/80 transition-all">
+                  {settingsSaved ? '✓ ' + t('admin_save') : t('admin_save')}
+                </button>
               </div>
 
               <div className="bg-dark-card border border-border rounded-card p-5">

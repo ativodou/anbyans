@@ -15,6 +15,7 @@ const ROLE_CONFIG = {
   fan:       { emoji: '🎫', accent: '#06b6d4', redirect: '/events' },
   organizer: { emoji: '🎤', accent: '#f97316', redirect: '/organizer/dashboard' },
   reseller:  { emoji: '🏪', accent: '#a855f7', redirect: '/vendor/dashboard' },
+  admin:     { emoji: '⚙️', accent: '#ef4444', redirect: '/admin/dashboard' },
 };
 
 function AuthPage() {

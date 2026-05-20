@@ -54,12 +54,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (firebaseUser) {
         try {
           const profile = await getUserProfile(firebaseUser.uid);
-          setUser(profile);
+          if (profile) setUser(profile);
+          // if profile is null (doc not found), keep existing user — don't wipe session
         } catch {
-          setUser(null);
+          // Firestore read failed (network/rules) — keep existing user, don't wipe session
         }
       } else {
-        setUser(null);
+        setUser(null); // Firebase explicitly says signed out
       }
       setLoading(false);
     });

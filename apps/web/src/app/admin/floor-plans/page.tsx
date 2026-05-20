@@ -20,21 +20,20 @@ export default function AdminFloorPlansPage() {
   const { user } = useAuth();
   const router = useRouter();
 
-  const [plans, setPlans]     = useState<FloorPlan[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch]   = useState('');
+  const [plans, setPlans]         = useState<FloorPlan[]>([]);
+  const [loading, setLoading]     = useState(true);
+  const [search, setSearch]       = useState('');
   const [uploading, setUploading] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
-  // New plan form
-  const [newPlaceId,    setNewPlaceId]    = useState('');
-  const [newVenueName,  setNewVenueName]  = useState('');
-  const [newImage,      setNewImage]      = useState<string | null>(null);
-  const [showAddForm,   setShowAddForm]   = useState(false);
+  const [newPlaceId,   setNewPlaceId]   = useState('');
+  const [newVenueName, setNewVenueName] = useState('');
+  const [newImage,     setNewImage]     = useState<string | null>(null);
+  const [showAddForm,  setShowAddForm]  = useState(false);
 
   useEffect(() => {
     if (!user) return;
-    const role = (user as any)?.role;
-    if (role !== 'admin') { router.push('/'); return; }
+    if ((user as any)?.role !== 'admin') { router.push('/'); return; }
     loadPlans();
   }, [user]);
 
@@ -47,17 +46,14 @@ export default function AdminFloorPlansPage() {
   }
 
   async function toggleVerified(plan: FloorPlan) {
-    await updateDoc(doc(db, 'floorPlans', plan.placeId), {
-      isVerified: !plan.isVerified,
-      updatedAt: serverTimestamp(),
-    });
+    await updateDoc(doc(db, 'floorPlans', plan.placeId), { isVerified: !plan.isVerified, updatedAt: serverTimestamp() });
     setPlans(prev => prev.map(p => p.placeId === plan.placeId ? { ...p, isVerified: !p.isVerified } : p));
   }
 
   async function deletePlan(placeId: string) {
-    if (!confirm('Delete this floor plan? This cannot be undone.')) return;
     await deleteDoc(doc(db, 'floorPlans', placeId));
     setPlans(prev => prev.filter(p => p.placeId !== placeId));
+    setConfirmDelete(null);
   }
 
   async function handleAddPlan() {
@@ -69,7 +65,7 @@ export default function AdminFloorPlansPage() {
         venueName:  newVenueName.trim(),
         image:      newImage,
         createdBy:  user.uid,
-        isVerified: true,  // admin-uploaded = auto-verified
+        isVerified: true,
         createdAt:  serverTimestamp(),
         updatedAt:  serverTimestamp(),
       });
@@ -83,39 +79,37 @@ export default function AdminFloorPlansPage() {
     p.placeId?.toLowerCase().includes(search.toLowerCase())
   );
 
-  const s = {
-    page:  { minHeight: '100vh', background: '#0a0a0f', color: '#fff', padding: '24px 20px' } as React.CSSProperties,
-    card:  { background: '#12121a', border: '1px solid #1e1e2e', borderRadius: 12, padding: 16, marginBottom: 12 } as React.CSSProperties,
-    img:   { width: '100%', borderRadius: 8, marginBottom: 10, maxHeight: 200, objectFit: 'cover' as const } as React.CSSProperties,
-    input: { width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid #1e1e2e', background: '#0a0a0f', color: '#fff', fontSize: 13, marginBottom: 10, boxSizing: 'border-box' as const } as React.CSSProperties,
-  };
-  const badge = (v: boolean): React.CSSProperties => ({ display: 'inline-block', padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 700, background: v ? '#166534' : '#1e1e2e', color: v ? '#86efac' : '#555' });
-  const btn = (color = '#f97316'): React.CSSProperties => ({ padding: '6px 12px', borderRadius: 8, border: 'none', background: color, color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' });
-
   return (
-    <div style={s.page}>
+    <div className="min-h-screen bg-dark text-white p-5">
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+      <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 style={{ fontSize: 22, fontWeight: 800, margin: 0 }}>🗺️ Floor Plan Manager</h1>
-          <p style={{ color: '#555', fontSize: 12, margin: '4px 0 0' }}>{plans.length} venues · {plans.filter(p => p.isVerified).length} verified</p>
+          <h1 className="font-heading text-2xl">🗺️ Floor Plans</h1>
+          <p className="text-[11px] text-gray-muted mt-1">{plans.length} venues · {plans.filter(p => p.isVerified).length} verified</p>
         </div>
-        <button style={btn()} onClick={() => setShowAddForm(!showAddForm)}>
+        <button onClick={() => setShowAddForm(!showAddForm)}
+          className="px-4 py-2.5 rounded-xl bg-orange text-black text-xs font-bold">
           + Add Venue Plan
         </button>
       </div>
 
       {/* Add form */}
       {showAddForm && (
-        <div style={{ ...s.card, border: '1px solid #f97316' }}>
-          <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Add New Floor Plan</h3>
-          <input style={s.input} placeholder="Google Place ID (e.g. ChIJN1t_tDeuEmsRUsoyG83frY4)" value={newPlaceId} onChange={e => setNewPlaceId(e.target.value)} />
-          <input style={s.input} placeholder="Venue Name (e.g. Karibe Convention Center)" value={newVenueName} onChange={e => setNewVenueName(e.target.value)} />
-          <label style={{ display: 'block', marginBottom: 10 }}>
-            <div style={{ padding: '12px 16px', borderRadius: 8, border: '2px dashed #1e1e2e', textAlign: 'center', cursor: 'pointer', color: '#666', fontSize: 13 }}>
+        <div className="bg-dark-card border border-orange rounded-2xl p-5 mb-5">
+          <h3 className="text-sm font-bold mb-4">Add New Floor Plan</h3>
+          <input
+            className="w-full px-3 py-2.5 rounded-xl bg-white/[0.04] border border-border text-white text-sm outline-none focus:border-orange mb-3 placeholder:text-gray-muted"
+            placeholder="Google Place ID (e.g. ChIJN1t_tDeuEmsRUsoyG83frY4)"
+            value={newPlaceId} onChange={e => setNewPlaceId(e.target.value)} />
+          <input
+            className="w-full px-3 py-2.5 rounded-xl bg-white/[0.04] border border-border text-white text-sm outline-none focus:border-orange mb-3 placeholder:text-gray-muted"
+            placeholder="Venue Name (e.g. Karibe Convention Center)"
+            value={newVenueName} onChange={e => setNewVenueName(e.target.value)} />
+          <label className="block mb-3 cursor-pointer">
+            <div className="px-4 py-3 rounded-xl border-2 border-dashed border-border text-center text-gray-muted text-sm hover:border-orange transition-all">
               {newImage ? '✅ Image loaded — click to replace' : '📷 Upload floor plan image'}
             </div>
-            <input type="file" accept="image/*" style={{ display: 'none' }}
+            <input type="file" accept="image/*" className="hidden"
               onChange={async e => {
                 const file = e.target.files?.[0];
                 if (!file) return;
@@ -123,52 +117,68 @@ export default function AdminFloorPlansPage() {
                 setNewImage(compressed);
               }} />
           </label>
-          {newImage && <img src={newImage} alt="preview" style={{ ...s.img, maxHeight: 150 }} />}
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button style={btn()} onClick={handleAddPlan} disabled={uploading}>
+          {newImage && <img src={newImage} alt="preview" className="w-full rounded-xl mb-3 max-h-40 object-cover" />}
+          <div className="flex gap-2">
+            <button onClick={handleAddPlan} disabled={uploading}
+              className="px-4 py-2.5 rounded-xl bg-orange text-black text-xs font-bold disabled:opacity-50">
               {uploading ? '⏳ Saving...' : '✅ Save Plan'}
             </button>
-            <button style={btn('#1e1e2e')} onClick={() => setShowAddForm(false)}>Cancel</button>
+            <button onClick={() => setShowAddForm(false)}
+              className="px-4 py-2.5 rounded-xl bg-white/[0.05] border border-border text-gray-light text-xs font-bold hover:text-white transition-all">
+              Cancel
+            </button>
           </div>
         </div>
       )}
 
       {/* Search */}
-      <input style={s.input} placeholder="🔍 Search by venue name or Place ID..." value={search} onChange={e => setSearch(e.target.value)} />
+      <input
+        className="w-full px-4 py-3 rounded-xl bg-dark-card border border-border text-white text-sm outline-none focus:border-orange mb-4 placeholder:text-gray-muted"
+        placeholder="🔍 Search by venue name or Place ID..."
+        value={search} onChange={e => setSearch(e.target.value)} />
 
-      {/* Plans list */}
+      {/* List */}
       {loading ? (
-        <p style={{ color: '#555', textAlign: 'center', padding: 40 }}>Loading floor plans...</p>
+        <div className="flex items-center justify-center py-20">
+          <div className="w-8 h-8 border-2 border-orange border-t-transparent rounded-full animate-spin" />
+        </div>
       ) : filtered.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: 60 }}>
-          <p style={{ fontSize: 32, marginBottom: 8 }}>🏟️</p>
-          <p style={{ color: '#555', fontSize: 14 }}>No floor plans yet.</p>
-          <p style={{ color: '#333', fontSize: 12, marginTop: 4 }}>Organizers upload them when creating events. You can also add them manually above.</p>
+        <div className="text-center py-20">
+          <p className="text-4xl mb-3">🏟️</p>
+          <p className="text-gray-muted text-sm mb-1">No floor plans yet.</p>
+          <p className="text-gray-muted text-xs">Organizers upload them when creating events. You can also add them manually above.</p>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-3">
           {filtered.map(plan => (
-            <div key={plan.placeId} style={s.card}>
-              <img src={plan.image} alt={plan.venueName} style={s.img} />
-              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 8 }}>
-                <div>
-                  <p style={{ fontWeight: 700, fontSize: 14, marginBottom: 2 }}>{plan.venueName}</p>
-                  <p style={{ color: '#555', fontSize: 10, wordBreak: 'break-all' }}>{plan.placeId}</p>
+            <div key={plan.placeId} className="bg-dark-card border border-border rounded-xl p-4">
+              <img src={plan.image} alt={plan.venueName} className="w-full rounded-xl mb-3 max-h-48 object-cover" />
+              <div className="flex items-start justify-between mb-2">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold truncate">{plan.venueName}</p>
+                  <p className="text-[10px] text-gray-muted break-all mt-0.5">{plan.placeId}</p>
                 </div>
-                <span style={badge(plan.isVerified)}>
+                <span className={`ml-2 text-[9px] font-bold px-2 py-0.5 rounded border ${plan.isVerified ? 'bg-green-dim text-green border-green/20' : 'bg-white/[0.05] text-gray-muted border-border'}`}>
                   {plan.isVerified ? '✓ Verified' : 'Unverified'}
                 </span>
               </div>
-              <p style={{ color: '#555', fontSize: 11, marginBottom: 10 }}>
-                Uploaded by: {plan.createdBy?.slice(0, 8)}...
-              </p>
-              <div style={{ display: 'flex', gap: 6 }}>
-                <button style={btn(plan.isVerified ? '#374151' : '#166534')} onClick={() => toggleVerified(plan)}>
+              <p className="text-[11px] text-gray-muted mb-3">Uploaded by: {plan.createdBy?.slice(0, 8)}...</p>
+              <div className="flex gap-2">
+                <button onClick={() => toggleVerified(plan)}
+                  className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold border transition-all ${plan.isVerified ? 'bg-white/[0.05] text-gray-light border-border hover:text-white' : 'bg-green-dim text-green border-green/30'}`}>
                   {plan.isVerified ? '✗ Unverify' : '✓ Verify'}
                 </button>
-                <button style={btn('#7f1d1d')} onClick={() => deletePlan(plan.placeId)}>
-                  🗑 Delete
-                </button>
+                {confirmDelete === plan.placeId ? (
+                  <div className="flex gap-1 flex-1">
+                    <button onClick={() => deletePlan(plan.placeId)} className="flex-1 py-1.5 rounded-lg text-[10px] font-bold bg-red text-white">✓</button>
+                    <button onClick={() => setConfirmDelete(null)} className="flex-1 py-1.5 rounded-lg text-[10px] font-bold bg-white/[0.05] border border-border text-gray-light">✕</button>
+                  </div>
+                ) : (
+                  <button onClick={() => setConfirmDelete(plan.placeId)}
+                    className="flex-1 py-1.5 rounded-lg text-[10px] font-bold bg-red/10 border border-red/20 text-red hover:bg-red/20 transition-all">
+                    🗑 Delete
+                  </button>
+                )}
               </div>
             </div>
           ))}

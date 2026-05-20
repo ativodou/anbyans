@@ -12,7 +12,8 @@ function AppShell({ children }: { children: React.ReactNode }) {
     pathname === '/' ||
     pathname.startsWith('/auth') ||
     pathname.startsWith('/organizer') ||
-    pathname.startsWith('/vendor');
+    pathname.startsWith('/vendor') ||
+    pathname.startsWith('/admin');
   return (
     <>
       {!noNav && user && <NavBar />}
