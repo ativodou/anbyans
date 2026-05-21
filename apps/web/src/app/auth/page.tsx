@@ -22,7 +22,7 @@ function AuthPage() {
   const router = useRouter();
   const params = useSearchParams();
   const { t } = useT();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
 
   const initialRole = (params.get('tab') as RoleTab) || 'fan';
   const [roleTab, setRoleTab]   = useState<RoleTab>(initialRole);
@@ -50,14 +50,6 @@ function AuthPage() {
   const [agreedToTerms, setAgreedToTerms] = useState(false);
 
   const cfg = ROLE_CONFIG[roleTab];
-
-  // Redirect if already logged in
-  useEffect(() => {
-    if (user) {
-      const role = (user as any)?.role ?? 'fan';
-      router.push(ROLE_CONFIG[role as RoleTab]?.redirect ?? '/events');
-    }
-  }, [user]);
 
   function switchRole(r: RoleTab) {
     setRoleTab(r);
@@ -144,6 +136,41 @@ function AuthPage() {
   const labelStyle: React.CSSProperties = {
     color: '#888', fontSize: 12, marginBottom: 4, display: 'block',
   };
+
+  // ── Already signed in screen ────────────────────────────────────
+  if (user && step !== 3) {
+    const role = (user as any)?.role ?? 'fan';
+    const dest = ROLE_CONFIG[role as RoleTab]?.redirect ?? '/events';
+    const accent = ROLE_CONFIG[role as RoleTab]?.accent ?? '#06b6d4';
+    const name = (user as any)?.firstName || user.email?.split('@')[0] || '';
+    return (
+      <div style={{ minHeight: '100vh', background: '#0a0a0f', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+        <div style={{ textAlign: 'center', maxWidth: 380, width: '100%' }}>
+          <div style={{ width: 64, height: 64, borderRadius: '50%', background: accent, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, fontWeight: 800, color: '#000', margin: '0 auto 16px' }}>
+            {name.charAt(0).toUpperCase()}
+          </div>
+          <h2 style={{ color: '#fff', fontSize: 22, fontWeight: 700, marginBottom: 6 }}>
+            {t('auth_already_in') || 'Already signed in'}
+          </h2>
+          <p style={{ color: '#888', fontSize: 13, marginBottom: 4 }}>{name}</p>
+          <p style={{ color: '#555', fontSize: 12, marginBottom: 28 }}>{user.email}</p>
+          <Link href={dest} style={{
+            display: 'block', padding: '13px 0', background: accent, color: '#000',
+            borderRadius: 8, fontWeight: 700, fontSize: 15, textDecoration: 'none', marginBottom: 12,
+          }}>
+            {t('landing_go_dashboard') || 'Go to Dashboard'}
+          </Link>
+          <button onClick={async () => { await logout(); }} style={{
+            width: '100%', padding: '12px 0', background: 'transparent',
+            border: '1px solid #2a2a3a', color: '#888', borderRadius: 8,
+            fontSize: 13, cursor: 'pointer', fontWeight: 600,
+          }}>
+            {t('logout') || 'Sign out'}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   // ── Success screen ──────────────────────────────────────────────
   if (step === 3) {
