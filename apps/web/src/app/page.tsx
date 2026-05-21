@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import React, { useState, useEffect, memo } from 'react';
 import { useT } from '@/i18n';
 import LangSwitcher from '@/components/LangSwitcher';
-import { useAuth } from '@/hooks/useAuth';
 import { getPublishedEvents } from '@/lib/db';
 import { fetchHaitianCityEvents, tmEventsToGallery } from '@/lib/ticketmaster';
 
@@ -63,17 +62,9 @@ const EventGallery = memo(function EventGallery({ items }: { items: GalleryItem[
   );
 });
 
-const DASHBOARD: Record<string, string> = {
-  admin: '/admin/dashboard',
-  organizer: '/organizer/dashboard',
-  reseller: '/vendor/dashboard',
-  fan: '/events',
-};
-
 export default function LandingPage() {
   const router = useRouter();
   const { t } = useT();
-  const { user } = useAuth();
   const [q, setQ] = useState('');
   const [privateModal, setPrivateModal] = useState(false);
   const [privateCode, setPrivateCode] = useState('');
@@ -134,12 +125,12 @@ export default function LandingPage() {
 
           {/* CTA */}
           <div style={{ marginBottom: 32 }}>
-            <Link href={user ? (DASHBOARD[(user as any).role] ?? '/events') : '/auth'} style={{
+            <Link href="/auth" style={{
               display: 'inline-block', padding: '13px 40px', borderRadius: 10,
               border: 'none', background: '#06b6d4', color: '#000',
               fontWeight: 800, fontSize: 15, textDecoration: 'none', letterSpacing: 1,
             }}>
-              {user ? t('landing_go_dashboard') || 'Go to Dashboard' : t('landing_enter')}
+              {t('landing_enter')}
             </Link>
           </div>
 
