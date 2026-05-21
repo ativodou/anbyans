@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useT } from '@/i18n';
+import { useAuth } from '@/hooks/useAuth';
 import { getEvent, type EventData } from '@/lib/db';
 
 export default function EventDetailPage() {
@@ -85,13 +86,13 @@ export default function EventDetailPage() {
               <span style={{ fontSize: 18 }}>\ud83d\udcc5</span>
               <div>
                 <div style={{ color: '#fff', fontSize: 15, fontWeight: 600 }}>{event.startDate}</div>
-                {event.endDate && event.endDate !== event.startDate && <div style={{ color: '#888', fontSize: 12 }}>\u2192 {event.endDate}</div>}
+                {event.endDate && event.endDate !== event.startDate && <div style={{ color: '#888', fontSize: 12 }}>{'\u2192'} {event.endDate}</div>}
               </div>
             </div>
             {event.startTime && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <span style={{ fontSize: 18 }}>\ud83d\udd50</span>
-                <div style={{ color: '#fff', fontSize: 15 }}>{event.startTime}{event.endTime && <span style={{ color: '#888' }}> \u2013 {event.endTime}</span>}</div>
+                <div style={{ color: '#fff', fontSize: 15 }}>{event.startTime}{event.endTime && <span style={{ color: '#888' }}>{' \u2013 '}{event.endTime}</span>}</div>
               </div>
             )}
             {event.venue && (

@@ -192,6 +192,7 @@ function BuyPageInner() {
   const [stripeClientSecret, setStripeClientSecret] = useState<string | null>(null);
   const [stripeError, setStripeError] = useState('');
   const [purchaseError, setPurchaseError] = useState('');
+  const [organizerStripeAccountId, setOrganizerStripeAccountId] = useState<string | null>(null);
 
   // ── Load event ────────────────────────────────────────────────
   useEffect(() => {
@@ -224,6 +225,14 @@ function BuyPageInner() {
         }
 
         if (data) {
+          // Fetch organizer's Stripe Connect account for fee splitting
+          if (data.organizerId) {
+            getDoc(doc(db, 'organizers', data.organizerId))
+              .then(snap => {
+                if (snap.exists()) setOrganizerStripeAccountId(snap.data().stripeAccountId || null);
+              })
+              .catch(() => {});
+          }
           const rawV = data.venue;
           const venueStr = rawV && typeof rawV === 'object' ? (rawV.name || '') : (rawV || '');
           const cityStr  = rawV && typeof rawV === 'object' ? (rawV.city || '') : (data.city || '');
@@ -265,7 +274,7 @@ function BuyPageInner() {
         currency: 'usd',
         eventName: event.title,
         seats: qty,
-        connectedAccountId: null,
+        connectedAccountId: organizerStripeAccountId,
       }),
     })
       .then(r => r.json())
