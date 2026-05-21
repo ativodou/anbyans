@@ -80,6 +80,7 @@ export async function signOut() {
 // ─── Google Sign-In ──────────────────────────────────────────────
 
 const googleProvider = new GoogleAuthProvider();
+googleProvider.setCustomParameters({ prompt: 'select_account' });
 
 export async function signInWithGoogle(role: UserRole = 'fan'): Promise<{ user: User; role: UserRole; isNew: boolean }> {
   const cred = await signInWithPopup(auth, googleProvider);

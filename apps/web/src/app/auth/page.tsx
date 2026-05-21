@@ -120,12 +120,8 @@ function AuthPage() {
   async function handleGoogle() {
     setError(''); setGoogleLoading(true);
     try {
-      const { role: actualRole, isNew } = await signInWithGoogle(roleTab);
-      if (isNew) {
-        // Brand-new Google user — take them straight to their dashboard
-        router.push(ROLE_CONFIG[actualRole as RoleTab]?.redirect ?? '/events');
-      }
-      // Existing user: auth state updates → "already signed in" screen shows automatically
+      const { role: actualRole } = await signInWithGoogle(roleTab);
+      router.push(ROLE_CONFIG[actualRole as RoleTab]?.redirect ?? '/events');
     } catch (err: any) {
       if (err.code !== 'auth/popup-closed-by-user') setError(err.message);
     } finally { setGoogleLoading(false); }
@@ -140,50 +136,27 @@ function AuthPage() {
     color: '#888', fontSize: 12, marginBottom: 4, display: 'block',
   };
 
-  // ── Block form until Firebase session is resolved ───────────────
-  if (authLoading) {
-    return (
-      <div style={{ minHeight: '100vh', background: '#0a0a0f', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ width: 36, height: 36, border: '3px solid #1e1e2e', borderTopColor: '#06b6d4', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-      </div>
-    );
-  }
-
-  // ── Already signed in screen ────────────────────────────────────
-  if (user && step !== 3) {
+  // ── Signed-in banner (non-blocking — form stays accessible) ─────
+  const signedInBanner = user && step !== 3 ? (() => {
     const role = (user as any)?.role ?? 'fan';
     const dest = ROLE_CONFIG[role as RoleTab]?.redirect ?? '/events';
     const accent = ROLE_CONFIG[role as RoleTab]?.accent ?? '#06b6d4';
     const name = (user as any)?.firstName || user.email?.split('@')[0] || '';
     return (
-      <div style={{ minHeight: '100vh', background: '#0a0a0f', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-        <div style={{ textAlign: 'center', maxWidth: 380, width: '100%' }}>
-          <div style={{ width: 64, height: 64, borderRadius: '50%', background: accent, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, fontWeight: 800, color: '#000', margin: '0 auto 16px' }}>
-            {name.charAt(0).toUpperCase()}
-          </div>
-          <h2 style={{ color: '#fff', fontSize: 22, fontWeight: 700, marginBottom: 6 }}>
-            {t('auth_already_in') || 'Already signed in'}
-          </h2>
-          <p style={{ color: '#888', fontSize: 13, marginBottom: 4 }}>{name}</p>
-          <p style={{ color: '#555', fontSize: 12, marginBottom: 28 }}>{user.email}</p>
-          <Link href={dest} style={{
-            display: 'block', padding: '13px 0', background: accent, color: '#000',
-            borderRadius: 8, fontWeight: 700, fontSize: 15, textDecoration: 'none', marginBottom: 12,
-          }}>
-            {t('landing_go_dashboard') || 'Go to Dashboard'}
-          </Link>
-          <button onClick={async () => { await logout(); }} style={{
-            width: '100%', padding: '12px 0', background: 'transparent',
-            border: '1px solid #2a2a3a', color: '#888', borderRadius: 8,
-            fontSize: 13, cursor: 'pointer', fontWeight: 600,
-          }}>
-            {t('logout') || 'Sign out'}
-          </button>
+      <div style={{ background: '#0f1a0f', border: '1px solid #1a3a1a', borderRadius: 10, padding: '12px 16px', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ width: 32, height: 32, borderRadius: '50%', background: accent, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, color: '#000', flexShrink: 0 }}>
+          {name.charAt(0).toUpperCase()}
         </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p style={{ color: '#aaa', fontSize: 12, margin: 0 }}>Signed in as <strong style={{ color: '#fff' }}>{name}</strong></p>
+          <Link href={dest} style={{ fontSize: 11, color: accent, textDecoration: 'none' }}>Go to dashboard →</Link>
+        </div>
+        <button onClick={async () => { await logout(); }} style={{ background: 'transparent', border: 'none', color: '#555', fontSize: 12, cursor: 'pointer', padding: '4px 8px', borderRadius: 6, flexShrink: 0 }}>
+          Sign out
+        </button>
       </div>
     );
-  }
+  })() : null;
 
   // ── Success screen ──────────────────────────────────────────────
   if (step === 3) {
@@ -236,6 +209,8 @@ function AuthPage() {
             {t('auth_tagline_short')}
           </p>
         </div>
+
+        {signedInBanner}
 
         {/* Role tabs */}
         <div style={{ display: 'flex', marginBottom: 20, borderRadius: 10, overflow: 'hidden', border: '1px solid #1e1e2e' }}>
