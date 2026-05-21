@@ -1,600 +1,509 @@
-# Anbyans — Complete User Guide
+# ANBYANS — Guide Konplè Itilizatè · Complete User Guide · Guide Complet Utilisateur
 
-**Platform:** anbyans.events  
-**Languages:** English / Kreyòl Ayisyen  
-**Roles:** Fan · Organizer · Vendor/Reseller · Admin
+**anbyans.events** · *Evènman pou nou, pa nou. · Events for us, by us. · Des événements pour nous, par nous.*
 
----
-
-## Table of Contents
-
-1. [Platform Overview](#1-platform-overview)
-2. [Creating an Account](#2-creating-an-account)
-3. [Fan Guide](#3-fan-guide)
-4. [Organizer Guide](#4-organizer-guide)
-5. [Vendor / Reseller Guide](#5-vendor--reseller-guide)
-6. [Admin Guide](#6-admin-guide)
-7. [Payment Methods](#7-payment-methods)
-8. [Ticket Transfers](#8-ticket-transfers)
-9. [Troubleshooting](#9-troubleshooting)
+**v2.0 · May / Me / Mai 2026**
 
 ---
 
-## 1. Platform Overview
+## Tab Matyè · Table of Contents · Sommaire
 
-Anbyans is a bilingual (English / Haitian Creole) event ticketing platform built for the Haitian diaspora community. It supports:
-
-- **Fans** buying tickets to events
-- **Organizers** creating and managing events, staff, and resellers
-- **Vendors/Resellers** buying tickets in bulk and reselling to customers
-- **Admins** overseeing the entire platform
-
-Payment methods include MonCash, Natcash, Stripe (card), Zelle, PayPal, and Cash App. Prices display in both USD and HTG with a configurable exchange rate.
-
----
-
-## 2. Creating an Account
-
-### Fan Account
-1. Go to **anbyans.events/auth**
-2. Click the **Register** tab
-3. Select the **Fan (🎫)** role
-4. Fill in: First Name, Last Name, Email, Phone, City, State, Country
-5. Create a password (must be 6+ characters; a strength indicator shows as you type)
-6. Opt in to notifications: WhatsApp, SMS, and/or Email
-7. Check the box to agree to the Terms of Service and Privacy Policy
-8. Click **Create Account**
-9. You will see a success screen — click **Find Events** to start browsing
-
-> You can also sign in with Google. If it's your first time, a fan account is created automatically.
-
-### Organizer Account
-1. Go to **anbyans.events/organizer/auth**
-2. Click the **Register** tab
-3. Fill in:
-   - First Name, Last Name
-   - **Business Name** (required)
-   - **Business Type**: Promoter, Venue, Artist, Sports, Non-profit, or Religious
-   - Email, Phone, City, State, Country
-   - **Payout Method**: MonCash, Natcash, Stripe, Bank, Zelle, PayPal, or Cash App
-   - Payout Account Details
-4. Create a password and confirm it
-5. Agree to Terms of Service
-6. Click **Create Account**
-7. You will be taken to your organizer dashboard
-
-### Vendor / Reseller Account
-1. Go to **anbyans.events/vendor/auth**
-2. Click the **Register** tab
-3. Fill in: First Name, Last Name, Business Name, Email, Phone, City, Country, Payout Method, Payout Account Details
-4. Create and confirm a password, agree to Terms
-5. Click **Create Account** → you are taken to your vendor dashboard
-
-> Vendors can also be invited directly by an organizer via a WhatsApp invitation link. That link takes you to **/vendor/join** where the form is pre-filled with the organizer's info.
+1. [FAN — Achte Tikè / Buy Tickets / Acheter des Billets](#fan)
+2. [ÒGANIZATÈ — Jere Evènman / Manage Events / Gérer des Événements](#organizer)
+3. [VANDE — Revann Tikè / Resell Tickets / Revendre des Billets](#vendor)
+4. [ADMIN — Administre Platfòm / Manage Platform / Administrer la Plateforme](#admin)
+5. [Metòd Peman / Payment Methods / Méthodes de Paiement](#payments)
+6. [Transfere Tikè / Transfer Tickets / Transférer des Billets](#transfers)
+7. [Rezoud Pwoblèm / Troubleshooting / Résolution de Problèmes](#troubleshooting)
 
 ---
 
-## 3. Fan Guide
+<a name="fan"></a>
+## I. FAN · FAN · FAN
 
-### 3.1 Browsing Events
+### 1.1 Kreye Kont · Create an Account · Créer un Compte
 
-1. Go to **anbyans.events/events**
-2. Use the **search bar** to search by event name, city, or tag
-3. Filter by: **All** | **Live Now** (● pulsing red) | **Upcoming**
-4. Each event card shows:
-   - Cover image or emoji
-   - Live badge if currently happening
-   - Title, Date, Location
-   - Price range (lowest to highest ticket price)
-5. Click **Browse →** on any card to open the event
+**Kreyòl:** Ou ka achte tikè san kont, men kreye youn ba ou avantaj: wè tout tikè ou yo, resevwa konfirmasyon pa imel, ak konekte pou jwenn tikè ou pi vit.
 
-### 3.2 Buying Tickets
+**English:** You can buy tickets without an account, but creating one lets you view all your tickets, receive email confirmations, and retrieve tickets faster.
 
-Ticket purchase is a 5-step flow.
+**Français:** Vous pouvez acheter des billets sans compte, mais en créer un vous permet de voir tous vos billets, recevoir des confirmations par e-mail et retrouver vos billets plus facilement.
 
-#### Step 1 — Event Details
-- Review the event: title, dates, times, venue, description, map
-- See section availability:
-  - **Green bar** = plenty of seats
-  - **Orange bar** = fewer than 20% remaining
-  - **Red / Sold Out** = no tickets available
-- For each section: name, price (USD + HTG), seats remaining, type (General Admission or Reserved Seats)
-- Use the **± buttons** to set quantity (max 10 per section)
-- The sticky bar at the bottom shows: ticket count, service fee, total in USD and HTG
-- Click **Continue** when ready
+| # | Kreyòl | English | Français |
+|---|--------|---------|----------|
+| 1 | Ale sou anbyans.events | Go to anbyans.events | Allez sur anbyans.events |
+| 2 | Klike "Konekte / Sign In" | Click "Konekte / Sign In" | Cliquez "Konekte / Sign In" |
+| 3 | Chwazi "Kreye Kont" | Choose "Create Account" | Choisissez "Créer un compte" |
+| 4 | Antre imel ak modpas | Enter email & password | Entrez email et mot de passe |
+| 5 | Klike "Enskri" | Click "Sign Up" | Cliquez "S'inscrire" |
 
-#### Step 2 — Seat Selection (Reserved sections only)
-- A seat map appears showing rows A–J and columns 1–10
-- **Light blue** = available, **Orange** = your selected seat, **Dark gray** = taken
-- Click seats to select them (one per ticket)
-- Click **Confirm seats (X)** to proceed
-
-#### Step 3 — Your Information
-- Enter: Full Name (required), Phone (required), Email (optional)
-- Review the cart summary: sections, quantity, seats, prices, service fee, total
-- Click **Continue**
-
-#### Step 4 — Payment Method
-Choose your payment method:
-
-- **MonCash / Natcash**: Send the exact amount shown to the number displayed. Enter your Transaction ID in the field provided. Click **Confirm Payment**. Your ticket is pending until the organizer verifies it.
-- **Stripe (Card)**: Enter your card details in the secure Stripe form. Click **Pay with Card →**. Payment is instant and your ticket is confirmed immediately.
-- **Cash / Zelle / CashApp**: Your order is placed as pending. Contact the organizer using the account info shown to complete payment. Organizer confirms manually.
-
-#### Step 5 — Confirmation
-- **Stripe payments**: "Order Confirmed! 🎉" — ticket codes shown immediately
-- **Cash/MonCash payments**: "Order Pending" — your ticket is confirmed once the organizer verifies payment
-- Ticket codes are shown in orange monospace text
-- Click **View Ticket** to open your ticket, or **Back to Events** to keep browsing
-
-### 3.3 Viewing Your Tickets
-
-1. Go to **anbyans.events/tickets**
-2. If logged in, your tickets load automatically
-3. If not logged in, enter your **Phone** and **4-digit PIN** to look up tickets
-4. Each ticket shows:
-   - Event name, section, seat
-   - Date and time
-   - Status: **Valid** (green) | **Used** (orange) | **Pending Transfer** (amber) | **Cancelled** (red)
-5. Click any ticket to open its QR code view at **/ticket/[code]**
-6. Show the QR code to staff at the door to be admitted
-
-### 3.4 Transferring a Ticket
-
-You can transfer a valid ticket to someone else:
-
-1. Go to **anbyans.events/tickets**
-2. Find the ticket and click **🔄 Transfer This**
-3. Enter the recipient's **Name** and **Phone number**
-4. Click **🔄 Send Transfer**
-5. A WhatsApp message with an acceptance link is sent to the recipient
-6. The recipient has **24 hours** to accept at **/transfer/[token]**
-7. Once accepted, the ticket is in their name
-8. **Note:** Transfers cannot be undone once accepted
-
-> If you change your mind before the recipient accepts, click **⏳ Awaiting acceptance** on the ticket to cancel the transfer.
+> **Kreyòl:** Ou ka konekte ak Google tou — klike bouton Google a.
+> **English:** You can also sign in with Google — click the Google button.
+> **Français:** Vous pouvez aussi vous connecter avec Google.
 
 ---
 
-## 4. Organizer Guide
+### 1.2 Jwenn Evènman · Browse Events · Trouver des Événements
 
-### 4.1 Dashboard Overview
+**Kreyòl:** Paj prensipal la montre tout evènman ki pibliye yo. Ou ka wè foto evènman an, non li, dat li, kote li ye, ak pri tikè yo.
 
-After logging in, you land on **anbyans.events/organizer/dashboard**.
+**English:** The main page shows all published events with event photo, name, date, location, and ticket prices. Click any event to see details.
 
-The header shows:
-- **Event Selector** (top center): Switch between viewing All events or a specific event
-- **Language Switcher**: Toggle between English and Haitian Creole
-- **Profile Button** (top right): Your name, initials/logo, and "Òganizatè" label — click to open the profile menu
+**Français:** La page principale affiche tous les événements publiés avec photo, nom, date, lieu et prix. Cliquez sur un événement pour plus de détails.
 
-The sidebar has:
-- 📊 Dashboard
-- 📅 Events
-- 🏪 Resellers
-- 💰 Revenue
-- 📈 Analytics
-- 👥 Staff
-- ⏳ Pending Tickets
-- ⚙️ Settings
-
-**KPI Cards (4 columns):**
-| Card | What it shows |
-|------|--------------|
-| Total Revenue | All ticket sales in USD and HTG |
-| Tickets Sold | Total valid tickets + active event count |
-| Active Events | Published/Live events vs. total |
-| Resellers Owe | Amount resellers owe you (orange = action needed) |
-
-Below the cards:
-- **Live Admission Counter**: Real-time count of how many people have been scanned in at the door, with a progress bar
-- **Quick Actions**: Scan Tickets, Manage Resellers, Manage Staff, View Revenue
-- **Events Table**: Name, date, status, ticket count, revenue
-- **Recent Sales**: Latest ticket purchases with time, event, source, buyer, and price
-
-### 4.2 Creating an Event
-
-Go to **Events → Create Event** or click the **➕ Create Event** button.
-
-The form has 3 tabs:
-
-#### Tab 1 — Event Details
-| Field | Required | Notes |
-|-------|----------|-------|
-| Event Name | ✓ | |
-| URL Slug | ✓ | Auto-generated from the name. This becomes the event URL: anbyans.events/e/[slug] |
-| Start Date | ✓ | Date picker |
-| Start Time | | Default: 20:00 |
-| End Date | | Must be on or after start date |
-| End Time | | Default: 23:00 |
-| Cover Image | | Paste an image URL — preview appears automatically |
-| Description | | Multi-line text |
-| Private Event | | Toggle 🔒 — only invited guests can buy tickets |
-
-#### Tab 2 — Venue & Sections
-
-**Venue:**
-- Type into the venue search — suggestions load from Google Places
-- Select your venue; address, city, and GPS coordinates fill in automatically
-- A Google Map preview appears confirming the location
-
-**Floor Plan (optional):**
-- Upload a floor plan image (drag-drop or click to browse)
-- After upload, drag section blocks onto the map to show buyers where each section is located
-- Each section block is labeled with its name and price
-- Use the corner handle to resize, × to remove
-
-**Sections (Ticket Types):**
-
-Click **+ Add Ticket Type** to add a section. For each section:
-| Field | Notes |
-|-------|-------|
-| Name | e.g., VIP, General, Floor, Balcony |
-| Color | Choose from 8 color swatches — used on tickets and floor plan |
-| Price (USD) | Ticket price; HTG equivalent shown automatically |
-| Capacity | Max tickets for this section |
-| Type | 🎫 General Admission or 💺 Reserved Seats |
-| Vendor Price | Optional — bulk price for resellers |
-| Vendor Open/Close Date | Date window when resellers can buy for this section |
-
-Click **Draw zone on floor plan** to link the section to a region on your floor plan image.
-
-A summary box at the bottom shows all sections with prices (USD and HTG), capacities, and total capacity.
-
-#### Tab 3 — Payment Methods
-
-- **Exchange Rate**: Set how many HTG equal 1 USD (e.g., 130). This controls how prices display to buyers.
-- **Toggle each payment method** on or off:
-  - MonCash: Enter your MonCash phone number
-  - Natcash: Enter your Natcash phone number
-  - Stripe: Connected in Settings (see Section 4.7)
-  - Zelle / PayPal / CashApp: Enter your account handle/email
-
-When done, click **Publish** in the bottom bar. Your event is live at anbyans.events/e/[slug].
-
-### 4.3 Managing Events
-
-Go to **Events** in the sidebar. Each event card shows:
-- Title, status badge, date, ticket count, capacity progress, revenue
-- Click a card to expand it
-
-**Expanded actions:**
-| Button | What it does |
-|--------|-------------|
-| ✏️ Edit | Opens the 3-tab edit form |
-| 👥 Staff | Goes to Staff → this event's assignments |
-| 📷 Scanner | Opens the ticket scanner for this event |
-| 📋 Copy Private Link | Copies the invite-only URL (private events only) |
-| ● Go Live | Changes status from Published → Live |
-| ■ End Event | Closes ticket sales and marks event as ended |
-| ↺ Reopen | Re-publishes an ended event |
-
-**Event statuses:**
-| Status | Badge | Meaning |
-|--------|-------|---------|
-| Draft | Gray | Not visible to fans |
-| Published | Cyan | Visible to fans, tickets on sale |
-| Live | Green ● | Event is happening now |
-| Ended | Gray | Event is over, sales closed |
-
-### 4.4 Verifying Pending Payments
-
-When buyers pay via MonCash, Natcash, or Cash, their tickets appear as **Pending** until you verify.
-
-Go to **⏳ Pending Tickets** in the sidebar.
-
-**Top summary cards:**
-- MonCash/Natcash pending count (need transaction verification)
-- Cash pending count (need manual confirmation)
-- Total pending value in HTG
-
-**For each pending ticket:**
-- Buyer name, phone, email
-- Event, section, seat
-- Amount (USD + HTG)
-- Transaction ID (MonCash/Natcash)
-- Payment method badge
-
-**Actions:**
-- ✓ **Approve** — validates the ticket; buyer can now use it
-- ✕ **Reject** — cancels the order
-
-> Best practice: For MonCash/Natcash, verify the transaction ID in your MonCash/Natcash app before approving.
-
-### 4.5 Managing Resellers / Vendors
-
-Go to **🏪 Resellers** in the sidebar.
-
-**3 tabs:**
-
-**My Resellers:**
-- View all resellers assigned to your events
-- Filter by status (Active, Inactive, Pending) or by event
-- Each reseller card shows: name, status, contact info, events, sales stats
-- Actions: Edit commission %, Suspend, Remove
-
-**Available Resellers:**
-- Browse resellers on the platform who are not yet assigned to your events
-- Click **Assign** to add them to your roster
-
-**Pending Requests:**
-- Resellers who have requested to sell your events
-- Click **Approve** — a WhatsApp confirmation is sent to the reseller automatically
-- Click **Deny** to decline
-
-**Inviting a new reseller:**
-- Click **Invite Reseller**
-- Enter: Name, Contact, Phone, City, Payout method
-- Click **Send via WhatsApp** — the reseller receives a link to **/vendor/join** with your info pre-filled
-
-### 4.6 Staff Management
-
-Go to **👥 Staff** in the sidebar.
-
-**4 tabs:**
-
-**Overview:**
-- Total active staff count, breakdown by role
-- Quick-add form: Name, Phone, role
-
-**Staff Pool:**
-- All staff members available for your events
-- Each person: Name, phone, PIN, assigned roles
-- Add new staff or remove existing
-
-**Assignments (per event):**
-Assign staff to specific events with role-specific settings:
-
-| Role | What they can do | Settings available |
-|------|-----------------|-------------------|
-| Scanner | Scan QR codes at entry | Device lock, allowed sections, override permission |
-| Door | Manual door admission | Entrance selection, capacity visibility |
-| Sales | Sell tickets on-site | Commission %, allowed sections, payment methods, target |
-| Security | Monitor zones | Zone selection, incident access, eject permission |
-| F&B | Food & beverage sales | Categories, sales logging, cash handling |
-| Manager | Full dashboard view | All permissions |
-
-**Performance:**
-- Stats per staff member: scans processed, admissions, sales generated
-
-### 4.7 Scanning Tickets at the Door
-
-Go to **📷 Scanner** in the sidebar or from an event's expanded card.
-
-1. **Enter your PIN** (4 or 6 digits, set in Settings)
-2. Choose a staff member (if you are the organizer logging in as yourself, skip)
-3. The scanner view opens:
-   - Point the camera at a fan's QR code, or type the ticket code manually
-   - Results appear instantly:
-     - ✅ **Admitted** — valid ticket, first scan
-     - ⚠️ **Already Used** — ticket was scanned before
-     - ❌ **Not Found** — code doesn't exist
-   - Scan history shows the last 10 scans with time, buyer name, section, and status
-   - Live counter shows total admitted so far
-4. Works offline — scans queue locally and sync when reconnected
-
-### 4.8 Revenue & Analytics
-
-**Revenue** (💰 in sidebar):
-- Toggle: All Events or a specific event
-- Cards: Total Revenue, Online Revenue, Vendor Revenue, Vendor Amounts Owed
-- **Daily Sales Chart**: Bar chart for the last 14 days
-- **Section Breakdown**: Tickets sold per section
-- **Vendor Payments Table**: Who owes what, with Pay / Mark as Paid buttons
-- **Refund Requests**: Approve or deny pending refunds
-
-**Analytics** (📈 in sidebar):
-- Cards: Total Buyers, Loyal Buyers (2+ events), Tickets Sold, Avg Spend per Buyer
-
-Sub-tabs:
-| Tab | Shows |
-|-----|-------|
-| Top Spenders | Ranked buyers by total amount spent |
-| Loyal Buyers | Ranked by number of events attended |
-| Sections | Tickets sold per section (bar chart) |
-| Events | Revenue per event |
-| Vendors | Revenue generated by each reseller |
-
-### 4.9 Organizer Settings
-
-Go to **⚙️ Settings** in the sidebar. 5 tabs:
-
-#### Profile
-- Upload your business logo (click to browse; image is compressed automatically)
-- Business Name, Email, Phone, Website
-- Click **Save**
-
-#### Payments
-- **Exchange Rate**: Set 1 USD = X HTG (affects how prices display)
-- **Toggle each payment method** and enter account details:
-  - MonCash, Natcash: Enter phone number
-  - **Stripe**: Click **Connect Stripe** → you are redirected to Stripe's onboarding to set up your Express account. Once approved, card payments go directly to your bank via Stripe.
-  - Zelle: Email or phone
-  - PayPal: Email
-  - Cash App: $cashtag
-- Click **Save**
-
-#### Scanner
-- Default event for the scanner
-- Scan mode: **Single** (confirms each scan) or **Continuous** (rapid scanning)
-- Sound, vibration, and buyer name display toggles
-
-#### Staff Defaults
-- PIN length: 4 or 6 digits
-- PIN expiry: Never, After event ends, or After 30 days
-- Auto-deactivate staff when event ends
-- Allow scanner staff to override a flagged ticket
-- Require device lock
-- Default sections staff can access
-
-#### Notifications
-| Notification | When it fires |
-|-------------|---------------|
-| Staff Activated | A staff member logs into the scanner |
-| Low Capacity | Remaining tickets fall below your threshold % |
-| New Sale | A ticket is purchased |
-| Incident Report | A security staff member logs an incident |
-
-- **Channel**: Email, WhatsApp, or Both
+**Kreyòl — Evènman Prive · English — Private Events · Français — Événements Privés:**
+- 🇭🇹 Si yon evènman prive, mande òganizatè a pou ba ou lyen an. Lyen sa a kòmanse ak `anbyans.events/e/` epi li gen yon kòd sekrè.
+- 🇬🇧 If an event is private, ask the organizer for the special link starting with `anbyans.events/e/` followed by a secret code.
+- 🇫🇷 Si un événement est privé, demandez le lien à l'organisateur. Il commence par `anbyans.events/e/` suivi d'un code secret.
 
 ---
 
-## 5. Vendor / Reseller Guide
+### 1.3 Chwazi Seksyon · Choose a Section · Choisir une Section
 
-### 5.1 Dashboard Overview
+**Kreyòl:** Chak evènman gen youn oswa plizyè seksyon: VIP, General Admission, Lounge, Balkon, elatriye. Chak seksyon gen pwòp pri li ak kantite plas disponib.
 
-After logging in at **anbyans.events/vendor**, you see your dashboard with 5 tabs:
+**English:** Each event has one or more sections: VIP, General Admission, Lounge, Balcony, etc. Each has its own price, color, and available spots.
 
-**Sell | Buy | Inventory | Sales | Events**
+**Français:** Chaque événement a une ou plusieurs sections : VIP, Admission Générale, Lounge, Balcon, etc. Chacune a son propre prix, couleur et nombre de places.
 
-### 5.2 Buying Tickets in Bulk (Buy Tab)
-
-1. Select an **Event** from the dropdown
-2. Select a **Section**
-3. Enter the **Quantity** you want to purchase (1–1,000)
-4. See the bulk pricing tiers — buying more may unlock a lower price per ticket
-5. Review the total cost in USD and HTG
-6. Click **Confirm** — a confirmation code is shown and your ticket inventory is updated
-
-> Bulk purchasing is only available during the vendor window set by the organizer (open date → close date per section).
-
-### 5.3 Selling Tickets to Customers (Sell Tab)
-
-1. Select the **stock** you want to sell from (event + section + qty owned)
-2. Enter the buyer's **Name** and **Phone**
-3. Scan a QR code or enter a ticket code to assign it, or let the system auto-assign
-4. Confirm the sale — ticket codes are shown for the buyer
-5. Recent sales appear in a list below
-
-### 5.4 Inventory Tab
-
-- **Summary**: Total tickets bought, sold, remaining across all events
-- **Per-event breakdown**: Event name, section, qty bought, qty sold, qty remaining, profit per ticket
-
-### 5.5 Sales Tab
-
-- Full sales history
-- Filter by event and date range
-- Shows: event, section, quantity sold, price charged, profit
-
-### 5.6 Events Tab
-
-- Browse all events you can sell for
-- Status per event: **Approved**, **Pending Request**, **Denied**
-- Click **Request Access** for events you want to sell but haven't been assigned to yet
-- See bulk pricing info per section
-
-### 5.7 Profile & Settings
-
-Go to your **Profile** page:
-- Business name, contact info, phone, city
-- Payout method and account details
-- Click **Save**
+| Kreyòl | English | Français |
+|--------|---------|----------|
+| Klike sou seksyon ou vle | Click the section you want | Cliquez sur la section souhaitée |
+| Wè pri ak plas ki rete | See price and remaining spots | Consultez le prix et places restantes |
+| Klike "Achte" pou kontinye | Click "Buy" to continue | Cliquez "Acheter" pour continuer |
 
 ---
 
-## 6. Admin Guide
+### 1.4 Ranpli Enfòmasyon · Fill In Your Info · Remplir les Informations
 
-### 6.1 Accessing the Admin Dashboard
+**Kreyòl:** Anbyans ap mande kèk enfòmasyon pèsonèl. Sa yo nesesè pou resevwa tikè ou ak antre nan evènman an.
 
-Go to **anbyans.events/admin/dashboard**. Admin access requires an account with the `admin` role — contact the platform owner to be granted access.
+**English:** Anbyans will ask for personal information needed to receive your ticket and enter the event.
 
-### 6.2 Dashboard Tabs
+**Français:** Anbyans vous demandera des informations nécessaires pour recevoir votre billet et entrer dans l'événement.
 
-#### Overview
-- **KPI Cards**: Total events, total platform revenue, active organizers, total users
-- System status indicators
-- Recent activity feed
+| Kreyòl | English | Français |
+|--------|---------|----------|
+| Non konplè (non ak siyati) | Full name (first & last) | Nom complet (prénom et nom) |
+| Nimewo telefòn (ak kòd peyi) | Phone number (with country code) | Numéro de téléphone (avec indicatif) |
+| Imel (pou resevwa tikè) | Email (to receive your ticket) | E-mail (pour recevoir votre billet) |
 
-#### Events
-- Full searchable list of all events on the platform
-- Shows: Event name, organizer, status, revenue
-- **Actions**: Toggle Published ↔ Cancelled, Delete event
-
-#### Organizers
-- Searchable list: Name, email, business type, event count, revenue
-- **Actions**: Suspend / Unsuspend organizer, View details
-
-#### Users
-- Searchable list: Name, email, role, city, country
-- **Actions**: Suspend / Unsuspend user, View details
-
-#### Refunds
-- All pending refund requests from buyers
-- Shows: Buyer name, amount, reason
-- **Approve**: Processes the refund
-- **Deny**: Opens a modal to enter a denial reason (sent to buyer)
-
-#### Finance
-- Platform-wide revenue metrics
-- Pending and completed payouts to organizers
-- Platform fee collection summary
-
-#### Venues
-- Create, edit, and delete venues
-- Fields: Name, address, city, capacity
-- Upload floor plans for each venue
-- Floor plans are available to organizers when creating events
-- **Seed Venues** button: Pre-populates a list of known venues
-
-#### Settings
-| Setting | Default | Description |
-|---------|---------|-------------|
-| Platform Fee | 9% | Service fee added to each ticket |
-| Reserve Requirement | — | % of revenue held in reserve |
-| Payout Delay | — | Days after event before organizer payout is released |
+> 🇭🇹 Sèvi ak yon nimewo ki ka resevwa WhatsApp — ou pral resevwa tikè ou la.
+> 🇬🇧 Use a phone number that can receive WhatsApp — your ticket will be sent there.
+> 🇫🇷 Utilisez un numéro pouvant recevoir WhatsApp — votre billet y sera envoyé.
 
 ---
 
-## 7. Payment Methods
+### 1.5 Peye Tikè · Pay for Your Ticket · Payer le Billet
 
-| Method | Who sets it up | How buyer pays | How organizer receives |
-|--------|---------------|---------------|----------------------|
-| **MonCash** | Organizer enters phone in Settings | Buyer sends HTG to that number, enters Transaction ID | Organizer verifies Transaction ID and approves ticket |
-| **Natcash** | Organizer enters phone in Settings | Same as MonCash | Same as MonCash |
-| **Stripe (Card)** | Organizer connects Stripe Express account in Settings | Buyer enters card — payment is instant | Funds deposited to organizer's bank via Stripe |
-| **Zelle** | Organizer enters email/phone in Settings | Buyer sends USD via Zelle | Organizer confirms and approves ticket |
-| **PayPal** | Organizer enters email in Settings | Buyer sends via PayPal | Organizer confirms and approves ticket |
-| **Cash App** | Organizer enters $cashtag in Settings | Buyer sends via Cash App | Organizer confirms and approves ticket |
+**Kreyòl:** Anbyans aksepte plizyè metòd peman. Lajan an ale dirèkteman nan men òganizatè a — Anbyans sèlman kolekte frè platfòm (9%).
 
-**Exchange Rate**: All prices show in USD. When an organizer sets an exchange rate (e.g., 1 USD = 130 HTG), prices automatically display in both currencies everywhere on the platform.
+**English:** Anbyans accepts several payment methods. Money goes directly to the organizer — Anbyans only collects the platform fee (9%).
 
-**Platform Fee**: A service fee (default 9%) is added to each ticket at checkout. This goes to Anbyans.
+**Français:** Anbyans accepte plusieurs méthodes de paiement. L'argent va directement à l'organisateur — Anbyans ne perçoit que les frais de plateforme (9%).
 
----
-
-## 8. Ticket Transfers
-
-Fans can transfer valid tickets to another person before the event:
-
-1. Go to **anbyans.events/tickets**
-2. Find the ticket → click **🔄 Transfer This**
-3. Enter recipient's **Name** and **Phone**
-4. Click **🔄 Send Transfer**
-5. The recipient gets a WhatsApp message with a link to accept
-6. Recipient accepts at **/transfer/[token]** within 24 hours
-7. Ticket is now in the recipient's name
-
-**Rules:**
-- Only valid (unused, non-cancelled) tickets can be transferred
-- Transfers cannot be undone once the recipient accepts
-- You can cancel a pending transfer before it is accepted
+| Metòd / Method / Méthode | Kreyòl | English | Français |
+|--------------------------|--------|---------|----------|
+| MonCash / Natcash | Voye lajan nan nimewo a, antre ID tranzaksyon | Send to the number shown, enter Transaction ID | Envoyez au numéro indiqué, entrez l'ID de transaction |
+| Stripe (Kat / Card / Carte) | Antre enfòmasyon kat ou — konfime imedyatman | Enter card details — confirmed instantly | Entrez les détails de la carte — confirmé immédiatement |
+| Zelle / PayPal / Cash App | Voye lajan nan kont ki montre a, òganizatè konfime | Send to the account shown, organizer confirms | Envoyez au compte indiqué, l'organisateur confirme |
 
 ---
 
-## 9. Troubleshooting
+### 1.6 Resevwa ak Itilize Tikè · Receive & Use Ticket · Recevoir et Utiliser le Billet
 
-| Issue | Fix |
-|-------|-----|
-| Page spinning on load | Wait 5–10 seconds for Firebase to initialize. If it persists, hard-refresh (Cmd+Shift+R) |
-| Profile button not showing | Hard-refresh the page. If still missing, log out and back in |
-| Logo not showing after upload | Go to Settings → Profile → re-upload the logo and click Save |
-| Ticket says "Pending" | Organizer needs to verify your payment in the Pending Tickets section |
-| Can't scan tickets | Check that the correct event is selected in Settings → Scanner |
-| Stripe Connect not working | Complete all steps in Stripe's onboarding. Charges only activate after Stripe approves your account |
-| MonCash payment rejected | Ensure the Transaction ID entered matches exactly what appears in your MonCash app |
-| Vendor bulk purchase failing | Check that the vendor window (open/close date) is active for that section |
-| Transfer link expired | Transfers expire after 24 hours — the original ticket is returned to you. Initiate a new transfer |
+**Kreyòl:** Apre konfirmasyon, ou resevwa yon kòd tikè 6-karaktè ak yon kòd QR. Montre youn nan yo nan pòt evènman an.
+
+**English:** After confirmation, you receive a 6-character ticket code and a QR code. Show either one at the event entrance.
+
+**Français:** Après confirmation, vous recevez un code billet de 6 caractères et un QR code. Montrez l'un ou l'autre à l'entrée.
+
+| Kreyòl | English | Français |
+|--------|---------|----------|
+| Ale sou anbyans.events/tickets | Go to anbyans.events/tickets | Allez sur anbyans.events/tickets |
+| Konekte oswa antre telefòn + PIN | Log in or enter phone + PIN | Connectez-vous ou entrez téléphone + PIN |
+| Klike tikè pou wè kòd QR | Click ticket to view QR code | Cliquez sur le billet pour voir le QR code |
+| Montre kòd QR oswa kòd 6-karaktè | Show QR code or 6-character code | Montrez le QR code ou le code 6 caractères |
+
+> 🇭🇹 Tikè an atant = òganizatè pa ankò verifye peman ou. Pasyans.
+> 🇬🇧 Pending ticket = the organizer hasn't yet verified your payment. Please wait.
+> 🇫🇷 Billet en attente = l'organisateur n'a pas encore vérifié votre paiement. Patientez.
 
 ---
 
-*Guide version: May 2026 — Anbyans v0.1*
+<a name="organizer"></a>
+## II. ÒGANIZATÈ · ORGANIZER · ORGANISATEUR
+
+### 2.1 Kreye Kont Òganizatè · Create Organizer Account · Créer un Compte Organisateur
+
+| # | Kreyòl | English | Français |
+|---|--------|---------|----------|
+| 1 | Ale sou anbyans.events/organizer/auth | Go to anbyans.events/organizer/auth | Allez sur anbyans.events/organizer/auth |
+| 2 | Klike "Kreye Kont" | Click "Create Account" | Cliquez "Créer un compte" |
+| 3 | Antre: Non, Non Biznis, Tip Biznis | Enter: Name, Business Name, Business Type | Entrez : Nom, Nom entreprise, Type d'entreprise |
+| 4 | Antre imel, telefòn, vil, peyi | Enter email, phone, city, country | Entrez email, téléphone, ville, pays |
+| 5 | Chwazi metòd peman ou | Choose your payout method | Choisissez votre méthode de paiement |
+| 6 | Kreye modpas, aksepte kondisyon yo | Create password, accept terms | Créez un mot de passe, acceptez les conditions |
+| 7 | Klike "Kreye Kont" | Click "Create Account" | Cliquez "Créer un compte" |
+
+---
+
+### 2.2 Tablo Bò / Dashboard Overview / Aperçu du Tableau de Bord
+
+**Kreyòl:** Apre koneksyon, ou wè tablo bò ou nan anbyans.events/organizer/dashboard. Li montre kat estatistik prensipal, aktivite resan, ak aksyon rapid.
+
+**English:** After logging in, you land on your dashboard at anbyans.events/organizer/dashboard. It shows 4 KPI cards, recent activity, and quick actions.
+
+**Français:** Après connexion, vous arrivez sur votre tableau de bord à anbyans.events/organizer/dashboard. Il affiche 4 indicateurs clés, l'activité récente et des actions rapides.
+
+| Kat / Card / Carte | Kreyòl | English | Français |
+|--------------------|--------|---------|----------|
+| Revni Total | Total vann tikè (USD + HTG) | Total ticket sales (USD + HTG) | Total des ventes de billets (USD + HTG) |
+| Tikè Vann | Kantite tikè valid | Number of valid tickets | Nombre de billets valides |
+| Evènman Aktif | Evènman pibliye/Live | Published/Live events | Événements publiés/En direct |
+| Vande Dwe | Montan vande yo dwe ou | Amount vendors owe you | Montant dû par les vendeurs |
+
+---
+
+### 2.3 Kreye Evènman · Create an Event · Créer un Événement
+
+**Kreyòl:** Ale nan **Evènman → Kreye Evènman**. Fòmilè a gen 3 tab.
+
+**English:** Go to **Events → Create Event**. The form has 3 tabs.
+
+**Français:** Allez dans **Événements → Créer un événement**. Le formulaire a 3 onglets.
+
+#### Tab 1 — Detay Evènman · Event Details · Détails de l'Événement
+
+| Champ / Field / Champ | Obligatwa / Required / Requis | Nòt / Notes / Notes |
+|-----------------------|-------------------------------|---------------------|
+| Non Evènman / Event Name / Nom | ✓ | |
+| URL Slug | ✓ | Otomatik / Auto-generated / Automatique → anbyans.events/e/[slug] |
+| Dat Kòmanse / Start Date | ✓ | |
+| Èdtan / Time | | Defo / Default: 20:00 |
+| Imaj Kouvèti / Cover Image | | Paste URL — aperçu auto |
+| Deskripsyon / Description | | Tèks lib / Free text |
+| Evènman Prive / Private | | Toggle 🔒 — envitasyon sèlman / invite only |
+
+#### Tab 2 — Kote ak Seksyon · Venue & Sections · Lieu et Sections
+
+**Kreyòl:** Tape non kote a — sijesyon Google Places ap chaje. Chwazi youn, adrès ak GPS ranpli otomatikman.
+
+**English:** Type the venue name — Google Places suggestions load. Select one; address and GPS fill automatically.
+
+**Français:** Tapez le nom du lieu — les suggestions Google Places se chargent. Sélectionnez-en un ; l'adresse et le GPS se remplissent automatiquement.
+
+**Seksyon / Sections:**
+
+| Champ / Field | Kreyòl | English | Français |
+|---------------|--------|---------|----------|
+| Non | Non seksyon (VIP, GA, Floor…) | Section name | Nom de la section |
+| Pri / Price | Pri tikè (USD) | Ticket price (USD) | Prix du billet (USD) |
+| Kapasite / Capacity | Maks tikè pou seksyon sa | Max tickets for this section | Billets max pour cette section |
+| Tip / Type | Admisyon Jeneral oswa Sièj Rezève | General Admission or Reserved Seats | Admission Générale ou Sièges Réservés |
+| Pri Vande | Pri gwo-detay pou revandè | Bulk price for resellers | Prix en gros pour les revendeurs |
+
+#### Tab 3 — Metòd Peman · Payment Methods · Méthodes de Paiement
+
+**Kreyòl:** Aktive chak metòd ou vle aksepte epi antre enfòmasyon kont ou.
+
+**English:** Toggle on each payment method you want to accept and enter your account details.
+
+**Français:** Activez chaque méthode de paiement que vous souhaitez accepter et entrez les détails de votre compte.
+
+| Metòd | Kreyòl | English | Français |
+|-------|--------|---------|----------|
+| MonCash / Natcash | Antre nimewo telefòn MonCash/Natcash ou | Enter your MonCash/Natcash phone number | Entrez votre numéro MonCash/Natcash |
+| Stripe | Konekte Stripe nan Paramèt / Settings | Connect Stripe in Settings | Connectez Stripe dans Paramètres |
+| Zelle | Antre imel oswa telefòn Zelle | Enter Zelle email or phone | Entrez email ou téléphone Zelle |
+| PayPal | Antre imel PayPal | Enter PayPal email | Entrez email PayPal |
+| Cash App | Antre $cashtag ou | Enter your $cashtag | Entrez votre $cashtag |
+
+> 🇭🇹 Klike **Pibliye** pou evènman an vin vivan sou anbyans.events/e/[slug].
+> 🇬🇧 Click **Publish** — your event goes live at anbyans.events/e/[slug].
+> 🇫🇷 Cliquez **Publier** — votre événement est en ligne sur anbyans.events/e/[slug].
+
+---
+
+### 2.4 Tikè an Atant · Pending Tickets · Billets en Attente
+
+**Kreyòl:** Lè yon moun peye pa MonCash, Natcash, oswa Lajan Kach, tikè yo parèt kòm **An Atant** jiskaske ou verifye.
+
+**English:** When someone pays via MonCash, Natcash, or Cash, their tickets appear as **Pending** until you verify.
+
+**Français:** Quand quelqu'un paie via MonCash, Natcash ou Espèces, les billets apparaissent comme **En attente** jusqu'à votre vérification.
+
+| Aksyon / Action | Kreyòl | English | Français |
+|-----------------|--------|---------|----------|
+| ✓ Apwouve / Approve | Valide tikè a — aketè ka itilize li | Validates the ticket — buyer can use it | Valide le billet — l'acheteur peut l'utiliser |
+| ✕ Rejte / Reject | Anile kòmand lan | Cancels the order | Annule la commande |
+
+> 🇭🇹 Pi bon pratik: verifye ID tranzaksyon MonCash/Natcash nan aplikasyon ou anvan ou apwouve.
+> 🇬🇧 Best practice: verify the MonCash/Natcash Transaction ID in your app before approving.
+> 🇫🇷 Bonne pratique : vérifiez l'ID de transaction MonCash/Natcash dans votre application avant d'approuver.
+
+---
+
+### 2.5 Jere Vande · Manage Vendors · Gérer les Vendeurs
+
+**Kreyòl:** Ale nan **🏪 Revandè** nan bò sidebarla. Gen 3 tab: Revandè Mwen Yo, Revandè Disponib, Demann an Atant.
+
+**English:** Go to **🏪 Resellers** in the sidebar. 3 tabs: My Resellers, Available Resellers, Pending Requests.
+
+**Français:** Allez dans **🏪 Revendeurs** dans la barre latérale. 3 onglets : Mes Revendeurs, Revendeurs Disponibles, Demandes en Attente.
+
+| Tab / Onglet | Kreyòl | English | Français |
+|--------------|--------|---------|----------|
+| Revandè Mwen | Wè, edite, sispann revandè ou yo | View, edit, suspend your resellers | Voir, modifier, suspendre vos revendeurs |
+| Revandè Disponib | Jwenn nouvo revandè pou asiyen | Find new resellers to assign | Trouver de nouveaux revendeurs à assigner |
+| Demann an Atant | Apwouve oswa refize demann | Approve or deny requests | Approuver ou refuser les demandes |
+
+**Kreyòl — Envite Revandè:** Klike **Envite Revandè**, antre enfòmasyon yo, klike **Voye pa WhatsApp** — revandè a resevwa yon lyen pou kreye kont li.
+
+**English — Invite a Vendor:** Click **Invite Reseller**, enter their info, click **Send via WhatsApp** — they receive a link to create their account.
+
+**Français — Inviter un Revendeur :** Cliquez **Inviter un revendeur**, entrez leurs infos, cliquez **Envoyer via WhatsApp** — ils reçoivent un lien pour créer leur compte.
+
+---
+
+### 2.6 Jere Staff · Manage Staff · Gérer le Personnel
+
+**Kreyòl:** Ale nan **👥 Staff** nan bò sidebarla. Ou ka ajoute moun, asiyen yo nan evènman, ak wè pèfòmans yo.
+
+**English:** Go to **👥 Staff** in the sidebar. You can add people, assign them to events, and view their performance.
+
+**Français:** Allez dans **👥 Personnel** dans la barre latérale. Vous pouvez ajouter des personnes, les assigner aux événements et voir leurs performances.
+
+| Wòl / Role | Kreyòl | English | Français |
+|------------|--------|---------|----------|
+| Scanner | Eskane kòd QR nan antre | Scan QR codes at entry | Scanner les QR codes à l'entrée |
+| Pòt / Door | Admisyon manyèl nan pòt | Manual door admission | Admission manuelle à la porte |
+| Lavant / Sales | Vann tikè sou plas | Sell tickets on-site | Vendre des billets sur place |
+| Sekirite / Security | Siveyans zòn | Zone monitoring | Surveillance des zones |
+| F&B | Lavant manje ak bwason | Food & beverage sales | Vente nourriture et boissons |
+| Manadjè / Manager | Aksè konplè tablo bò | Full dashboard access | Accès complet au tableau de bord |
+
+---
+
+### 2.7 Eskane Tikè · Scan Tickets · Scanner les Billets
+
+| # | Kreyòl | English | Français |
+|---|--------|---------|----------|
+| 1 | Ale nan 📷 Scanner | Go to 📷 Scanner | Allez dans 📷 Scanner |
+| 2 | Antre PIN ou (4 oswa 6 chif) | Enter your PIN (4 or 6 digits) | Entrez votre PIN (4 ou 6 chiffres) |
+| 3 | Chwazi yon manm staff si nesesè | Choose a staff member if needed | Choisissez un membre du personnel si nécessaire |
+| 4 | Dirije kamera sou kòd QR la | Point camera at QR code | Pointez la caméra sur le QR code |
+| 5 | Wè rezilta imedyatman | See result instantly | Voyez le résultat immédiatement |
+
+| Rezilta / Result | Kreyòl | English | Français |
+|-----------------|--------|---------|----------|
+| ✅ Admèt / Admitted | Tikè valid, premye eskane | Valid ticket, first scan | Billet valide, premier scan |
+| ⚠️ Deja Itilize / Already Used | Tikè eskane deja | Ticket already scanned | Billet déjà scanné |
+| ❌ Pa Jwenn / Not Found | Kòd pa egziste | Code doesn't exist | Code inexistant |
+
+> 🇭🇹 Travay san entènèt — eskane yo senkronize lè koneksyon retounen.
+> 🇬🇧 Works offline — scans sync when reconnected.
+> 🇫🇷 Fonctionne hors ligne — les scans se synchronisent à la reconnexion.
+
+---
+
+### 2.8 Revni ak Analitik · Revenue & Analytics · Revenus et Analyses
+
+**Kreyòl:** Ale nan **💰 Revni** oswa **📈 Analitik** nan bò sidebarla pou wè pèfòmans finansyè ou.
+
+**English:** Go to **💰 Revenue** or **📈 Analytics** in the sidebar to view your financial performance.
+
+**Français:** Allez dans **💰 Revenus** ou **📈 Analyses** dans la barre latérale pour voir vos performances financières.
+
+#### 💰 Revni / Revenue / Revenus
+
+| Kat / Card / Carte | Kreyòl | English | Français |
+|--------------------|--------|---------|----------|
+| Revni Total | Total tout vant tikè | Total ticket sales | Total des ventes de billets |
+| Revni Anliy / Online | Peman Stripe konfime | Confirmed Stripe payments | Paiements Stripe confirmés |
+| Revni Vande / Vendor | Vant pa revandè yo | Sales by resellers | Ventes par les revendeurs |
+| Vande Dwe / Owed | Montan revandè dwe ou | Amount vendors owe you | Montant dû par les revendeurs |
+
+| Tab / Onglet | Kreyòl | English | Français |
+|--------------|--------|---------|----------|
+| Grafik Jounal / Daily Chart | Vant chak jou pou 14 dènye jou | Daily sales for last 14 days | Ventes quotidiennes des 14 derniers jours |
+| Seksyon / Sections | Tikè vann pa seksyon | Tickets sold per section | Billets vendus par section |
+| Peman Vande / Vendor Payments | Ki moun ki dwe, ki moun ki peye | Who owes what, who has paid | Qui doit quoi, qui a payé |
+| Demann Ranbousman / Refunds | Apwouve oswa refize | Approve or deny refund requests | Approuver ou refuser les remboursements |
+
+#### 📈 Analitik / Analytics / Analyses
+
+| Tab | Kreyòl | English | Français |
+|-----|--------|---------|----------|
+| Pi Gwo Depansye / Top Spenders | Aketè ki depanse plis lajan | Buyers ranked by total amount spent | Acheteurs classés par montant total dépensé |
+| Fidèl / Loyal Buyers | Aketè ki ale nan plis evènman | Buyers ranked by number of events attended | Acheteurs classés par nombre d'événements |
+| Seksyon / Sections | Tikè vann pa seksyon (grafik) | Tickets sold per section (bar chart) | Billets vendus par section (graphique) |
+| Evènman / Events | Revni pa chak evènman | Revenue per event | Revenus par événement |
+| Vande / Vendors | Revni jenere pa chak revandè | Revenue generated per reseller | Revenus générés par chaque revendeur |
+
+---
+
+### 2.9 Stripe Connect (Peman pa Kat · Card Payments · Paiements par Carte)
+
+| # | Kreyòl | English | Français |
+|---|--------|---------|----------|
+| 1 | Ale nan ⚙️ Paramèt → Peman | Go to ⚙️ Settings → Payments | Allez dans ⚙️ Paramètres → Paiements |
+| 2 | Klike "Konekte Stripe" | Click "Connect Stripe" | Cliquez "Connecter Stripe" |
+| 3 | Konplete fòmilè Stripe a | Complete Stripe's onboarding form | Complétez le formulaire d'inscription Stripe |
+| 4 | Stripe apwouve kont ou | Stripe approves your account | Stripe approuve votre compte |
+| 5 | Peman kat rive dirèkteman nan bank ou | Card payments go directly to your bank | Les paiements par carte vont directement à votre banque |
+
+---
+
+<a name="vendor"></a>
+## III. VANDE · VENDOR · VENDEUR / REVENDEUR
+
+### 3.1 Kreye Kont Vande · Create Vendor Account · Créer un Compte Vendeur
+
+| # | Kreyòl | English | Français |
+|---|--------|---------|----------|
+| 1 | Ale sou anbyans.events/vendor/auth | Go to anbyans.events/vendor/auth | Allez sur anbyans.events/vendor/auth |
+| 2 | Klike "Kreye Kont" | Click "Create Account" | Cliquez "Créer un compte" |
+| 3 | Antre: Non, Non Biznis, Imel, Telefòn, Vil, Metòd Peman | Enter: Name, Business Name, Email, Phone, City, Payout Method | Entrez : Nom, Nom entreprise, Email, Téléphone, Ville, Méthode de paiement |
+| 4 | Kreye modpas, aksepte kondisyon yo | Create password, accept terms | Créez un mot de passe, acceptez les conditions |
+
+> 🇭🇹 Ou ka resevwa envitasyon dirèk pa WhatsApp nan yon òganizatè — lyen an pote ou nan /vendor/join.
+> 🇬🇧 You may receive a direct WhatsApp invitation from an organizer — the link takes you to /vendor/join.
+> 🇫🇷 Vous pouvez recevoir une invitation directe WhatsApp d'un organisateur — le lien vous mène sur /vendor/join.
+
+---
+
+### 3.2 Achte Tikè an Gwo · Bulk Purchase · Achat en Gros
+
+| # | Kreyòl | English | Français |
+|---|--------|---------|----------|
+| 1 | Ale nan tab **Achte / Buy** | Go to the **Buy** tab | Allez dans l'onglet **Acheter** |
+| 2 | Chwazi evènman an | Select the event | Sélectionnez l'événement |
+| 3 | Chwazi seksyon an | Select the section | Sélectionnez la section |
+| 4 | Antre kantite (1–1,000) | Enter quantity (1–1,000) | Entrez la quantité (1–1 000) |
+| 5 | Wè pri gwo-detay | View bulk pricing tiers | Consultez les tarifs en gros |
+| 6 | Klike "Konfime" | Click "Confirm" | Cliquez "Confirmer" |
+
+> 🇭🇹 Achè an gwo disponib sèlman pandan fenèt vande òganizatè a (dat ouvèti → dat fèmti).
+> 🇬🇧 Bulk purchasing is only available during the vendor window set by the organizer (open → close date).
+> 🇫🇷 L'achat en gros n'est disponible que pendant la fenêtre vendeur définie par l'organisateur (date d'ouverture → fermeture).
+
+---
+
+### 3.3 Vann Tikè a Yon Kliyan · Sell to a Customer · Vendre à un Client
+
+| # | Kreyòl | English | Français |
+|---|--------|---------|----------|
+| 1 | Ale nan tab **Vann / Sell** | Go to the **Sell** tab | Allez dans l'onglet **Vendre** |
+| 2 | Chwazi evènman + seksyon | Select event + section | Sélectionnez événement + section |
+| 3 | Antre non ak telefòn aketè | Enter buyer name & phone | Entrez nom et téléphone de l'acheteur |
+| 4 | Konfime vant lan | Confirm the sale | Confirmez la vente |
+| 5 | Kòd tikè parèt pou bay aketè | Ticket codes appear to give to buyer | Les codes billets apparaissent pour l'acheteur |
+
+---
+
+### 3.4 Envantè ak Istwa · Inventory & History · Inventaire et Historique
+
+| Tab | Kreyòl | English | Français |
+|-----|--------|---------|----------|
+| Envantè / Inventory | Tikè achte, vann, ki rete | Tickets bought, sold, remaining | Billets achetés, vendus, restants |
+| Vant / Sales | Istwa konplè tout vant | Full sales history | Historique complet des ventes |
+| Evènman / Events | Evènman ou ka vann, ak stati aksè | Events you can sell, with access status | Événements disponibles, avec statut d'accès |
+
+---
+
+<a name="admin"></a>
+## IV. ADMIN · ADMIN · ADMIN
+
+### 4.1 Aksede Tablo Bò Admin · Access Admin Dashboard · Accéder au Tableau de Bord Admin
+
+**Kreyòl:** Ale nan anbyans.events/admin/dashboard. Aksè admin nesesite yon kont ak wòl `admin` — kontakte pwopriyetè platfòm nan.
+
+**English:** Go to anbyans.events/admin/dashboard. Admin access requires an account with the `admin` role — contact the platform owner.
+
+**Français:** Allez sur anbyans.events/admin/dashboard. L'accès admin nécessite un compte avec le rôle `admin` — contactez le propriétaire de la plateforme.
+
+---
+
+### 4.2 Tab Admin · Admin Tabs · Onglets Admin
+
+| Tab | Kreyòl | English | Français |
+|-----|--------|---------|----------|
+| Rezime / Overview | KPI konplè platfòm: evènman, revni, itilizatè | Platform-wide KPIs: events, revenue, users | KPIs globaux : événements, revenus, utilisateurs |
+| Evènman / Events | Wè tout evènman, pibliye oswa anile yo | View all events, publish or cancel them | Voir tous les événements, publier ou annuler |
+| Òganizatè / Organizers | Lis òganizatè, sispann/reaktive | Organizer list, suspend/unsuspend | Liste des organisateurs, suspendre/réactiver |
+| Itilizatè / Users | Lis itilizatè ak wòl yo, sispann/reaktive | User list with roles, suspend/unsuspend | Liste des utilisateurs avec rôles, suspendre/réactiver |
+| Ranbousman / Refunds | Apwouve oswa refize demann ranbousman | Approve or deny refund requests | Approuver ou refuser les demandes de remboursement |
+| Finans / Finance | Revni platfòm, peman an atant | Platform revenue, pending payouts | Revenus de la plateforme, paiements en attente |
+| Kote / Venues | Kreye, edite, efase kote evènman | Create, edit, delete venues | Créer, modifier, supprimer des lieux |
+| Paramèt / Settings | Frè platfòm, dela peman | Platform fee, payout delay | Frais de plateforme, délai de paiement |
+
+---
+
+### 4.3 Paramèt Platfòm · Platform Settings · Paramètres de la Plateforme
+
+| Paramèt / Setting | Defo / Default | Kreyòl | English | Français |
+|-------------------|---------------|--------|---------|----------|
+| Frè Platfòm / Platform Fee | 9% | Frè sèvis chak tikè | Service fee per ticket | Frais de service par billet |
+| Dela Peman / Payout Delay | — | Jou apre evènman anvan peman | Days after event before payout | Jours après l'événement avant paiement |
+
+---
+
+<a name="payments"></a>
+## V. Metòd Peman · Payment Methods · Méthodes de Paiement
+
+| Metòd / Method | Ki moun ki konfigire / Who sets it up | Kijan aketè peye / How buyer pays | Kijan òganizatè resevwa / How organizer receives |
+|----------------|---------------------------------------|-----------------------------------|-------------------------------------------------|
+| **MonCash** | Òganizatè antre nimewo nan Paramèt | Voye HTG nan nimewo a, antre ID tranzaksyon / Send HTG to the number, enter Transaction ID / Envoyez HTG au numéro, entrez l'ID de transaction | Verifye ID, apwouve tikè / Verify ID, approve ticket / Vérifier l'ID, approuver le billet |
+| **Natcash** | Menm jan ak MonCash / Same as MonCash | Menm jan ak MonCash / Same as MonCash | Menm jan ak MonCash / Same as MonCash |
+| **Stripe (Kat/Card/Carte)** | Konekte Stripe Express nan Paramèt / Connect Stripe Express in Settings / Connecter Stripe Express dans Paramètres | Antre enfòmasyon kat — konfime imedyatman / Enter card details — confirmed instantly / Entrez les détails de carte — confirmé immédiatement | Lajan nan bank dirèkteman pa Stripe / Funds to bank directly via Stripe / Fonds à la banque directement via Stripe |
+| **Zelle** | Antre imel/telefòn nan Paramèt / Enter email/phone in Settings | Voye USD, òganizatè konfime / Send USD, organizer confirms / Envoyez USD, l'organisateur confirme | Konfime manyèlman, apwouve tikè / Confirm manually, approve ticket / Confirmer manuellement, approuver le billet |
+| **PayPal** | Antre imel nan Paramèt / Enter email in Settings | Voye pa PayPal / Send via PayPal | Konfime, apwouve tikè / Confirm, approve ticket |
+| **Cash App** | Antre $cashtag nan Paramèt / Enter $cashtag in Settings | Voye pa Cash App / Send via Cash App | Konfime, apwouve tikè / Confirm, approve ticket |
+
+> 🇭🇹 **Pousantaj echanj:** Òganizatè ka fikse yon to echanj (pa egzanp 1 USD = 130 HTG). Pri yo afiche nan tou de lajan otomatikman.
+> 🇬🇧 **Exchange rate:** Organizers can set a rate (e.g. 1 USD = 130 HTG). Prices display in both currencies automatically.
+> 🇫🇷 **Taux de change :** Les organisateurs peuvent définir un taux (p. ex. 1 USD = 130 HTG). Les prix s'affichent dans les deux devises automatiquement.
+
+---
+
+<a name="transfers"></a>
+## VI. Transfere Tikè · Transfer Tickets · Transférer des Billets
+
+| # | Kreyòl | English | Français |
+|---|--------|---------|----------|
+| 1 | Ale sou anbyans.events/tickets | Go to anbyans.events/tickets | Allez sur anbyans.events/tickets |
+| 2 | Jwenn tikè a, klike 🔄 Transfere | Find the ticket, click 🔄 Transfer | Trouvez le billet, cliquez 🔄 Transférer |
+| 3 | Antre non ak telefòn moun kap resevwa a | Enter recipient's name & phone | Entrez le nom et téléphone du destinataire |
+| 4 | Klike 🔄 Voye Transfere | Click 🔄 Send Transfer | Cliquez 🔄 Envoyer le transfert |
+| 5 | Moun nan resevwa yon mesaj WhatsApp pou aksepte | Recipient gets a WhatsApp message to accept | Le destinataire reçoit un message WhatsApp pour accepter |
+| 6 | Moun nan gen 24 èdtan pou aksepte | Recipient has 24 hours to accept | Le destinataire a 24 heures pour accepter |
+| 7 | Apre akseptasyon, tikè nan non li | After acceptance, ticket is in their name | Après acceptation, le billet est à leur nom |
+
+> 🇭🇹 Ou ka anile yon transfere anvan moun nan aksepte li — klike "⏳ An atant" sou tikè a.
+> 🇬🇧 You can cancel a transfer before the recipient accepts — click "⏳ Awaiting" on the ticket.
+> 🇫🇷 Vous pouvez annuler un transfert avant que le destinataire accepte — cliquez "⏳ En attente" sur le billet.
+
+---
+
+<a name="troubleshooting"></a>
+## VII. Rezoud Pwoblèm · Troubleshooting · Résolution de Problèmes
+
+| Pwoblèm / Problem / Problème | Kreyòl | English | Français |
+|------------------------------|--------|---------|----------|
+| Paj ap tounvire / Page spinning | Tann 10 sèk, eseye rafraichi (Cmd+Shift+R) | Wait 10 sec, hard-refresh (Cmd+Shift+R) | Attendez 10 sec, rechargement forcé (Cmd+Maj+R) |
+| Bouton pwofil pa parèt / Profile button missing | Dekonekte epi rekonekte | Log out and back in | Déconnectez-vous et reconnectez-vous |
+| Logo pa chaje / Logo not loading | Ale Paramèt → Pwofil → rechaje logo a | Go to Settings → Profile → re-upload logo | Allez Paramètres → Profil → re-téléchargez le logo |
+| Tikè "An Atant" / Ticket "Pending" | Òganizatè pa ankò verifye peman ou — pasyans | Organizer hasn't verified your payment yet — wait | L'organisateur n'a pas encore vérifié votre paiement — patientez |
+| Pa ka eskane / Can't scan | Verifye bon evènman nan Paramèt → Scanner | Check correct event in Settings → Scanner | Vérifiez le bon événement dans Paramètres → Scanner |
+| Stripe pa mache / Stripe not working | Konplete tout etap nan Stripe onboarding | Complete all steps in Stripe onboarding | Complétez toutes les étapes de l'inscription Stripe |
+| ID MonCash rejte / MonCash ID rejected | Verifye ID a matche egzakteman nan aplikasyon ou | Verify ID matches exactly in your MonCash app | Vérifiez que l'ID correspond exactement dans votre application |
+| Achè an gwo pa mache / Bulk purchase failing | Verifye fenèt vande a ouvè pou seksyon sa a | Check the vendor window is open for that section | Vérifiez que la fenêtre vendeur est ouverte pour cette section |
+| Lyen transfere ekspire / Transfer link expired | Tikè retounen nan men ou — kòmanse yon nouvo transfere | Ticket returned to you — start a new transfer | Le billet vous a été retourné — lancez un nouveau transfert |
+| Google konnekte ale nan mauvais kont / Google connects wrong account | Klike "Chanje kont" nan fenèt Google la | Click "Switch account" in the Google window | Cliquez "Changer de compte" dans la fenêtre Google |
+
+---
+
+*© 2026 LaviMiyò LLC · anbyans.events · support@anbyans.events*
+
+*Guide v2.0 — Me / May / Mai 2026 · Kreyòl · English · Français*
