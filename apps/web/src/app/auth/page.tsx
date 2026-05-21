@@ -22,7 +22,7 @@ function AuthPage() {
   const router = useRouter();
   const params = useSearchParams();
   const { t } = useT();
-  const { user, logout } = useAuth();
+  const { user, loading: authLoading, logout } = useAuth();
 
   const initialRole = (params.get('tab') as RoleTab) || 'fan';
   const [roleTab, setRoleTab]   = useState<RoleTab>(initialRole);
@@ -136,6 +136,16 @@ function AuthPage() {
   const labelStyle: React.CSSProperties = {
     color: '#888', fontSize: 12, marginBottom: 4, display: 'block',
   };
+
+  // ── Block form until Firebase session is resolved ───────────────
+  if (authLoading) {
+    return (
+      <div style={{ minHeight: '100vh', background: '#0a0a0f', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ width: 36, height: 36, border: '3px solid #1e1e2e', borderTopColor: '#06b6d4', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
 
   // ── Already signed in screen ────────────────────────────────────
   if (user && step !== 3) {
