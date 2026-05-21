@@ -120,9 +120,12 @@ function AuthPage() {
   async function handleGoogle() {
     setError(''); setGoogleLoading(true);
     try {
-      const { role: actualRole } = await signInWithGoogle(roleTab);
-      const destination = ROLE_CONFIG[actualRole as RoleTab]?.redirect ?? '/events';
-      router.push(destination);
+      const { role: actualRole, isNew } = await signInWithGoogle(roleTab);
+      if (isNew) {
+        // Brand-new Google user — take them straight to their dashboard
+        router.push(ROLE_CONFIG[actualRole as RoleTab]?.redirect ?? '/events');
+      }
+      // Existing user: auth state updates → "already signed in" screen shows automatically
     } catch (err: any) {
       if (err.code !== 'auth/popup-closed-by-user') setError(err.message);
     } finally { setGoogleLoading(false); }

@@ -81,7 +81,7 @@ export async function signOut() {
 
 const googleProvider = new GoogleAuthProvider();
 
-export async function signInWithGoogle(role: UserRole = 'fan'): Promise<{ user: User; role: UserRole }> {
+export async function signInWithGoogle(role: UserRole = 'fan'): Promise<{ user: User; role: UserRole; isNew: boolean }> {
   const cred = await signInWithPopup(auth, googleProvider);
   const user = cred.user;
 
@@ -114,12 +114,12 @@ export async function signInWithGoogle(role: UserRole = 'fan'): Promise<{ user: 
     };
 
     await setDoc(userRef, userDoc);
-    return { user, role };
+    return { user, role, isNew: true };
   }
 
-  // Existing user — return their stored role so the caller redirects correctly
+  // Existing user — don't redirect; let auth state update show "already signed in"
   const existingProfile = userSnap.data() as UserProfile;
-  return { user, role: existingProfile.role ?? role };
+  return { user, role: existingProfile.role ?? role, isNew: false };
 }
 
 // ─── Get User Profile ────────────────────────────────────────────
