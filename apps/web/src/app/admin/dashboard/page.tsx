@@ -11,7 +11,7 @@ import {
   collection, getDocs, doc, updateDoc, deleteDoc,
   query, orderBy, serverTimestamp, getDoc
 } from 'firebase/firestore';
-import { updateEvent, getVenues, createVenue, updateVenue, deleteVenue, seedKnownVenues, type EventData, type VenueData } from '@/lib/db';
+import { updateEvent, getVenues, createVenue, updateVenue, deleteVenue, seedKnownVenues, getUserPhoto, type EventData, type VenueData } from '@/lib/db';
 
 type Tab = 'overview' | 'events' | 'organizers' | 'users' | 'refunds' | 'finance' | 'venues' | 'settings';
 
@@ -51,6 +51,7 @@ export default function AdminDashboardPage() {
   const [tab, setTab] = useState<Tab>('overview');
   const [sideOpen, setSideOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [avatarSrc, setAvatarSrc] = useState<string | null>(null);
 
   // Data
   const [events, setEvents] = useState<EventData[]>([]);
@@ -80,10 +81,15 @@ export default function AdminDashboardPage() {
 
   useEffect(() => {
     if (authLoading) return;
-    if (!user) return; // firebase briefly null during token refresh — wait
+    if (!user) { router.push('/auth'); return; }
     if (user.role !== 'admin') { router.push('/'); return; }
     loadAll();
   }, [user, authLoading]);
+
+  useEffect(() => {
+    if (!user?.uid) { setAvatarSrc(null); return; }
+    getUserPhoto(user.uid).then(url => setAvatarSrc(url)).catch(() => setAvatarSrc(null));
+  }, [user?.uid]);
 
   async function loadAll() {
     setLoading(true);
@@ -287,8 +293,10 @@ export default function AdminDashboardPage() {
               border: '1px solid ' + (profileOpen ? '#ef4444' : '#1e1e2e'),
               background: profileOpen ? '#ef444410' : 'transparent', cursor: 'pointer',
             }}>
-              <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#000', fontWeight: 800, fontSize: 14, flexShrink: 0 }}>
-                {(user.firstName?.[0] || user.email?.[0] || 'A').toUpperCase()}
+              <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#000', fontWeight: 800, fontSize: 14, flexShrink: 0, overflow: 'hidden' }}>
+                {avatarSrc
+                  ? <img src={avatarSrc} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  : (user.firstName?.[0] || user.email?.[0] || 'A').toUpperCase()}
               </div>
               <div style={{ textAlign: 'left' }}>
                 <div style={{ color: '#fff', fontSize: 12, fontWeight: 600, lineHeight: 1.2 }}>{user.firstName || user.email?.split('@')[0]}</div>
@@ -303,8 +311,10 @@ export default function AdminDashboardPage() {
                 <div style={{ position: 'absolute', top: '110%', right: 0, width: 240, background: '#12121a', border: '1px solid #1e1e2e', borderRadius: 10, padding: 6, zIndex: 100, boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}>
                   <div style={{ padding: '10px 12px', borderBottom: '1px solid #1e1e2e', marginBottom: 4 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                      <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#000', fontWeight: 800, fontSize: 18, flexShrink: 0 }}>
-                        {(user.firstName?.[0] || 'A').toUpperCase()}
+                      <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#000', fontWeight: 800, fontSize: 18, flexShrink: 0, overflow: 'hidden' }}>
+                        {avatarSrc
+                          ? <img src={avatarSrc} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          : (user.firstName?.[0] || user.email?.[0] || 'A').toUpperCase()}
                       </div>
                       <div>
                         <div style={{ color: '#fff', fontSize: 14, fontWeight: 700 }}>{user.firstName} {user.lastName}</div>
@@ -449,7 +459,7 @@ export default function AdminDashboardPage() {
                         className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${e.status === 'cancelled' ? 'bg-green-dim text-green border border-green/30' : 'bg-red/10 text-red border border-red/30'}`}>
                         {e.status === 'cancelled' ? t('admin_reactivate') : t('admin_cancel_event')}
                       </button>
-                      <Link href={`/organizer/events/${e.id}`} className="px-3 py-1.5 rounded-lg text-[10px] font-bold bg-white/[0.05] text-gray-light border border-border hover:text-white transition-all">
+                      <Link href={`/admin/events/${e.id}`} className="px-3 py-1.5 rounded-lg text-[10px] font-bold bg-white/[0.05] text-gray-light border border-border hover:text-white transition-all">
                         {t('admin_see')}
                       </Link>
                     </div>
@@ -815,6 +825,34 @@ export default function AdminDashboardPage() {
                 <button onClick={handleSaveSettings} className="mt-4 px-5 py-2 rounded-lg bg-orange text-white text-xs font-bold hover:bg-orange/80 transition-all">
                   {settingsSaved ? '✓ ' + t('admin_save') : t('admin_save')}
                 </button>
+              </div>
+
+              <div className="bg-dark-card border border-border rounded-card p-5">
+                <p className="text-[10px] uppercase tracking-widest text-orange font-bold mb-3">💳 Stripe Platform</p>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className={`w-2 h-2 rounded-full ${process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY?.startsWith('pk_live') ? 'bg-green-500' : 'bg-yellow-500'}`} />
+                    <span className="text-xs text-white font-semibold">
+                      {process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY?.startsWith('pk_live') ? 'Live Mode' : 'Test Mode'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-gray-muted">Frè platfòm: <span className="text-white font-bold">{settingsFee}%</span> — aplike sou chak tikè</p>
+                  <p className="text-[11px] text-gray-muted">Peman → Thread Bank (Relay Financial)</p>
+                  <div className="flex flex-wrap gap-2 mt-3">
+                    {[
+                      { label: '🏠 Dashboard', href: 'https://dashboard.stripe.com' },
+                      { label: '💰 Balans', href: 'https://dashboard.stripe.com/balance' },
+                      { label: '🏦 Kont Bank', href: 'https://dashboard.stripe.com/settings/payouts' },
+                      { label: '📊 Rapò', href: 'https://dashboard.stripe.com/reports' },
+                      { label: '🔑 API Keys', href: 'https://dashboard.stripe.com/apikeys' },
+                    ].map(({ label, href }) => (
+                      <a key={href} href={href} target="_blank" rel="noopener noreferrer"
+                        className="px-3 py-1.5 rounded-lg bg-white/[0.05] border border-border text-[11px] text-orange font-semibold hover:bg-orange/10 hover:border-orange/30 transition-all">
+                        {label}
+                      </a>
+                    ))}
+                  </div>
+                </div>
               </div>
 
               <div className="bg-dark-card border border-border rounded-card p-5">

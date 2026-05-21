@@ -10,7 +10,7 @@ import { collection, getDocs } from 'firebase/firestore';
 import FloorPlanViewer from '@/components/FloorPlanViewer';
 
 export default function OrganizerEventsPage() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { t } = useT();
 
   const [events, setEvents] = useState<EventData[]>([]);
@@ -20,7 +20,8 @@ export default function OrganizerEventsPage() {
   const [statusLoading, setStatusLoading] = useState('');
 
   useEffect(() => {
-    if (!user?.uid) return;
+    if (authLoading) return;
+    if (!user?.uid) { setLoading(false); return; }
     const load = async () => {
       try {
         const evs = await getOrganizerEvents(user.uid);
@@ -28,8 +29,8 @@ export default function OrganizerEventsPage() {
         const tickets: any[] = [];
         await Promise.all(evs.map(async (e) => {
           if (!e.id) return;
-          const snap = await getDocs(collection(db, 'tickets'));
-          snap.docs.forEach(d => { if (d.data().eventId === e.id) tickets.push({ id: d.id, ...d.data() }); });
+          const snap = await getDocs(collection(db, 'events', e.id, 'tickets'));
+          snap.docs.forEach(d => tickets.push({ id: d.id, eventId: e.id, ...d.data() }));
         }));
         setAllTickets(tickets);
       } catch (err) {
@@ -39,7 +40,7 @@ export default function OrganizerEventsPage() {
       }
     };
     load();
-  }, [user?.uid]);
+  }, [user?.uid, authLoading]);
 
   async function handleGoLive(eventId: string) {
     setStatusLoading(eventId);

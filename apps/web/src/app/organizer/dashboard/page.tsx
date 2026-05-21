@@ -29,7 +29,7 @@ interface VendorPurchase {
 }
 
 export default function OrganizerDashboardPage() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { fmt } = useCurrency(user?.uid);
   const { t } = useT();
 
@@ -45,7 +45,8 @@ export default function OrganizerDashboardPage() {
   const [viewMode, setViewMode] = useState<'all' | 'selected'>('selected');
 
   useEffect(() => {
-    if (!user?.uid) return;
+    if (authLoading) return;
+    if (!user?.uid) { setLoading(false); return; }
     const loadAll = async () => {
       try {
         const evs = await getOrganizerEvents(user.uid);
@@ -74,7 +75,7 @@ export default function OrganizerDashboardPage() {
       }
     };
     loadAll();
-  }, [user?.uid]);
+  }, [user?.uid, authLoading]);
 
   // ── Filter tickets by view mode ──
   const filteredTickets = viewMode === 'selected' && selectedEvent

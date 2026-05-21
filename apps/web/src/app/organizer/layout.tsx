@@ -7,8 +7,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { useT } from '@/i18n';
 import LangSwitcher from '@/components/LangSwitcher';
 import { auth, db } from '@/lib/firebase';
-import { type EventData } from '@/lib/db';
-import { collection, getDocs, onSnapshot, query, where } from 'firebase/firestore';
+import { type EventData, getOrganizerLogo } from '@/lib/db';
+import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { OrganizerEventProvider, useOrganizerEvent } from './OrganizerEventContext';
 
 interface OrgProfile {
@@ -108,13 +108,18 @@ function OrganizerLayoutInner({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   const { t } = useT();
 
+  const [mounted, setMounted] = useState(false);
   const [sideOpen, setSideOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
+  const [logoSrc, setLogoSrc] = useState<string | null>(null);
   const [orgProfile, setOrgProfile] = useState<OrgProfile>({
     name: '',
     bizName: '',
     initials: '??',
   });
+
+  useEffect(() => setMounted(true), []);
 
   // ── Live pending-ticket badge count ─────────────────────────────
   useEffect(() => {
@@ -140,38 +145,14 @@ function OrganizerLayoutInner({ children }: { children: React.ReactNode }) {
   ];
 
   useEffect(() => {
-    if (!user?.uid) return;
-    const loadProfile = async () => {
-      const orgSnap = await getDocs(query(collection(db, 'organizers'), where('uid', '==', user.uid)));
-      if (!orgSnap.empty) {
-        const data = orgSnap.docs[0].data();
-        const fullName = data.name || user.email || 'Òganizatè';
-        setOrgProfile({
-          name: fullName,
-          bizName: data.businessName || data.bizName || '',
-          initials: fullName.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase(),
-        });
-        return;
-      }
-      const userSnap = await getDocs(query(collection(db, 'users'), where('uid', '==', user.uid)));
-      if (!userSnap.empty) {
-        const data = userSnap.docs[0].data();
-        const fullName = [data.firstName, data.lastName].filter(Boolean).join(' ') || user.email || 'Òganizatè';
-        setOrgProfile({
-          name: fullName,
-          bizName: data.businessName || '',
-          initials: fullName.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase(),
-        });
-        return;
-      }
-      const fallback = (user as any).displayName || user.email || 'Òganizatè';
-      setOrgProfile({
-        name: fallback,
-        bizName: '',
-        initials: fallback.slice(0, 2).toUpperCase(),
-      });
-    };
-    loadProfile().catch(console.error);
+    if (!user) return;
+    const fullName = [user.firstName, user.lastName].filter(Boolean).join(' ') || user.email || 'Òganizatè';
+    setOrgProfile({
+      name: fullName,
+      bizName: (user as any).businessName || '',
+      initials: fullName.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase(),
+    });
+    getOrganizerLogo(user.uid).then(url => setLogoSrc(url)).catch(() => setLogoSrc(null));
   }, [user?.uid]);
 
   const isActive = (href: string) => {
@@ -181,10 +162,9 @@ function OrganizerLayoutInner({ children }: { children: React.ReactNode }) {
 
   // ── Role guard ───────────────────────────────────────────────────
   useEffect(() => {
-    if (!user && !loading) { router.push('/organizer/auth'); return; }
-    if (user && user.role && user.role !== 'organizer' && user.role !== 'admin') {
-      router.push('/');
-    }
+    if (loading) return;
+    if (!user) return; // firebase briefly null during token refresh — wait
+    if (user.role !== 'organizer' && user.role !== 'admin') router.push('/organizer/auth');
   }, [user, loading]);
 
   const handleSignOut = async () => {
@@ -249,8 +229,10 @@ function OrganizerLayoutInner({ children }: { children: React.ReactNode }) {
         </nav>
 
         <div className="p-4 border-t border-border flex items-center gap-2.5 flex-shrink-0">
-          <div className="w-8 h-8 rounded-full bg-orange flex items-center justify-center text-sm font-bold flex-shrink-0">
-            {orgProfile.initials}
+          <div className="w-8 h-8 rounded-full bg-orange flex items-center justify-center text-sm font-bold flex-shrink-0 overflow-hidden">
+            {logoSrc
+              ? <img src={logoSrc} alt="logo" className="w-full h-full object-cover" />
+              : orgProfile.initials}
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-[11px] font-semibold truncate">{orgProfile.name}</p>
@@ -273,22 +255,76 @@ function OrganizerLayoutInner({ children }: { children: React.ReactNode }) {
       <div className="flex-1 flex flex-col min-h-screen overflow-hidden">
 
         {/* HEADER */}
-        <header className="sticky top-0 z-20 bg-dark border-b border-border px-5 flex items-center h-14 gap-3">
-          <button
-            onClick={() => setSideOpen(true)}
-            className="md:hidden text-xl text-gray-light hover:text-white transition-colors">
-            ☰
-          </button>
+        <header className="sticky top-0 z-20 bg-dark border-b border-border px-5 flex items-center justify-between h-14">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setSideOpen(true)}
+              className="md:hidden text-xl text-gray-light hover:text-white transition-colors">
+              ☰
+            </button>
+            <h1 className="font-heading text-xl tracking-wide uppercase hidden sm:block">
+              {pageTitle}
+            </h1>
+          </div>
 
-          <h1 className="font-heading text-xl tracking-wide uppercase hidden sm:block">
-            {pageTitle}
-          </h1>
-
-          <div className="flex-1" />
-
+          <div className="flex items-center gap-3">
           {/* ── Event Selector ── */}
           <EventSelector />
           <LangSwitcher />
+
+          {/* ── Profile ── */}
+          {mounted && user && <div className="relative flex-shrink-0">
+            <button onClick={() => setProfileOpen(p => !p)} style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              padding: '4px 10px 4px 4px', borderRadius: 8,
+              border: '1px solid ' + (profileOpen ? '#f97316' : '#1e1e2e'),
+              background: profileOpen ? '#f9731610' : 'transparent', cursor: 'pointer',
+            }}>
+              <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#f97316', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#000', fontWeight: 800, fontSize: 13, flexShrink: 0, overflow: 'hidden' }}>
+                {logoSrc ? <img src={logoSrc} alt="logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : (orgProfile.initials !== '??' ? orgProfile.initials : (user.email?.[0]?.toUpperCase() ?? '?'))}
+              </div>
+              <div style={{ textAlign: 'left' }}>
+                <div style={{ color: '#fff', fontSize: 12, fontWeight: 600, lineHeight: 1.2 }}>{orgProfile.bizName || orgProfile.name || user.email?.split('@')[0] || '…'}</div>
+                <div style={{ color: '#f97316', fontSize: 10 }}>Òganizatè</div>
+              </div>
+              <span style={{ color: '#555', fontSize: 10, marginLeft: 4 }}>▼</span>
+            </button>
+
+            {profileOpen && (
+              <>
+                <div onClick={() => setProfileOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 99 }} />
+                <div style={{ position: 'absolute', top: '110%', right: 0, width: 240, background: '#12121a', border: '1px solid #1e1e2e', borderRadius: 10, padding: 6, zIndex: 100, boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}>
+                  <div style={{ padding: '10px 12px', borderBottom: '1px solid #1e1e2e', marginBottom: 4 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                      <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#f97316', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#000', fontWeight: 800, fontSize: 18, flexShrink: 0, overflow: 'hidden' }}>
+                        {logoSrc ? <img src={logoSrc} alt="logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : (orgProfile.initials !== '??' ? orgProfile.initials : (user.email?.[0]?.toUpperCase() ?? '?'))}
+                      </div>
+                      <div>
+                        <div style={{ color: '#fff', fontSize: 14, fontWeight: 700 }}>{orgProfile.name || user.email?.split('@')[0]}</div>
+                        {orgProfile.bizName && <div style={{ color: '#aaa', fontSize: 11 }}>{orgProfile.bizName}</div>}
+                        <div style={{ display: 'inline-block', marginTop: 2, padding: '2px 8px', borderRadius: 4, fontSize: 10, fontWeight: 700, background: '#f9731622', color: '#f97316' }}>ÒGANIZATÈ</div>
+                      </div>
+                    </div>
+                    <div style={{ color: '#555', fontSize: 10 }}>{user.email}</div>
+                    <Link href="/organizer/settings" onClick={() => setProfileOpen(false)} style={{ display: 'inline-block', marginTop: 6, fontSize: 11, color: '#f97316', textDecoration: 'none', fontWeight: 600 }}>
+                      ✏️ Chanje Logo
+                    </Link>
+                  </div>
+                  <Link href="/events" onClick={() => setProfileOpen(false)} style={{ display: 'block', padding: '8px 12px', borderRadius: 6, color: '#ccc', fontSize: 12, textDecoration: 'none' }}>
+                    {t('nav_browse_events' as any) || 'Jwenn Evenman'}
+                  </Link>
+                  <Link href="/organizer/settings" onClick={() => setProfileOpen(false)} style={{ display: 'block', padding: '8px 12px', borderRadius: 6, color: '#ccc', fontSize: 12, textDecoration: 'none' }}>
+                    ⚙️ {t('org_nav_settings')}
+                  </Link>
+                  <div style={{ borderTop: '1px solid #1e1e2e', margin: '4px 0' }} />
+                  <button onClick={handleSignOut} style={{ width: '100%', padding: '8px 12px', borderRadius: 6, border: 'none', background: 'transparent', color: '#ef4444', fontSize: 12, cursor: 'pointer', textAlign: 'left' }}>
+                    {t('logout')}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>}
+          </div>
         </header>
 
         <main className="flex-1 overflow-y-auto p-5">

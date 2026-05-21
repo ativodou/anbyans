@@ -53,11 +53,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const unsub = onAuthChange(async (firebaseUser) => {
       if (firebaseUser) {
         try {
-          const profile = await getUserProfile(firebaseUser.uid);
+          const timeout = new Promise<null>((_, reject) =>
+            setTimeout(() => reject(new Error('timeout')), 8000)
+          );
+          const profile = await Promise.race([getUserProfile(firebaseUser.uid), timeout]);
           if (profile) setUser(profile);
-          // if profile is null (doc not found), keep existing user — don't wipe session
         } catch {
-          // Firestore read failed (network/rules) — keep existing user, don't wipe session
+          // Firestore read failed or timed out — keep existing user, don't wipe session
         }
       } else {
         setUser(null); // Firebase explicitly says signed out

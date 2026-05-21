@@ -1703,7 +1703,7 @@ export async function updateUserPhoto(uid: string, base64: string): Promise<void
 
 /** Save a compressed base64 logo for organizers (organizers collection) */
 export async function updateOrganizerLogo(uid: string, base64: string): Promise<void> {
-  await updateDoc(doc(db, 'organizers', uid), { logoURL: base64, updatedAt: serverTimestamp() });
+  await setDoc(doc(db, 'organizers', uid), { uid, logoURL: base64, updatedAt: serverTimestamp() }, { merge: true });
 }
 
 /** Get photoURL for a user (fans/vendors) */
@@ -1714,8 +1714,14 @@ export async function getUserPhoto(uid: string): Promise<string | null> {
 
 /** Get logoURL for an organizer */
 export async function getOrganizerLogo(uid: string): Promise<string | null> {
+  // Try direct doc lookup first (doc ID = uid, used by settings save)
   const snap = await getDoc(doc(db, 'organizers', uid));
-  return snap.exists() ? (snap.data().logoURL ?? null) : null;
+  if (snap.exists() && snap.data().logoURL) return snap.data().logoURL;
+  // Fallback: query by uid field (legacy docs with auto-generated ID)
+  const q = query(collection(db, 'organizers'), where('uid', '==', uid));
+  const qSnap = await getDocs(q);
+  if (!qSnap.empty && qSnap.docs[0].data().logoURL) return qSnap.docs[0].data().logoURL;
+  return null;
 }
 
 // ─── Event Status Management ──────────────────────────────────────────────────
