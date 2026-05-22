@@ -331,7 +331,7 @@ export default function VendorDashboardPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           amount: buyTotal,
-          applicationFeeAmount: buyTotal * feeRate,
+          applicationFeeAmount: (selectedSection.onlinePrice * buyQty) * feeRate,
           currency: 'usd',
           eventName: selectedEvent.name,
           seats: buyQty,
