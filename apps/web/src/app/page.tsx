@@ -75,7 +75,10 @@ export default function LandingPage() {
 
   useEffect(() => {
     if (authLoading) return;
-    if ((user as any)?.role === 'reseller') router.replace('/vendor/dashboard');
+    const role = (user as any)?.role;
+    if (role === 'reseller')  router.replace('/vendor/dashboard');
+    if (role === 'organizer') router.replace('/organizer/dashboard');
+    if (role === 'admin')     router.replace('/admin/dashboard');
   }, [user, authLoading, router]);
 
   useEffect(() => {
