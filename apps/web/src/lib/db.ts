@@ -1806,6 +1806,71 @@ export async function autoUpdateAllEventStatuses(events: EventData[]): Promise<E
   return Promise.all(events.map(e => autoUpdateEventStatus(e)));
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// BAR POS
+// ═══════════════════════════════════════════════════════════════════
+
+export interface BarMenuItem {
+  id?: string;
+  organizerId: string;
+  eventId: string;
+  name: string;
+  price: number;
+  category: string;
+}
+
+export interface BarSaleItem {
+  name: string;
+  qty: number;
+  price: number;
+}
+
+export interface BarSale {
+  id?: string;
+  organizerId: string;
+  eventId: string;
+  items: BarSaleItem[];
+  total: number;
+  note: string;
+  soldAt: any;
+}
+
+export async function getBarMenu(organizerId: string, eventId: string): Promise<BarMenuItem[]> {
+  const q = query(
+    collection(db, 'barMenu'),
+    where('organizerId', '==', organizerId),
+    where('eventId', '==', eventId),
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as BarMenuItem));
+}
+
+export async function saveBarMenuItem(item: Omit<BarMenuItem, 'id'>): Promise<string> {
+  const ref = await addDoc(collection(db, 'barMenu'), item);
+  return ref.id;
+}
+
+export async function deleteBarMenuItem(itemId: string): Promise<void> {
+  await deleteDoc(doc(db, 'barMenu', itemId));
+}
+
+export async function recordBarSale(sale: Omit<BarSale, 'id' | 'soldAt'>): Promise<string> {
+  const ref = await addDoc(collection(db, 'barSales'), { ...sale, soldAt: serverTimestamp() });
+  return ref.id;
+}
+
+export async function getBarSales(organizerId: string, eventId: string): Promise<BarSale[]> {
+  const q = query(
+    collection(db, 'barSales'),
+    where('organizerId', '==', organizerId),
+    where('eventId', '==', eventId),
+  );
+  const snap = await getDocs(q);
+  return snap.docs
+    .map(d => ({ id: d.id, ...d.data() } as BarSale))
+    .sort((a, b) => (b.soldAt?.seconds || 0) - (a.soldAt?.seconds || 0));
+}
+
 export async function getPlatformFeeRate(): Promise<number> {
   try {
     const snap = await getDoc(doc(db, 'config', 'platform'));
