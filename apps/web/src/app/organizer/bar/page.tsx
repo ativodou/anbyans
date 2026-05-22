@@ -48,7 +48,7 @@ export default function OrganizerBarPage() {
 
   // ── Load setup data ──
   useEffect(() => {
-    if (!eventId || !posActivated) return;
+    if (!eventId) return;
     Promise.all([
       getBarStations(eventId),
       getBarItems(eventId),
@@ -59,7 +59,7 @@ export default function OrganizerBarPage() {
       setStaffNames(cfg.staffNames);
       if (st.length > 0 && !newItem.stationId) setNewItem(p => ({ ...p, stationId: st[0].id! }));
     });
-  }, [eventId, posActivated]);
+  }, [eventId]);
 
   // ── Live orders subscription ──
   useEffect(() => {
@@ -171,14 +171,6 @@ export default function OrganizerBarPage() {
     </div>
   );
 
-  if (!posActivated) return (
-    <div className="flex flex-col items-center justify-center py-24 text-center">
-      <p className="text-4xl mb-3">🍽️</p>
-      <p className="text-white font-bold mb-1">POS pa aktive pou evènman sa a</p>
-      <p className="text-gray-muted text-sm">Ale nan <strong>Evènman</strong> epi klike <strong>Activate POS</strong>.</p>
-    </div>
-  );
-
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
   const staffUrl = barCode ? `${origin}/bar/${barCode}` : null;
   const displayUrl = barCode ? `${origin}/bar/${barCode}/display` : null;
@@ -210,7 +202,15 @@ export default function OrganizerBarPage() {
           {/* Share URLs */}
           <div className={`${card} p-4 space-y-3`}>
             <p className="text-[10px] font-bold uppercase tracking-widest text-gray-muted">Lyen Pataj</p>
-            {!barCode ? (
+            {!posActivated ? (
+              <div className="bg-orange/10 border border-orange/30 rounded-xl p-4 flex items-center gap-3">
+                <span className="text-2xl">🔒</span>
+                <div className="flex-1">
+                  <p className="text-sm font-bold text-white">Aktive POS pou jwenn lyen yo</p>
+                  <p className="text-xs text-gray-muted mt-0.5">Ale nan <strong className="text-white">Evènman</strong> epi klike <strong className="text-white">Activate POS</strong> pou jenere lyen Staff + Vendor.</p>
+                </div>
+              </div>
+            ) : !barCode ? (
               <div className="flex items-center gap-3">
                 <p className="text-xs text-gray-muted flex-1">Pa gen kòd. Jenere youn.</p>
                 <button onClick={handleGenerateCode} disabled={generatingCode}
