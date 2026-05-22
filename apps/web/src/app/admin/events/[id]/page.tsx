@@ -75,10 +75,12 @@ export default function AdminEventDetailPage() {
 
         <div className="bg-dark-card border border-border rounded-xl p-4 mb-6 space-y-3">
           <Row label="Status">
-            <span className={`text-[11px] font-bold px-2 py-0.5 rounded ${{
+            <span className={`text-[11px] font-bold px-2 py-0.5 rounded ${ ({
               published: 'bg-green/20 text-green',
+              live:      'bg-green/20 text-green',
               cancelled: 'bg-red/20 text-red',
-            }[event.status] ?? 'bg-orange/20 text-orange'}`}>{event.status}</span>
+              ended:     'bg-gray-500/20 text-gray-400',
+            } as Record<string, string>)[event.status] ?? 'bg-orange/20 text-orange'}`}>{event.status}</span>
           </Row>
           <Row label="Organizer">{event.organizerName || '—'}</Row>
           <Row label="Date">{event.startDate}{event.endDate && event.endDate !== event.startDate ? ` – ${event.endDate}` : ''}</Row>
