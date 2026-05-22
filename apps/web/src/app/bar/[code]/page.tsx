@@ -101,6 +101,11 @@ export default function StaffPosPage() {
         paymentMethod: payMethod,
         status: 'pending',
       });
+      // Update local sold counts so stock shows correctly for next order
+      setAllItems(prev => prev.map(item => {
+        const ordered = cart.find(c => c.item.id === item.id);
+        return ordered ? { ...item, sold: item.sold + ordered.qty } : item;
+      }));
       setOrderNum(num);
       setStep('done');
       setCart([]);

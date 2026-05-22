@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useParams, useSearchParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import {
   getEventByBarCode, getBarStations, subscribeBarOrders, updateBarOrderStatus,
   type BarStation, type BarOrder, type EventData,
@@ -9,12 +9,10 @@ import {
 
 export default function VendorDisplayPage() {
   const { code } = useParams<{ code: string }>();
-  const searchParams = useSearchParams();
-  const router = useRouter();
 
   const [event, setEvent]       = useState<EventData | null>(null);
   const [stations, setStations] = useState<BarStation[]>([]);
-  const [stationId, setStationId] = useState<string>(searchParams.get('s') ?? '');
+  const [stationId, setStationId] = useState<string>('');
   const [orders, setOrders]     = useState<BarOrder[]>([]);
   const [loading, setLoading]   = useState(true);
   const [notFound, setNotFound] = useState(false);
@@ -42,13 +40,6 @@ export default function VendorDisplayPage() {
     return () => { unsubRef.current?.(); };
   }, [event?.id, stationId]);
 
-  // Update URL param when station changes
-  useEffect(() => {
-    if (!stationId) return;
-    const url = new URL(window.location.href);
-    url.searchParams.set('s', stationId);
-    window.history.replaceState({}, '', url.toString());
-  }, [stationId]);
 
   async function handleDeliver(orderId: string) {
     setDelivering(orderId);
