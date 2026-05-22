@@ -76,7 +76,7 @@ const requestVendorAccess = async (data: VendorAccessRequestInput): Promise<Vend
 
 export default function VendorDashboardPage() {
   const { t } = useT();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [profileOpen, setProfileOpen] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
 
@@ -87,6 +87,13 @@ export default function VendorDashboardPage() {
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
+
+  const router = useRouter();
+  useEffect(() => {
+    if (authLoading) return;
+    const role = (user as any)?.role;
+    if (user && role && role !== 'reseller') router.replace('/');
+  }, [user, authLoading, router]);
 
   const displayName = (user as any)?.firstName
     ? `${(user as any).firstName} ${(user as any).lastName ?? ''}`.trim()

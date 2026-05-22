@@ -61,8 +61,9 @@ function EventsInner() {
   }, []);
 
   const filtered = events.filter(ev => {
+    const name = (ev.title || (ev as any).name || '').toLowerCase();
     const matchSearch = !search ||
-      ev.title || (ev as any).name.toLowerCase().includes(search.toLowerCase()) ||
+      name.includes(search.toLowerCase()) ||
       ev.city?.toLowerCase().includes(search.toLowerCase()) ||
       ev.tags?.some(tag => tag.toLowerCase().includes(search.toLowerCase()));
     const matchFilter = filter === 'all' || ev.status === filter;
