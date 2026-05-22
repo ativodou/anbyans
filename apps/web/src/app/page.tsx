@@ -7,6 +7,7 @@ import { useT } from '@/i18n';
 import LangSwitcher from '@/components/LangSwitcher';
 import { getPublishedEvents } from '@/lib/db';
 import { fetchHaitianCityEvents, tmEventsToGallery } from '@/lib/ticketmaster';
+import { useAuth } from '@/hooks/useAuth';
 
 const FALLBACK_GALLERY = [
   { title: 'Kompa Fest 2026', venue: 'Parc Istorik, Milot', date: '15 Mars', emoji: '🎶', price: 15, live: true, imageUrl: '', source: 'anbyans' as const },
@@ -65,11 +66,17 @@ const EventGallery = memo(function EventGallery({ items }: { items: GalleryItem[
 export default function LandingPage() {
   const router = useRouter();
   const { t } = useT();
+  const { user, loading: authLoading } = useAuth();
   const [q, setQ] = useState('');
   const [privateModal, setPrivateModal] = useState(false);
   const [privateCode, setPrivateCode] = useState('');
   const [gallery, setGallery] = useState<GalleryItem[]>(FALLBACK_GALLERY);
   const galleryLoaded = React.useRef(false);
+
+  useEffect(() => {
+    if (authLoading) return;
+    if ((user as any)?.role === 'reseller') router.replace('/vendor/dashboard');
+  }, [user, authLoading, router]);
 
   useEffect(() => {
     async function loadEvents() {

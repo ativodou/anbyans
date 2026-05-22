@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useT } from '@/i18n';
+import { useAuth } from '@/hooks/useAuth';
 import Link from 'next/link';
 
 interface PublicEvent {
@@ -26,11 +27,17 @@ interface PublicEvent {
 function EventsInner() {
   const { t } = useT();
   const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
   const searchParams = useSearchParams();
   const [events, setEvents]   = useState<PublicEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch]   = useState(searchParams.get('q') || '');
   const [filter, setFilter]   = useState<'all' | 'live' | 'upcoming'>('all');
+
+  useEffect(() => {
+    if (authLoading) return;
+    if ((user as any)?.role === 'reseller') router.replace('/vendor/dashboard');
+  }, [user, authLoading, router]);
 
   useEffect(() => {
     (async () => {
