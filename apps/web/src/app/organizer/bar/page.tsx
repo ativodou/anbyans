@@ -8,7 +8,7 @@ import { doc, updateDoc } from 'firebase/firestore';
 import {
   getBarStations, saveBarStation, deleteBarStation,
   getBarItems, saveBarItem, deleteBarItem, updateBarItemStock,
-  getBarConfig, saveBarConfig, subscribeBarOrders, updateBarOrderStatus,
+  subscribeBarOrders, updateBarOrderStatus,
   type BarStation, type BarItem, type BarOrder, type BarOrderStatus,
 } from '@/lib/db';
 
@@ -32,9 +32,7 @@ export default function OrganizerBarPage() {
   // ── Setup state ──
   const [stations, setStations] = useState<BarStation[]>([]);
   const [items, setItems] = useState<BarItem[]>([]);
-  const [staffNames, setStaffNames] = useState<string[]>([]);
   const [newStation, setNewStation] = useState('');
-  const [newStaffName, setNewStaffName] = useState('');
   const [newItem, setNewItem] = useState({ name: '', price: '', stock: '', stationId: '' });
   const [editStock, setEditStock] = useState<Record<string, string>>({});
   const [savingStation, setSavingStation] = useState(false);
@@ -52,11 +50,9 @@ export default function OrganizerBarPage() {
     Promise.all([
       getBarStations(eventId),
       getBarItems(eventId),
-      getBarConfig(eventId),
-    ]).then(([st, it, cfg]) => {
+    ]).then(([st, it]) => {
       setStations(st);
       setItems(it);
-      setStaffNames(cfg.staffNames);
       if (st.length > 0 && !newItem.stationId) setNewItem(p => ({ ...p, stationId: st[0].id! }));
     });
   }, [eventId]);
@@ -123,20 +119,6 @@ export default function OrganizerBarPage() {
     await updateBarItemStock(itemId, val);
     setItems(prev => prev.map(i => i.id === itemId ? { ...i, stock: val } : i));
     setEditStock(p => { const n = { ...p }; delete n[itemId]; return n; });
-  }
-
-  async function handleAddStaff() {
-    if (!newStaffName.trim()) return;
-    const updated = [...staffNames, newStaffName.trim()];
-    setStaffNames(updated);
-    setNewStaffName('');
-    await saveBarConfig(eventId, { staffNames: updated });
-  }
-
-  async function handleRemoveStaff(name: string) {
-    const updated = staffNames.filter(n => n !== name);
-    setStaffNames(updated);
-    await saveBarConfig(eventId, { staffNames: updated });
   }
 
   async function handleMarkDelivered(orderId: string) {
@@ -309,25 +291,12 @@ export default function OrganizerBarPage() {
 
           {/* Staff list */}
           <div className={`${card} p-4`}>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-muted mb-3">Staff</p>
-            <div className="flex gap-2 mb-3">
-              <input value={newStaffName} onChange={e => setNewStaffName(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleAddStaff()}
-                placeholder="Non staff" className={`${inp} flex-1`} />
-              <button onClick={handleAddStaff} disabled={!newStaffName.trim()}
-                className="px-4 py-2 rounded-lg bg-orange text-white text-xs font-bold disabled:opacity-40 hover:bg-orange/80 transition-all">➕</button>
-            </div>
-            {staffNames.length === 0
-              ? <p className="text-xs text-gray-muted">Pa gen staff. Staff ka tape non yo tou.</p>
-              : <div className="flex flex-wrap gap-2">
-                  {staffNames.map(name => (
-                    <div key={name} className="flex items-center gap-1.5 px-3 py-1.5 bg-white/[0.04] border border-border rounded-lg">
-                      <span className="text-xs">{name}</span>
-                      <button onClick={() => handleRemoveStaff(name)} className="text-gray-muted hover:text-red-400 text-xs">✕</button>
-                    </div>
-                  ))}
-                </div>
-            }
+            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-muted mb-2">Staff</p>
+            <p className="text-xs text-gray-muted leading-relaxed">
+              Non staff yo sòti otomatikman nan{' '}
+              <a href="/organizer/staff" className="text-orange underline underline-offset-2">Staff Pool</a>{' '}
+              — asiye staff yo nan evènman sa a pou yo parèt nan POS la.
+            </p>
           </div>
         </div>
       )}

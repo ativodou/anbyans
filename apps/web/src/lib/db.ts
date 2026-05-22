@@ -1948,6 +1948,28 @@ export async function saveBarConfig(eventId: string, config: Partial<BarConfig>)
   await setDoc(doc(db, 'barConfig', eventId), config, { merge: true });
 }
 
+// Returns names of staff assigned to an event from staffPool/staffAssignments.
+// Falls back to barConfig.staffNames for events that haven't used staffPool yet.
+export async function getBarStaffNames(eventId: string): Promise<string[]> {
+  const assignSnap = await getDocs(
+    query(collection(db, 'staffAssignments'), where('eventId', '==', eventId), where('active', '==', true))
+  );
+  if (!assignSnap.empty) {
+    const names = await Promise.all(
+      assignSnap.docs.map(async d => {
+        const staffId = (d.data() as any).staffId;
+        const memberSnap = await getDoc(doc(db, 'staffPool', staffId));
+        return memberSnap.exists() ? ((memberSnap.data() as any).name as string) : null;
+      })
+    );
+    const filtered = names.filter(Boolean) as string[];
+    if (filtered.length > 0) return filtered;
+  }
+  // Fallback: manually-entered names in barConfig
+  const cfg = await getBarConfig(eventId);
+  return cfg.staffNames ?? [];
+}
+
 export async function getEventByBarCode(barCode: string): Promise<EventData | null> {
   const q = query(collection(db, 'events'), where('barCode', '==', barCode));
   const snap = await getDocs(q);

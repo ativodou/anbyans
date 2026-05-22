@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import {
-  getEventByBarCode, getBarStations, getBarItems, getBarConfig, placeBarOrder,
+  getEventByBarCode, getBarStations, getBarItems, getBarStaffNames, placeBarOrder,
   type BarStation, type BarItem, type BarPaymentMethod, type EventData,
 } from '@/lib/db';
 
@@ -52,11 +52,11 @@ export default function StaffPosPage() {
       Promise.all([
         getBarStations(ev.id!),
         getBarItems(ev.id!),
-        getBarConfig(ev.id!),
-      ]).then(([st, it, cfg]) => {
+        getBarStaffNames(ev.id!),
+      ]).then(([st, it, names]) => {
         setStations(st);
         setAllItems(it);
-        setStaffNames(cfg.staffNames);
+        setStaffNames(names);
         if (st.length > 0) setStationId(st[0].id!);
       }).finally(() => setLoading(false));
     });
