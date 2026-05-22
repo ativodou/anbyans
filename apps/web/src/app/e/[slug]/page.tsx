@@ -386,7 +386,7 @@ function BuyPageInner() {
             seat: seats[i] || null,
             price: item.section.price, priceHTG: htg(item.section.price),
             serviceFee: Math.round(item.section.price * feeRate * 100) / 100,
-            chargeTotal: Math.round(item.section.price * (1 + FEE_RATE) * 100) / 100,
+            chargeTotal: Math.round(item.section.price * (1 + feeRate) * 100) / 100,
             paymentMethod: payMethod, paymentStatus,
             txnId: txnId.trim() || null,
             status: paymentStatus === 'paid' ? 'valid' : 'pending',
