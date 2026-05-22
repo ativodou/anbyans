@@ -131,6 +131,17 @@ export default function AdminDashboardPage() {
         snap.docs.forEach(d => tickets.push({ id: d.id, ...d.data() }));
       }));
       setAllTickets(tickets);
+
+      // Load platform settings
+      try {
+        const cfgSnap = await getDoc(doc(db, 'config', 'platform'));
+        if (cfgSnap.exists()) {
+          const cfg = cfgSnap.data();
+          if (cfg.platformFee)       setSettingsFee(cfg.platformFee);
+          if (cfg.chargebackReserve) setSettingsReserve(cfg.chargebackReserve);
+          if (cfg.payoutDelayDays)   setSettingsDelay(cfg.payoutDelayDays);
+        }
+      } catch (e) { console.warn('config load', e); }
     } catch (e) { console.error(e); }
     setLoading(false);
   }
@@ -230,7 +241,7 @@ export default function AdminDashboardPage() {
   // ── Finance metrics ──
   const validTickets = allTickets.filter(t => t.status !== 'cancelled' && t.status !== 'refunded');
   const grossRevenue = validTickets.reduce((s, t) => s + (t.price || 0), 0);
-  const platformFee = Math.round(grossRevenue * 0.09); // 9% Anbyans fee
+  const platformFee = Math.round(grossRevenue * (settingsFee / 100));
   const byMethod: Record<string, number> = {};
   validTickets.forEach(t => {
     const m = t.paymentMethod || 'unknown';
