@@ -141,6 +141,7 @@ function OrganizerLayoutInner({ children }: { children: React.ReactNode }) {
     { href: '/organizer/analytics',        icon: '📈', label: t('org_nav_analytics') },
     { href: '/organizer/staff',            icon: '👥', label: t('org_nav_staff') },
     { href: '/organizer/pending-tickets',  icon: '⏳', label: t('org_nav_pending'),  badge: pendingCount },
+    { href: '/organizer/issue-tickets',    icon: '🎟️', label: 'Issue Tickets' },
     { href: '/organizer/settings',         icon: '⚙️', label: t('org_nav_settings') },
   ];
 
