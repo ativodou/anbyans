@@ -1970,6 +1970,24 @@ export async function getBarStaffNames(eventId: string): Promise<string[]> {
   return cfg.staffNames ?? [];
 }
 
+export interface AssignedStaffMember { name: string; phone: string; }
+
+export async function getAssignedStaff(eventId: string): Promise<AssignedStaffMember[]> {
+  const assignSnap = await getDocs(
+    query(collection(db, 'staffAssignments'), where('eventId', '==', eventId), where('active', '==', true))
+  );
+  if (assignSnap.empty) return [];
+  const members = await Promise.all(
+    assignSnap.docs.map(async d => {
+      const memberSnap = await getDoc(doc(db, 'staffPool', (d.data() as any).staffId));
+      if (!memberSnap.exists()) return null;
+      const data = memberSnap.data() as any;
+      return { name: data.name as string, phone: (data.phone ?? '') as string };
+    })
+  );
+  return members.filter(Boolean) as AssignedStaffMember[];
+}
+
 export async function getEventByBarCode(barCode: string): Promise<EventData | null> {
   const q = query(collection(db, 'events'), where('barCode', '==', barCode));
   const snap = await getDocs(q);

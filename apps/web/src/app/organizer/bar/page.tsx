@@ -8,8 +8,8 @@ import { doc, updateDoc } from 'firebase/firestore';
 import {
   getBarStations, saveBarStation, deleteBarStation,
   getBarItems, saveBarItem, deleteBarItem, updateBarItemStock,
-  subscribeBarOrders, updateBarOrderStatus,
-  type BarStation, type BarItem, type BarOrder, type BarOrderStatus,
+  subscribeBarOrders, updateBarOrderStatus, getAssignedStaff,
+  type BarStation, type BarItem, type BarOrder, type BarOrderStatus, type AssignedStaffMember,
 } from '@/lib/db';
 
 type Tab = 'setup' | 'live' | 'inventory' | 'stats';
@@ -32,6 +32,7 @@ export default function OrganizerBarPage() {
   // ── Setup state ──
   const [stations, setStations] = useState<BarStation[]>([]);
   const [items, setItems] = useState<BarItem[]>([]);
+  const [assignedStaff, setAssignedStaff] = useState<AssignedStaffMember[]>([]);
   const [newStation, setNewStation] = useState('');
   const [newItem, setNewItem] = useState({ name: '', price: '', stock: '', stationId: '' });
   const [editStock, setEditStock] = useState<Record<string, string>>({});
@@ -50,9 +51,11 @@ export default function OrganizerBarPage() {
     Promise.all([
       getBarStations(eventId),
       getBarItems(eventId),
-    ]).then(([st, it]) => {
+      getAssignedStaff(eventId),
+    ]).then(([st, it, staff]) => {
       setStations(st);
       setItems(it);
+      setAssignedStaff(staff);
       if (st.length > 0 && !newItem.stationId) setNewItem(p => ({ ...p, stationId: st[0].id! }));
     });
   }, [eventId]);
@@ -291,12 +294,43 @@ export default function OrganizerBarPage() {
 
           {/* Staff list */}
           <div className={`${card} p-4`}>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-muted mb-2">Staff</p>
-            <p className="text-xs text-gray-muted leading-relaxed">
-              Non staff yo sòti otomatikman nan{' '}
-              <a href="/organizer/staff" className="text-orange underline underline-offset-2">Staff Pool</a>{' '}
-              — asiye staff yo nan evènman sa a pou yo parèt nan POS la.
-            </p>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-muted mb-3">Staff</p>
+            {assignedStaff.length === 0 ? (
+              <p className="text-xs text-gray-muted leading-relaxed">
+                Pa gen staff asiye.{' '}
+                <a href="/organizer/staff" className="text-orange underline underline-offset-2">Ale nan Staff Pool</a>{' '}
+                pou asiye staff yo nan evènman sa a.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {assignedStaff.map(s => {
+                  const phone = s.phone.replace(/\D/g, '');
+                  const msg = staffUrl
+                    ? `Salut ${s.name}! Ou ka kòmanse pran kòmand nan lyen sa a: ${staffUrl}`
+                    : '';
+                  return (
+                    <div key={s.name} className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-bold">{s.name}</p>
+                        {s.phone && <p className="text-[10px] text-gray-muted">{s.phone}</p>}
+                      </div>
+                      {staffUrl && phone ? (
+                        <a href={`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`}
+                          target="_blank" rel="noopener noreferrer"
+                          className="px-3 py-1.5 rounded-lg bg-green-700 hover:bg-green-600 text-white text-xs font-bold transition-all">
+                          WhatsApp
+                        </a>
+                      ) : staffUrl ? (
+                        <span className="text-[10px] text-gray-muted">Pa gen nimewo</span>
+                      ) : null}
+                    </div>
+                  );
+                })}
+                {!posActivated && (
+                  <p className="text-[10px] text-gray-muted pt-1">Aktive POS la pou voye lyen an.</p>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
