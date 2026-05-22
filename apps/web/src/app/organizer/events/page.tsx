@@ -4,10 +4,14 @@ import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useT } from '@/i18n';
-import { getOrganizerEvents, type EventData, markEventEnded, markEventPublished, markEventLive } from '@/lib/db';
+import { getOrganizerEvents, type EventData, markEventEnded, markEventPublished, markEventLive, getPlatformConfig } from '@/lib/db';
 import { db } from '@/lib/firebase';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
 import FloorPlanViewer from '@/components/FloorPlanViewer';
+import { loadStripe } from '@stripe/stripe-js';
+import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
+
+const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
 
 export default function OrganizerEventsPage() {
   const { user, loading: authLoading } = useAuth();
@@ -18,6 +22,15 @@ export default function OrganizerEventsPage() {
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState('');
   const [statusLoading, setStatusLoading] = useState('');
+  const [posFee, setPosFee] = useState(50);
+  const [posModal, setPosModal] = useState<string | null>(null);
+  const [posClientSecret, setPosClientSecret] = useState<string | null>(null);
+  const [posLoading, setPosLoading] = useState(false);
+  const [posError, setPosError] = useState('');
+
+  useEffect(() => {
+    getPlatformConfig().then(cfg => setPosFee(cfg.posFee));
+  }, []);
 
   useEffect(() => {
     if (authLoading) return;
@@ -48,6 +61,28 @@ export default function OrganizerEventsPage() {
     setEvents(prev => prev.map(e => e.id === eventId ? { ...e, status: 'live' } : e));
     setStatusLoading('');
   }
+  async function handlePosActivate(eventId: string) {
+    setPosLoading(true); setPosError(''); setPosClientSecret(null);
+    try {
+      const res = await fetch('/api/payment/stripe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount: posFee, currency: 'usd', eventName: 'POS Activation', seats: 1 }),
+      });
+      const data = await res.json();
+      if (data.error) { setPosError(data.error); return; }
+      setPosClientSecret(data.clientSecret);
+    } catch (e: any) {
+      setPosError(e.message || 'Erè.');
+    } finally { setPosLoading(false); }
+  }
+
+  async function handlePosPaymentSuccess(eventId: string) {
+    await updateDoc(doc(db, 'events', eventId), { posActivated: true, posActivatedAt: new Date().toISOString() });
+    setEvents(prev => prev.map(e => e.id === eventId ? { ...e, posActivated: true } : e));
+    setPosModal(null); setPosClientSecret(null);
+  }
+
   async function handleEndEvent(eventId: string) {
     if (!confirm(t('event_end_confirm'))) return;
     setStatusLoading(eventId);
@@ -166,6 +201,14 @@ export default function OrganizerEventsPage() {
                           📋 {t('event_copy_private_link')}
                         </button>
                       )}
+                      {e.id && (
+                        (e as any).posActivated
+                          ? <span className="px-3 py-1.5 rounded-lg bg-purple/10 border border-purple/30 text-[10px] font-bold text-purple">🍽️ POS Active</span>
+                          : <button onClick={() => { setPosModal(e.id!); setPosClientSecret(null); setPosError(''); }}
+                              className="px-3 py-1.5 rounded-lg bg-white/[0.04] border border-border text-[10px] font-bold text-gray-light hover:text-purple hover:border-purple/30 transition-all">
+                              🍽️ Activate POS — ${posFee}
+                            </button>
+                      )}
                       {e.status === 'published' && e.id && (
                         <button
                           onClick={() => handleGoLive(e.id!)}
@@ -201,6 +244,63 @@ export default function OrganizerEventsPage() {
           })}
         </div>
       )}
+
+      {/* ── POS Activation Modal ── */}
+      {posModal && (
+        <div onClick={() => { setPosModal(null); setPosClientSecret(null); }}
+          className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+          <div onClick={e => e.stopPropagation()}
+            className="bg-dark-card border border-border rounded-2xl p-6 w-full max-w-md">
+            <div className="text-center mb-6">
+              <p className="text-4xl mb-3">🍽️</p>
+              <h3 className="font-heading text-xl text-white mb-1">Activate POS</h3>
+              <p className="text-xs text-gray-muted">One-time fee of <span className="text-white font-bold">${posFee}</span> — unlocks bar & sales tracking for this event</p>
+            </div>
+            {posError && <p className="text-red-400 text-xs mb-3 text-center">{posError}</p>}
+            {!posClientSecret && (
+              <button onClick={() => handlePosActivate(posModal)} disabled={posLoading}
+                className={`w-full py-3 rounded-xl font-bold text-sm ${posLoading ? 'bg-white/[0.04] text-gray-muted cursor-not-allowed' : 'bg-purple text-white hover:bg-purple/80'} transition-all`}>
+                {posLoading ? '...' : `💳 Pay $${posFee} & Activate`}
+              </button>
+            )}
+            {posClientSecret && (
+              <Elements stripe={stripePromise} options={{ clientSecret: posClientSecret, appearance: { theme: 'night' } }}>
+                <PosStripeForm
+                  onSuccess={() => handlePosPaymentSuccess(posModal)}
+                  onError={msg => setPosError(msg)}
+                />
+              </Elements>
+            )}
+            <button onClick={() => { setPosModal(null); setPosClientSecret(null); }}
+              className="w-full mt-3 text-xs text-gray-muted hover:text-white transition-colors bg-transparent border-none cursor-pointer py-2">
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PosStripeForm({ onSuccess, onError }: { onSuccess: () => void; onError: (msg: string) => void }) {
+  const stripe = useStripe();
+  const elements = useElements();
+  const [confirming, setConfirming] = useState(false);
+  async function handlePay() {
+    if (!stripe || !elements) return;
+    setConfirming(true);
+    const { error, paymentIntent } = await stripe.confirmPayment({ elements, redirect: 'if_required' });
+    if (error) { onError(error.message || 'Payment failed.'); setConfirming(false); return; }
+    if (paymentIntent?.status === 'succeeded') onSuccess();
+    setConfirming(false);
+  }
+  return (
+    <div>
+      <PaymentElement />
+      <button onClick={handlePay} disabled={confirming || !stripe}
+        className={`w-full mt-4 py-3 rounded-xl font-bold text-sm ${confirming ? 'bg-white/[0.04] text-gray-muted cursor-not-allowed' : 'bg-purple text-white hover:bg-purple/80'} transition-all`}>
+        {confirming ? '...' : 'Confirm Payment'}
+      </button>
     </div>
   );
 }
