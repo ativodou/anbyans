@@ -78,8 +78,9 @@ export default function OrganizerEventsPage() {
   }
 
   async function handlePosPaymentSuccess(eventId: string) {
-    await updateDoc(doc(db, 'events', eventId), { posActivated: true, posActivatedAt: new Date().toISOString() });
-    setEvents(prev => prev.map(e => e.id === eventId ? { ...e, posActivated: true } : e));
+    const barCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+    await updateDoc(doc(db, 'events', eventId), { posActivated: true, posActivatedAt: new Date().toISOString(), barCode });
+    setEvents(prev => prev.map(e => e.id === eventId ? { ...e, posActivated: true, barCode } as any : e));
     setPosModal(null); setPosClientSecret(null);
   }
 

@@ -1,114 +1,169 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useOrganizerEvent } from '../OrganizerEventContext';
+import { db } from '@/lib/firebase';
+import { doc, updateDoc } from 'firebase/firestore';
 import {
-  getBarMenu, saveBarMenuItem, deleteBarMenuItem, recordBarSale, getBarSales,
-  type BarMenuItem, type BarSale, type BarSaleItem,
+  getBarStations, saveBarStation, deleteBarStation,
+  getBarItems, saveBarItem, deleteBarItem, updateBarItemStock,
+  getBarConfig, saveBarConfig, subscribeBarOrders, updateBarOrderStatus,
+  type BarStation, type BarItem, type BarOrder, type BarOrderStatus,
 } from '@/lib/db';
 
-type Tab = 'pos' | 'menu' | 'sales';
+type Tab = 'setup' | 'live' | 'inventory' | 'stats';
 
-interface CartItem extends BarSaleItem {}
+const PAY_LABELS: Record<string, string> = {
+  cash: '💵 Cash', card: '💳 Card', moncash: '📱 MonCash',
+  natcash: '📱 Natcash', zelle: '⚡ Zelle', paypal: '🅿️ PayPal',
+};
 
-const CATEGORIES = ['Bwason', 'Manje', 'Lòt'];
-
-export default function BarPosPage() {
+export default function OrganizerBarPage() {
   const { user } = useAuth();
   const { selectedEvent } = useOrganizerEvent();
+  const [tab, setTab] = useState<Tab>('setup');
 
-  const [tab, setTab] = useState<Tab>('pos');
-  const [menu, setMenu] = useState<BarMenuItem[]>([]);
-  const [sales, setSales] = useState<BarSale[]>([]);
-  const [loading, setLoading] = useState(false);
-
-  // POS state
-  const [cart, setCart] = useState<CartItem[]>([]);
-  const [note, setNote] = useState('');
-  const [recording, setRecording] = useState(false);
-  const [saleSuccess, setSaleSuccess] = useState(false);
-
-  // Menu state
-  const [newName, setNewName] = useState('');
-  const [newPrice, setNewPrice] = useState('');
-  const [newCategory, setNewCategory] = useState(CATEGORIES[0]);
-  const [saving, setSaving] = useState(false);
-  const [deleting, setDeleting] = useState<string | null>(null);
-
+  const eventId = selectedEvent?.id ?? '';
+  const organizerId = user?.uid ?? '';
+  const barCode = (selectedEvent as any)?.barCode as string | undefined;
   const posActivated = !!(selectedEvent as any)?.posActivated;
-  const eventId = selectedEvent?.id;
-  const organizerId = user?.uid;
 
+  // ── Setup state ──
+  const [stations, setStations] = useState<BarStation[]>([]);
+  const [items, setItems] = useState<BarItem[]>([]);
+  const [staffNames, setStaffNames] = useState<string[]>([]);
+  const [newStation, setNewStation] = useState('');
+  const [newStaffName, setNewStaffName] = useState('');
+  const [newItem, setNewItem] = useState({ name: '', price: '', stock: '', stationId: '' });
+  const [editStock, setEditStock] = useState<Record<string, string>>({});
+  const [savingStation, setSavingStation] = useState(false);
+  const [savingItem, setSavingItem] = useState(false);
+  const [generatingCode, setGeneratingCode] = useState(false);
+
+  // ── Live state ──
+  const [orders, setOrders] = useState<BarOrder[]>([]);
+  const [liveStation, setLiveStation] = useState<string | null>(null);
+  const unsubRef = useRef<(() => void) | null>(null);
+
+  // ── Load setup data ──
   useEffect(() => {
-    if (!organizerId || !eventId || !posActivated) return;
-    setLoading(true);
+    if (!eventId || !posActivated) return;
     Promise.all([
-      getBarMenu(organizerId, eventId),
-      getBarSales(organizerId, eventId),
-    ]).then(([m, s]) => { setMenu(m); setSales(s); }).finally(() => setLoading(false));
-  }, [organizerId, eventId, posActivated]);
-
-  // ── Cart helpers ──
-  function addToCart(item: BarMenuItem) {
-    setCart(prev => {
-      const existing = prev.find(c => c.name === item.name);
-      if (existing) return prev.map(c => c.name === item.name ? { ...c, qty: c.qty + 1 } : c);
-      return [...prev, { name: item.name, qty: 1, price: item.price }];
+      getBarStations(eventId),
+      getBarItems(eventId),
+      getBarConfig(eventId),
+    ]).then(([st, it, cfg]) => {
+      setStations(st);
+      setItems(it);
+      setStaffNames(cfg.staffNames);
+      if (st.length > 0 && !newItem.stationId) setNewItem(p => ({ ...p, stationId: st[0].id! }));
     });
-    setSaleSuccess(false);
+  }, [eventId, posActivated]);
+
+  // ── Live orders subscription ──
+  useEffect(() => {
+    if (tab !== 'live' && tab !== 'stats' || !eventId) return;
+    unsubRef.current?.();
+    unsubRef.current = subscribeBarOrders(eventId, liveStation, setOrders);
+    return () => { unsubRef.current?.(); };
+  }, [tab, eventId, liveStation]);
+
+  // ── Generate barCode for events activated before this update ──
+  async function handleGenerateCode() {
+    if (!eventId) return;
+    setGeneratingCode(true);
+    const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+    await updateDoc(doc(db, 'events', eventId), { barCode: code });
+    window.location.reload();
   }
 
-  function removeFromCart(name: string) {
-    setCart(prev => {
-      const existing = prev.find(c => c.name === name);
-      if (!existing) return prev;
-      if (existing.qty === 1) return prev.filter(c => c.name !== name);
-      return prev.map(c => c.name === name ? { ...c, qty: c.qty - 1 } : c);
-    });
+  // ── Handlers ──
+  async function handleAddStation() {
+    if (!newStation.trim() || !eventId) return;
+    setSavingStation(true);
+    const id = await saveBarStation({ eventId, organizerId, name: newStation.trim() });
+    const station = { id, eventId, organizerId, name: newStation.trim() };
+    setStations(prev => [...prev, station]);
+    if (!newItem.stationId) setNewItem(p => ({ ...p, stationId: id }));
+    setNewStation('');
+    setSavingStation(false);
   }
 
-  const cartTotal = cart.reduce((a, c) => a + c.qty * c.price, 0);
-
-  async function handleRecordSale() {
-    if (!organizerId || !eventId || cart.length === 0) return;
-    setRecording(true);
-    try {
-      await recordBarSale({ organizerId, eventId, items: cart, total: cartTotal, note });
-      setSales(prev => [{
-        organizerId, eventId, items: cart, total: cartTotal, note, soldAt: { seconds: Date.now() / 1000 },
-      }, ...prev]);
-      setCart([]);
-      setNote('');
-      setSaleSuccess(true);
-    } finally { setRecording(false); }
+  async function handleDeleteStation(id: string) {
+    await deleteBarStation(id);
+    setStations(prev => prev.filter(s => s.id !== id));
   }
 
-  // ── Menu handlers ──
   async function handleAddItem() {
-    if (!organizerId || !eventId || !newName.trim() || !newPrice) return;
-    setSaving(true);
-    try {
-      const id = await saveBarMenuItem({
-        organizerId, eventId,
-        name: newName.trim(),
-        price: parseFloat(newPrice),
-        category: newCategory,
-      });
-      setMenu(prev => [...prev, { id, organizerId, eventId, name: newName.trim(), price: parseFloat(newPrice), category: newCategory }]);
-      setNewName(''); setNewPrice('');
-    } finally { setSaving(false); }
+    const { name, price, stock, stationId } = newItem;
+    if (!name.trim() || !price || !stationId || !eventId) return;
+    setSavingItem(true);
+    const station = stations.find(s => s.id === stationId);
+    const id = await saveBarItem({
+      eventId, organizerId, stationId, stationName: station?.name ?? '',
+      name: name.trim(), price: parseFloat(price), stock: parseInt(stock) || 0, sold: 0,
+    });
+    setItems(prev => [...prev, {
+      id, eventId, organizerId, stationId, stationName: station?.name ?? '',
+      name: name.trim(), price: parseFloat(price), stock: parseInt(stock) || 0, sold: 0,
+    }]);
+    setNewItem(p => ({ ...p, name: '', price: '', stock: '' }));
+    setSavingItem(false);
   }
 
-  async function handleDeleteItem(itemId: string) {
-    setDeleting(itemId);
-    try {
-      await deleteBarMenuItem(itemId);
-      setMenu(prev => prev.filter(m => m.id !== itemId));
-    } finally { setDeleting(null); }
+  async function handleDeleteItem(id: string) {
+    await deleteBarItem(id);
+    setItems(prev => prev.filter(i => i.id !== id));
   }
 
-  // ── No event selected ──
+  async function handleSaveStock(itemId: string) {
+    const val = parseInt(editStock[itemId]);
+    if (isNaN(val)) return;
+    await updateBarItemStock(itemId, val);
+    setItems(prev => prev.map(i => i.id === itemId ? { ...i, stock: val } : i));
+    setEditStock(p => { const n = { ...p }; delete n[itemId]; return n; });
+  }
+
+  async function handleAddStaff() {
+    if (!newStaffName.trim()) return;
+    const updated = [...staffNames, newStaffName.trim()];
+    setStaffNames(updated);
+    setNewStaffName('');
+    await saveBarConfig(eventId, { staffNames: updated });
+  }
+
+  async function handleRemoveStaff(name: string) {
+    const updated = staffNames.filter(n => n !== name);
+    setStaffNames(updated);
+    await saveBarConfig(eventId, { staffNames: updated });
+  }
+
+  async function handleMarkDelivered(orderId: string) {
+    await updateBarOrderStatus(orderId, 'delivered');
+    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: 'delivered' } : o));
+  }
+
+  // ── Stats computations ──
+  const completedOrders = orders.filter(o => o.status === 'delivered');
+  const totalRevenue = completedOrders.reduce((a, o) => a + o.total, 0);
+  const byStation = stations.map(s => ({
+    name: s.name,
+    revenue: completedOrders.filter(o => o.stationId === s.id).reduce((a, o) => a + o.total, 0),
+    count: completedOrders.filter(o => o.stationId === s.id).length,
+  }));
+  const byPayment = Object.entries(PAY_LABELS).map(([key, label]) => ({
+    label, revenue: completedOrders.filter(o => o.paymentMethod === key).reduce((a, o) => a + o.total, 0),
+    count: completedOrders.filter(o => o.paymentMethod === key).length,
+  })).filter(p => p.count > 0);
+  const byStaff = Array.from(new Set(completedOrders.map(o => o.staffName))).map(name => ({
+    name, revenue: completedOrders.filter(o => o.staffName === name).reduce((a, o) => a + o.total, 0),
+    count: completedOrders.filter(o => o.staffName === name).length,
+  })).sort((a, b) => b.revenue - a.revenue);
+
+  const card = 'bg-dark-card border border-border rounded-xl';
+  const inp = 'px-3 py-2 rounded-lg bg-white/[0.04] border border-border text-white text-sm outline-none focus:border-orange placeholder:text-gray-muted';
+
   if (!selectedEvent) return (
     <div className="flex flex-col items-center justify-center py-24 text-center">
       <p className="text-4xl mb-3">📅</p>
@@ -116,180 +171,219 @@ export default function BarPosPage() {
     </div>
   );
 
-  // ── POS not activated ──
   if (!posActivated) return (
     <div className="flex flex-col items-center justify-center py-24 text-center">
       <p className="text-4xl mb-3">🍽️</p>
       <p className="text-white font-bold mb-1">POS pa aktive pou evènman sa a</p>
-      <p className="text-gray-muted text-sm mb-4">Ale nan <strong>Evènman</strong> epi aktive POS pou <strong>{selectedEvent.name}</strong>.</p>
+      <p className="text-gray-muted text-sm">Ale nan <strong>Evènman</strong> epi klike <strong>Activate POS</strong>.</p>
     </div>
   );
 
-  const card = 'bg-dark-card border border-border rounded-xl';
-  const inp = 'w-full px-3 py-2.5 rounded-lg bg-white/[0.04] border border-border text-white text-sm outline-none focus:border-orange placeholder:text-gray-muted';
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const staffUrl = barCode ? `${origin}/bar/${barCode}` : null;
+  const displayUrl = barCode ? `${origin}/bar/${barCode}/display` : null;
 
-  const grouped = CATEGORIES.reduce((acc, cat) => {
-    acc[cat] = menu.filter(m => m.category === cat);
-    return acc;
-  }, {} as Record<string, BarMenuItem[]>);
-
-  const totalSalesRevenue = sales.reduce((a, s) => a + s.total, 0);
+  const pendingOrders = orders.filter(o => o.status === 'pending');
 
   return (
-    <div className="max-w-2xl mx-auto">
+    <div className="max-w-3xl mx-auto">
 
       {/* Tabs */}
       <div className="flex gap-1 mb-5 border-b border-border">
         {([
-          ['pos', '🍹', 'POS'],
-          ['menu', '📋', 'Meni'],
-          ['sales', '💰', 'Vant'],
+          ['setup', '⚙️', 'Setup'],
+          ['live',  '🔴', `Live${pendingOrders.length ? ` (${pendingOrders.length})` : ''}`],
+          ['inventory', '📦', 'Inventè'],
+          ['stats', '📊', 'Stats'],
         ] as const).map(([id, icon, label]) => (
-          <button key={id} onClick={() => setTab(id)}
+          <button key={id} onClick={() => setTab(id as Tab)}
             className={`px-4 py-2.5 text-xs font-bold border-b-2 transition-colors ${tab === id ? 'border-orange text-orange' : 'border-transparent text-gray-muted hover:text-white'}`}>
             {icon} {label}
           </button>
         ))}
-        <span className="ml-auto text-[10px] text-gray-muted self-center pr-1">{selectedEvent.name}</span>
       </div>
 
-      {loading && (
-        <div className="flex justify-center py-16">
-          <div className="w-7 h-7 border-2 border-orange border-t-transparent rounded-full animate-spin" />
-        </div>
-      )}
+      {/* ── SETUP TAB ── */}
+      {tab === 'setup' && (
+        <div className="space-y-5">
 
-      {/* ── POS TAB ── */}
-      {!loading && tab === 'pos' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-
-          {/* Item grid */}
-          <div>
-            {menu.length === 0 ? (
-              <div className={`${card} p-8 text-center`}>
-                <p className="text-3xl mb-2">📋</p>
-                <p className="text-gray-muted text-xs">Pa gen atik. Ale nan <strong className="text-white">Meni</strong> pou ajoute.</p>
+          {/* Share URLs */}
+          <div className={`${card} p-4 space-y-3`}>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-muted">Lyen Pataj</p>
+            {!barCode ? (
+              <div className="flex items-center gap-3">
+                <p className="text-xs text-gray-muted flex-1">Pa gen kòd. Jenere youn.</p>
+                <button onClick={handleGenerateCode} disabled={generatingCode}
+                  className="px-4 py-2 rounded-lg bg-orange text-white text-xs font-bold hover:bg-orange/80 disabled:opacity-50 transition-all">
+                  {generatingCode ? '...' : 'Jenere Kòd'}
+                </button>
               </div>
             ) : (
-              <div className="space-y-4">
-                {CATEGORIES.filter(cat => grouped[cat].length > 0).map(cat => (
-                  <div key={cat}>
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-gray-muted mb-2">{cat}</p>
-                    <div className="grid grid-cols-2 gap-2">
-                      {grouped[cat].map(item => (
-                        <button key={item.id} onClick={() => addToCart(item)}
-                          className={`${card} p-3 text-left hover:border-orange/50 hover:bg-orange/5 active:scale-95 transition-all`}>
-                          <p className="text-sm font-bold text-white truncate">{item.name}</p>
-                          <p className="text-orange font-heading text-lg">${item.price.toFixed(2)}</p>
-                        </button>
-                      ))}
-                    </div>
+              <div className="space-y-2">
+                {[
+                  { label: '📱 Staff POS', url: staffUrl! },
+                  { label: '🖥️ Vendor Display', url: displayUrl! },
+                ].map(({ label, url }) => (
+                  <div key={label} className="flex items-center gap-2 bg-white/[0.03] border border-border rounded-lg px-3 py-2">
+                    <span className="text-[10px] font-bold text-gray-muted w-28 flex-shrink-0">{label}</span>
+                    <span className="text-xs text-white font-mono flex-1 truncate">{url}</span>
+                    <button onClick={() => navigator.clipboard.writeText(url)}
+                      className="text-[10px] text-orange hover:underline flex-shrink-0">Kopye</button>
                   </div>
                 ))}
               </div>
             )}
           </div>
 
-          {/* Cart */}
-          <div className={`${card} p-4 flex flex-col gap-3 h-fit sticky top-4`}>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-muted">Komand</p>
-
-            {saleSuccess && (
-              <div className="bg-green/10 border border-green/30 rounded-lg p-3 text-center">
-                <p className="text-green font-bold text-sm">✓ Vant anrejistre!</p>
-              </div>
-            )}
-
-            {cart.length === 0 ? (
-              <p className="text-gray-muted text-xs text-center py-6">Tape yon atik pou kòmanse.</p>
-            ) : (
-              <>
-                <div className="space-y-2">
-                  {cart.map(c => (
-                    <div key={c.name} className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <button onClick={() => removeFromCart(c.name)}
-                          className="w-6 h-6 rounded border border-border text-gray-muted hover:text-red-400 hover:border-red-400/50 text-xs transition-all">−</button>
-                        <span className="text-xs font-bold text-white">{c.qty}×</span>
-                        <span className="text-xs text-gray-light truncate max-w-[100px]">{c.name}</span>
-                      </div>
-                      <span className="text-xs font-bold">${(c.qty * c.price).toFixed(2)}</span>
+          {/* Stations */}
+          <div className={`${card} p-4`}>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-muted mb-3">Estasyon Vandè</p>
+            <div className="flex gap-2 mb-3">
+              <input value={newStation} onChange={e => setNewStation(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleAddStation()}
+                placeholder="Ex: Bar, Manje, Merch" className={`${inp} flex-1`} />
+              <button onClick={handleAddStation} disabled={savingStation || !newStation.trim()}
+                className="px-4 py-2 rounded-lg bg-orange text-white text-xs font-bold disabled:opacity-40 hover:bg-orange/80 transition-all">
+                {savingStation ? '...' : '➕'}
+              </button>
+            </div>
+            {stations.length === 0
+              ? <p className="text-xs text-gray-muted">Pa gen estasyon ankò.</p>
+              : <div className="flex flex-wrap gap-2">
+                  {stations.map(s => (
+                    <div key={s.id} className="flex items-center gap-1.5 px-3 py-1.5 bg-white/[0.04] border border-border rounded-lg">
+                      <span className="text-xs font-bold">{s.name}</span>
+                      <button onClick={() => handleDeleteStation(s.id!)} className="text-gray-muted hover:text-red-400 text-xs transition-colors">✕</button>
                     </div>
                   ))}
                 </div>
+            }
+          </div>
 
-                <div className="border-t border-border pt-3 flex justify-between items-center">
-                  <span className="text-sm text-gray-muted">Total</span>
-                  <span className="font-heading text-2xl text-white">${cartTotal.toFixed(2)}</span>
+          {/* Menu items */}
+          <div className={`${card} p-4`}>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-muted mb-3">Atik Meni</p>
+            {stations.length === 0
+              ? <p className="text-xs text-gray-muted">Ajoute yon estasyon anvan.</p>
+              : <>
+                  <div className="grid grid-cols-4 gap-2 mb-3">
+                    <select value={newItem.stationId} onChange={e => setNewItem(p => ({ ...p, stationId: e.target.value }))}
+                      className={`${inp} col-span-1`}>
+                      {stations.map(s => <option key={s.id} value={s.id} className="bg-dark-card">{s.name}</option>)}
+                    </select>
+                    <input value={newItem.name} onChange={e => setNewItem(p => ({ ...p, name: e.target.value }))}
+                      placeholder="Non *" className={`${inp} col-span-1`} />
+                    <input value={newItem.price} onChange={e => setNewItem(p => ({ ...p, price: e.target.value }))}
+                      placeholder="Pri $" type="number" min="0" step="0.25" className={inp} />
+                    <input value={newItem.stock} onChange={e => setNewItem(p => ({ ...p, stock: e.target.value }))}
+                      placeholder="Stock" type="number" min="0" className={inp} />
+                  </div>
+                  <button onClick={handleAddItem} disabled={savingItem || !newItem.name.trim() || !newItem.price}
+                    className="px-5 py-2 rounded-lg bg-orange text-white text-xs font-bold disabled:opacity-40 hover:bg-orange/80 transition-all">
+                    {savingItem ? '...' : '➕ Ajoute Atik'}
+                  </button>
+                  {items.length > 0 && (
+                    <div className="mt-4 space-y-1">
+                      {stations.map(st => {
+                        const stItems = items.filter(i => i.stationId === st.id);
+                        if (!stItems.length) return null;
+                        return (
+                          <div key={st.id}>
+                            <p className="text-[9px] font-bold uppercase tracking-widest text-gray-muted mt-3 mb-1">{st.name}</p>
+                            {stItems.map(item => (
+                              <div key={item.id} className="flex items-center gap-2 py-2 border-b border-border last:border-0">
+                                <span className="text-xs font-bold flex-1">{item.name}</span>
+                                <span className="text-xs text-orange font-bold">${item.price.toFixed(2)}</span>
+                                <span className="text-[10px] text-gray-muted">Stock: {item.stock}</span>
+                                <button onClick={() => handleDeleteItem(item.id!)} className="text-gray-muted hover:text-red-400 text-xs transition-colors">✕</button>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </>
+            }
+          </div>
+
+          {/* Staff list */}
+          <div className={`${card} p-4`}>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-muted mb-3">Staff</p>
+            <div className="flex gap-2 mb-3">
+              <input value={newStaffName} onChange={e => setNewStaffName(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleAddStaff()}
+                placeholder="Non staff" className={`${inp} flex-1`} />
+              <button onClick={handleAddStaff} disabled={!newStaffName.trim()}
+                className="px-4 py-2 rounded-lg bg-orange text-white text-xs font-bold disabled:opacity-40 hover:bg-orange/80 transition-all">➕</button>
+            </div>
+            {staffNames.length === 0
+              ? <p className="text-xs text-gray-muted">Pa gen staff. Staff ka tape non yo tou.</p>
+              : <div className="flex flex-wrap gap-2">
+                  {staffNames.map(name => (
+                    <div key={name} className="flex items-center gap-1.5 px-3 py-1.5 bg-white/[0.04] border border-border rounded-lg">
+                      <span className="text-xs">{name}</span>
+                      <button onClick={() => handleRemoveStaff(name)} className="text-gray-muted hover:text-red-400 text-xs">✕</button>
+                    </div>
+                  ))}
                 </div>
-
-                <input value={note} onChange={e => setNote(e.target.value)}
-                  placeholder="Nòt (opsyonèl)" className={inp} />
-
-                <button onClick={handleRecordSale} disabled={recording}
-                  className={`w-full py-3 rounded-xl font-bold text-sm transition-all ${recording ? 'bg-white/[0.04] text-gray-muted cursor-not-allowed' : 'bg-green-600 hover:bg-green-500 text-white'}`}>
-                  {recording ? '...' : `💵 Anrejistre — $${cartTotal.toFixed(2)} Kash`}
-                </button>
-
-                <button onClick={() => { setCart([]); setSaleSuccess(false); }}
-                  className="text-xs text-gray-muted hover:text-red-400 transition-colors text-center bg-transparent border-none cursor-pointer">
-                  Efase komand
-                </button>
-              </>
-            )}
+            }
           </div>
         </div>
       )}
 
-      {/* ── MENU TAB ── */}
-      {!loading && tab === 'menu' && (
-        <div className="space-y-4">
-
-          {/* Add item form */}
-          <div className={`${card} p-4`}>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-muted mb-3">Ajoute Atik</p>
-            <div className="grid grid-cols-3 gap-2 mb-2">
-              <input value={newName} onChange={e => setNewName(e.target.value)}
-                placeholder="Non *" className={`${inp} col-span-1`} />
-              <input value={newPrice} onChange={e => setNewPrice(e.target.value)}
-                placeholder="Pri *" type="number" min="0" step="0.25" className={inp} />
-              <select value={newCategory} onChange={e => setNewCategory(e.target.value)}
-                className={`${inp} col-span-1`}>
-                {CATEGORIES.map(c => <option key={c} className="bg-dark-card">{c}</option>)}
-              </select>
-            </div>
-            <button onClick={handleAddItem} disabled={saving || !newName.trim() || !newPrice}
-              className={`px-5 py-2 rounded-lg text-xs font-bold transition-all ${saving || !newName.trim() || !newPrice ? 'bg-white/[0.04] text-gray-muted cursor-not-allowed' : 'bg-orange text-white hover:bg-orange/80'}`}>
-              {saving ? '...' : '➕ Ajoute'}
+      {/* ── LIVE TAB ── */}
+      {tab === 'live' && (
+        <div>
+          <div className="flex gap-2 mb-4 flex-wrap">
+            <button onClick={() => setLiveStation(null)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${!liveStation ? 'bg-orange text-white border-orange' : 'border-border text-gray-muted hover:text-white'}`}>
+              Tout
             </button>
+            {stations.map(s => (
+              <button key={s.id} onClick={() => setLiveStation(s.id!)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${liveStation === s.id ? 'bg-orange text-white border-orange' : 'border-border text-gray-muted hover:text-white'}`}>
+                {s.name}
+              </button>
+            ))}
           </div>
 
-          {/* Menu list */}
-          {menu.length === 0 ? (
+          {orders.length === 0 ? (
             <div className={`${card} p-10 text-center`}>
-              <p className="text-3xl mb-2">🍹</p>
-              <p className="text-gray-muted text-xs">Meni vid. Ajoute premye atik ou a.</p>
+              <p className="text-3xl mb-2">📋</p>
+              <p className="text-gray-muted text-xs">Pa gen kòmand ankò.</p>
             </div>
           ) : (
-            <div className="space-y-3">
-              {CATEGORIES.filter(cat => grouped[cat].length > 0).map(cat => (
-                <div key={cat}>
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-gray-muted mb-2">{cat}</p>
-                  <div className={card}>
-                    {grouped[cat].map((item, i) => (
-                      <div key={item.id} className={`flex items-center justify-between px-4 py-3 ${i < grouped[cat].length - 1 ? 'border-b border-border' : ''}`}>
-                        <div>
-                          <p className="text-sm font-bold">{item.name}</p>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <span className="font-heading text-lg text-orange">${item.price.toFixed(2)}</span>
-                          <button onClick={() => handleDeleteItem(item.id!)} disabled={deleting === item.id}
-                            className="text-gray-muted hover:text-red-400 transition-colors text-sm disabled:opacity-40">
-                            {deleting === item.id ? '...' : '✕'}
-                          </button>
-                        </div>
+            <div className="space-y-2">
+              {orders.map(order => (
+                <div key={order.id} className={`${card} p-4 ${order.status === 'pending' ? 'border-orange/40' : 'opacity-50'}`}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-heading text-lg text-orange">#{order.orderNum}</span>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-white/[0.06] text-gray-light">{order.stationName}</span>
+                        <span className="text-[10px] text-gray-muted">{order.staffName}</span>
+                        <span className="text-[10px] text-gray-muted ml-auto">{PAY_LABELS[order.paymentMethod]}</span>
                       </div>
-                    ))}
+                      <div className="flex flex-wrap gap-1 mb-1">
+                        {order.items.map((item, i) => (
+                          <span key={i} className="text-[10px] bg-white/[0.04] border border-border rounded px-2 py-0.5">
+                            {item.qty}× {item.name}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <p className="font-heading text-xl">${order.total.toFixed(2)}</p>
+                      {order.status === 'pending' ? (
+                        <button onClick={() => handleMarkDelivered(order.id!)}
+                          className="mt-1 px-3 py-1 rounded-lg bg-green-600 hover:bg-green-500 text-white text-[10px] font-bold transition-all">
+                          ✓ Livre
+                        </button>
+                      ) : (
+                        <span className="text-[10px] text-gray-muted">✓ Livre</span>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -298,43 +392,116 @@ export default function BarPosPage() {
         </div>
       )}
 
-      {/* ── SALES TAB ── */}
-      {!loading && tab === 'sales' && (
+      {/* ── INVENTORY TAB ── */}
+      {tab === 'inventory' && (
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <div className={`${card} p-4`}>
-              <p className="text-[9px] uppercase tracking-widest text-gray-muted mb-1">Total Vant</p>
-              <p className="font-heading text-3xl">{sales.length}</p>
+          {stations.map(st => {
+            const stItems = items.filter(i => i.stationId === st.id);
+            if (!stItems.length) return null;
+            return (
+              <div key={st.id}>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-muted mb-2">{st.name}</p>
+                <div className={card}>
+                  {stItems.map((item, idx) => {
+                    const remaining = item.stock - item.sold;
+                    const low = remaining <= 5 && item.stock > 0;
+                    const isEditing = editStock[item.id!] !== undefined;
+                    return (
+                      <div key={item.id} className={`flex items-center gap-3 px-4 py-3 ${idx < stItems.length - 1 ? 'border-b border-border' : ''}`}>
+                        <div className="flex-1">
+                          <p className="text-sm font-bold">{item.name}</p>
+                          <p className="text-xs text-orange">${item.price.toFixed(2)}</p>
+                        </div>
+                        <div className="text-right text-xs text-gray-muted">
+                          <p>Vann: <strong className="text-white">{item.sold}</strong></p>
+                          <p>Stock: <strong className="text-white">{item.stock}</strong></p>
+                        </div>
+                        <div className={`text-center min-w-[60px] px-2 py-1 rounded-lg text-xs font-bold ${remaining === 0 ? 'bg-red-900/30 text-red-400' : low ? 'bg-orange/20 text-orange' : 'bg-green/10 text-green'}`}>
+                          {remaining} {low && remaining > 0 ? '⚠️' : ''}
+                        </div>
+                        {isEditing ? (
+                          <div className="flex items-center gap-1">
+                            <input type="number" value={editStock[item.id!]}
+                              onChange={e => setEditStock(p => ({ ...p, [item.id!]: e.target.value }))}
+                              className="w-16 px-2 py-1 rounded bg-white/[0.06] border border-border text-white text-xs outline-none" />
+                            <button onClick={() => handleSaveStock(item.id!)} className="text-green text-xs font-bold hover:opacity-80">✓</button>
+                            <button onClick={() => setEditStock(p => { const n = { ...p }; delete n[item.id!]; return n; })} className="text-gray-muted text-xs">✕</button>
+                          </div>
+                        ) : (
+                          <button onClick={() => setEditStock(p => ({ ...p, [item.id!]: String(item.stock) }))}
+                            className="text-[10px] text-gray-muted hover:text-orange transition-colors">✏️</button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+          {items.length === 0 && (
+            <div className={`${card} p-10 text-center`}>
+              <p className="text-gray-muted text-xs">Pa gen atik. Ale nan Setup pou ajoute.</p>
             </div>
-            <div className={`${card} p-4`}>
-              <p className="text-[9px] uppercase tracking-widest text-gray-muted mb-1">Total Revni</p>
-              <p className="font-heading text-3xl text-green">${totalSalesRevenue.toFixed(2)}</p>
-            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── STATS TAB ── */}
+      {tab === 'stats' && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { label: 'Total Kòmand', value: completedOrders.length },
+              { label: 'Ann Atant', value: pendingOrders.length, color: 'text-orange' },
+              { label: 'Total Revni', value: `$${totalRevenue.toFixed(2)}`, color: 'text-green' },
+            ].map(s => (
+              <div key={s.label} className={`${card} p-4 text-center`}>
+                <p className="text-[9px] uppercase tracking-widest text-gray-muted mb-1">{s.label}</p>
+                <p className={`font-heading text-2xl ${s.color ?? ''}`}>{s.value}</p>
+              </div>
+            ))}
           </div>
 
-          {sales.length === 0 ? (
-            <div className={`${card} p-10 text-center`}>
-              <p className="text-3xl mb-2">💰</p>
-              <p className="text-gray-muted text-xs">Pa gen vant ankò.</p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {sales.map((s, i) => (
-                <div key={i} className={`${card} p-4`}>
-                  <div className="flex justify-between items-start mb-2">
-                    <div className="flex flex-wrap gap-1">
-                      {s.items.map((item, j) => (
-                        <span key={j} className="text-[10px] bg-white/[0.04] border border-border rounded px-2 py-0.5">
-                          {item.qty}× {item.name}
-                        </span>
-                      ))}
-                    </div>
-                    <span className="font-heading text-xl text-green ml-3 flex-shrink-0">${s.total.toFixed(2)}</span>
+          {byStation.some(s => s.count > 0) && (
+            <div className={card}>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-muted px-4 pt-4 pb-2">Pa Estasyon</p>
+              {byStation.filter(s => s.count > 0).map(s => (
+                <div key={s.name} className="flex justify-between items-center px-4 py-2.5 border-t border-border">
+                  <span className="text-sm font-bold">{s.name}</span>
+                  <div className="text-right">
+                    <p className="text-sm font-bold text-green">${s.revenue.toFixed(2)}</p>
+                    <p className="text-[10px] text-gray-muted">{s.count} kòmand</p>
                   </div>
-                  {s.note && <p className="text-[10px] text-gray-muted">{s.note}</p>}
-                  <p className="text-[10px] text-gray-muted mt-1">
-                    {s.soldAt?.seconds ? new Date(s.soldAt.seconds * 1000).toLocaleTimeString() : '—'}
-                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {byStaff.length > 0 && (
+            <div className={card}>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-muted px-4 pt-4 pb-2">Pa Staff</p>
+              {byStaff.map(s => (
+                <div key={s.name} className="flex justify-between items-center px-4 py-2.5 border-t border-border">
+                  <span className="text-sm font-bold">{s.name}</span>
+                  <div className="text-right">
+                    <p className="text-sm font-bold text-green">${s.revenue.toFixed(2)}</p>
+                    <p className="text-[10px] text-gray-muted">{s.count} kòmand</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {byPayment.length > 0 && (
+            <div className={card}>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-muted px-4 pt-4 pb-2">Pa Metòd Peman</p>
+              {byPayment.map(p => (
+                <div key={p.label} className="flex justify-between items-center px-4 py-2.5 border-t border-border">
+                  <span className="text-sm font-bold">{p.label}</span>
+                  <div className="text-right">
+                    <p className="text-sm font-bold text-green">${p.revenue.toFixed(2)}</p>
+                    <p className="text-[10px] text-gray-muted">{p.count} kòmand</p>
+                  </div>
                 </div>
               ))}
             </div>

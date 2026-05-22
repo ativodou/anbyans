@@ -169,6 +169,27 @@ service cloud.firestore {
       );
     }
 
+    // ── Bar POS (public — protected by barCode URL) ────────────────
+    match /barStations/{docId} {
+      allow read: if true;
+      allow create, delete: if isAuth();
+      allow update: if true;
+    }
+    match /barItems/{docId} {
+      allow read: if true;
+      allow create, delete: if isAuth();
+      allow update: if true;
+    }
+    match /barOrders/{docId} {
+      allow read: if true;
+      allow create: if true;
+      allow update: if true;
+    }
+    match /barConfig/{docId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
     // ── Legal docs (public static) ─────────────────────────────────
     match /legal/{file} {
       allow read: if true;

@@ -13,6 +13,7 @@ import {
   limit,
   onSnapshot,
   serverTimestamp,
+  increment,
   Timestamp,
   type Unsubscribe,
 } from 'firebase/firestore';
@@ -1810,65 +1811,148 @@ export async function autoUpdateAllEventStatuses(events: EventData[]): Promise<E
 // BAR POS
 // ═══════════════════════════════════════════════════════════════════
 
-export interface BarMenuItem {
+export interface BarStation {
   id?: string;
-  organizerId: string;
   eventId: string;
+  organizerId: string;
   name: string;
-  price: number;
-  category: string;
 }
 
-export interface BarSaleItem {
+export interface BarItem {
+  id?: string;
+  eventId: string;
+  organizerId: string;
+  stationId: string;
+  stationName: string;
+  name: string;
+  price: number;
+  stock: number;
+  sold: number;
+}
+
+export interface BarOrderItem {
+  itemId: string;
   name: string;
   qty: number;
   price: number;
 }
 
-export interface BarSale {
+export type BarPaymentMethod = 'cash' | 'card' | 'moncash' | 'natcash' | 'zelle' | 'paypal';
+export type BarOrderStatus = 'pending' | 'delivered';
+
+export interface BarOrder {
   id?: string;
-  organizerId: string;
   eventId: string;
-  items: BarSaleItem[];
+  organizerId: string;
+  stationId: string;
+  stationName: string;
+  staffName: string;
+  items: BarOrderItem[];
   total: number;
-  note: string;
-  soldAt: any;
+  paymentMethod: BarPaymentMethod;
+  status: BarOrderStatus;
+  orderNum: number;
+  createdAt: any;
 }
 
-export async function getBarMenu(organizerId: string, eventId: string): Promise<BarMenuItem[]> {
-  const q = query(
-    collection(db, 'barMenu'),
-    where('organizerId', '==', organizerId),
-    where('eventId', '==', eventId),
-  );
+export interface BarConfig {
+  staffNames: string[];
+}
+
+export async function getBarStations(eventId: string): Promise<BarStation[]> {
+  const q = query(collection(db, 'barStations'), where('eventId', '==', eventId));
   const snap = await getDocs(q);
-  return snap.docs.map(d => ({ id: d.id, ...d.data() } as BarMenuItem));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as BarStation));
 }
 
-export async function saveBarMenuItem(item: Omit<BarMenuItem, 'id'>): Promise<string> {
-  const ref = await addDoc(collection(db, 'barMenu'), item);
+export async function saveBarStation(station: Omit<BarStation, 'id'>): Promise<string> {
+  const ref = await addDoc(collection(db, 'barStations'), station);
   return ref.id;
 }
 
-export async function deleteBarMenuItem(itemId: string): Promise<void> {
-  await deleteDoc(doc(db, 'barMenu', itemId));
+export async function deleteBarStation(stationId: string): Promise<void> {
+  await deleteDoc(doc(db, 'barStations', stationId));
 }
 
-export async function recordBarSale(sale: Omit<BarSale, 'id' | 'soldAt'>): Promise<string> {
-  const ref = await addDoc(collection(db, 'barSales'), { ...sale, soldAt: serverTimestamp() });
+export async function getBarItems(eventId: string, stationId?: string): Promise<BarItem[]> {
+  const q = stationId
+    ? query(collection(db, 'barItems'), where('eventId', '==', eventId), where('stationId', '==', stationId))
+    : query(collection(db, 'barItems'), where('eventId', '==', eventId));
+  const snap = await getDocs(q);
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as BarItem));
+}
+
+export async function saveBarItem(item: Omit<BarItem, 'id'>): Promise<string> {
+  const ref = await addDoc(collection(db, 'barItems'), item);
   return ref.id;
 }
 
-export async function getBarSales(organizerId: string, eventId: string): Promise<BarSale[]> {
-  const q = query(
-    collection(db, 'barSales'),
-    where('organizerId', '==', organizerId),
-    where('eventId', '==', eventId),
+export async function deleteBarItem(itemId: string): Promise<void> {
+  await deleteDoc(doc(db, 'barItems', itemId));
+}
+
+export async function updateBarItemStock(itemId: string, stock: number): Promise<void> {
+  await updateDoc(doc(db, 'barItems', itemId), { stock });
+}
+
+export async function placeBarOrder(
+  order: Omit<BarOrder, 'id' | 'createdAt' | 'orderNum'>,
+): Promise<{ id: string; orderNum: number }> {
+  const orderNum = Math.floor(Date.now() / 1000) % 10000;
+  await Promise.all(
+    order.items.map(item =>
+      updateDoc(doc(db, 'barItems', item.itemId), { sold: increment(item.qty) }),
+    ),
   );
+  const ref = await addDoc(collection(db, 'barOrders'), {
+    ...order, orderNum, createdAt: serverTimestamp(),
+  });
+  return { id: ref.id, orderNum };
+}
+
+export function subscribeBarOrders(
+  eventId: string,
+  stationId: string | null,
+  callback: (orders: BarOrder[]) => void,
+): Unsubscribe {
+  const q = stationId
+    ? query(collection(db, 'barOrders'), where('eventId', '==', eventId), where('stationId', '==', stationId))
+    : query(collection(db, 'barOrders'), where('eventId', '==', eventId));
+  return onSnapshot(q, snap => {
+    const orders = snap.docs
+      .map(d => ({ id: d.id, ...d.data() } as BarOrder))
+      .sort((a, b) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0));
+    callback(orders);
+  });
+}
+
+export async function updateBarOrderStatus(orderId: string, status: BarOrderStatus): Promise<void> {
+  await updateDoc(doc(db, 'barOrders', orderId), { status });
+}
+
+export async function getBarOrders(eventId: string): Promise<BarOrder[]> {
+  const q = query(collection(db, 'barOrders'), where('eventId', '==', eventId));
   const snap = await getDocs(q);
   return snap.docs
-    .map(d => ({ id: d.id, ...d.data() } as BarSale))
-    .sort((a, b) => (b.soldAt?.seconds || 0) - (a.soldAt?.seconds || 0));
+    .map(d => ({ id: d.id, ...d.data() } as BarOrder))
+    .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+}
+
+export async function getBarConfig(eventId: string): Promise<BarConfig> {
+  const snap = await getDoc(doc(db, 'barConfig', eventId));
+  if (snap.exists()) return snap.data() as BarConfig;
+  return { staffNames: [] };
+}
+
+export async function saveBarConfig(eventId: string, config: Partial<BarConfig>): Promise<void> {
+  await setDoc(doc(db, 'barConfig', eventId), config, { merge: true });
+}
+
+export async function getEventByBarCode(barCode: string): Promise<EventData | null> {
+  const q = query(collection(db, 'events'), where('barCode', '==', barCode));
+  const snap = await getDocs(q);
+  if (snap.empty) return null;
+  return { id: snap.docs[0].id, ...snap.docs[0].data() } as EventData;
 }
 
 export async function getPlatformFeeRate(): Promise<number> {
