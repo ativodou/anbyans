@@ -70,6 +70,7 @@ export default function AdminDashboardPage() {
   const [seedMsg, setSeedMsg] = useState('');
   const [loading, setLoading] = useState(true);
   const [settingsFee, setSettingsFee] = useState(9);
+  const [settingsPosFee, setSettingsPosFee] = useState(50);
   const [settingsReserve, setSettingsReserve] = useState(20);
   const [settingsDelay, setSettingsDelay] = useState(7);
   const [settingsSaved, setSettingsSaved] = useState(false);
@@ -138,6 +139,7 @@ export default function AdminDashboardPage() {
         if (cfgSnap.exists()) {
           const cfg = cfgSnap.data();
           if (cfg.platformFee)       setSettingsFee(cfg.platformFee);
+          if (cfg.posFee)            setSettingsPosFee(cfg.posFee);
           if (cfg.chargebackReserve) setSettingsReserve(cfg.chargebackReserve);
           if (cfg.payoutDelayDays)   setSettingsDelay(cfg.payoutDelayDays);
         }
@@ -201,6 +203,7 @@ export default function AdminDashboardPage() {
   async function handleSaveSettings() {
     await updateDoc(doc(db, 'config', 'platform'), {
       platformFee: settingsFee,
+      posFee: settingsPosFee,
       chargebackReserve: settingsReserve,
       payoutDelayDays: settingsDelay,
     });
@@ -823,6 +826,10 @@ export default function AdminDashboardPage() {
                   <div>
                     <label className="block text-[11px] font-semibold text-gray-light mb-1">{t('admin_platform_fee_lbl')}</label>
                     <input value={settingsFee} onChange={e => setSettingsFee(Number(e.target.value))} type="number" className="w-32 px-3 py-2 rounded-lg bg-white/[0.04] border border-border text-white text-sm outline-none focus:border-orange" />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-gray-light mb-1">POS Activation Fee ($)</label>
+                    <input value={settingsPosFee} onChange={e => setSettingsPosFee(Number(e.target.value))} type="number" className="w-32 px-3 py-2 rounded-lg bg-white/[0.04] border border-border text-white text-sm outline-none focus:border-orange" />
                   </div>
                   <div>
                     <label className="block text-[11px] font-semibold text-gray-light mb-1">{t('admin_chargeback_reserve')}</label>

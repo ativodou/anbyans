@@ -95,6 +95,8 @@ export interface EventData {
   city?: string;
   floorPlanUrl?: string;
   seatsioChartKey?: string;
+  posActivated?: boolean;
+  posActivatedAt?: string;
   createdAt: any;
   updatedAt: any;
 }
@@ -1811,4 +1813,20 @@ export async function getPlatformFeeRate(): Promise<number> {
     if (typeof fee === 'number' && fee > 0) return fee / 100;
   } catch {}
   return 0.09;
+}
+
+export async function getPlatformConfig(): Promise<{ platformFee: number; posFee: number; chargebackReserve: number; payoutDelayDays: number }> {
+  try {
+    const snap = await getDoc(doc(db, 'config', 'platform'));
+    if (snap.exists()) {
+      const d = snap.data();
+      return {
+        platformFee:      d.platformFee      ?? 9,
+        posFee:           d.posFee           ?? 50,
+        chargebackReserve: d.chargebackReserve ?? 20,
+        payoutDelayDays:  d.payoutDelayDays  ?? 7,
+      };
+    }
+  } catch {}
+  return { platformFee: 9, posFee: 50, chargebackReserve: 20, payoutDelayDays: 7 };
 }
