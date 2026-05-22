@@ -7,13 +7,16 @@ import { useT } from '@/i18n';
 import LangSwitcher from '@/components/LangSwitcher';
 import { useAuth } from '@/hooks/useAuth';
 import { auth, db } from '@/lib/firebase';
-import { collection, query, where, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, addDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
+import { loadStripe } from '@stripe/stripe-js';
+import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import {
   getVendorByUid,
   getEvent,
   getOrganizerEvents,
   getEventBulkPricing,
   getPublishedEvents,
+  getPlatformFeeRate,
   vendorBulkPurchase,
   vendorSellTicket,
   VendorData,
@@ -22,8 +25,33 @@ import {
   ResellerSectionPricing,
 } from '@/lib/db';
 
+const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
+
 interface BulkTier { minQty: number; maxQty: number | null; priceEach: number; }
 interface CalTier { label: string; openDate: string; closeDate: string; priceEach: number; }
+
+function VendorStripeForm({ onSuccess, onError }: { onSuccess: (piId: string) => void; onError: (msg: string) => void }) {
+  const stripe = useStripe();
+  const elements = useElements();
+  const [confirming, setConfirming] = useState(false);
+  async function handlePay() {
+    if (!stripe || !elements) return;
+    setConfirming(true);
+    const { error, paymentIntent } = await stripe.confirmPayment({ elements, redirect: 'if_required' });
+    if (error) { onError(error.message || 'Erè peman.'); setConfirming(false); return; }
+    if (paymentIntent?.status === 'succeeded') onSuccess(paymentIntent.id);
+    setConfirming(false);
+  }
+  return (
+    <div style={{ marginTop: 16 }}>
+      <PaymentElement />
+      <button onClick={handlePay} disabled={confirming || !stripe}
+        style={{ marginTop: 14, width: '100%', padding: 13, borderRadius: 10, border: 'none', background: confirming ? '#2a2a3a' : '#a855f7', color: '#fff', fontWeight: 700, fontSize: 14, cursor: confirming ? 'not-allowed' : 'pointer' }}>
+        {confirming ? '...' : '💳 Peye Kounye a'}
+      </button>
+    </div>
+  );
+}
 type VendorRequestStatus = 'pending' | 'approved' | 'denied';
 interface VendorRequest {
   id?: string;
@@ -129,6 +157,9 @@ export default function VendorDashboardPage() {
   const [buySuccess, setBuySuccess] = useState(false);
   const [buyLoading, setBuyLoading] = useState(false);
   const [buyError, setBuyError] = useState('');
+  const [buyClientSecret, setBuyClientSecret] = useState<string | null>(null);
+  const [buyOrgStripeId, setBuyOrgStripeId] = useState<string | null>(null);
+  const [feeRate, setFeeRate] = useState(0.09);
 
   // ─── ONE effect, no useCallback, no router in deps ───────────────
   useEffect(() => {
@@ -211,6 +242,8 @@ export default function VendorDashboardPage() {
       }
     };
 
+    getPlatformFeeRate().then(setFeeRate);
+
     const unsub = auth.onAuthStateChanged(u => {
       unsub();
       if (u) { loadData(u.uid); }
@@ -286,16 +319,46 @@ export default function VendorDashboardPage() {
 
   async function handleConfirmBuy() {
     if (!vendor?.id || !selectedEvent?.id || !selectedSection) return;
+    setBuyLoading(true); setBuyError(''); setBuyClientSecret(null);
+    try {
+      // Load organizer's Stripe Connect ID
+      const orgSnap = await getDoc(doc(db, 'organizers', selectedEvent.organizerId || ''));
+      const orgStripeId = orgSnap.exists() ? (orgSnap.data().stripeAccountId || null) : null;
+      setBuyOrgStripeId(orgStripeId);
+
+      const res = await fetch('/api/payment/stripe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount: buyTotal,
+          applicationFeeAmount: buyTotal * feeRate,
+          currency: 'usd',
+          eventName: selectedEvent.name,
+          seats: buyQty,
+          connectedAccountId: orgStripeId,
+        }),
+      });
+      const data = await res.json();
+      if (data.error) { setBuyError(data.error); return; }
+      setBuyClientSecret(data.clientSecret);
+    } catch (e: any) {
+      setBuyError(e.message || 'Erè.');
+    } finally { setBuyLoading(false); }
+  }
+
+  async function handleBuyPaid(paymentIntentId: string) {
+    if (!vendor?.id || !selectedEvent?.id || !selectedSection) return;
     setBuyLoading(true); setBuyError('');
     try {
       await vendorBulkPurchase({
         vendorId: vendor.id, vendorName: vendor.name,
-        organizerId: vendor.organizerId, eventId: selectedEvent.id!,
-        eventName: selectedEvent.name, eventEmoji: '🎫',
-        eventDate: selectedEvent.startDate, section: selectedSection.section,
-        sectionColor: selectedSection.sectionColor, qty: buyQty, priceEach: bulkPrice,
+        organizerId: selectedEvent.organizerId || vendor.organizerId,
+        eventId: selectedEvent.id!, eventName: selectedEvent.name,
+        eventEmoji: '🎫', eventDate: selectedEvent.startDate,
+        section: selectedSection.section, sectionColor: selectedSection.sectionColor,
+        qty: buyQty, priceEach: bulkPrice, paymentMethod: 'stripe',
       });
-      setBuySuccess(true); setShowBuyConfirm(false);
+      setBuySuccess(true); setShowBuyConfirm(false); setBuyClientSecret(null);
       await refreshStock(vendor.id);
     } catch (e: any) {
       setBuyError(e.message || 'Erè.');
@@ -303,7 +366,7 @@ export default function VendorDashboardPage() {
   }
 
   function resetSell() { setSellSuccess(false); setSellCodes([]); setSellQty(1); setSellPrice(''); setBuyerName(''); setBuyerPhone(''); setSellError(''); }
-  function resetBuy() { setBuySuccess(false); setBuyQty(10); setBuyError(''); }
+  function resetBuy() { setBuySuccess(false); setBuyQty(10); setBuyError(''); setBuyClientSecret(null); }
 
   // ── Spinner pandan chajman ──
   if (loading) return (
@@ -819,20 +882,24 @@ export default function VendorDashboardPage() {
                 </div>
               ))}
             </div>
-            <p style={{ color: '#666', fontSize: 12, marginBottom: 14 }}>{t('vend_dash_choose_payment')}</p>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, maxWidth: 360, margin: '0 auto 16px' }}>
-              {['📱 MonCash', '💚 Natcash', '⚡ Zelle', '💲 Cash App', '🅿️ PayPal'].map(m => (
-                <button key={m} onClick={handleConfirmBuy} disabled={buyLoading} style={{ padding: '10px 6px', borderRadius: 10, border: '1px solid #1e1e2e', background: 'none', color: '#ccc', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>{m}</button>
-              ))}
-              {(vendor as any)?.trusted && (
-                <button onClick={handleConfirmBuy} disabled={buyLoading} style={{ padding: '10px 6px', borderRadius: 10, border: '1px solid #22c55e', background: '#22c55e15', color: '#22c55e', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
-                  💳 {t('vend_dash_credit_card')}
-                  <span style={{ display: 'block', fontSize: 8, color: '#22c55e99', marginTop: 2 }}>✓ Trusted</span>
-                </button>
-              )}
-            </div>
             {buyError && <p style={{ color: '#ef4444', fontSize: 12, marginBottom: 10 }}>{buyError}</p>}
-            <button onClick={() => setShowBuyConfirm(false)} style={{ color: '#555', background: 'none', border: 'none', cursor: 'pointer', fontSize: 12 }}>← {t('back')}</button>
+            {!buyClientSecret && (
+              <button onClick={handleConfirmBuy} disabled={buyLoading}
+                style={{ ...btn('#a855f7'), maxWidth: 320, margin: '0 auto', opacity: buyLoading ? 0.6 : 1 }}>
+                {buyLoading ? '...' : `💳 Peye $${buyTotal.toLocaleString()}`}
+              </button>
+            )}
+            {buyClientSecret && (
+              <div style={{ maxWidth: 400, margin: '0 auto', textAlign: 'left' }}>
+                <Elements stripe={stripePromise} options={{ clientSecret: buyClientSecret, appearance: { theme: 'night' } }}>
+                  <VendorStripeForm
+                    onSuccess={handleBuyPaid}
+                    onError={msg => setBuyError(msg)}
+                  />
+                </Elements>
+              </div>
+            )}
+            <button onClick={() => { setShowBuyConfirm(false); setBuyClientSecret(null); }} style={{ color: '#555', background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, marginTop: 12 }}>← {t('back')}</button>
           </div>
         )}
 
