@@ -105,7 +105,7 @@ export default function IssueTicketsPage() {
     try {
       const tickets = await purchaseTickets(
         selectedEvent.id!, buyerName, buyerEmail, buyerPhone,
-        selectedSection.id || selectedSection.name,
+        selectedSection.name,
         selectedSection.color || '#fff',
         seats, retailPrice,
         undefined, paymentIntentId, 'stripe',
