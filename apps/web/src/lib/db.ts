@@ -1803,3 +1803,12 @@ export async function autoUpdateEventStatus(event: EventData): Promise<EventData
 export async function autoUpdateAllEventStatuses(events: EventData[]): Promise<EventData[]> {
   return Promise.all(events.map(e => autoUpdateEventStatus(e)));
 }
+
+export async function getPlatformFeeRate(): Promise<number> {
+  try {
+    const snap = await getDoc(doc(db, 'config', 'platform'));
+    const fee = snap.data()?.platformFee;
+    if (typeof fee === 'number' && fee > 0) return fee / 100;
+  } catch {}
+  return 0.09;
+}

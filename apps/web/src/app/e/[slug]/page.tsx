@@ -8,7 +8,7 @@ const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
 import { useParams } from 'next/navigation';
 import { collection, query, where, getDocs, doc, getDoc, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { getEventByPrivateToken } from '@/lib/db';
+import { getEventByPrivateToken, getPlatformFeeRate } from '@/lib/db';
 import { useT } from '@/i18n';
 import Link from 'next/link';
 import FloorPlanViewer from '@/components/FloorPlanViewer';
@@ -196,12 +196,14 @@ function BuyPageInner() {
   const [ticketCodes, setTicketCodes] = useState<string[]>([]);
   const [expandedSection, setExpandedSection] = useState('');
   const [organizerStripeId, setOrganizerStripeId] = useState<string | null>(null);
+  const [feeRate, setFeeRate] = useState(0.09);
   const [errors, setErrors]           = useState<Record<string, string>>({});
   const [purchaseError, setPurchaseError] = useState('');
 
   // ── Load event ────────────────────────────────────────────────
   useEffect(() => {
     if (!slug) return;
+    getPlatformFeeRate().then(setFeeRate);
     (async () => {
       try {
         let eventId = '';
@@ -294,8 +296,7 @@ function BuyPageInner() {
   // ── Cart helpers ──────────────────────────────────────────────
   const htg = (usd: number) => Math.round(usd * (event?.exchangeRate || 130));
   const cartTotal   = cart.reduce((sum, item) => sum + item.section.price * item.qty, 0);
-  const FEE_RATE    = 0.09; // 9% Anbyans service fee — passed to fan
-  const serviceFee  = Math.round(cartTotal * FEE_RATE * 100) / 100;
+  const serviceFee  = Math.round(cartTotal * feeRate * 100) / 100;
   const chargeTotal = cartTotal + serviceFee; // what fan actually pays
   const cartCount = cart.reduce((sum, item) => sum + item.qty, 0);
   const cartItem  = (secId: string) => cart.find(c => c.section.id === secId);
@@ -384,7 +385,7 @@ function BuyPageInner() {
             section: item.section.id, sectionName: item.section.name, sectionColor: item.section.color,
             seat: seats[i] || null,
             price: item.section.price, priceHTG: htg(item.section.price),
-            serviceFee: Math.round(item.section.price * FEE_RATE * 100) / 100,
+            serviceFee: Math.round(item.section.price * feeRate * 100) / 100,
             chargeTotal: Math.round(item.section.price * (1 + FEE_RATE) * 100) / 100,
             paymentMethod: payMethod, paymentStatus,
             txnId: txnId.trim() || null,

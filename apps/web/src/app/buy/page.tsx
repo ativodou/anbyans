@@ -4,7 +4,7 @@ import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
-import { getEventByPrivateToken, purchaseTickets } from '../../lib/db';
+import { getEventByPrivateToken, purchaseTickets, getPlatformFeeRate } from '../../lib/db';
 import { useT } from '../../i18n';
 import Link from 'next/link';
 import { loadStripe } from '@stripe/stripe-js';
@@ -193,10 +193,12 @@ function BuyPageInner() {
   const [stripeError, setStripeError] = useState('');
   const [purchaseError, setPurchaseError] = useState('');
   const [organizerStripeAccountId, setOrganizerStripeAccountId] = useState<string | null>(null);
+  const [feeRate, setFeeRate] = useState(0.09);
 
   // ── Load event ────────────────────────────────────────────────
   useEffect(() => {
     if (!eventKey) return;
+    getPlatformFeeRate().then(setFeeRate);
     (async () => {
       try {
         // Try document ID first (most common path from /events/[id])
@@ -270,7 +272,7 @@ function BuyPageInner() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         amount,
-        applicationFeeAmount: amount * 0.09,
+        applicationFeeAmount: amount * feeRate,
         currency: 'usd',
         eventName: event.title,
         seats: qty,
