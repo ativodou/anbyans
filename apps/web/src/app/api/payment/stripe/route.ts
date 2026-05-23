@@ -10,12 +10,20 @@ export async function POST(req: NextRequest) {
     const secretKey = raw.replace(/[^a-zA-Z0-9_]/g, "");
     const stripe = new Stripe(secretKey);
 
-    const { amount, applicationFeeAmount, currency = "usd", eventName, seats, connectedAccountId } = await req.json();
+    const { amount, applicationFeeAmount, currency = "usd", eventName, seats, connectedAccountId, ticketAmount, barTabAmount, serviceFee } = await req.json();
+
+    const metadata: Record<string, string> = { eventName, seats: String(seats) };
+    if (ticketAmount  != null) metadata.tickets    = `$${Number(ticketAmount).toFixed(2)}`;
+    if (barTabAmount  != null && Number(barTabAmount) > 0) metadata.bar_food_preorder = `$${Number(barTabAmount).toFixed(2)}`;
+    if (serviceFee    != null) metadata.platform_fee = `$${Number(serviceFee).toFixed(2)}`;
 
     const params: any = {
       amount: Math.round(amount * 100),
       currency,
-      metadata: { eventName, seats: String(seats) },
+      description: barTabAmount > 0
+        ? `${eventName} — ${seats} ticket(s) + bar/food pre-order`
+        : `${eventName} — ${seats} ticket(s)`,
+      metadata,
       automatic_payment_methods: { enabled: true },
     };
 

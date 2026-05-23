@@ -856,6 +856,9 @@ function BuyPageInner() {
                       eventName: event?.title,
                       seats: cartCount,
                       connectedAccountId: organizerStripeId,
+                      ticketAmount: cartTotal,
+                      barTabAmount,
+                      serviceFee,
                     }),
                   });
                   const data = await res.json();

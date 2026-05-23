@@ -102,6 +102,8 @@ export default function IssueTicketsPage() {
           currency: 'usd',
           eventName: `Fee: ${selectedEvent.name} ×${qty}`,
           seats: qty,
+          ticketAmount: retailPrice * qty,
+          serviceFee: anbyasFee,
         }),
       });
       const data = await res.json();
