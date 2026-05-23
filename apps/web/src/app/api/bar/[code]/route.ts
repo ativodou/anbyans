@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
 const PROJECT = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID!;
+const KEY = process.env.NEXT_PUBLIC_FIREBASE_API_KEY!;
 const BASE = `https://firestore.googleapis.com/v1/projects/${PROJECT}/databases/(default)/documents`;
 
 function parseFields(fields: Record<string, any>): Record<string, any> {
@@ -21,7 +22,7 @@ export async function GET(_: Request, { params }: { params: { code: string } }) 
   const { code } = params;
 
   // 1. Try barCode query
-  const qRes = await fetch(`${BASE}:runQuery`, {
+  const qRes = await fetch(`${BASE}:runQuery?key=${KEY}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -40,7 +41,7 @@ export async function GET(_: Request, { params }: { params: { code: string } }) 
   }
 
   // 2. Try direct document ID
-  const dRes = await fetch(`${BASE}/events/${code}`);
+  const dRes = await fetch(`${BASE}/events/${code}?key=${KEY}`);
   if (dRes.ok) {
     const dData = await dRes.json();
     if (dData.fields) return NextResponse.json({ id: code, ...parseFields(dData.fields) });
