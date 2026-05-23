@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import {
-  getEventByBarCode, getBarStations, getBarItems, getBarStaffNames, placeBarOrder,
+  getEventByBarCode, getEvent, getBarStations, getBarItems, getBarStaffNames, placeBarOrder,
   type BarStation, type BarItem, type BarPaymentMethod, type EventData,
 } from '@/lib/db';
 
@@ -46,7 +46,12 @@ export default function StaffPosPage() {
 
   useEffect(() => {
     if (!code) return;
-    getEventByBarCode(code).then(ev => {
+    const resolveEvent = async () => {
+      let ev = await getEventByBarCode(code);
+      if (!ev || !ev.id) ev = await getEvent(code);
+      return ev;
+    };
+    resolveEvent().then(ev => {
       if (!ev || !ev.id) { setNotFound(true); setLoading(false); return; }
       setEvent(ev);
       Promise.all([

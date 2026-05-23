@@ -168,8 +168,8 @@ export default function OrganizerBarPage() {
   );
 
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
-  const staffUrl = barCode ? `${origin}/bar/${barCode}` : null;
-  const displayUrl = barCode ? `${origin}/bar/${barCode}/display` : null;
+  const staffUrl = posActivated && eventId ? `${origin}/bar/${eventId}` : null;
+  const displayUrl = posActivated && eventId ? `${origin}/bar/${eventId}/display` : null;
 
   const pendingOrders = orders.filter(o => o.status === 'pending');
 
