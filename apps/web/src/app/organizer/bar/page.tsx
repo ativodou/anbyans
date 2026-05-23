@@ -38,6 +38,7 @@ export default function OrganizerBarPage() {
   const [editStock, setEditStock] = useState<Record<string, string>>({});
   const [savingStation, setSavingStation] = useState(false);
   const [savingItem, setSavingItem] = useState(false);
+  const [stationError, setStationError] = useState('');
   const [generatingCode, setGeneratingCode] = useState(false);
 
   // ── Live state ──
@@ -79,13 +80,21 @@ export default function OrganizerBarPage() {
 
   // ── Handlers ──
   async function handleAddStation() {
-    if (!newStation.trim() || !eventId) return;
+    if (!newStation.trim() || !eventId) {
+      if (!eventId) setStationError('No event selected — please pick an event first.');
+      return;
+    }
     setSavingStation(true);
-    const id = await saveBarStation({ eventId, organizerId, name: newStation.trim() });
-    const station = { id, eventId, organizerId, name: newStation.trim() };
-    setStations(prev => [...prev, station]);
-    if (!newItem.stationId) setNewItem(p => ({ ...p, stationId: id }));
-    setNewStation('');
+    setStationError('');
+    try {
+      const id = await saveBarStation({ eventId, organizerId, name: newStation.trim() });
+      const station = { id, eventId, organizerId, name: newStation.trim() };
+      setStations(prev => [...prev, station]);
+      if (!newItem.stationId) setNewItem(p => ({ ...p, stationId: id }));
+      setNewStation('');
+    } catch (e: any) {
+      setStationError(e?.message ?? 'Failed to save station.');
+    }
     setSavingStation(false);
   }
 
@@ -232,6 +241,7 @@ export default function OrganizerBarPage() {
                 {savingStation ? '...' : '➕'}
               </button>
             </div>
+            {stationError && <p className="text-xs text-red-400 mb-2">{stationError}</p>}
             {stations.length === 0
               ? <p className="text-xs text-gray-muted">Pa gen estasyon ankò.</p>
               : <div className="flex flex-wrap gap-2">
