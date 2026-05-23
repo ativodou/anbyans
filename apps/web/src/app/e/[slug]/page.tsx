@@ -52,7 +52,7 @@ interface EventData {
   preOrderCutoffHours?: number;
 }
 
-type Step = 'detail' | 'seats' | 'info' | 'payment' | 'done';
+type Step = 'detail' | 'info' | 'payment' | 'done';
 type PayMethod = 'stripe' | 'moncash' | 'natcash' | 'cash';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -350,10 +350,10 @@ function BuyPageInner() {
         ).filter(c => c.qty > 0));
         return;
       }
-      // Open seat picker
+      // Open inline seat picker
       setSeatSection(sec);
       setPendingSeats(existing?.seats || []);
-      setStep('seats');
+      setExpandedSection(sec.id);
       return;
     }
     setCart(prev => {
@@ -381,7 +381,7 @@ function BuyPageInner() {
     });
     setSeatSection(null);
     setPendingSeats([]);
-    setStep('detail');
+    setExpandedSection('');
   };
 
   const togglePendingSeat = (id: string) => {
@@ -595,26 +595,66 @@ function BuyPageInner() {
                 {/* ── Expanded content ── */}
                 {isOpen && !soldOut && (
                   <div className="px-4 pb-4 pt-0" onClick={ev => ev.stopPropagation()}>
-                    <div className="border-t border-white/[0.06] pt-3 flex items-center gap-3">
-                      <div className="flex items-center gap-2">
-                        <button onClick={() => adjustQty(sec, -1)} disabled={qty === 0}
-                          className="w-9 h-9 rounded-full bg-white/[0.08] text-white font-bold hover:bg-orange/30 transition-colors disabled:opacity-30 text-xl leading-none">−</button>
-                        <span className="text-lg font-heading w-8 text-center">{qty}</span>
-                        <button onClick={() => adjustQty(sec, 1)} disabled={qty >= Math.min(10, avail)}
-                          className="w-9 h-9 rounded-full bg-white/[0.08] text-white font-bold hover:bg-orange/30 transition-colors disabled:opacity-30 text-xl leading-none">+</button>
-                      </div>
-                      {qty === 0 ? (
-                        <button
-                          onClick={() => adjustQty(sec, 1)}
-                          className="flex-1 py-2.5 rounded-xl bg-orange text-white font-heading text-sm hover:bg-orange/90 transition-all">
-                          {t('slug_add_to_cart')}
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => { setCart(prev => prev.filter(c => c.section.id !== sec.id)); setExpandedSection(''); }}
-                          className="flex-1 py-2.5 rounded-xl bg-white/[0.06] border border-white/10 text-gray-400 font-heading text-sm hover:border-red-500/50 hover:text-red-400 transition-all">
-                          {t('slug_remove')}
-                        </button>
+                    <div className="border-t border-white/[0.06] pt-3">
+
+                      {/* GA section: simple +/- */}
+                      {sec.type !== 'reserved' && (
+                        <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-2">
+                            <button onClick={() => adjustQty(sec, -1)} disabled={qty === 0}
+                              className="w-9 h-9 rounded-full bg-white/[0.08] text-white font-bold hover:bg-orange/30 transition-colors disabled:opacity-30 text-xl leading-none">−</button>
+                            <span className="text-lg font-heading w-8 text-center">{qty}</span>
+                            <button onClick={() => adjustQty(sec, 1)} disabled={qty >= Math.min(10, avail)}
+                              className="w-9 h-9 rounded-full bg-white/[0.08] text-white font-bold hover:bg-orange/30 transition-colors disabled:opacity-30 text-xl leading-none">+</button>
+                          </div>
+                          {qty === 0 ? (
+                            <button onClick={() => adjustQty(sec, 1)}
+                              className="flex-1 py-2.5 rounded-xl bg-orange text-white font-heading text-sm hover:bg-orange/90 transition-all">
+                              {t('slug_add_to_cart')}
+                            </button>
+                          ) : (
+                            <button onClick={() => { setCart(prev => prev.filter(c => c.section.id !== sec.id)); setExpandedSection(''); }}
+                              className="flex-1 py-2.5 rounded-xl bg-white/[0.06] border border-white/10 text-gray-400 font-heading text-sm hover:border-red-500/50 hover:text-red-400 transition-all">
+                              {t('slug_remove')}
+                            </button>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Reserved section: inline seat map */}
+                      {sec.type === 'reserved' && (
+                        <div>
+                          {qty > 0 && seatSection?.id !== sec.id ? (
+                            <div className="flex items-center gap-3">
+                              <p className="text-xs text-orange font-bold flex-1">{qty} seat{qty > 1 ? 's' : ''} selected: {item?.seats.join(', ')}</p>
+                              <button onClick={() => { setSeatSection(sec); setPendingSeats(item?.seats || []); }}
+                                className="px-3 py-1.5 rounded-lg border border-orange/40 text-orange text-xs font-bold hover:bg-orange/10 transition-all">
+                                Edit seats
+                              </button>
+                              <button onClick={() => { setCart(prev => prev.filter(c => c.section.id !== sec.id)); setExpandedSection(''); }}
+                                className="px-3 py-1.5 rounded-lg border border-white/10 text-gray-400 text-xs font-bold hover:border-red-500/50 hover:text-red-400 transition-all">
+                                Remove
+                              </button>
+                            </div>
+                          ) : (
+                            <>
+                              <p className="text-xs text-gray-400 mb-4">
+                                {pendingSeats.length} {t('slug_seats_selected')} · {sec.name}
+                              </p>
+                              <SeatMap section={sec} takenIds={takenSeats} selected={pendingSeats} onToggle={togglePendingSeat} />
+                              <div className="flex gap-3 mt-4">
+                                <button onClick={() => { setSeatSection(null); setPendingSeats([]); setExpandedSection(''); }}
+                                  className="flex-1 py-2.5 rounded-xl border border-white/10 text-gray-400 font-heading text-sm hover:border-white/30 transition-all">
+                                  {t('back')}
+                                </button>
+                                <button disabled={pendingSeats.length === 0} onClick={confirmSeats}
+                                  className="flex-1 py-2.5 rounded-xl bg-orange text-white font-heading text-sm disabled:opacity-30 hover:bg-orange/90 transition-all">
+                                  {t('slug_confirm_seats')} ({pendingSeats.length}) →
+                                </button>
+                              </div>
+                            </>
+                          )}
+                        </div>
                       )}
                     </div>
                   </div>
@@ -720,25 +760,6 @@ function BuyPageInner() {
           </div>
         </div>
       )}
-    </div>
-  );
-
-  // ── Step: Seats ───────────────────────────────────────────────
-  if (step === 'seats' && seatSection) return (
-    <div className="min-h-screen bg-black text-white">
-      <div className="max-w-2xl mx-auto px-4 py-6">
-        <button onClick={() => { setSeatSection(null); setPendingSeats([]); setStep('detail'); }}
-          className="text-gray-400 hover:text-white text-sm mb-4">← {t('back')}</button>
-        <h2 className="font-heading text-xl mb-1">{t('slug_confirm_seats')}</h2>
-        <p className="text-gray-400 text-xs mb-6">
-          {pendingSeats.length} {t('slug_seats_selected')} · {seatSection.name}
-        </p>
-        <SeatMap section={seatSection} takenIds={takenSeats} selected={pendingSeats} onToggle={togglePendingSeat} />
-        <button disabled={pendingSeats.length === 0} onClick={confirmSeats}
-          className="w-full mt-8 py-3.5 rounded-xl font-heading text-base bg-orange text-white disabled:opacity-30 hover:bg-orange/90 transition-all">
-          {t('slug_confirm_seats')} ({pendingSeats.length}) →
-        </button>
-      </div>
     </div>
   );
 
