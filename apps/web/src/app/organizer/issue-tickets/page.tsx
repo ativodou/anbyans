@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useT } from '@/i18n';
 import { getOrganizerEvents, purchaseTickets, getPlatformFeeRate, type EventData } from '@/lib/db';
+import { db } from '@/lib/firebase';
+import { doc, updateDoc, increment } from 'firebase/firestore';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 
@@ -78,6 +80,14 @@ export default function IssueTicketsPage() {
   async function handleProceedToPay() {
     if (!buyerName.trim() || !buyerPhone.trim()) { setError('Mete non ak nimewo telefòn acheteur.'); return; }
     if (!selectedEvent?.id || !selectedSection) return;
+
+    // Enforce comp limit for free tickets
+    if (retailPrice === 0) {
+      const limit = (selectedEvent as any).compLimit ?? 0;
+      const issued = (selectedEvent as any).compIssued ?? 0;
+      if (limit === 0) { setError('Free ticket issuance is not enabled for this event.'); return; }
+      if (issued + qty > limit) { setError(`Comp limit reached. ${limit - issued} free ticket(s) remaining.`); return; }
+    }
     setError(''); setPayLoading(true);
     try {
       const res = await fetch('/api/payment/stripe', {
@@ -113,6 +123,11 @@ export default function IssueTicketsPage() {
       );
       const codes = tickets.map((tk: any) => tk.ticketCode).filter(Boolean);
       setIssuedCodes(codes);
+
+      // Track comp usage
+      if (retailPrice === 0 && selectedEvent.id) {
+        await updateDoc(doc(db, 'events', selectedEvent.id), { compIssued: increment(qty) });
+      }
 
       // Send via WhatsApp
       const ticketUrl = `${window.location.origin}/ticket/${codes[0]}`;

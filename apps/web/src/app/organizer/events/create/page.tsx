@@ -159,6 +159,7 @@ function CreateEventInner() {
   const [endDateStr, setEndDateStr]   = useState('');
   const [endTimeStr, setEndTimeStr]   = useState('23:00');
   const [isPrivate, setIsPrivate]     = useState(false);
+  const [compLimit, setCompLimit]     = useState(0);
 
   // Step 2 — Venue + Sections
   const [venueQuery, setVenueQuery]             = useState('');
@@ -316,6 +317,8 @@ function CreateEventInner() {
         city:           city.trim() || null,
         isPrivate,
         privateToken:   isPrivate ? uid6() + uid6() : null,
+        compLimit:      compLimit > 0 ? compLimit : 0,
+        compIssued:     0,
         sections:       sections.map(s => ({ ...s, sold: 0 })),
         floorPlan:      floorPlanImage ? { image: floorPlanImage, zones: mapZones } : null,
         paymentMethods,
@@ -464,6 +467,17 @@ function CreateEventInner() {
                 className={`w-12 h-6 rounded-full transition-all relative ${isPrivate ? 'bg-orange' : 'bg-white/[0.1]'}`}>
                 <div className={`w-5 h-5 bg-white rounded-full absolute top-0.5 transition-all ${isPrivate ? 'left-6' : 'left-0.5'}`} />
               </button>
+            </div>
+
+            {/* Comp ticket limit */}
+            <div className="flex items-center justify-between p-4 rounded-xl bg-white/[0.03] border border-border">
+              <div>
+                <p className="text-sm font-bold">Comp Ticket Limit</p>
+                <p className="text-[10px] text-gray-500">Max free tickets you can issue for this event. 0 = none allowed.</p>
+              </div>
+              <input type="number" min={0} value={compLimit}
+                onChange={e => setCompLimit(Math.max(0, parseInt(e.target.value) || 0))}
+                className="w-20 px-3 py-2 rounded-lg bg-white/[0.06] border border-border text-white text-sm text-center outline-none focus:border-orange" />
             </div>
 
             <button type="button" onClick={() => setTab('venue')}
