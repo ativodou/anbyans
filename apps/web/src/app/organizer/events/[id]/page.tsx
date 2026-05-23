@@ -263,9 +263,9 @@ export default function OrganizerEventsPage() {
                   {e.id && (
                     e.posActivated
                       ? <span className="px-3 py-1.5 rounded-lg bg-purple/10 border border-purple/30 text-[10px] font-bold text-purple">🍽️ POS Active</span>
-                      : <button onClick={() => { setPosModal(e.id!); setPosClientSecret(null); setPosError(''); }}
+                      : <button onClick={() => handlePosPaymentSuccess(e.id!)}
                           className="px-3 py-1.5 rounded-lg bg-white/[0.04] border border-border text-[10px] font-bold text-gray-light hover:text-purple hover:border-purple/30 transition-all">
-                          🍽️ Activate POS — ${posFee}
+                          🍽️ Activate POS
                         </button>
                   )}
 
