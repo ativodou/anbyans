@@ -6,6 +6,7 @@ import { useT } from '@/i18n';
 import { useOrganizerEvent } from '../OrganizerEventContext';
 import { db } from '@/lib/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 import {
   getBarStations, saveBarStation, deleteBarStation,
   getBarItems, saveBarItem, deleteBarItem, updateBarItemStock,
@@ -13,7 +14,7 @@ import {
   type BarStation, type BarItem, type BarOrder, type BarOrderStatus, type AssignedStaffMember,
 } from '@/lib/db';
 
-type Tab = 'setup' | 'live' | 'inventory' | 'stats';
+type Tab = 'setup' | 'live' | 'inventory' | 'stats' | 'preorders';
 
 const PAY_LABELS: Record<string, string> = {
   cash: '💵 Cash', card: '💳 Card', moncash: '📱 MonCash',
@@ -62,6 +63,33 @@ export default function OrganizerBarPage() {
       if (st.length > 0 && !newItem.stationId) setNewItem(p => ({ ...p, stationId: st[0].id! }));
     });
   }, [eventId]);
+
+  // ── Pre-orders state ──
+  const [preOrders, setPreOrders] = useState<{ name: string; qty: number; price: number; station: string }[]>([]);
+  const [preOrdersLoading, setPreOrdersLoading] = useState(false);
+  const [preOrdersLoaded, setPreOrdersLoaded] = useState(false);
+
+  useEffect(() => {
+    if (tab !== 'preorders' || !eventId || preOrdersLoaded) return;
+    setPreOrdersLoading(true);
+    (async () => {
+      try {
+        const snap = await getDocs(query(collection(db, 'tickets'), where('eventId', '==', eventId)));
+        const agg: Record<string, { qty: number; price: number; station: string }> = {};
+        snap.docs.forEach(d => {
+          const orders = d.data().barTabPreOrders as { name: string; qty: number; price: number; station: string }[] | undefined;
+          if (!orders) return;
+          orders.forEach(o => {
+            if (!agg[o.name]) agg[o.name] = { qty: 0, price: o.price, station: o.station };
+            agg[o.name].qty += o.qty;
+          });
+        });
+        setPreOrders(Object.entries(agg).map(([name, v]) => ({ name, ...v })).sort((a, b) => b.qty - a.qty));
+        setPreOrdersLoaded(true);
+      } catch (e) { console.error(e); }
+      finally { setPreOrdersLoading(false); }
+    })();
+  }, [tab, eventId, preOrdersLoaded]);
 
   // ── Live orders subscription ──
   useEffect(() => {
@@ -183,6 +211,7 @@ export default function OrganizerBarPage() {
           ['live',      '🔴', `${t('bar_tab_live')}${pendingOrders.length ? ` (${pendingOrders.length})` : ''}`],
           ['inventory', '📦', t('bar_tab_inventory')],
           ['stats',     '📊', t('bar_tab_stats')],
+          ['preorders', '📋', 'Pre-Orders'],
         ] as [Tab, string, string][]).map(([id, icon, label]) => (
           <button key={id} onClick={() => setTab(id as Tab)}
             className={`px-4 py-2.5 text-xs font-bold border-b-2 transition-colors ${tab === id ? 'border-orange text-orange' : 'border-transparent text-gray-muted hover:text-white'}`}>
@@ -520,6 +549,62 @@ export default function OrganizerBarPage() {
                 </div>
               ))}
             </div>
+          )}
+        </div>
+      )}
+
+      {/* ── PRE-ORDERS TAB ── */}
+      {tab === 'preorders' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-gray-muted">Aggregated pre-orders from ticket purchases</p>
+            <button onClick={() => { setPreOrdersLoaded(false); }} className="text-[10px] text-orange hover:underline">Refresh</button>
+          </div>
+
+          {preOrdersLoading ? (
+            <div className="flex justify-center py-10">
+              <div className="w-6 h-6 border-2 border-orange border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : preOrders.length === 0 ? (
+            <div className={`${card} p-8 text-center`}>
+              <p className="text-2xl mb-2">📋</p>
+              <p className="text-sm text-gray-muted">No pre-orders yet</p>
+              <p className="text-[10px] text-gray-muted mt-1">Pre-orders appear when clients add a bar tab at checkout</p>
+            </div>
+          ) : (
+            <>
+              {/* By station */}
+              {Array.from(new Set(preOrders.map(o => o.station))).map(station => {
+                const stationItems = preOrders.filter(o => o.station === station);
+                const stationTotal = stationItems.reduce((s, o) => s + o.price * o.qty, 0);
+                return (
+                  <div key={station} className={card}>
+                    <div className="flex items-center justify-between px-4 pt-4 pb-2">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-gray-muted">{station}</p>
+                      <p className="text-xs font-bold text-green">${stationTotal.toFixed(2)} pre-ordered</p>
+                    </div>
+                    {stationItems.map(o => (
+                      <div key={o.name} className="flex items-center justify-between px-4 py-3 border-t border-border">
+                        <div>
+                          <p className="text-sm font-bold">{o.name}</p>
+                          <p className="text-[10px] text-gray-muted">${o.price} each</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-heading text-2xl text-orange">×{o.qty}</p>
+                          <p className="text-[10px] text-green">${(o.price * o.qty).toFixed(2)}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })}
+
+              {/* Grand total */}
+              <div className={`${card} flex justify-between items-center px-4 py-4`}>
+                <p className="text-sm font-bold">Total Pre-Order Value</p>
+                <p className="font-heading text-xl text-green">${preOrders.reduce((s, o) => s + o.price * o.qty, 0).toFixed(2)}</p>
+              </div>
+            </>
           )}
         </div>
       )}

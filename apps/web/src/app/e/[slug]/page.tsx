@@ -8,7 +8,7 @@ const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
 import { useParams } from 'next/navigation';
 import { collection, query, where, getDocs, doc, getDoc, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { getEventByPrivateToken, getPlatformFeeRate, getBarItems } from '@/lib/db';
+import { getEventByPrivateToken, getPlatformFeeRate, getBarItems, getBarStations, type BarItem } from '@/lib/db';
 import { useT } from '@/i18n';
 import Link from 'next/link';
 import FloorPlanViewer from '@/components/FloorPlanViewer';
@@ -201,10 +201,14 @@ function BuyPageInner() {
   const [purchaseError, setPurchaseError] = useState('');
 
   // Bar tab
-  const [showBarTab, setShowBarTab]     = useState(false);
-  const [barTabAmount, setBarTabAmount] = useState(0);
-  const [customTab, setCustomTab]       = useState('');
-  const [barMenuItems, setBarMenuItems] = useState<{name: string; price: number}[]>([]);
+  const [showBarTab, setShowBarTab]         = useState(false);
+  const [barTabExtra, setBarTabExtra]       = useState(0);
+  const [barTabExtraInput, setBarTabExtraInput] = useState('');
+  const [barMenuItems, setBarMenuItems]     = useState<BarItem[]>([]);
+  const [barMenuStations, setBarMenuStations] = useState<{id: string; name: string}[]>([]);
+  const [barPreOrder, setBarPreOrder]       = useState<Record<string, number>>({}); // itemId -> qty
+  const barTabOrderTotal = barMenuItems.reduce((s, it) => s + (it.price * (barPreOrder[it.id!] || 0)), 0);
+  const barTabAmount     = barTabOrderTotal + barTabExtra;
 
   // ── Load event ────────────────────────────────────────────────
   useEffect(() => {
@@ -398,7 +402,13 @@ function BuyPageInner() {
             txnId: txnId.trim() || null,
             status: paymentStatus === 'paid' ? 'valid' : 'pending',
             purchasedAt: serverTimestamp(),
-            ...(firstTicket && barTabAmount > 0 ? { barTabBalance: barTabAmount, barTabSpent: 0 } : {}),
+            ...(firstTicket && barTabAmount > 0 ? {
+              barTabBalance: barTabAmount,
+              barTabSpent: 0,
+              barTabPreOrders: barMenuItems
+                .filter(it => (barPreOrder[it.id!] || 0) > 0)
+                .map(it => ({ name: it.name, price: it.price, qty: barPreOrder[it.id!], station: it.stationName })),
+            } : {}),
           });
           codes.push(code);
           firstTicket = false;
@@ -687,66 +697,106 @@ function BuyPageInner() {
         <button onClick={() => {
           if (!validateInfo()) return;
           setShowBarTab(true);
-          if (event?.id) getBarItems(event.id).then(items => setBarMenuItems(items.map(x => ({ name: x.name, price: x.price })))).catch(() => {});
+          if (event?.id) {
+            Promise.all([getBarStations(event.id), getBarItems(event.id)])
+              .then(([stations, items]) => { setBarMenuStations(stations.map(s => ({ id: s.id!, name: s.name }))); setBarMenuItems(items); })
+              .catch(() => {});
+          }
         }}
           className="w-full mt-4 py-3.5 rounded-xl font-heading text-base bg-orange text-white hover:bg-orange/90 transition-all">
           {t('buy_continue')}
         </button>
 
-        {/* Bar tab modal */}
+        {/* Bar tab / pre-order modal */}
         {showBarTab && (
-          <div className="fixed inset-0 bg-black/80 z-50 flex items-end sm:items-center justify-center p-4" onClick={() => { setShowBarTab(false); setStep('payment'); }}>
-            <div className="bg-[#12121a] border border-white/[0.1] rounded-2xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
-              <div className="text-center mb-5">
-                <p className="text-3xl mb-2">🍺</p>
-                <h3 className="font-heading text-xl text-white">Add a Bar Tab?</h3>
-                <p className="text-gray-400 text-sm mt-1">Pre-load credit — pay now, spend at the bar</p>
+          <div className="fixed inset-0 bg-black/80 z-50 flex items-end sm:items-center justify-center" onClick={() => { setShowBarTab(false); setStep('payment'); }}>
+            <div className="bg-[#12121a] border border-white/[0.1] rounded-t-2xl sm:rounded-2xl w-full max-w-md max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
+
+              {/* Header */}
+              <div className="text-center px-6 pt-6 pb-4 flex-shrink-0">
+                <p className="text-3xl mb-1">🍺🍽️</p>
+                <h3 className="font-heading text-xl text-white">Bar & Food Pre-Order</h3>
+                <p className="text-gray-400 text-sm mt-1">Order now — ready when you arrive</p>
               </div>
 
-              {/* Presets */}
-              <div className="flex gap-2 mb-4">
-                {[20, 50, 100].map(amt => (
-                  <button key={amt} onClick={() => { setBarTabAmount(amt); setCustomTab(''); }}
-                    className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all border ${barTabAmount === amt ? 'bg-orange/20 border-orange text-orange' : 'border-white/[0.1] text-gray-300 hover:border-orange/40'}`}>
-                    +${amt}
-                  </button>
-                ))}
-              </div>
+              {/* Scrollable menu */}
+              <div className="flex-1 overflow-y-auto px-6">
+                {barMenuItems.length > 0 ? (
+                  <>
+                    {(barMenuStations.length > 0 ? barMenuStations : [{ id: '', name: 'Menu' }]).map(station => {
+                      const items = barMenuItems.filter(it => station.id === '' || it.stationId === station.id);
+                      if (items.length === 0) return null;
+                      return (
+                        <div key={station.id} className="mb-5">
+                          <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-2">{station.name}</p>
+                          <div className="space-y-2">
+                            {items.map(item => {
+                              const qty = barPreOrder[item.id!] || 0;
+                              return (
+                                <div key={item.id} className="flex items-center gap-3 py-2 border-b border-white/[0.05]">
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-semibold text-white truncate">{item.name}</p>
+                                    <p className="text-xs text-orange font-bold">${item.price}</p>
+                                  </div>
+                                  <div className="flex items-center gap-2 flex-shrink-0">
+                                    <button onClick={() => setBarPreOrder(p => ({ ...p, [item.id!]: Math.max(0, (p[item.id!] || 0) - 1) }))}
+                                      className="w-7 h-7 rounded-full bg-white/[0.08] text-white font-bold text-base hover:bg-orange/30 transition-colors disabled:opacity-30 flex items-center justify-center"
+                                      disabled={qty === 0}>−</button>
+                                    <span className={`text-sm font-heading w-5 text-center ${qty > 0 ? 'text-orange' : 'text-gray-600'}`}>{qty}</span>
+                                    <button onClick={() => setBarPreOrder(p => ({ ...p, [item.id!]: (p[item.id!] || 0) + 1 }))}
+                                      className="w-7 h-7 rounded-full bg-white/[0.08] text-white font-bold text-base hover:bg-orange/30 transition-colors flex items-center justify-center">+</button>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </>
+                ) : (
+                  <div className="py-6 text-center text-gray-500 text-sm">Loading menu…</div>
+                )}
 
-              {/* Custom */}
-              <div className="relative mb-5">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
-                <input type="number" min={1} placeholder="Custom amount"
-                  value={customTab}
-                  onChange={e => { setCustomTab(e.target.value); setBarTabAmount(Math.max(0, parseInt(e.target.value) || 0)); }}
-                  className="w-full pl-8 pr-4 py-3 rounded-xl bg-white/[0.06] border border-white/[0.1] text-white text-sm outline-none focus:border-orange" />
-              </div>
-
-              {/* Bar menu preview */}
-              {barMenuItems.length > 0 && (
-                <div className="mb-5 bg-white/[0.03] rounded-xl p-4">
-                  <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wide mb-3">What's at the Bar</p>
-                  <div className="space-y-1.5 max-h-28 overflow-y-auto">
-                    {barMenuItems.slice(0, 8).map((item, i) => (
-                      <div key={i} className="flex justify-between text-xs">
-                        <span className="text-gray-300">{item.name}</span>
-                        <span className="text-orange font-bold">${item.price}</span>
-                      </div>
+                {/* Extra credit */}
+                <div className="mb-5">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-2">Extra Credit</p>
+                  <div className="flex gap-2 mb-2">
+                    {[10, 20, 50].map(amt => (
+                      <button key={amt} onClick={() => { setBarTabExtra(amt); setBarTabExtraInput(String(amt)); }}
+                        className={`flex-1 py-2 rounded-lg border text-xs font-bold transition-all ${barTabExtra === amt ? 'border-orange/50 bg-orange/10 text-orange' : 'border-white/[0.1] text-gray-400 hover:border-orange/30'}`}>
+                        +${amt}
+                      </button>
                     ))}
                   </div>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">$</span>
+                    <input type="number" min={0} placeholder="Custom extra"
+                      value={barTabExtraInput}
+                      onChange={e => { setBarTabExtraInput(e.target.value); setBarTabExtra(Math.max(0, parseInt(e.target.value) || 0)); }}
+                      className="w-full pl-7 pr-4 py-2.5 rounded-lg bg-white/[0.06] border border-white/[0.1] text-white text-sm outline-none focus:border-orange placeholder:text-gray-600" />
+                  </div>
                 </div>
-              )}
+              </div>
 
-              {/* Actions */}
-              <div className="flex gap-3">
-                <button onClick={() => { setBarTabAmount(0); setCustomTab(''); setShowBarTab(false); setStep('payment'); }}
-                  className="flex-1 py-3 rounded-xl border border-white/[0.1] text-gray-400 font-bold text-sm hover:border-white/30 transition-all">
-                  Skip
-                </button>
-                <button onClick={() => { setShowBarTab(false); setStep('payment'); }}
-                  className="flex-1 py-3 rounded-xl bg-orange text-white font-bold text-sm hover:bg-orange/90 transition-all">
-                  {barTabAmount > 0 ? `Add $${barTabAmount} Tab →` : 'Continue →'}
-                </button>
+              {/* Footer */}
+              <div className="px-6 pb-6 pt-4 border-t border-white/[0.06] flex-shrink-0">
+                {barTabAmount > 0 && (
+                  <div className="flex justify-between items-center mb-3">
+                    <span className="text-xs text-gray-400">Tab Total</span>
+                    <span className="font-heading text-lg text-orange">${barTabAmount.toFixed(2)}</span>
+                  </div>
+                )}
+                <div className="flex gap-3">
+                  <button onClick={() => { setBarPreOrder({}); setBarTabExtra(0); setBarTabExtraInput(''); setShowBarTab(false); setStep('payment'); }}
+                    className="flex-1 py-3 rounded-xl border border-white/[0.1] text-gray-400 font-bold text-sm hover:border-white/30 transition-all">
+                    Skip
+                  </button>
+                  <button onClick={() => { setShowBarTab(false); setStep('payment'); }}
+                    className="flex-1 py-3 rounded-xl bg-orange text-white font-bold text-sm hover:bg-orange/90 transition-all">
+                    {barTabAmount > 0 ? `Add $${barTabAmount.toFixed(2)} →` : 'Continue →'}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -851,7 +901,13 @@ function BuyPageInner() {
                         txnId: paymentIntentId,
                         status: 'valid',
                         purchasedAt: serverTimestamp(),
-                        ...(firstTicket && barTabAmount > 0 ? { barTabBalance: barTabAmount, barTabSpent: 0 } : {}),
+                        ...(firstTicket && barTabAmount > 0 ? {
+                          barTabBalance: barTabAmount,
+                          barTabSpent: 0,
+                          barTabPreOrders: barMenuItems
+                            .filter(it => (barPreOrder[it.id!] || 0) > 0)
+                            .map(it => ({ name: it.name, price: it.price, qty: barPreOrder[it.id!], station: it.stationName })),
+                        } : {}),
                       });
                       codes.push(code);
                       firstTicket = false;
