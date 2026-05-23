@@ -134,13 +134,20 @@ export default function LandingPage() {
           <p className="text-gray-light text-sm sm:text-base italic mt-3 mb-8">{t('landing_tagline')}.</p>
 
           {/* CTA */}
-          <div style={{ marginBottom: 32 }}>
+          <div style={{ marginBottom: 32, display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
             <Link href="/auth" style={{
               display: 'inline-block', padding: '13px 40px', borderRadius: 10,
               border: 'none', background: '#06b6d4', color: '#000',
               fontWeight: 800, fontSize: 15, textDecoration: 'none', letterSpacing: 1,
             }}>
               {t('landing_enter')}
+            </Link>
+            <Link href="/features" style={{
+              display: 'inline-block', padding: '13px 40px', borderRadius: 10,
+              border: '2px solid rgba(255,255,255,0.15)', background: 'transparent', color: '#fff',
+              fontWeight: 800, fontSize: 15, textDecoration: 'none', letterSpacing: 1,
+            }}>
+              {t('landing_features')}
             </Link>
           </div>
 

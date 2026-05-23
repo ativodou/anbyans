@@ -1276,6 +1276,7 @@ revenue_total:        { ht:'Revni Total', en:'Total Revenue', fr:'Revenu Total' 
   bar_stat_by_staff:         { ht: 'Pa Staff', en: 'By Staff', fr: 'Par personnel' },
   bar_stat_by_payment:       { ht: 'Pa Metòd Peman', en: 'By Payment Method', fr: 'Par méthode de paiement' },
   bar_stat_orders:           { ht: 'kòmand', en: 'orders', fr: 'commandes' },
+  landing_features:          { ht: 'Fonksyon', en: 'Features', fr: 'Fonctionnalités' },
 } as const;
 
 export type TranslationKey = keyof typeof t;
