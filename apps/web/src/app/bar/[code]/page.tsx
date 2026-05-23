@@ -46,12 +46,16 @@ export default function StaffPosPage() {
 
   useEffect(() => {
     if (!code) return;
+    let cancelled = false;
+    const timeout = setTimeout(() => { if (!cancelled) { setNotFound(true); setLoading(false); } }, 8000);
     const resolveEvent = async () => {
-      let ev = await getEventByBarCode(code);
-      if (!ev || !ev.id) ev = await getEvent(code);
-      return ev;
+      try { const ev = await getEventByBarCode(code); if (ev?.id) return ev; } catch {}
+      try { const ev = await getEvent(code); if (ev?.id) return ev; } catch {}
+      return null;
     };
     resolveEvent().then(ev => {
+      clearTimeout(timeout);
+      if (cancelled) return;
       if (!ev || !ev.id) { setNotFound(true); setLoading(false); return; }
       setEvent(ev);
       Promise.all([
@@ -59,12 +63,14 @@ export default function StaffPosPage() {
         getBarItems(ev.id!),
         getBarStaffNames(ev.id!),
       ]).then(([st, it, names]) => {
+        if (cancelled) return;
         setStations(st);
         setAllItems(it);
         setStaffNames(names);
         if (st.length > 0) setStationId(st[0].id!);
-      }).finally(() => setLoading(false));
-    });
+      }).catch(() => {}).finally(() => { if (!cancelled) setLoading(false); });
+    }).catch(() => { clearTimeout(timeout); if (!cancelled) { setNotFound(true); setLoading(false); } });
+    return () => { cancelled = true; clearTimeout(timeout); };
   }, [code]);
 
   const selectedStation = stations.find(s => s.id === stationId);
