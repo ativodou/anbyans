@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import {
-  getEventByBarCode, getBarStations, subscribeBarOrders, updateBarOrderStatus,
+  getBarStations, subscribeBarOrders, updateBarOrderStatus,
   type BarStation, type BarOrder, type EventData,
 } from '@/lib/db';
 
@@ -21,15 +21,21 @@ export default function VendorDisplayPage() {
 
   useEffect(() => {
     if (!code) return;
-    getEventByBarCode(code).then(ev => {
-      if (!ev?.id) { setNotFound(true); setLoading(false); return; }
-      setEvent(ev);
-      getBarStations(ev.id!).then(st => {
+    let cancelled = false;
+    fetch(`/api/bar/${code}`)
+      .then(r => r.json())
+      .then(async ev => {
+        if (cancelled) return;
+        if (!ev?.id) { setNotFound(true); setLoading(false); return; }
+        setEvent(ev as EventData);
+        const st = await getBarStations(ev.id).catch(() => []);
+        if (cancelled) return;
         setStations(st);
         if (!stationId && st.length > 0) setStationId(st[0].id!);
         setLoading(false);
-      });
-    });
+      })
+      .catch(() => { if (!cancelled) { setNotFound(true); setLoading(false); } });
+    return () => { cancelled = true; };
   }, [code]);
 
   // Subscribe to orders for selected station
