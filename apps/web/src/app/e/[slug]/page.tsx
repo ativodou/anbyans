@@ -48,6 +48,8 @@ interface EventData {
   exchangeRate: number;
   status: 'live' | 'upcoming' | 'ended';
   isPrivate?: boolean;
+  startTime?: string;
+  preOrderCutoffHours?: number;
 }
 
 type Step = 'detail' | 'seats' | 'info' | 'payment' | 'done';
@@ -210,6 +212,20 @@ function BuyPageInner() {
   const barTabOrderTotal = barMenuItems.reduce((s, it) => s + (it.price * (barPreOrder[it.id!] || 0)), 0);
   const barTabAmount     = barTabOrderTotal + barTabExtra;
 
+  const preOrdersOpen = (() => {
+    if (!event) return false;
+    const cutoff = event.preOrderCutoffHours || 0;
+    if (cutoff === 0) return true;
+    if (!event.date) return true;
+    try {
+      const dateStr = typeof event.date === 'string' ? event.date : String(event.date);
+      const [datePart] = dateStr.split('T');
+      const startStr = event.startTime ? `${datePart}T${event.startTime}` : `${datePart}T20:00`;
+      const eventStart = new Date(startStr).getTime();
+      return Date.now() < eventStart - cutoff * 3600 * 1000;
+    } catch { return true; }
+  })();
+
   // ── Load event ────────────────────────────────────────────────
   useEffect(() => {
     if (!slug) return;
@@ -281,6 +297,8 @@ function BuyPageInner() {
             exchangeRate,
             status: data.status === 'published' ? 'upcoming' : (data.status || 'upcoming'),
             isPrivate: data.isPrivate || false,
+            startTime: data.startTime || null,
+            preOrderCutoffHours: data.preOrderCutoffHours || 0,
           } as EventData);
         }
       } catch (e) { console.error(e); }
@@ -696,6 +714,7 @@ function BuyPageInner() {
         </div>
         <button onClick={() => {
           if (!validateInfo()) return;
+          if (!preOrdersOpen) { setStep('payment'); return; }
           setShowBarTab(true);
           if (event?.id) {
             Promise.all([getBarStations(event.id), getBarItems(event.id)])
@@ -716,7 +735,9 @@ function BuyPageInner() {
               <div className="text-center px-6 pt-6 pb-4 flex-shrink-0">
                 <p className="text-3xl mb-1">🍺🍽️</p>
                 <h3 className="font-heading text-xl text-white">Bar & Food Pre-Order</h3>
-                <p className="text-gray-400 text-sm mt-1">Order now — ready when you arrive</p>
+                {preOrdersOpen
+                  ? <p className="text-gray-400 text-sm mt-1">Order now — ready when you arrive</p>
+                  : <p className="text-red-400 text-sm mt-1 font-bold">Pre-orders are closed for this event</p>}
               </div>
 
               {/* Scrollable menu */}

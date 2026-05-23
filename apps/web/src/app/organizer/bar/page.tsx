@@ -64,6 +64,17 @@ export default function OrganizerBarPage() {
     });
   }, [eventId]);
 
+  // ── Pre-order cutoff ──
+  const [cutoffHours, setCutoffHours]     = useState<number>((selectedEvent as any)?.preOrderCutoffHours ?? 0);
+  const [savingCutoff, setSavingCutoff]   = useState(false);
+
+  async function saveCutoff(hours: number) {
+    if (!eventId) return;
+    setSavingCutoff(true);
+    try { await updateDoc(doc(db, 'events', eventId), { preOrderCutoffHours: hours }); }
+    finally { setSavingCutoff(false); }
+  }
+
   // ── Pre-orders state ──
   const [preOrders, setPreOrders] = useState<{ name: string; qty: number; price: number; station: string }[]>([]);
   const [preOrdersLoading, setPreOrdersLoading] = useState(false);
@@ -371,6 +382,32 @@ export default function OrganizerBarPage() {
                   <p className="text-[10px] text-gray-muted pt-1">{t('bar_activate_to_send')}</p>
                 )}
               </div>
+            )}
+          </div>
+
+          {/* Pre-order cutoff */}
+          <div className={`${card} p-4`}>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-muted mb-1">Pre-Order Cutoff</p>
+            <p className="text-[10px] text-gray-muted mb-3">Stop accepting bar & food pre-orders this long before event start.</p>
+            <div className="flex flex-wrap gap-2">
+              {[
+                { label: 'No limit', hours: 0 },
+                { label: '72h before', hours: 72 },
+                { label: '48h before', hours: 48 },
+                { label: '24h before', hours: 24 },
+                { label: '12h before', hours: 12 },
+                { label: '6h before',  hours: 6  },
+              ].map(opt => (
+                <button key={opt.hours}
+                  onClick={() => { setCutoffHours(opt.hours); saveCutoff(opt.hours); }}
+                  disabled={savingCutoff}
+                  className={`px-3 py-1.5 rounded-lg border text-xs font-bold transition-all disabled:opacity-50 ${cutoffHours === opt.hours ? 'border-orange/50 bg-orange/10 text-orange' : 'border-border text-gray-muted hover:border-white/20'}`}>
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            {cutoffHours > 0 && (
+              <p className="text-[10px] text-orange mt-2">Pre-orders close {cutoffHours}h before event start{savingCutoff ? ' · saving…' : ' ✓'}</p>
             )}
           </div>
         </div>
