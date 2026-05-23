@@ -271,22 +271,48 @@ export default function OrganizerBarPage() {
             )}
           </div>
 
-          {/* Stations */}
+          {/* Pre-order Menu */}
           <div className={`${card} p-4`}>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-muted mb-3">{t('bar_stations_title')}</p>
-            <div className="flex gap-2 mb-3">
-              <input value={newStation} onChange={e => setNewStation(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleAddStation()}
-                placeholder={t('bar_station_placeholder')} className={`${inp} flex-1`} />
-              <button onClick={handleAddStation} disabled={savingStation || !newStation.trim()}
-                className="px-4 py-2 rounded-lg bg-orange text-white text-xs font-bold disabled:opacity-40 hover:bg-orange/80 transition-all">
-                {savingStation ? '...' : '➕'}
-              </button>
+            {/* Header */}
+            <div className="flex items-start justify-between mb-1">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-muted">Pre-order Menu</p>
+              <span className="text-[9px] bg-cyan/10 border border-cyan/30 text-cyan px-2 py-0.5 rounded-full font-bold">🛒 Shown at checkout</span>
             </div>
-            {stationError && <p className="text-xs text-red-400 mb-2">{stationError}</p>}
-            {stations.length === 0
-              ? <p className="text-xs text-gray-muted">{t('bar_no_stations')}</p>
-              : <div className="flex flex-wrap gap-2">
+            <p className="text-[10px] text-gray-muted mb-4">Clients browse and pre-order from this menu when buying tickets. Organize by section (Bar, Restaurant, etc.).</p>
+
+            {/* Quick-start section creators */}
+            {stations.length === 0 && (
+              <div className="mb-4">
+                <p className="text-[10px] text-gray-muted mb-2">Quick start:</p>
+                <div className="flex gap-2 flex-wrap">
+                  {['🍺 Bar', '🍽️ Restaurant', '🥤 Drinks', '🍟 Food'].map(preset => {
+                    const name = preset.replace(/^[^\s]+\s/, '');
+                    return (
+                      <button key={preset} onClick={() => { setNewStation(name); }}
+                        className="px-3 py-1.5 rounded-lg border border-border text-xs font-bold text-gray-light hover:border-orange/50 hover:text-orange transition-all">
+                        {preset}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Section (station) management */}
+            <div className="mb-4">
+              <p className="text-[10px] font-bold text-gray-muted mb-2 uppercase tracking-wide">Sections</p>
+              <div className="flex gap-2 mb-2">
+                <input value={newStation} onChange={e => setNewStation(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleAddStation()}
+                  placeholder="e.g. Bar, Restaurant, Cocktails…" className={`${inp} flex-1`} />
+                <button onClick={handleAddStation} disabled={savingStation || !newStation.trim()}
+                  className="px-4 py-2 rounded-lg bg-orange text-white text-xs font-bold disabled:opacity-40 hover:bg-orange/80 transition-all">
+                  {savingStation ? '...' : 'Add'}
+                </button>
+              </div>
+              {stationError && <p className="text-xs text-red-400 mb-2">{stationError}</p>}
+              {stations.length > 0 && (
+                <div className="flex flex-wrap gap-2">
                   {stations.map(s => (
                     <div key={s.id} className="flex items-center gap-1.5 px-3 py-1.5 bg-white/[0.04] border border-border rounded-lg">
                       <span className="text-xs font-bold">{s.name}</span>
@@ -294,54 +320,56 @@ export default function OrganizerBarPage() {
                     </div>
                   ))}
                 </div>
-            }
-          </div>
+              )}
+            </div>
 
-          {/* Menu items */}
-          <div className={`${card} p-4`}>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-muted mb-3">{t('bar_menu_title')}</p>
-            {stations.length === 0
-              ? <p className="text-xs text-gray-muted">{t('bar_add_station_first')}</p>
-              : <>
-                  <div className="grid grid-cols-4 gap-2 mb-3">
-                    <select value={newItem.stationId} onChange={e => setNewItem(p => ({ ...p, stationId: e.target.value }))}
-                      className={`${inp} col-span-1`}>
-                      {stations.map(s => <option key={s.id} value={s.id} className="bg-dark-card">{s.name}</option>)}
-                    </select>
-                    <input value={newItem.name} onChange={e => setNewItem(p => ({ ...p, name: e.target.value }))}
-                      placeholder={t('bar_item_name_placeholder')} className={`${inp} col-span-1`} />
-                    <input value={newItem.price} onChange={e => setNewItem(p => ({ ...p, price: e.target.value }))}
-                      placeholder={t('bar_item_price_placeholder')} type="number" min="0" step="0.25" className={inp} />
-                    <input value={newItem.stock} onChange={e => setNewItem(p => ({ ...p, stock: e.target.value }))}
-                      placeholder={t('bar_stock_label')} type="number" min="0" className={inp} />
-                  </div>
+            {/* Item management */}
+            {stations.length === 0 ? (
+              <p className="text-xs text-gray-muted">Add a section above to start building your menu.</p>
+            ) : (
+              <>
+                <p className="text-[10px] font-bold text-gray-muted mb-2 uppercase tracking-wide">Add Item</p>
+                <div className="grid grid-cols-2 gap-2 mb-2">
+                  <select value={newItem.stationId} onChange={e => setNewItem(p => ({ ...p, stationId: e.target.value }))}
+                    className={`${inp} col-span-2`}>
+                    {stations.map(s => <option key={s.id} value={s.id} className="bg-dark-card">{s.name}</option>)}
+                  </select>
+                  <input value={newItem.name} onChange={e => setNewItem(p => ({ ...p, name: e.target.value }))}
+                    placeholder="Item name" className={inp} />
+                  <input value={newItem.price} onChange={e => setNewItem(p => ({ ...p, price: e.target.value }))}
+                    placeholder="Price $" type="number" min="0" step="0.25" className={inp} />
+                  <input value={newItem.stock} onChange={e => setNewItem(p => ({ ...p, stock: e.target.value }))}
+                    placeholder="Stock qty" type="number" min="0" className={inp} />
                   <button onClick={handleAddItem} disabled={savingItem || !newItem.name.trim() || !newItem.price}
                     className="px-5 py-2 rounded-lg bg-orange text-white text-xs font-bold disabled:opacity-40 hover:bg-orange/80 transition-all">
-                    {savingItem ? '...' : t('bar_add_item')}
+                    {savingItem ? '...' : '+ Add to Menu'}
                   </button>
-                  {items.length > 0 && (
-                    <div className="mt-4 space-y-1">
-                      {stations.map(st => {
-                        const stItems = items.filter(i => i.stationId === st.id);
-                        if (!stItems.length) return null;
-                        return (
-                          <div key={st.id}>
-                            <p className="text-[9px] font-bold uppercase tracking-widest text-gray-muted mt-3 mb-1">{st.name}</p>
-                            {stItems.map(item => (
-                              <div key={item.id} className="flex items-center gap-2 py-2 border-b border-border last:border-0">
-                                <span className="text-xs font-bold flex-1">{item.name}</span>
-                                <span className="text-xs text-orange font-bold">${item.price.toFixed(2)}</span>
-                                <span className="text-[10px] text-gray-muted">Stock: {item.stock}</span>
-                                <button onClick={() => handleDeleteItem(item.id!)} className="text-gray-muted hover:text-red-400 text-xs transition-colors">✕</button>
-                              </div>
-                            ))}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </>
-            }
+                </div>
+
+                {/* Menu preview by section */}
+                {items.length > 0 && (
+                  <div className="mt-5 space-y-4">
+                    {stations.map(st => {
+                      const stItems = items.filter(i => i.stationId === st.id);
+                      if (!stItems.length) return null;
+                      return (
+                        <div key={st.id} className="bg-white/[0.02] border border-border rounded-xl overflow-hidden">
+                          <p className="text-[10px] font-bold uppercase tracking-widest text-gray-muted px-3 py-2 border-b border-border">{st.name}</p>
+                          {stItems.map(item => (
+                            <div key={item.id} className="flex items-center gap-3 px-3 py-2.5 border-b border-border last:border-0">
+                              <span className="text-sm font-bold flex-1">{item.name}</span>
+                              <span className="text-sm font-bold text-orange">${item.price.toFixed(2)}</span>
+                              <span className="text-[10px] text-gray-muted w-16 text-right">Stock: {item.stock}</span>
+                              <button onClick={() => handleDeleteItem(item.id!)} className="text-gray-muted hover:text-red-400 text-xs transition-colors ml-1">✕</button>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </>
+            )}
           </div>
 
           {/* Staff list */}
