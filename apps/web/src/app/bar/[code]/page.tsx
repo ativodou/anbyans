@@ -132,8 +132,8 @@ export default function StaffPosPage() {
   if (notFound) return (
     <div className="min-h-screen bg-[#0a0a0f] flex flex-col items-center justify-center text-center p-6">
       <p className="text-4xl mb-3">❌</p>
-      <p className="text-white font-bold">Kòd la pa valid.</p>
-      <p className="text-gray-500 text-sm mt-1">Verifye lyen an epi eseye ankò.</p>
+      <p className="text-white font-bold">Invalid code.</p>
+      <p className="text-gray-500 text-sm mt-1">Check the link and try again.</p>
     </div>
   );
 
@@ -150,7 +150,7 @@ export default function StaffPosPage() {
         {step === 'pos' && cart.length > 0 && (
           <button onClick={() => setStep('confirm')}
             className="px-4 py-2 rounded-xl bg-orange text-white text-xs font-bold">
-            Kontwole ({cart.reduce((a, c) => a + c.qty, 0)}) — ${cartTotal.toFixed(2)}
+            Checkout ({cart.reduce((a, c) => a + c.qty, 0)}) — ${cartTotal.toFixed(2)}
           </button>
         )}
       </div>
@@ -160,7 +160,7 @@ export default function StaffPosPage() {
         {/* ── IDENTITY STEP ── */}
         {step === 'identity' && (
           <div className="space-y-4">
-            <h2 className="text-lg font-bold">Ki moun ou ye?</h2>
+            <h2 className="text-lg font-bold">Who are you?</h2>
 
             {staffNames.length > 0 && (
               <div className="grid grid-cols-2 gap-2">
@@ -172,19 +172,19 @@ export default function StaffPosPage() {
                 ))}
                 <button onClick={() => setStaffName('__custom__')}
                   className={`py-3 rounded-xl border text-sm font-bold transition-all ${staffName === '__custom__' ? 'border-orange bg-orange/10 text-orange' : 'border-white/[0.1] text-gray-400 hover:border-white/30'}`}>
-                  Lòt…
+                  Other…
                 </button>
               </div>
             )}
 
             {(staffName === '__custom__' || staffNames.length === 0) && (
               <input value={customName} onChange={e => setCustomName(e.target.value)}
-                placeholder="Tape non ou" className={inp} autoFocus />
+                placeholder="Enter your name" className={inp} autoFocus />
             )}
 
             {stations.length > 1 && (
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-2">Estasyon</p>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-2">Station</p>
                 <div className="grid grid-cols-2 gap-2">
                   {stations.map(s => (
                     <button key={s.id} onClick={() => setStationId(s.id!)}
@@ -200,7 +200,7 @@ export default function StaffPosPage() {
               onClick={() => activeStaff.trim() && stationId && setStep('pos')}
               disabled={!activeStaff.trim() || !stationId}
               className="w-full py-3.5 rounded-xl bg-orange text-white font-bold text-sm disabled:opacity-40 transition-all">
-              Kòmanse →
+              Start →
             </button>
           </div>
         )}
@@ -211,7 +211,7 @@ export default function StaffPosPage() {
             {stationItems.length === 0 ? (
               <div className="text-center py-16">
                 <p className="text-3xl mb-2">📋</p>
-                <p className="text-gray-500 text-sm">Pa gen atik pou estasyon sa a.</p>
+                <p className="text-gray-500 text-sm">No items for this station.</p>
               </div>
             ) : (
               <>
@@ -242,7 +242,7 @@ export default function StaffPosPage() {
                   <div className="fixed bottom-0 left-0 right-0 p-4 bg-[#0a0a0f] border-t border-white/[0.07]">
                     <button onClick={() => setStep('confirm')}
                       className="w-full py-4 rounded-2xl bg-orange text-white font-bold text-base">
-                      Kontwole — ${cartTotal.toFixed(2)}
+                      Checkout — ${cartTotal.toFixed(2)}
                     </button>
                   </div>
                 )}
@@ -254,7 +254,7 @@ export default function StaffPosPage() {
         {/* ── CONFIRM STEP ── */}
         {step === 'confirm' && (
           <div className="space-y-4">
-            <h2 className="text-lg font-bold">Kontwole Kòmand</h2>
+            <h2 className="text-lg font-bold">Review Order</h2>
 
             <div className="bg-white/[0.04] border border-white/[0.1] rounded-2xl p-4 space-y-2">
               {cart.map(c => (
@@ -274,7 +274,7 @@ export default function StaffPosPage() {
             </div>
 
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-2">Metòd Peman</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-2">Payment Method</p>
               <div className="grid grid-cols-3 gap-2">
                 {PAYMENT_METHODS.map(m => (
                   <button key={m.key} onClick={() => setPayMethod(m.key)}
@@ -287,11 +287,11 @@ export default function StaffPosPage() {
 
             <button onClick={handleSubmit} disabled={submitting}
               className="w-full py-4 rounded-2xl bg-green-600 hover:bg-green-500 text-white font-bold text-base disabled:opacity-50 transition-all">
-              {submitting ? '...' : '✓ Voye Kòmand'}
+              {submitting ? '...' : '✓ Place Order'}
             </button>
 
             <button onClick={() => setStep('pos')} className="w-full text-sm text-gray-500 hover:text-white transition-colors py-2">
-              ← Tounen
+              ← Back
             </button>
           </div>
         )}
@@ -301,17 +301,17 @@ export default function StaffPosPage() {
           <div className="text-center py-12 space-y-4">
             <p className="text-6xl">✅</p>
             <div>
-              <p className="text-gray-500 text-sm">Nimewo Kòmand</p>
+              <p className="text-gray-500 text-sm">Order Number</p>
               <p className="font-heading text-5xl text-orange">#{orderNum}</p>
             </div>
-            <p className="text-gray-400 text-sm">Kòmand voye bay {selectedStation?.name}</p>
+            <p className="text-gray-400 text-sm">Order sent to {selectedStation?.name}</p>
             <button onClick={() => setStep('pos')}
               className="w-full py-4 rounded-2xl bg-orange text-white font-bold text-base">
-              Nouvo Kòmand
+              New Order
             </button>
             <button onClick={() => { setStep('identity'); setStaffName(''); setCustomName(''); }}
               className="w-full text-sm text-gray-500 hover:text-white transition-colors py-2">
-              Chanje Staff / Estasyon
+              Change Staff / Station
             </button>
           </div>
         )}

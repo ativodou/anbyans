@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useT } from '@/i18n';
-import { getOrganizerEvents, purchaseTickets, getPlatformFeeRate, type EventData } from '@/lib/db';
+import { getOrganizerEvents, purchaseTickets, getPlatformFeeRate, getBarItems, getBarStations, type EventData, type BarItem, type BarStation } from '@/lib/db';
 import { db } from '@/lib/firebase';
 import { doc, updateDoc, increment } from 'firebase/firestore';
 import { loadStripe } from '@stripe/stripe-js';
@@ -52,9 +52,11 @@ export default function IssueTicketsPage() {
   const [buyerPhone, setBuyerPhone] = useState('');
   const [buyerEmail, setBuyerEmail] = useState('');
 
-  // Bar tab
-  const [barTabAmount, setBarTabAmount] = useState(0);
-  const [barTabCustom, setBarTabCustom] = useState('');
+  // Bar pre-order
+  const [barItems, setBarItems] = useState<BarItem[]>([]);
+  const [barStations, setBarStations] = useState<BarStation[]>([]);
+  const [barPreOrder, setBarPreOrder] = useState<Record<string, number>>({});
+  const [barItemsLoading, setBarItemsLoading] = useState(false);
 
   // Payment state
   const [step, setStep] = useState<Step>('form');
@@ -78,8 +80,18 @@ export default function IssueTicketsPage() {
   const selectedEvent = events[eventIdx];
   const selectedSection = selectedEvent?.sections?.[sectionIdx];
   const retailPrice = selectedSection?.price || 0;
+  const barTabAmount = Object.entries(barPreOrder).reduce((sum, [id, q]) => sum + q * (barItems.find(i => i.id === id)?.price ?? 0), 0);
   const anbyasFee = Math.round(retailPrice * qty * feeRate * 100) / 100;
   const seats = Array(qty).fill('GA');
+
+  useEffect(() => {
+    if (!selectedEvent?.id) { setBarItems([]); setBarStations([]); setBarPreOrder({}); return; }
+    setBarItemsLoading(true); setBarPreOrder({});
+    Promise.all([getBarItems(selectedEvent.id), getBarStations(selectedEvent.id)])
+      .then(([items, stations]) => { setBarItems(items); setBarStations(stations); })
+      .catch(() => {})
+      .finally(() => setBarItemsLoading(false));
+  }, [selectedEvent?.id]);
 
   async function handleProceedToPay() {
     if (!buyerName.trim() || !buyerPhone.trim()) { setError('Mete non ak nimewo telefòn acheteur.'); return; }
@@ -126,7 +138,16 @@ export default function IssueTicketsPage() {
         seats, retailPrice,
         undefined, paymentIntentId, 'stripe',
         { organizerId: user?.uid, sectionName: selectedSection.name, paymentStatus: 'paid',
-          ...(barTabAmount > 0 ? { barTabBalance: barTabAmount, barTabSpent: 0 } : {}) }
+          ...(barTabAmount > 0 ? {
+            barTabBalance: barTabAmount, barTabSpent: 0,
+            barTabPreOrders: Object.entries(barPreOrder)
+              .filter(([, q]) => q > 0)
+              .map(([id, q]) => {
+                const item = barItems.find(i => i.id === id)!;
+                const station = barStations.find(s => s.id === item.stationId);
+                return { name: item.name, price: item.price, qty: q, station: station?.name ?? '' };
+              }),
+          } : {}) }
       );
       const codes = tickets.map((tk: any) => tk.ticketCode).filter(Boolean);
       setIssuedCodes(codes);
@@ -179,7 +200,7 @@ export default function IssueTicketsPage() {
           <p key={c} className="font-mono text-xs text-green">🔑 Ticket {i + 1}: {c}</p>
         ))}
       </div>
-      <button onClick={() => { setStep('form'); setBuyerName(''); setBuyerPhone(''); setBuyerEmail(''); setQty(1); setIssuedCodes([]); setClientSecret(null); setBarTabAmount(0); setBarTabCustom(''); }}
+      <button onClick={() => { setStep('form'); setBuyerName(''); setBuyerPhone(''); setBuyerEmail(''); setQty(1); setIssuedCodes([]); setClientSecret(null); setBarPreOrder({}); }}
         className="px-8 py-3 rounded-xl bg-orange text-white font-bold text-sm hover:bg-orange/80 transition-all">
         Issue More Tickets
       </button>
@@ -244,26 +265,44 @@ export default function IssueTicketsPage() {
               className="w-full px-3 py-2.5 rounded-lg bg-white/[0.04] border border-border text-white text-sm outline-none focus:border-orange placeholder:text-gray-muted" />
           </div>
 
-          {/* Bar tab */}
-          <div className="bg-dark-card border border-border rounded-xl p-4">
-            <label className="text-[11px] font-bold text-gray-light uppercase tracking-wide block mb-3">🍺 Bar Tab (optional)</label>
-            <p className="text-[10px] text-gray-muted mb-3">Add pre-paid bar credit to their ticket. Collect cash from buyer.</p>
-            <div className="flex gap-2 mb-3">
-              {[0, 20, 50, 100].map(amt => (
-                <button key={amt} onClick={() => { setBarTabAmount(amt); setBarTabCustom(''); }}
-                  className={`flex-1 py-2 rounded-lg border text-xs font-bold transition-all ${barTabAmount === amt && !barTabCustom ? 'border-orange/50 bg-orange/10 text-orange' : 'border-border text-gray-muted hover:border-white/20'}`}>
-                  {amt === 0 ? 'None' : `$${amt}`}
-                </button>
+          {/* Bar / food pre-order */}
+          {barItemsLoading && (
+            <div className="bg-dark-card border border-border rounded-xl p-4 text-center">
+              <div className="w-5 h-5 border-2 border-orange border-t-transparent rounded-full animate-spin mx-auto" />
+            </div>
+          )}
+          {!barItemsLoading && barItems.length > 0 && (
+            <div className="bg-dark-card border border-border rounded-xl p-4">
+              <div className="flex items-center justify-between mb-3">
+                <label className="text-[11px] font-bold text-gray-light uppercase tracking-wide">🍺 Bar & Food Pre-order</label>
+                {barTabAmount > 0 && <span className="text-xs font-bold text-orange">${barTabAmount.toFixed(2)}</span>}
+              </div>
+              <p className="text-[10px] text-gray-muted mb-4">Select items — collect cash from buyer. Items stored on ticket for bar staff.</p>
+              {barStations.filter(st => barItems.some(i => i.stationId === st.id)).map(station => (
+                <div key={station.id} className="mb-4">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-2">{station.name}</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {barItems.filter(i => i.stationId === station.id).map(item => {
+                      const qty = barPreOrder[item.id!] ?? 0;
+                      return (
+                        <div key={item.id} className={`p-3 rounded-xl border transition-all ${qty > 0 ? 'border-orange/50 bg-orange/5' : 'border-border bg-white/[0.02]'}`}>
+                          <p className="text-xs font-semibold text-white mb-0.5 leading-tight">{item.name}</p>
+                          <p className="text-orange text-xs font-bold mb-2">${item.price.toFixed(2)}</p>
+                          <div className="flex items-center gap-2">
+                            <button onClick={() => setBarPreOrder(p => { const n = { ...p }; if ((n[item.id!] ?? 0) > 0) n[item.id!] = n[item.id!] - 1; else delete n[item.id!]; return n; })}
+                              className="w-6 h-6 rounded-lg border border-border text-gray-muted hover:text-white text-sm font-bold transition-all flex items-center justify-center">−</button>
+                            <span className="text-sm font-bold text-white min-w-[1rem] text-center">{qty}</span>
+                            <button onClick={() => setBarPreOrder(p => ({ ...p, [item.id!]: (p[item.id!] ?? 0) + 1 }))}
+                              className="w-6 h-6 rounded-lg border border-orange/50 bg-orange/10 text-orange hover:bg-orange hover:text-white text-sm font-bold transition-all flex items-center justify-center">+</button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
               ))}
             </div>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-muted text-sm">$</span>
-              <input type="number" min={1} placeholder="Custom"
-                value={barTabCustom}
-                onChange={e => { setBarTabCustom(e.target.value); setBarTabAmount(Math.max(0, parseInt(e.target.value) || 0)); }}
-                className="w-full pl-7 pr-4 py-2.5 rounded-lg bg-white/[0.04] border border-border text-white text-sm outline-none focus:border-orange placeholder:text-gray-muted" />
-            </div>
-          </div>
+          )}
 
           {/* Fee summary */}
           <div className="bg-orange/10 border border-orange/30 rounded-xl p-4 flex justify-between items-center">
