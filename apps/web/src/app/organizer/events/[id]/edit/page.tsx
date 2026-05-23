@@ -151,6 +151,7 @@ function EditEventInner() {
   const [endDateStr, setEndDateStr] = useState('');
   const [endTimeStr, setEndTimeStr] = useState('23:00');
   const [isPrivate, setIsPrivate]   = useState(false);
+  const [compLimit, setCompLimit]   = useState(0);
 
   // Step 2
   const [venueQuery, setVenueQuery]             = useState('');
@@ -210,6 +211,7 @@ function EditEventInner() {
         setEndDateStr(d.endDate || '');
         setEndTimeStr(d.endTime || '23:00');
         setIsPrivate(d.isPrivate || false);
+        setCompLimit((d.compLimit as number) || 0);
         setVenue(venueStr);
         setVenueQuery(venueStr);
         setCity(cityStr);
@@ -333,6 +335,7 @@ function EditEventInner() {
         venuePlaceId:  venuePlaceId || null,
         city:          city.trim() || null,
         isPrivate,
+        compLimit,
         sections:      sections.map(s => ({ ...s })),
         floorPlan:     floorPlanImage ? { image: floorPlanImage, zones: mapZones } : null,
         paymentMethods,
@@ -457,6 +460,15 @@ function EditEventInner() {
                 className={`w-12 h-6 rounded-full transition-all relative ${isPrivate ? 'bg-orange' : 'bg-white/[0.1]'}`}>
                 <div className={`w-5 h-5 bg-white rounded-full absolute top-0.5 transition-all ${isPrivate ? 'left-6' : 'left-0.5'}`} />
               </button>
+            </div>
+            <div className="flex items-center justify-between p-4 rounded-xl bg-white/[0.03] border border-border">
+              <div>
+                <p className="text-sm font-bold">Comp Ticket Limit</p>
+                <p className="text-[10px] text-gray-500">Max free tickets you can issue for this event. 0 = none allowed.</p>
+              </div>
+              <input type="number" min={0} value={compLimit}
+                onChange={e => setCompLimit(Math.max(0, parseInt(e.target.value) || 0))}
+                className="w-20 px-3 py-2 rounded-lg bg-white/[0.06] border border-border text-white text-sm text-center outline-none focus:border-orange" />
             </div>
             <button type="button" onClick={() => setTab('venue')}
               className="w-full py-3 rounded-xl bg-orange text-white font-heading text-sm hover:bg-orange/90 transition-all">
