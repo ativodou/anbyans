@@ -665,7 +665,7 @@ function BuyPageInner() {
         </div>
 
         {/* ── Bar & Food Pre-Order ── */}
-        {preOrdersOpen && barMenuItems.length > 0 && (
+        {preOrdersOpen && barMenuItems.length > 0 && organizerStripeId && (
           <div className="mt-8 mb-32">
             <h2 className="font-heading text-lg mb-1">🍺 Bar & Food Pre-Order</h2>
             <p className="text-gray-500 text-xs mb-4">Add to your order — ready when you arrive</p>
