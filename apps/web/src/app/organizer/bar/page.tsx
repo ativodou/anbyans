@@ -81,7 +81,7 @@ export default function OrganizerBarPage() {
   // ── Handlers ──
   async function handleAddStation() {
     if (!newStation.trim() || !eventId) {
-      if (!eventId) setStationError('No event selected — please pick an event first.');
+      if (!eventId) setStationError('Pa gen evènman chwazi. Chwazi yon evènman anvan.');
       return;
     }
     setSavingStation(true);
@@ -93,7 +93,7 @@ export default function OrganizerBarPage() {
       if (!newItem.stationId) setNewItem(p => ({ ...p, stationId: id }));
       setNewStation('');
     } catch (e: any) {
-      setStationError(e?.message ?? 'Failed to save station.');
+      setStationError(e?.message ?? 'Erè: Nou pa ka sovgade estasyon an.');
     }
     setSavingStation(false);
   }
