@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { useT } from '@/i18n';
 import { useOrganizerEvent } from '../OrganizerEventContext';
 import { db } from '@/lib/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
@@ -21,6 +22,7 @@ const PAY_LABELS: Record<string, string> = {
 
 export default function OrganizerBarPage() {
   const { user } = useAuth();
+  const { t } = useT();
   const { selectedEvent } = useOrganizerEvent();
   const [tab, setTab] = useState<Tab>('setup');
 
@@ -81,7 +83,7 @@ export default function OrganizerBarPage() {
   // ── Handlers ──
   async function handleAddStation() {
     if (!newStation.trim() || !eventId) {
-      if (!eventId) setStationError('Pa gen evènman chwazi. Chwazi yon evènman anvan.');
+      if (!eventId) setStationError(t('bar_no_event_error'));
       return;
     }
     setSavingStation(true);
@@ -93,7 +95,7 @@ export default function OrganizerBarPage() {
       if (!newItem.stationId) setNewItem(p => ({ ...p, stationId: id }));
       setNewStation('');
     } catch (e: any) {
-      setStationError(e?.message ?? 'Erè: Nou pa ka sovgade estasyon an.');
+      setStationError(e?.message ?? t('bar_save_station_error'));
     }
     setSavingStation(false);
   }
@@ -161,7 +163,7 @@ export default function OrganizerBarPage() {
   if (!selectedEvent) return (
     <div className="flex flex-col items-center justify-center py-24 text-center">
       <p className="text-4xl mb-3">📅</p>
-      <p className="text-gray-muted text-sm">Chwazi yon evènman nan antet la.</p>
+      <p className="text-gray-muted text-sm">{t('bar_no_event')}</p>
     </div>
   );
 
@@ -177,11 +179,11 @@ export default function OrganizerBarPage() {
       {/* Tabs */}
       <div className="flex gap-1 mb-5 border-b border-border">
         {([
-          ['setup', '⚙️', 'Setup'],
-          ['live',  '🔴', `Live${pendingOrders.length ? ` (${pendingOrders.length})` : ''}`],
-          ['inventory', '📦', 'Inventè'],
-          ['stats', '📊', 'Stats'],
-        ] as const).map(([id, icon, label]) => (
+          ['setup',     '⚙️', t('bar_tab_setup')],
+          ['live',      '🔴', `${t('bar_tab_live')}${pendingOrders.length ? ` (${pendingOrders.length})` : ''}`],
+          ['inventory', '📦', t('bar_tab_inventory')],
+          ['stats',     '📊', t('bar_tab_stats')],
+        ] as [Tab, string, string][]).map(([id, icon, label]) => (
           <button key={id} onClick={() => setTab(id as Tab)}
             className={`px-4 py-2.5 text-xs font-bold border-b-2 transition-colors ${tab === id ? 'border-orange text-orange' : 'border-transparent text-gray-muted hover:text-white'}`}>
             {icon} {label}
@@ -195,21 +197,21 @@ export default function OrganizerBarPage() {
 
           {/* Share URLs */}
           <div className={`${card} p-4 space-y-3`}>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-muted">Lyen Pataj</p>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-muted">{t('bar_share_links')}</p>
             {!posActivated ? (
               <div className="bg-orange/10 border border-orange/30 rounded-xl p-4 flex items-center gap-3">
                 <span className="text-2xl">🔒</span>
                 <div className="flex-1">
-                  <p className="text-sm font-bold text-white">Aktive POS pou jwenn lyen yo</p>
-                  <p className="text-xs text-gray-muted mt-0.5">Ale nan <strong className="text-white">Evènman</strong> epi klike <strong className="text-white">Activate POS</strong> pou jenere lyen Staff + Vendor.</p>
+                  <p className="text-sm font-bold text-white">{t('bar_activate_title')}</p>
+                  <p className="text-xs text-gray-muted mt-0.5">{t('bar_activate_desc')}</p>
                 </div>
               </div>
             ) : !barCode ? (
               <div className="flex items-center gap-3">
-                <p className="text-xs text-gray-muted flex-1">Pa gen kòd. Jenere youn.</p>
+                <p className="text-xs text-gray-muted flex-1">{t('bar_no_code')}</p>
                 <button onClick={handleGenerateCode} disabled={generatingCode}
                   className="px-4 py-2 rounded-lg bg-orange text-white text-xs font-bold hover:bg-orange/80 disabled:opacity-50 transition-all">
-                  {generatingCode ? '...' : 'Jenere Kòd'}
+                  {generatingCode ? '...' : t('bar_generate_code')}
                 </button>
               </div>
             ) : (
@@ -222,7 +224,7 @@ export default function OrganizerBarPage() {
                     <span className="text-[10px] font-bold text-gray-muted w-28 flex-shrink-0">{label}</span>
                     <span className="text-xs text-white font-mono flex-1 truncate">{url}</span>
                     <button onClick={() => navigator.clipboard.writeText(url)}
-                      className="text-[10px] text-orange hover:underline flex-shrink-0">Kopye</button>
+                      className="text-[10px] text-orange hover:underline flex-shrink-0">{t('bar_copy')}</button>
                   </div>
                 ))}
               </div>
@@ -231,11 +233,11 @@ export default function OrganizerBarPage() {
 
           {/* Stations */}
           <div className={`${card} p-4`}>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-muted mb-3">Estasyon Vandè</p>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-muted mb-3">{t('bar_stations_title')}</p>
             <div className="flex gap-2 mb-3">
               <input value={newStation} onChange={e => setNewStation(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleAddStation()}
-                placeholder="Ex: Bar, Manje, Merch" className={`${inp} flex-1`} />
+                placeholder={t('bar_station_placeholder')} className={`${inp} flex-1`} />
               <button onClick={handleAddStation} disabled={savingStation || !newStation.trim()}
                 className="px-4 py-2 rounded-lg bg-orange text-white text-xs font-bold disabled:opacity-40 hover:bg-orange/80 transition-all">
                 {savingStation ? '...' : '➕'}
@@ -243,7 +245,7 @@ export default function OrganizerBarPage() {
             </div>
             {stationError && <p className="text-xs text-red-400 mb-2">{stationError}</p>}
             {stations.length === 0
-              ? <p className="text-xs text-gray-muted">Pa gen estasyon ankò.</p>
+              ? <p className="text-xs text-gray-muted">{t('bar_no_stations')}</p>
               : <div className="flex flex-wrap gap-2">
                   {stations.map(s => (
                     <div key={s.id} className="flex items-center gap-1.5 px-3 py-1.5 bg-white/[0.04] border border-border rounded-lg">
@@ -257,9 +259,9 @@ export default function OrganizerBarPage() {
 
           {/* Menu items */}
           <div className={`${card} p-4`}>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-muted mb-3">Atik Meni</p>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-muted mb-3">{t('bar_menu_title')}</p>
             {stations.length === 0
-              ? <p className="text-xs text-gray-muted">Ajoute yon estasyon anvan.</p>
+              ? <p className="text-xs text-gray-muted">{t('bar_add_station_first')}</p>
               : <>
                   <div className="grid grid-cols-4 gap-2 mb-3">
                     <select value={newItem.stationId} onChange={e => setNewItem(p => ({ ...p, stationId: e.target.value }))}
@@ -267,15 +269,15 @@ export default function OrganizerBarPage() {
                       {stations.map(s => <option key={s.id} value={s.id} className="bg-dark-card">{s.name}</option>)}
                     </select>
                     <input value={newItem.name} onChange={e => setNewItem(p => ({ ...p, name: e.target.value }))}
-                      placeholder="Non *" className={`${inp} col-span-1`} />
+                      placeholder={t('bar_item_name_placeholder')} className={`${inp} col-span-1`} />
                     <input value={newItem.price} onChange={e => setNewItem(p => ({ ...p, price: e.target.value }))}
-                      placeholder="Pri $" type="number" min="0" step="0.25" className={inp} />
+                      placeholder={t('bar_item_price_placeholder')} type="number" min="0" step="0.25" className={inp} />
                     <input value={newItem.stock} onChange={e => setNewItem(p => ({ ...p, stock: e.target.value }))}
-                      placeholder="Stock" type="number" min="0" className={inp} />
+                      placeholder={t('bar_stock_label')} type="number" min="0" className={inp} />
                   </div>
                   <button onClick={handleAddItem} disabled={savingItem || !newItem.name.trim() || !newItem.price}
                     className="px-5 py-2 rounded-lg bg-orange text-white text-xs font-bold disabled:opacity-40 hover:bg-orange/80 transition-all">
-                    {savingItem ? '...' : '➕ Ajoute Atik'}
+                    {savingItem ? '...' : t('bar_add_item')}
                   </button>
                   {items.length > 0 && (
                     <div className="mt-4 space-y-1">
@@ -304,12 +306,12 @@ export default function OrganizerBarPage() {
 
           {/* Staff list */}
           <div className={`${card} p-4`}>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-muted mb-3">Staff</p>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-muted mb-3">{t('bar_staff_title')}</p>
             {assignedStaff.length === 0 ? (
               <p className="text-xs text-gray-muted leading-relaxed">
-                Pa gen staff asiye.{' '}
-                <a href="/organizer/staff" className="text-orange underline underline-offset-2">Ale nan Staff Pool</a>{' '}
-                pou asiye staff yo nan evènman sa a.
+                {t('bar_no_staff')}{' '}
+                <a href="/organizer/staff" className="text-orange underline underline-offset-2">{t('bar_staff_pool_link')}</a>{' '}
+                {t('bar_staff_assign_desc')}
               </p>
             ) : (
               <div className="space-y-2">
@@ -331,13 +333,13 @@ export default function OrganizerBarPage() {
                           WhatsApp
                         </a>
                       ) : staffUrl ? (
-                        <span className="text-[10px] text-gray-muted">Pa gen nimewo</span>
+                        <span className="text-[10px] text-gray-muted">{t('bar_no_phone')}</span>
                       ) : null}
                     </div>
                   );
                 })}
                 {!posActivated && (
-                  <p className="text-[10px] text-gray-muted pt-1">Aktive POS la pou voye lyen an.</p>
+                  <p className="text-[10px] text-gray-muted pt-1">{t('bar_activate_to_send')}</p>
                 )}
               </div>
             )}
@@ -351,7 +353,7 @@ export default function OrganizerBarPage() {
           <div className="flex gap-2 mb-4 flex-wrap">
             <button onClick={() => setLiveStation(null)}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${!liveStation ? 'bg-orange text-white border-orange' : 'border-border text-gray-muted hover:text-white'}`}>
-              Tout
+              {t('bar_all')}
             </button>
             {stations.map(s => (
               <button key={s.id} onClick={() => setLiveStation(s.id!)}
@@ -364,7 +366,7 @@ export default function OrganizerBarPage() {
           {orders.length === 0 ? (
             <div className={`${card} p-10 text-center`}>
               <p className="text-3xl mb-2">📋</p>
-              <p className="text-gray-muted text-xs">Pa gen kòmand ankò.</p>
+              <p className="text-gray-muted text-xs">{t('bar_no_orders')}</p>
             </div>
           ) : (
             <div className="space-y-2">
@@ -391,10 +393,10 @@ export default function OrganizerBarPage() {
                       {order.status === 'pending' ? (
                         <button onClick={() => handleMarkDelivered(order.id!)}
                           className="mt-1 px-3 py-1 rounded-lg bg-green-600 hover:bg-green-500 text-white text-[10px] font-bold transition-all">
-                          ✓ Livre
+                          {t('bar_delivered')}
                         </button>
                       ) : (
-                        <span className="text-[10px] text-gray-muted">✓ Livre</span>
+                        <span className="text-[10px] text-gray-muted">{t('bar_delivered')}</span>
                       )}
                     </div>
                   </div>
@@ -426,8 +428,8 @@ export default function OrganizerBarPage() {
                           <p className="text-xs text-orange">${item.price.toFixed(2)}</p>
                         </div>
                         <div className="text-right text-xs text-gray-muted">
-                          <p>Vann: <strong className="text-white">{item.sold}</strong></p>
-                          <p>Stock: <strong className="text-white">{item.stock}</strong></p>
+                          <p>{t('bar_sold')}: <strong className="text-white">{item.sold}</strong></p>
+                          <p>{t('bar_stock_label')}: <strong className="text-white">{item.stock}</strong></p>
                         </div>
                         <div className={`text-center min-w-[60px] px-2 py-1 rounded-lg text-xs font-bold ${remaining === 0 ? 'bg-red-900/30 text-red-400' : low ? 'bg-orange/20 text-orange' : 'bg-green/10 text-green'}`}>
                           {remaining} {low && remaining > 0 ? '⚠️' : ''}
@@ -453,7 +455,7 @@ export default function OrganizerBarPage() {
           })}
           {items.length === 0 && (
             <div className={`${card} p-10 text-center`}>
-              <p className="text-gray-muted text-xs">Pa gen atik. Ale nan Setup pou ajoute.</p>
+              <p className="text-gray-muted text-xs">{t('bar_no_items')}</p>
             </div>
           )}
         </div>
@@ -464,9 +466,9 @@ export default function OrganizerBarPage() {
         <div className="space-y-4">
           <div className="grid grid-cols-3 gap-3">
             {[
-              { label: 'Total Kòmand', value: completedOrders.length },
-              { label: 'Ann Atant', value: pendingOrders.length, color: 'text-orange' },
-              { label: 'Total Revni', value: `$${totalRevenue.toFixed(2)}`, color: 'text-green' },
+              { label: t('bar_stat_total_orders'), value: completedOrders.length },
+              { label: t('bar_stat_pending'), value: pendingOrders.length, color: 'text-orange' },
+              { label: t('bar_stat_total_revenue'), value: `$${totalRevenue.toFixed(2)}`, color: 'text-green' },
             ].map(s => (
               <div key={s.label} className={`${card} p-4 text-center`}>
                 <p className="text-[9px] uppercase tracking-widest text-gray-muted mb-1">{s.label}</p>
@@ -477,13 +479,13 @@ export default function OrganizerBarPage() {
 
           {byStation.some(s => s.count > 0) && (
             <div className={card}>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-muted px-4 pt-4 pb-2">Pa Estasyon</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-muted px-4 pt-4 pb-2">{t('bar_stat_by_station')}</p>
               {byStation.filter(s => s.count > 0).map(s => (
                 <div key={s.name} className="flex justify-between items-center px-4 py-2.5 border-t border-border">
                   <span className="text-sm font-bold">{s.name}</span>
                   <div className="text-right">
                     <p className="text-sm font-bold text-green">${s.revenue.toFixed(2)}</p>
-                    <p className="text-[10px] text-gray-muted">{s.count} kòmand</p>
+                    <p className="text-[10px] text-gray-muted">{s.count} {t('bar_stat_orders')}</p>
                   </div>
                 </div>
               ))}
@@ -492,13 +494,13 @@ export default function OrganizerBarPage() {
 
           {byStaff.length > 0 && (
             <div className={card}>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-muted px-4 pt-4 pb-2">Pa Staff</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-muted px-4 pt-4 pb-2">{t('bar_stat_by_staff')}</p>
               {byStaff.map(s => (
                 <div key={s.name} className="flex justify-between items-center px-4 py-2.5 border-t border-border">
                   <span className="text-sm font-bold">{s.name}</span>
                   <div className="text-right">
                     <p className="text-sm font-bold text-green">${s.revenue.toFixed(2)}</p>
-                    <p className="text-[10px] text-gray-muted">{s.count} kòmand</p>
+                    <p className="text-[10px] text-gray-muted">{s.count} {t('bar_stat_orders')}</p>
                   </div>
                 </div>
               ))}
@@ -507,13 +509,13 @@ export default function OrganizerBarPage() {
 
           {byPayment.length > 0 && (
             <div className={card}>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-muted px-4 pt-4 pb-2">Pa Metòd Peman</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-muted px-4 pt-4 pb-2">{t('bar_stat_by_payment')}</p>
               {byPayment.map(p => (
                 <div key={p.label} className="flex justify-between items-center px-4 py-2.5 border-t border-border">
                   <span className="text-sm font-bold">{p.label}</span>
                   <div className="text-right">
                     <p className="text-sm font-bold text-green">${p.revenue.toFixed(2)}</p>
-                    <p className="text-[10px] text-gray-muted">{p.count} kòmand</p>
+                    <p className="text-[10px] text-gray-muted">{p.count} {t('bar_stat_orders')}</p>
                   </div>
                 </div>
               ))}
