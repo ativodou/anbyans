@@ -10,12 +10,14 @@ import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
 import FloorPlanViewer from '@/components/FloorPlanViewer';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
+import { useOrganizerEvent } from '../OrganizerEventContext';
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
 
 export default function OrganizerEventsPage() {
   const { user, loading: authLoading } = useAuth();
   const { t } = useT();
+  const { setSelectedEvent } = useOrganizerEvent();
 
   const [events, setEvents] = useState<EventData[]>([]);
   const [allTickets, setAllTickets] = useState<any[]>([]);
@@ -204,7 +206,10 @@ export default function OrganizerEventsPage() {
                       )}
                       {e.id && (
                         (e as any).posActivated
-                          ? <span className="px-3 py-1.5 rounded-lg bg-purple/10 border border-purple/30 text-[10px] font-bold text-purple">🍽️ POS Active</span>
+                          ? <Link href="/organizer/bar" onClick={() => setSelectedEvent(e)}
+                              className="px-3 py-1.5 rounded-lg bg-purple/10 border border-purple/30 text-[10px] font-bold text-purple hover:bg-purple/20 transition-all">
+                              🍽️ POS Active → Menu
+                            </Link>
                           : <button onClick={() => { setPosModal(e.id!); setPosClientSecret(null); setPosError(''); }}
                               className="px-3 py-1.5 rounded-lg bg-white/[0.04] border border-border text-[10px] font-bold text-gray-light hover:text-purple hover:border-purple/30 transition-all">
                               🍽️ Activate POS — ${posFee}
