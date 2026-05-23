@@ -262,20 +262,14 @@ export default function OrganizerEventsPage() {
                   {/* ── POS Activation ── */}
                   {e.id && (
                     e.posActivated
-                      ? <span className="px-3 py-1.5 rounded-lg bg-purple/10 border border-purple/30 text-[10px] font-bold text-purple">🍽️ POS Active</span>
+                      ? <Link href="/organizer/bar" onClick={() => setSelectedEvent(e)}
+                          className="px-3 py-1.5 rounded-lg bg-purple/10 border border-purple/30 text-[10px] font-bold text-purple hover:bg-purple/20 transition-all">
+                          🍽️ POS Active → Menu
+                        </Link>
                       : <button onClick={() => handlePosPaymentSuccess(e.id!)}
                           className="px-3 py-1.5 rounded-lg bg-white/[0.04] border border-border text-[10px] font-bold text-gray-light hover:text-purple hover:border-purple/30 transition-all">
                           🍽️ Activate POS
                         </button>
-                  )}
-
-                  {/* ── Bar & Menu setup shortcut ── */}
-                  {e.posActivated && e.id && (
-                    <Link href="/organizer/bar"
-                      onClick={() => setSelectedEvent(e)}
-                      className="px-3 py-1.5 rounded-lg bg-white/[0.04] border border-border text-[10px] font-bold text-gray-light hover:text-cyan hover:border-cyan/30 transition-all">
-                      🍺 Bar & Menu Setup
-                    </Link>
                   )}
 
                   {/* ── Status controls ── */}
