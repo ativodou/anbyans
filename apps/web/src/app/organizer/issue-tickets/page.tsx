@@ -52,6 +52,10 @@ export default function IssueTicketsPage() {
   const [buyerPhone, setBuyerPhone] = useState('');
   const [buyerEmail, setBuyerEmail] = useState('');
 
+  // Bar tab
+  const [barTabAmount, setBarTabAmount] = useState(0);
+  const [barTabCustom, setBarTabCustom] = useState('');
+
   // Payment state
   const [step, setStep] = useState<Step>('form');
   const [clientSecret, setClientSecret] = useState<string | null>(null);
@@ -119,7 +123,8 @@ export default function IssueTicketsPage() {
         selectedSection.color || '#fff',
         seats, retailPrice,
         undefined, paymentIntentId, 'stripe',
-        { organizerId: user?.uid, sectionName: selectedSection.name, paymentStatus: 'paid' }
+        { organizerId: user?.uid, sectionName: selectedSection.name, paymentStatus: 'paid',
+          ...(barTabAmount > 0 ? { barTabBalance: barTabAmount, barTabSpent: 0 } : {}) }
       );
       const codes = tickets.map((tk: any) => tk.ticketCode).filter(Boolean);
       setIssuedCodes(codes);
@@ -172,7 +177,7 @@ export default function IssueTicketsPage() {
           <p key={c} className="font-mono text-xs text-green">🔑 Ticket {i + 1}: {c}</p>
         ))}
       </div>
-      <button onClick={() => { setStep('form'); setBuyerName(''); setBuyerPhone(''); setBuyerEmail(''); setQty(1); setIssuedCodes([]); setClientSecret(null); }}
+      <button onClick={() => { setStep('form'); setBuyerName(''); setBuyerPhone(''); setBuyerEmail(''); setQty(1); setIssuedCodes([]); setClientSecret(null); setBarTabAmount(0); setBarTabCustom(''); }}
         className="px-8 py-3 rounded-xl bg-orange text-white font-bold text-sm hover:bg-orange/80 transition-all">
         Issue More Tickets
       </button>
@@ -235,6 +240,27 @@ export default function IssueTicketsPage() {
               className="w-full px-3 py-2.5 rounded-lg bg-white/[0.04] border border-border text-white text-sm outline-none focus:border-orange placeholder:text-gray-muted" />
             <input value={buyerEmail} onChange={e => setBuyerEmail(e.target.value)} placeholder="Email (optional)"
               className="w-full px-3 py-2.5 rounded-lg bg-white/[0.04] border border-border text-white text-sm outline-none focus:border-orange placeholder:text-gray-muted" />
+          </div>
+
+          {/* Bar tab */}
+          <div className="bg-dark-card border border-border rounded-xl p-4">
+            <label className="text-[11px] font-bold text-gray-light uppercase tracking-wide block mb-3">🍺 Bar Tab (optional)</label>
+            <p className="text-[10px] text-gray-muted mb-3">Add pre-paid bar credit to their ticket. Collect cash from buyer.</p>
+            <div className="flex gap-2 mb-3">
+              {[0, 20, 50, 100].map(amt => (
+                <button key={amt} onClick={() => { setBarTabAmount(amt); setBarTabCustom(''); }}
+                  className={`flex-1 py-2 rounded-lg border text-xs font-bold transition-all ${barTabAmount === amt && !barTabCustom ? 'border-orange/50 bg-orange/10 text-orange' : 'border-border text-gray-muted hover:border-white/20'}`}>
+                  {amt === 0 ? 'None' : `$${amt}`}
+                </button>
+              ))}
+            </div>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-muted text-sm">$</span>
+              <input type="number" min={1} placeholder="Custom"
+                value={barTabCustom}
+                onChange={e => { setBarTabCustom(e.target.value); setBarTabAmount(Math.max(0, parseInt(e.target.value) || 0)); }}
+                className="w-full pl-7 pr-4 py-2.5 rounded-lg bg-white/[0.04] border border-border text-white text-sm outline-none focus:border-orange placeholder:text-gray-muted" />
+            </div>
           </div>
 
           {/* Fee summary */}

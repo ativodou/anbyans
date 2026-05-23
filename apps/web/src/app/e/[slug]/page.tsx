@@ -8,7 +8,7 @@ const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
 import { useParams } from 'next/navigation';
 import { collection, query, where, getDocs, doc, getDoc, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { getEventByPrivateToken, getPlatformFeeRate } from '@/lib/db';
+import { getEventByPrivateToken, getPlatformFeeRate, getBarItems } from '@/lib/db';
 import { useT } from '@/i18n';
 import Link from 'next/link';
 import FloorPlanViewer from '@/components/FloorPlanViewer';
@@ -200,6 +200,12 @@ function BuyPageInner() {
   const [errors, setErrors]           = useState<Record<string, string>>({});
   const [purchaseError, setPurchaseError] = useState('');
 
+  // Bar tab
+  const [showBarTab, setShowBarTab]     = useState(false);
+  const [barTabAmount, setBarTabAmount] = useState(0);
+  const [customTab, setCustomTab]       = useState('');
+  const [barMenuItems, setBarMenuItems] = useState<{name: string; price: number}[]>([]);
+
   // ── Load event ────────────────────────────────────────────────
   useEffect(() => {
     if (!slug) return;
@@ -297,7 +303,7 @@ function BuyPageInner() {
   const htg = (usd: number) => Math.round(usd * (event?.exchangeRate || 130));
   const cartTotal   = cart.reduce((sum, item) => sum + item.section.price * item.qty, 0);
   const serviceFee  = Math.round(cartTotal * feeRate * 100) / 100;
-  const chargeTotal = cartTotal + serviceFee; // what fan actually pays
+  const chargeTotal = cartTotal + serviceFee + barTabAmount; // what fan actually pays
   const cartCount = cart.reduce((sum, item) => sum + item.qty, 0);
   const cartItem  = (secId: string) => cart.find(c => c.section.id === secId);
 
@@ -374,6 +380,7 @@ function BuyPageInner() {
         payMethod === 'moncash' || payMethod === 'natcash' ? 'pending_verification' :
         'pending_cash';
 
+      let firstTicket = true;
       for (const item of cart) {
         const seats = item.section.type === 'reserved' ? item.seats : Array(item.qty).fill(null);
         for (let i = 0; i < item.qty; i++) {
@@ -391,8 +398,10 @@ function BuyPageInner() {
             txnId: txnId.trim() || null,
             status: paymentStatus === 'paid' ? 'valid' : 'pending',
             purchasedAt: serverTimestamp(),
+            ...(firstTicket && barTabAmount > 0 ? { barTabBalance: barTabAmount, barTabSpent: 0 } : {}),
           });
           codes.push(code);
+          firstTicket = false;
         }
       }
       setTicketCodes(codes);
@@ -675,10 +684,73 @@ function BuyPageInner() {
           </div>
           <p className="text-[10px] text-gray-600 mt-1">{t('slug_fee_nonrefund')}</p>
         </div>
-        <button onClick={() => { if (validateInfo()) setStep('payment'); }}
+        <button onClick={() => {
+          if (!validateInfo()) return;
+          setShowBarTab(true);
+          if (event?.id) getBarItems(event.id).then(items => setBarMenuItems(items.map(x => ({ name: x.name, price: x.price })))).catch(() => {});
+        }}
           className="w-full mt-4 py-3.5 rounded-xl font-heading text-base bg-orange text-white hover:bg-orange/90 transition-all">
           {t('buy_continue')}
         </button>
+
+        {/* Bar tab modal */}
+        {showBarTab && (
+          <div className="fixed inset-0 bg-black/80 z-50 flex items-end sm:items-center justify-center p-4" onClick={() => { setShowBarTab(false); setStep('payment'); }}>
+            <div className="bg-[#12121a] border border-white/[0.1] rounded-2xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
+              <div className="text-center mb-5">
+                <p className="text-3xl mb-2">🍺</p>
+                <h3 className="font-heading text-xl text-white">Add a Bar Tab?</h3>
+                <p className="text-gray-400 text-sm mt-1">Pre-load credit — pay now, spend at the bar</p>
+              </div>
+
+              {/* Presets */}
+              <div className="flex gap-2 mb-4">
+                {[20, 50, 100].map(amt => (
+                  <button key={amt} onClick={() => { setBarTabAmount(amt); setCustomTab(''); }}
+                    className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all border ${barTabAmount === amt ? 'bg-orange/20 border-orange text-orange' : 'border-white/[0.1] text-gray-300 hover:border-orange/40'}`}>
+                    +${amt}
+                  </button>
+                ))}
+              </div>
+
+              {/* Custom */}
+              <div className="relative mb-5">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+                <input type="number" min={1} placeholder="Custom amount"
+                  value={customTab}
+                  onChange={e => { setCustomTab(e.target.value); setBarTabAmount(Math.max(0, parseInt(e.target.value) || 0)); }}
+                  className="w-full pl-8 pr-4 py-3 rounded-xl bg-white/[0.06] border border-white/[0.1] text-white text-sm outline-none focus:border-orange" />
+              </div>
+
+              {/* Bar menu preview */}
+              {barMenuItems.length > 0 && (
+                <div className="mb-5 bg-white/[0.03] rounded-xl p-4">
+                  <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wide mb-3">What's at the Bar</p>
+                  <div className="space-y-1.5 max-h-28 overflow-y-auto">
+                    {barMenuItems.slice(0, 8).map((item, i) => (
+                      <div key={i} className="flex justify-between text-xs">
+                        <span className="text-gray-300">{item.name}</span>
+                        <span className="text-orange font-bold">${item.price}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Actions */}
+              <div className="flex gap-3">
+                <button onClick={() => { setBarTabAmount(0); setCustomTab(''); setShowBarTab(false); setStep('payment'); }}
+                  className="flex-1 py-3 rounded-xl border border-white/[0.1] text-gray-400 font-bold text-sm hover:border-white/30 transition-all">
+                  Skip
+                </button>
+                <button onClick={() => { setShowBarTab(false); setStep('payment'); }}
+                  className="flex-1 py-3 rounded-xl bg-orange text-white font-bold text-sm hover:bg-orange/90 transition-all">
+                  {barTabAmount > 0 ? `Add $${barTabAmount} Tab →` : 'Continue →'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -763,6 +835,7 @@ function BuyPageInner() {
                 if (!event || cart.length === 0) return;
                 try {
                   const codes: string[] = [];
+                  let firstTicket = true;
                   for (const item of cart) {
                     const seats = item.section.type === 'reserved' ? item.seats : Array(item.qty).fill(null);
                     for (let i = 0; i < item.qty; i++) {
@@ -778,8 +851,10 @@ function BuyPageInner() {
                         txnId: paymentIntentId,
                         status: 'valid',
                         purchasedAt: serverTimestamp(),
+                        ...(firstTicket && barTabAmount > 0 ? { barTabBalance: barTabAmount, barTabSpent: 0 } : {}),
                       });
                       codes.push(code);
+                      firstTicket = false;
                     }
                   }
                   setTicketCodes(codes);
@@ -808,6 +883,12 @@ function BuyPageInner() {
             <span>{t('slug_fee_short')}</span>
             <span>${serviceFee.toFixed(2)}</span>
           </div>
+          {barTabAmount > 0 && (
+            <div className="flex justify-between text-xs text-gray-400 pt-1">
+              <span>🍺 Bar Tab</span>
+              <span className="text-orange">+${barTabAmount.toFixed(2)}</span>
+            </div>
+          )}
           <div className="flex justify-between font-bold pt-1.5">
             <span>{t('total')}</span>
             <div className="text-right">
