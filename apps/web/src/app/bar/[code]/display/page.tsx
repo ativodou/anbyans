@@ -133,11 +133,7 @@ export default function VendorDisplayPage() {
                     </div>
 
                     <div className="flex items-center justify-between pt-2 border-t border-white/[0.07]">
-                      <span className="text-sm text-gray-400">
-                        {order.paymentMethod === 'cash' ? '💵' :
-                         order.paymentMethod === 'card' ? '💳' :
-                         order.paymentMethod === 'moncash' ? '📱' : '💰'} ${order.total.toFixed(2)}
-                      </span>
+                      <span className="text-sm text-gray-400">${order.total.toFixed(2)}</span>
                       <button
                         onClick={() => handleDeliver(order.id!)}
                         disabled={delivering === order.id}

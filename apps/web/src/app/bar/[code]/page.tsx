@@ -4,17 +4,8 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import {
   getBarStations, getBarItems, getBarStaffNames, placeBarOrder,
-  type BarStation, type BarItem, type BarPaymentMethod, type EventData,
+  type BarStation, type BarItem, type EventData,
 } from '@/lib/db';
-
-const PAYMENT_METHODS: { key: BarPaymentMethod; label: string }[] = [
-  { key: 'cash',    label: '💵 Cash' },
-  { key: 'card',    label: '💳 Card' },
-  { key: 'moncash', label: '📱 MonCash' },
-  { key: 'natcash', label: '📱 Natcash' },
-  { key: 'zelle',   label: '⚡ Zelle' },
-  { key: 'paypal',  label: '🅿️ PayPal' },
-];
 
 interface CartItem { item: BarItem; qty: number; }
 
@@ -37,7 +28,6 @@ export default function StaffPosPage() {
 
   // POS
   const [cart, setCart]               = useState<CartItem[]>([]);
-  const [payMethod, setPayMethod]     = useState<BarPaymentMethod>('cash');
 
   // Flow
   const [step, setStep]               = useState<Step>('identity');
@@ -107,7 +97,7 @@ export default function StaffPosPage() {
         staffName: activeStaff,
         items: cart.map(c => ({ itemId: c.item.id!, name: c.item.name, qty: c.qty, price: c.item.price })),
         total: cartTotal,
-        paymentMethod: payMethod,
+        paymentMethod: 'cash',
         status: 'pending',
       });
       // Update local sold counts so stock shows correctly for next order
@@ -270,18 +260,6 @@ export default function StaffPosPage() {
               <div className="border-t border-white/[0.1] pt-2 flex justify-between font-bold">
                 <span>Total</span>
                 <span className="text-xl">${cartTotal.toFixed(2)}</span>
-              </div>
-            </div>
-
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-2">Payment Method</p>
-              <div className="grid grid-cols-3 gap-2">
-                {PAYMENT_METHODS.map(m => (
-                  <button key={m.key} onClick={() => setPayMethod(m.key)}
-                    className={`py-2.5 rounded-xl border text-xs font-bold transition-all ${payMethod === m.key ? 'border-orange bg-orange/10 text-orange' : 'border-white/[0.1] text-gray-300 hover:border-white/30'}`}>
-                    {m.label}
-                  </button>
-                ))}
               </div>
             </div>
 
