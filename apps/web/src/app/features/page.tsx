@@ -1,0 +1,387 @@
+'use client';
+
+import { useState } from 'react';
+
+type Lang = 'en' | 'ht' | 'fr';
+
+const content: Record<Lang, {
+  tag: string; hero: string; sub: string; cta: string; contact: string;
+  sections: { icon: string; title: string; bullets: string[] }[];
+  closing: string; closingSub: string;
+}> = {
+  en: {
+    tag: 'For Event Organizers',
+    hero: 'Everything you need to run a flawless event.',
+    sub: 'Anbyans is the all-in-one platform built for Haitian event organizers — from ticket sales to bar operations, door control to real-time revenue tracking.',
+    cta: 'Get Started',
+    contact: 'Contact Us',
+    closing: 'Ready to elevate your events?',
+    closingSub: 'Join organizers already using Anbyans to run smoother, more profitable events.',
+    sections: [
+      {
+        icon: '🎟️',
+        title: 'Online Ticketing',
+        bullets: [
+          'Sell tickets online with instant QR-code delivery',
+          'Multiple sections: VVIP, VIP, General, and more',
+          'Bulk pricing tiers — reward group buyers automatically',
+          'Promo codes and private invite-only events',
+          'Ticket transfer between attendees',
+        ],
+      },
+      {
+        icon: '🍽️',
+        title: 'Bar & Point of Sale',
+        bullets: [
+          'Staff POS app runs on any phone — no extra hardware',
+          'Vendor display screen shows live orders in real time',
+          'Multiple stations: Bar, Food, Merch — all tracked separately',
+          'Accept Cash, Card, MonCash, Natcash, Zelle, and PayPal',
+          'Inventory management with low-stock alerts',
+        ],
+      },
+      {
+        icon: '📊',
+        title: 'Real-Time Analytics',
+        bullets: [
+          'Live revenue dashboard during your event',
+          'Sales breakdown by station, staff member, and payment method',
+          'Total orders, pending orders, and revenue at a glance',
+          'Export-ready data after the event',
+        ],
+      },
+      {
+        icon: '🚪',
+        title: 'Door & Access Control',
+        bullets: [
+          'QR-code scanner for fast, accurate guest check-in',
+          'Prevent duplicate entries automatically',
+          'Door staff portal — no organizer account needed',
+          'Real-time attendance count',
+        ],
+      },
+      {
+        icon: '👥',
+        title: 'Staff Management',
+        bullets: [
+          'Build your staff pool and assign them per event',
+          'Share POS links directly via WhatsApp in one tap',
+          'Staff use their own phones — no app install required',
+          'Track sales and performance per staff member',
+        ],
+      },
+      {
+        icon: '🏟️',
+        title: 'Venue & Floor Planning',
+        bullets: [
+          'Visual floor plan builder for your venue',
+          'Assign seating sections with capacity limits',
+          'Works for any venue: hotel, outdoor, club, stadium',
+        ],
+      },
+      {
+        icon: '🌐',
+        title: 'Built for Haiti & the Diaspora',
+        bullets: [
+          'Full support for Haitian Kreyòl, English, and French',
+          'MonCash and Natcash payment integration',
+          'Works on slow connections and older phones',
+          'Designed for events in Haiti and abroad',
+        ],
+      },
+      {
+        icon: '🔒',
+        title: 'Security & Reliability',
+        bullets: [
+          'Cloud-hosted — runs 24/7 with no downtime',
+          'Private events with token-based access',
+          'All data encrypted and backed up automatically',
+          'Works on iOS, Android, and any modern browser',
+        ],
+      },
+    ],
+  },
+
+  ht: {
+    tag: 'Pou Òganizatè Evènman',
+    hero: 'Tout sa ou bezwen pou ranje yon evènman san pwoblèm.',
+    sub: 'Anbyans se platfòm konplè a pou òganizatè evènman ayisyen — vann tikè, jere ba, kontwole pòt, ak suiv revni an tan reyèl.',
+    cta: 'Kòmanse',
+    contact: 'Kontakte Nou',
+    closing: 'Pare pou fè evènman ou yo pi bèl?',
+    closingSub: 'Antre nan gwoup òganizatè k ap deja itilize Anbyans pou ranje evènman ki pi pwofitab.',
+    sections: [
+      {
+        icon: '🎟️',
+        title: 'Tikè Anliy',
+        bullets: [
+          'Vann tikè sou entènèt — kliyan resevwa kòd QR imedyatman',
+          'Plizyè kategori: VVIP, VIP, Jeneral, ak plis',
+          'Pri espesyal pou gwoup — otomatik',
+          'Kòd promo ak evènman prive sou envitasyon',
+          'Transfè tikè ant envite',
+        ],
+      },
+      {
+        icon: '🍽️',
+        title: 'Ba ak Sistèm Vant',
+        bullets: [
+          'Aplikasyon POS pou staff — mache sou nenpòt telefòn',
+          'Ekran afichaj pou vandè montre kòmand an tan reyèl',
+          'Plizyè estasyon: Ba, Manje, Merch — tout separe',
+          'Aksepte Kach, Kat, MonCash, Natcash, Zelle, ak PayPal',
+          'Jere envantè ak alèt stock ba',
+        ],
+      },
+      {
+        icon: '📊',
+        title: 'Estatistik an Tan Reyèl',
+        bullets: [
+          'Tablo de bò revni pandan evènman an',
+          'Detay vant pa estasyon, pa staff, pa metòd peman',
+          'Total kòmand, kòmand an atant, revni total',
+          'Done pare pou ekspòte apre evènman an',
+        ],
+      },
+      {
+        icon: '🚪',
+        title: 'Kontwòl Aksè',
+        bullets: [
+          'Scann kòd QR pou antre envite vit ak presizyon',
+          'Anpeche doub antre otomatikman',
+          'Pòtal pou gad pòt — pa bezwen kont òganizatè',
+          'Konte prezan an tan reyèl',
+        ],
+      },
+      {
+        icon: '👥',
+        title: 'Jestyon Staff',
+        bullets: [
+          'Bati ekip staff ou epi asiye yo pou chak evènman',
+          'Pataje lyen POS pa WhatsApp ak yon sèl klik',
+          'Staff itilize pwòp telefòn yo — pa bezwen enstale app',
+          'Suiv vant ak pèfòmans chak moun nan ekip',
+        ],
+      },
+      {
+        icon: '🏟️',
+        title: 'Plan Sal ak Espas',
+        bullets: [
+          'Kreye plan vizèl pou sal ou a',
+          'Asiye seksyon chèz ak limit kapasite',
+          'Travay pou tout tip espas: otèl, deyò, klib, estad',
+        ],
+      },
+      {
+        icon: '🌐',
+        title: 'Fèt pou Ayiti ak Dyaspora a',
+        bullets: [
+          'Konplètman an Kreyòl, Anglè, ak Fransè',
+          'MonCash ak Natcash entegre',
+          'Mache menm sou koneksyon lant ak vye telefòn',
+          'Fèt pou evènman ann Ayiti ak aletranje',
+        ],
+      },
+      {
+        icon: '🔒',
+        title: 'Sekirite ak Fiabilite',
+        bullets: [
+          'Cloud — disponib 24/7 san entèripsyon',
+          'Evènman prive ak aksè pa tokèn',
+          'Tout done chifre ak sovgade otomatikman',
+          'Mache sou iOS, Android, ak nenpòt navigatè modèn',
+        ],
+      },
+    ],
+  },
+
+  fr: {
+    tag: 'Pour les Organisateurs',
+    hero: 'Tout ce qu\'il faut pour organiser un événement sans faille.',
+    sub: 'Anbyans est la plateforme tout-en-un conçue pour les organisateurs d\'événements haïtiens — vente de billets, gestion du bar, contrôle d\'accès et suivi des revenus en temps réel.',
+    cta: 'Commencer',
+    contact: 'Contactez-nous',
+    closing: 'Prêt à faire passer vos événements au niveau supérieur?',
+    closingSub: 'Rejoignez les organisateurs qui utilisent déjà Anbyans pour des événements plus fluides et plus rentables.',
+    sections: [
+      {
+        icon: '🎟️',
+        title: 'Billetterie en Ligne',
+        bullets: [
+          'Vente de billets en ligne avec livraison instantanée par QR code',
+          'Plusieurs catégories : VVIP, VIP, Général, et plus',
+          'Tarifs groupés automatiques pour récompenser les achats en masse',
+          'Codes promo et événements privés sur invitation',
+          'Transfert de billets entre participants',
+        ],
+      },
+      {
+        icon: '🍽️',
+        title: 'Bar & Point de Vente',
+        bullets: [
+          'Application POS pour le staff — fonctionne sur n\'importe quel téléphone',
+          'Écran d\'affichage vendeur avec commandes en temps réel',
+          'Plusieurs stations : Bar, Restauration, Merch — tout séparé',
+          'Accepte Espèces, Carte, MonCash, Natcash, Zelle et PayPal',
+          'Gestion des stocks avec alertes de rupture',
+        ],
+      },
+      {
+        icon: '📊',
+        title: 'Analytique en Temps Réel',
+        bullets: [
+          'Tableau de bord des revenus pendant l\'événement',
+          'Détail des ventes par station, par staff et par mode de paiement',
+          'Commandes totales, commandes en attente, revenus en un coup d\'œil',
+          'Données exportables après l\'événement',
+        ],
+      },
+      {
+        icon: '🚪',
+        title: 'Contrôle d\'Accès',
+        bullets: [
+          'Scanner QR code pour un accueil rapide et précis',
+          'Blocage automatique des doublons',
+          'Portail pour le personnel à l\'entrée — sans compte organisateur',
+          'Comptage des présences en temps réel',
+        ],
+      },
+      {
+        icon: '👥',
+        title: 'Gestion du Personnel',
+        bullets: [
+          'Constituez votre équipe et assignez-la par événement',
+          'Partagez les liens POS directement via WhatsApp en un clic',
+          'Le staff utilise son propre téléphone — aucune installation requise',
+          'Suivi des ventes et performances par membre du staff',
+        ],
+      },
+      {
+        icon: '🏟️',
+        title: 'Plan de Salle',
+        bullets: [
+          'Créez un plan visuel de votre espace',
+          'Définissez des sections avec des limites de capacité',
+          'Compatible avec tout type de lieu : hôtel, plein air, club, stade',
+        ],
+      },
+      {
+        icon: '🌐',
+        title: 'Conçu pour Haïti et la Diaspora',
+        bullets: [
+          'Interface complète en Kreyòl, Anglais et Français',
+          'Intégration MonCash et Natcash',
+          'Fonctionne sur connexion lente et téléphones anciens',
+          'Adapté aux événements en Haïti et à l\'étranger',
+        ],
+      },
+      {
+        icon: '🔒',
+        title: 'Sécurité & Fiabilité',
+        bullets: [
+          'Hébergé dans le cloud — disponible 24h/24 sans interruption',
+          'Événements privés avec accès par token',
+          'Toutes les données chiffrées et sauvegardées automatiquement',
+          'Compatible iOS, Android et tout navigateur moderne',
+        ],
+      },
+    ],
+  },
+};
+
+export default function FeaturesPage() {
+  const [lang, setLang] = useState<Lang>('en');
+  const c = content[lang];
+
+  return (
+    <div className="min-h-screen bg-[#09090f] text-white">
+
+      {/* Print header — only visible when printing */}
+      <div className="hidden print:flex print:items-center print:justify-between print:px-10 print:py-6 print:border-b print:border-gray-200">
+        <span className="text-2xl font-bold text-black">Anbyans</span>
+        <span className="text-sm text-gray-500">anbyans.events</span>
+      </div>
+
+      {/* Nav */}
+      <nav className="print:hidden sticky top-0 z-20 bg-[#09090f]/90 backdrop-blur border-b border-white/[0.06] px-6 py-4 flex items-center justify-between">
+        <a href="/" className="font-heading text-xl text-white">Anbyans</a>
+        <div className="flex items-center gap-2">
+          {(['en', 'ht', 'fr'] as Lang[]).map(l => (
+            <button key={l} onClick={() => setLang(l)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all uppercase ${lang === l ? 'bg-orange text-white' : 'text-gray-400 hover:text-white'}`}>
+              {l}
+            </button>
+          ))}
+          <a href="/organizer"
+            className="ml-4 px-4 py-2 rounded-xl bg-orange text-white text-xs font-bold hover:bg-orange/80 transition-all">
+            {c.cta} →
+          </a>
+        </div>
+      </nav>
+
+      <div className="max-w-4xl mx-auto px-6 py-16 print:px-10 print:py-8 print:text-black">
+
+        {/* Hero */}
+        <div className="text-center mb-16 print:mb-10">
+          <span className="inline-block px-3 py-1 rounded-full bg-orange/10 border border-orange/30 text-orange text-xs font-bold uppercase tracking-widest mb-4 print:text-orange print:border-orange">
+            {c.tag}
+          </span>
+          <h1 className="font-heading text-4xl md:text-5xl text-white mb-4 leading-tight print:text-black print:text-4xl">
+            {c.hero}
+          </h1>
+          <p className="text-gray-400 text-lg max-w-2xl mx-auto leading-relaxed print:text-gray-600">
+            {c.sub}
+          </p>
+        </div>
+
+        {/* Feature grid */}
+        <div className="grid md:grid-cols-2 gap-6 mb-16 print:grid-cols-2 print:gap-4 print:mb-10">
+          {c.sections.map(s => (
+            <div key={s.title}
+              className="bg-white/[0.03] border border-white/[0.08] rounded-2xl p-6 print:border print:border-gray-200 print:rounded-xl print:p-5 print:bg-white print:break-inside-avoid">
+              <div className="flex items-center gap-3 mb-4">
+                <span className="text-3xl">{s.icon}</span>
+                <h2 className="font-bold text-lg text-white print:text-black">{s.title}</h2>
+              </div>
+              <ul className="space-y-2">
+                {s.bullets.map(b => (
+                  <li key={b} className="flex items-start gap-2 text-sm text-gray-400 print:text-gray-700">
+                    <span className="text-orange mt-0.5 flex-shrink-0">✓</span>
+                    <span>{b}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+
+        {/* Closing CTA */}
+        <div className="text-center py-12 border-t border-white/[0.06] print:border-gray-200 print:py-8">
+          <h2 className="font-heading text-3xl text-white mb-3 print:text-black">{c.closing}</h2>
+          <p className="text-gray-400 mb-8 print:text-gray-600">{c.closingSub}</p>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center print:hidden">
+            <a href="/organizer"
+              className="px-8 py-3.5 rounded-xl bg-orange text-white font-bold hover:bg-orange/80 transition-all">
+              {c.cta} →
+            </a>
+            <a href="mailto:ati@anbyans.events"
+              className="px-8 py-3.5 rounded-xl border border-white/20 text-white font-bold hover:border-white/40 transition-all">
+              {c.contact}
+            </a>
+          </div>
+          <div className="hidden print:block text-sm text-gray-500 mt-4">
+            anbyans.events · ati@anbyans.events
+          </div>
+        </div>
+
+      </div>
+
+      <style>{`
+        @media print {
+          body { background: white !important; color: black !important; }
+          @page { margin: 1.5cm; size: A4; }
+        }
+      `}</style>
+    </div>
+  );
+}
