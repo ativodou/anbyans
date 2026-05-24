@@ -5,7 +5,8 @@ import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useT } from '@/i18n';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, query, where, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, getDocs, query, where, addDoc, serverTimestamp, onSnapshot } from 'firebase/firestore';
+import jsQR from 'jsqr';
 import {
   getEvent,
   getOrganizerEvents,
@@ -238,8 +239,10 @@ function ScannerPageInner() {
   const [cameraActive, setCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState('');
   const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const detectorRef = useRef<any>(null);
   const rafRef = useRef<number>(0);
+  const useNativeDetector = typeof window !== 'undefined' && 'BarcodeDetector' in window;
 
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
   const showToast = (msg: string, ok = true) => {
@@ -281,6 +284,21 @@ function ScannerPageInner() {
     setIsOnline(navigator.onLine);
     return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off); };
   }, [eventId, staffName]);
+
+  // Real-time ticket status sync — catches tickets used on other devices
+  useEffect(() => {
+    if (!eventId || !isOnline) return;
+    const q = query(collection(db, 'tickets'), where('eventId', '==', eventId), where('status', '==', 'used'));
+    const unsub = onSnapshot(q, snap => {
+      const usedCodes = new Set(snap.docs.map(d => d.data().ticketCode as string));
+      setTickets(prev => {
+        const updated = prev.map(t => usedCodes.has(t.ticketCode) ? { ...t, status: 'used' as const } : t);
+        saveTicketsLocal(eventId, updated);
+        return updated;
+      });
+    }, () => {});
+    return () => unsub();
+  }, [eventId, isOnline]);
 
   // Load organizer scanner settings
   useEffect(() => {
@@ -567,17 +585,15 @@ function ScannerPageInner() {
 
   async function startCamera() {
     setCameraError('');
-    if (!('BarcodeDetector' in window)) {
-      setCameraError('Navigatè sa a pa sipote eskan kamera. Itilize Chrome sou Android.');
-      return;
-    }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         await videoRef.current.play();
       }
-      detectorRef.current = new (window as any).BarcodeDetector({ formats: ['qr_code'] });
+      if (useNativeDetector) {
+        detectorRef.current = new (window as any).BarcodeDetector({ formats: ['qr_code'] });
+      }
       setCameraActive(true);
       runScanLoop();
     } catch {
@@ -587,12 +603,33 @@ function ScannerPageInner() {
 
   function runScanLoop() {
     rafRef.current = requestAnimationFrame(async () => {
-      if (!videoRef.current || !detectorRef.current || !videoRef.current.srcObject) return;
+      if (!videoRef.current || !videoRef.current.srcObject) return;
       try {
-        const barcodes = await detectorRef.current.detect(videoRef.current);
-        if (barcodes.length > 0) {
-          processTicketCode(barcodes[0].rawValue as string);
-          await new Promise(r => setTimeout(r, 2000));
+        if (useNativeDetector && detectorRef.current) {
+          // Chrome / Android — native BarcodeDetector
+          const barcodes = await detectorRef.current.detect(videoRef.current);
+          if (barcodes.length > 0) {
+            processTicketCode(barcodes[0].rawValue as string);
+            await new Promise(r => setTimeout(r, 2000));
+          }
+        } else {
+          // Safari / iOS — jsQR fallback via canvas
+          const video = videoRef.current;
+          const canvas = canvasRef.current;
+          if (canvas && video.readyState === video.HAVE_ENOUGH_DATA) {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+              const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+              const code = jsQR(imageData.data, imageData.width, imageData.height);
+              if (code?.data) {
+                processTicketCode(code.data);
+                await new Promise(r => setTimeout(r, 2000));
+              }
+            }
+          }
         }
       } catch {}
       runScanLoop();
@@ -1048,6 +1085,7 @@ function ScannerPageInner() {
         {/* Camera view */}
         {cameraActive && (
           <div style={{ marginBottom: 16, position: 'relative' }}>
+            <canvas ref={canvasRef} style={{ display: 'none' }} />
             <video ref={videoRef} playsInline muted
               style={{ width: '100%', borderRadius: 12, border: '2px solid #f97316', display: 'block', maxHeight: 300, objectFit: 'cover' }} />
             <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: 180, height: 180, border: '2px solid #f97316', borderRadius: 12, pointerEvents: 'none', boxShadow: '0 0 0 9999px rgba(0,0,0,0.45)' }} />
