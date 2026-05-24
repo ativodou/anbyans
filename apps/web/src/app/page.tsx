@@ -77,7 +77,6 @@ export default function LandingPage() {
     if (authLoading) return;
     const role = (user as any)?.role;
     if (role === 'reseller')  router.replace('/vendor/dashboard');
-    if (role === 'organizer') router.replace('/organizer/dashboard');
     if (role === 'admin')     router.replace('/admin/dashboard');
   }, [user, authLoading, router]);
 
