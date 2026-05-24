@@ -84,14 +84,14 @@ export default function VendorDisplayPage() {
         <div className="flex items-center gap-2">
           {pendingOrders.length > 0 && (
             <span className="px-3 py-1.5 rounded-full bg-orange text-white text-sm font-bold animate-pulse">
-              {pendingOrders.length} order{pendingOrders.length > 1 ? 's' : ''}
+              {pendingOrders.length} kòmand
             </span>
           )}
           {/* Station selector */}
           {stations.length > 1 && (
             <select value={stationId} onChange={e => setStationId(e.target.value)}
               className="px-3 py-2 rounded-lg bg-white/[0.06] border border-white/[0.1] text-white text-sm outline-none">
-              <option value="" className="bg-[#0a0a0f]">All</option>
+              <option value="" className="bg-[#0a0a0f]">Tout</option>
               {stations.map(s => <option key={s.id} value={s.id} className="bg-[#0a0a0f]">{s.name}</option>)}
             </select>
           )}
@@ -103,7 +103,7 @@ export default function VendorDisplayPage() {
         {pendingOrders.length === 0 && recentDelivered.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 text-center">
             <p className="text-5xl mb-3">✅</p>
-            <p className="text-gray-500 text-sm">No pending orders.</p>
+            <p className="text-gray-500 text-sm">Pa gen kòmand ann atant.</p>
           </div>
         ) : (
           <div>
@@ -133,12 +133,16 @@ export default function VendorDisplayPage() {
                     </div>
 
                     <div className="flex items-center justify-between pt-2 border-t border-white/[0.07]">
-                      <span className="text-sm text-gray-400">${order.total.toFixed(2)}</span>
+                      <span className="text-sm text-gray-400">
+                        {order.paymentMethod === 'cash' ? '💵' :
+                         order.paymentMethod === 'card' ? '💳' :
+                         order.paymentMethod === 'moncash' ? '📱' : '💰'} ${order.total.toFixed(2)}
+                      </span>
                       <button
                         onClick={() => handleDeliver(order.id!)}
                         disabled={delivering === order.id}
                         className="px-5 py-2.5 rounded-xl bg-green-600 hover:bg-green-500 text-white font-bold text-sm disabled:opacity-50 transition-all active:scale-95">
-                        {delivering === order.id ? '...' : '✓ Delivered'}
+                        {delivering === order.id ? '...' : '✓ Livre'}
                       </button>
                     </div>
                   </div>
@@ -149,7 +153,7 @@ export default function VendorDisplayPage() {
             {/* Recent delivered - small */}
             {recentDelivered.length > 0 && (
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-600 mb-2">Recently Delivered</p>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-600 mb-2">Dènyèman Livre</p>
                 <div className="flex flex-wrap gap-2">
                   {recentDelivered.map(order => (
                     <div key={order.id}

@@ -11,6 +11,7 @@
     "build": "npm run build --workspace=apps/web"
   },
   "devDependencies": {
+    "firebase-admin": "^13.10.0",
     "sharp": "^0.34.5"
   }
 }

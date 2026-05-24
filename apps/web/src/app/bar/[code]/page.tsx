@@ -3,9 +3,18 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import {
-  getBarStations, getBarItems, getBarStaffNames, placeBarOrder,
-  type BarStation, type BarItem, type EventData,
+  getEventByBarCode, getEvent, getBarStations, getBarItems, getBarStaffNames, placeBarOrder,
+  type BarStation, type BarItem, type BarPaymentMethod, type EventData,
 } from '@/lib/db';
+
+const PAYMENT_METHODS: { key: BarPaymentMethod; label: string }[] = [
+  { key: 'cash',    label: '💵 Cash' },
+  { key: 'card',    label: '💳 Card' },
+  { key: 'moncash', label: '📱 MonCash' },
+  { key: 'natcash', label: '📱 Natcash' },
+  { key: 'zelle',   label: '⚡ Zelle' },
+  { key: 'paypal',  label: '🅿️ PayPal' },
+];
 
 interface CartItem { item: BarItem; qty: number; }
 
@@ -28,6 +37,7 @@ export default function StaffPosPage() {
 
   // POS
   const [cart, setCart]               = useState<CartItem[]>([]);
+  const [payMethod, setPayMethod]     = useState<BarPaymentMethod>('cash');
 
   // Flow
   const [step, setStep]               = useState<Step>('identity');
@@ -36,29 +46,25 @@ export default function StaffPosPage() {
 
   useEffect(() => {
     if (!code) return;
-    let cancelled = false;
-    fetch(`/api/bar/${code}`)
-      .then(r => r.json())
-      .then(async ev => {
-        if (cancelled) return;
-        if (!ev?.id) { setNotFound(true); setLoading(false); return; }
-        setEvent(ev as EventData);
-        try {
-          const [st, it, names] = await Promise.all([
-            getBarStations(ev.id),
-            getBarItems(ev.id),
-            getBarStaffNames(ev.id),
-          ]);
-          if (cancelled) return;
-          setStations(st);
-          setAllItems(it);
-          setStaffNames(names);
-          if (st.length > 0) setStationId(st[0].id!);
-        } catch {}
-        if (!cancelled) setLoading(false);
-      })
-      .catch(() => { if (!cancelled) { setNotFound(true); setLoading(false); } });
-    return () => { cancelled = true; };
+    const resolveEvent = async () => {
+      let ev = await getEventByBarCode(code);
+      if (!ev || !ev.id) ev = await getEvent(code);
+      return ev;
+    };
+    resolveEvent().then(ev => {
+      if (!ev || !ev.id) { setNotFound(true); setLoading(false); return; }
+      setEvent(ev);
+      Promise.all([
+        getBarStations(ev.id!),
+        getBarItems(ev.id!),
+        getBarStaffNames(ev.id!),
+      ]).then(([st, it, names]) => {
+        setStations(st);
+        setAllItems(it);
+        setStaffNames(names);
+        if (st.length > 0) setStationId(st[0].id!);
+      }).finally(() => setLoading(false));
+    });
   }, [code]);
 
   const selectedStation = stations.find(s => s.id === stationId);
@@ -97,7 +103,7 @@ export default function StaffPosPage() {
         staffName: activeStaff,
         items: cart.map(c => ({ itemId: c.item.id!, name: c.item.name, qty: c.qty, price: c.item.price })),
         total: cartTotal,
-        paymentMethod: 'cash',
+        paymentMethod: payMethod,
         status: 'pending',
       });
       // Update local sold counts so stock shows correctly for next order
@@ -122,8 +128,8 @@ export default function StaffPosPage() {
   if (notFound) return (
     <div className="min-h-screen bg-[#0a0a0f] flex flex-col items-center justify-center text-center p-6">
       <p className="text-4xl mb-3">❌</p>
-      <p className="text-white font-bold">Invalid code.</p>
-      <p className="text-gray-500 text-sm mt-1">Check the link and try again.</p>
+      <p className="text-white font-bold">Kòd la pa valid.</p>
+      <p className="text-gray-500 text-sm mt-1">Verifye lyen an epi eseye ankò.</p>
     </div>
   );
 
@@ -140,7 +146,7 @@ export default function StaffPosPage() {
         {step === 'pos' && cart.length > 0 && (
           <button onClick={() => setStep('confirm')}
             className="px-4 py-2 rounded-xl bg-orange text-white text-xs font-bold">
-            Checkout ({cart.reduce((a, c) => a + c.qty, 0)}) — ${cartTotal.toFixed(2)}
+            Kontwole ({cart.reduce((a, c) => a + c.qty, 0)}) — ${cartTotal.toFixed(2)}
           </button>
         )}
       </div>
@@ -150,7 +156,7 @@ export default function StaffPosPage() {
         {/* ── IDENTITY STEP ── */}
         {step === 'identity' && (
           <div className="space-y-4">
-            <h2 className="text-lg font-bold">Who are you?</h2>
+            <h2 className="text-lg font-bold">Ki moun ou ye?</h2>
 
             {staffNames.length > 0 && (
               <div className="grid grid-cols-2 gap-2">
@@ -162,19 +168,19 @@ export default function StaffPosPage() {
                 ))}
                 <button onClick={() => setStaffName('__custom__')}
                   className={`py-3 rounded-xl border text-sm font-bold transition-all ${staffName === '__custom__' ? 'border-orange bg-orange/10 text-orange' : 'border-white/[0.1] text-gray-400 hover:border-white/30'}`}>
-                  Other…
+                  Lòt…
                 </button>
               </div>
             )}
 
             {(staffName === '__custom__' || staffNames.length === 0) && (
               <input value={customName} onChange={e => setCustomName(e.target.value)}
-                placeholder="Enter your name" className={inp} autoFocus />
+                placeholder="Tape non ou" className={inp} autoFocus />
             )}
 
             {stations.length > 1 && (
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-2">Station</p>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-2">Estasyon</p>
                 <div className="grid grid-cols-2 gap-2">
                   {stations.map(s => (
                     <button key={s.id} onClick={() => setStationId(s.id!)}
@@ -190,7 +196,7 @@ export default function StaffPosPage() {
               onClick={() => activeStaff.trim() && stationId && setStep('pos')}
               disabled={!activeStaff.trim() || !stationId}
               className="w-full py-3.5 rounded-xl bg-orange text-white font-bold text-sm disabled:opacity-40 transition-all">
-              Start →
+              Kòmanse →
             </button>
           </div>
         )}
@@ -201,7 +207,7 @@ export default function StaffPosPage() {
             {stationItems.length === 0 ? (
               <div className="text-center py-16">
                 <p className="text-3xl mb-2">📋</p>
-                <p className="text-gray-500 text-sm">No items for this station.</p>
+                <p className="text-gray-500 text-sm">Pa gen atik pou estasyon sa a.</p>
               </div>
             ) : (
               <>
@@ -232,7 +238,7 @@ export default function StaffPosPage() {
                   <div className="fixed bottom-0 left-0 right-0 p-4 bg-[#0a0a0f] border-t border-white/[0.07]">
                     <button onClick={() => setStep('confirm')}
                       className="w-full py-4 rounded-2xl bg-orange text-white font-bold text-base">
-                      Checkout — ${cartTotal.toFixed(2)}
+                      Kontwole — ${cartTotal.toFixed(2)}
                     </button>
                   </div>
                 )}
@@ -244,7 +250,7 @@ export default function StaffPosPage() {
         {/* ── CONFIRM STEP ── */}
         {step === 'confirm' && (
           <div className="space-y-4">
-            <h2 className="text-lg font-bold">Review Order</h2>
+            <h2 className="text-lg font-bold">Kontwole Kòmand</h2>
 
             <div className="bg-white/[0.04] border border-white/[0.1] rounded-2xl p-4 space-y-2">
               {cart.map(c => (
@@ -263,13 +269,25 @@ export default function StaffPosPage() {
               </div>
             </div>
 
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-2">Metòd Peman</p>
+              <div className="grid grid-cols-3 gap-2">
+                {PAYMENT_METHODS.map(m => (
+                  <button key={m.key} onClick={() => setPayMethod(m.key)}
+                    className={`py-2.5 rounded-xl border text-xs font-bold transition-all ${payMethod === m.key ? 'border-orange bg-orange/10 text-orange' : 'border-white/[0.1] text-gray-300 hover:border-white/30'}`}>
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <button onClick={handleSubmit} disabled={submitting}
               className="w-full py-4 rounded-2xl bg-green-600 hover:bg-green-500 text-white font-bold text-base disabled:opacity-50 transition-all">
-              {submitting ? '...' : '✓ Place Order'}
+              {submitting ? '...' : '✓ Voye Kòmand'}
             </button>
 
             <button onClick={() => setStep('pos')} className="w-full text-sm text-gray-500 hover:text-white transition-colors py-2">
-              ← Back
+              ← Tounen
             </button>
           </div>
         )}
@@ -279,17 +297,17 @@ export default function StaffPosPage() {
           <div className="text-center py-12 space-y-4">
             <p className="text-6xl">✅</p>
             <div>
-              <p className="text-gray-500 text-sm">Order Number</p>
+              <p className="text-gray-500 text-sm">Nimewo Kòmand</p>
               <p className="font-heading text-5xl text-orange">#{orderNum}</p>
             </div>
-            <p className="text-gray-400 text-sm">Order sent to {selectedStation?.name}</p>
+            <p className="text-gray-400 text-sm">Kòmand voye bay {selectedStation?.name}</p>
             <button onClick={() => setStep('pos')}
               className="w-full py-4 rounded-2xl bg-orange text-white font-bold text-base">
-              New Order
+              Nouvo Kòmand
             </button>
             <button onClick={() => { setStep('identity'); setStaffName(''); setCustomName(''); }}
               className="w-full text-sm text-gray-500 hover:text-white transition-colors py-2">
-              Change Staff / Station
+              Chanje Staff / Estasyon
             </button>
           </div>
         )}
