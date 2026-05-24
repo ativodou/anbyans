@@ -199,7 +199,7 @@ function OrganizerLayoutInner({ children }: { children: React.ReactNode }) {
         ${sideOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
         <div className="p-4 pb-5 border-b border-border flex-shrink-0">
-          <Link href="/" onClick={() => setSideOpen(false)}>
+          <Link href="/events" onClick={() => setSideOpen(false)}>
             <img src="/logo.jpg" alt="Anbyans" className="h-10 rounded" />
           </Link>
         </div>
