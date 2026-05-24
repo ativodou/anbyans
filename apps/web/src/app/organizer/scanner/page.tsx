@@ -253,15 +253,34 @@ function ScannerPageInner() {
   const [scannerShowName, setScannerShowName] = useState(true);
   const [scannerMode, setScannerMode]         = useState<'single' | 'continuous'>('single');
 
-  // Online/offline tracking
+  // Online/offline tracking + auto-sync on reconnect
   useEffect(() => {
-    const on = () => setIsOnline(true);
+    const on = () => {
+      setIsOnline(true);
+      // Auto-sync unsynced scans when connection returns
+      if (eventId) {
+        const history = loadScanHistory(eventId);
+        const unsynced = history.filter(h => !h.synced && h.status === 'admitted');
+        if (unsynced.length > 0) {
+          syncOfflineScans(eventId, unsynced.map(s => ({
+            ticketCode: s.ticketCode, usedAt: new Date().toISOString(), scannedBy: staffName,
+          }))).then(count => {
+            if (count > 0) {
+              const updated = history.map(h => ({ ...h, synced: true }));
+              setScanHistory(updated);
+              saveScanHistory(eventId, updated);
+              showToast(`${count} scan${count > 1 ? 's' : ''} synced automatically`);
+            }
+          }).catch(() => {});
+        }
+      }
+    };
     const off = () => setIsOnline(false);
     window.addEventListener('online', on);
     window.addEventListener('offline', off);
     setIsOnline(navigator.onLine);
     return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off); };
-  }, []);
+  }, [eventId, staffName]);
 
   // Load organizer scanner settings
   useEffect(() => {
@@ -940,6 +959,19 @@ function ScannerPageInner() {
             </span>
           </div>
         </div>
+
+        {/* No tickets warning */}
+        {tickets.length === 0 && (
+          <div style={{ background: '#2a1500', border: '1px solid #f97316', borderRadius: 10, padding: '12px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+            <div>
+              <div style={{ color: '#f97316', fontWeight: 700, fontSize: 13 }}>⚠️ Tikè pa telechaje</div>
+              <div style={{ color: '#aaa', fontSize: 11, marginTop: 2 }}>Download tickets now while you have internet — scanning won't work offline without them.</div>
+            </div>
+            <button onClick={handleDownloadTickets} disabled={downloading || !isOnline} style={{ padding: '8px 14px', borderRadius: 8, border: 'none', background: '#f97316', color: '#000', fontSize: 12, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}>
+              {downloading ? '...' : '⬇️ Download'}
+            </button>
+          </div>
+        )}
 
         {/* Stats */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 16 }}>
