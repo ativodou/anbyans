@@ -8,7 +8,7 @@ const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
 import { useParams } from 'next/navigation';
 import { collection, query, where, getDocs, doc, getDoc, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { getEventByPrivateToken, getPlatformFeeRate, getBarItems, getBarStations, type BarItem } from '@/lib/db';
+import { getEventByPrivateToken, getPlatformFeeRate, getBarItems } from '@/lib/db';
 import { useT } from '@/i18n';
 import Link from 'next/link';
 import FloorPlanViewer from '@/components/FloorPlanViewer';
@@ -48,11 +48,9 @@ interface EventData {
   exchangeRate: number;
   status: 'live' | 'upcoming' | 'ended';
   isPrivate?: boolean;
-  startTime?: string;
-  preOrderCutoffHours?: number;
 }
 
-type Step = 'detail' | 'info' | 'payment' | 'done';
+type Step = 'detail' | 'seats' | 'info' | 'payment' | 'done';
 type PayMethod = 'stripe' | 'moncash' | 'natcash' | 'cash';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -202,29 +200,11 @@ function BuyPageInner() {
   const [errors, setErrors]           = useState<Record<string, string>>({});
   const [purchaseError, setPurchaseError] = useState('');
 
-  // Bar tab / pre-order (part of cart)
-  const [barTabExtra, setBarTabExtra]       = useState(0);
-  const [barTabExtraInput, setBarTabExtraInput] = useState('');
-  const [barMenuItems, setBarMenuItems]     = useState<BarItem[]>([]);
-  const [barMenuStations, setBarMenuStations] = useState<{id: string; name: string}[]>([]);
-  const [barPreOrder, setBarPreOrder]       = useState<Record<string, number>>({}); // itemId -> qty
-  const barTabOrderTotal = barMenuItems.reduce((s, it) => s + (it.price * (barPreOrder[it.id!] || 0)), 0);
-  const barTabAmount     = barTabOrderTotal + barTabExtra;
-  const barItemCount     = Object.values(barPreOrder).reduce((s, q) => s + q, 0);
-
-  const preOrdersOpen = (() => {
-    if (!event) return false;
-    const cutoff = event.preOrderCutoffHours || 0;
-    if (cutoff === 0) return true;
-    if (!event.date) return true;
-    try {
-      const dateStr = typeof event.date === 'string' ? event.date : String(event.date);
-      const [datePart] = dateStr.split('T');
-      const startStr = event.startTime ? `${datePart}T${event.startTime}` : `${datePart}T20:00`;
-      const eventStart = new Date(startStr).getTime();
-      return Date.now() < eventStart - cutoff * 3600 * 1000;
-    } catch { return true; }
-  })();
+  // Bar tab
+  const [showBarTab, setShowBarTab]     = useState(false);
+  const [barTabAmount, setBarTabAmount] = useState(0);
+  const [customTab, setCustomTab]       = useState('');
+  const [barMenuItems, setBarMenuItems] = useState<{name: string; price: number}[]>([]);
 
   // ── Load event ────────────────────────────────────────────────
   useEffect(() => {
@@ -297,24 +277,12 @@ function BuyPageInner() {
             exchangeRate,
             status: data.status === 'published' ? 'upcoming' : (data.status || 'upcoming'),
             isPrivate: data.isPrivate || false,
-            startTime: data.startTime || null,
-            preOrderCutoffHours: data.preOrderCutoffHours || 0,
           } as EventData);
         }
       } catch (e) { console.error(e); }
       finally { setLoading(false); }
     })();
   }, [slug]);
-
-  // ── Load bar menu ─────────────────────────────────────────────
-  useEffect(() => {
-    if (!event?.id) return;
-    Promise.all([getBarStations(event.id), getBarItems(event.id)])
-      .then(([stations, items]) => {
-        setBarMenuStations(stations.map(s => ({ id: s.id!, name: s.name })));
-        setBarMenuItems(items);
-      }).catch(() => {});
-  }, [event?.id]);
 
   // ── Load taken seats ──────────────────────────────────────────
   useEffect(() => {
@@ -350,10 +318,10 @@ function BuyPageInner() {
         ).filter(c => c.qty > 0));
         return;
       }
-      // Open inline seat picker
+      // Open seat picker
       setSeatSection(sec);
       setPendingSeats(existing?.seats || []);
-      setExpandedSection(sec.id);
+      setStep('seats');
       return;
     }
     setCart(prev => {
@@ -381,7 +349,7 @@ function BuyPageInner() {
     });
     setSeatSection(null);
     setPendingSeats([]);
-    setExpandedSection('');
+    setStep('detail');
   };
 
   const togglePendingSeat = (id: string) => {
@@ -430,13 +398,7 @@ function BuyPageInner() {
             txnId: txnId.trim() || null,
             status: paymentStatus === 'paid' ? 'valid' : 'pending',
             purchasedAt: serverTimestamp(),
-            ...(firstTicket && barTabAmount > 0 ? {
-              barTabBalance: barTabAmount,
-              barTabSpent: 0,
-              barTabPreOrders: barMenuItems
-                .filter(it => (barPreOrder[it.id!] || 0) > 0)
-                .map(it => ({ name: it.name, price: it.price, qty: barPreOrder[it.id!], station: it.stationName })),
-            } : {}),
+            ...(firstTicket && barTabAmount > 0 ? { barTabBalance: barTabAmount, barTabSpent: 0 } : {}),
           });
           codes.push(code);
           firstTicket = false;
@@ -595,66 +557,26 @@ function BuyPageInner() {
                 {/* ── Expanded content ── */}
                 {isOpen && !soldOut && (
                   <div className="px-4 pb-4 pt-0" onClick={ev => ev.stopPropagation()}>
-                    <div className="border-t border-white/[0.06] pt-3">
-
-                      {/* GA section: simple +/- */}
-                      {sec.type !== 'reserved' && (
-                        <div className="flex items-center gap-3">
-                          <div className="flex items-center gap-2">
-                            <button onClick={() => adjustQty(sec, -1)} disabled={qty === 0}
-                              className="w-9 h-9 rounded-full bg-white/[0.08] text-white font-bold hover:bg-orange/30 transition-colors disabled:opacity-30 text-xl leading-none">−</button>
-                            <span className="text-lg font-heading w-8 text-center">{qty}</span>
-                            <button onClick={() => adjustQty(sec, 1)} disabled={qty >= Math.min(10, avail)}
-                              className="w-9 h-9 rounded-full bg-white/[0.08] text-white font-bold hover:bg-orange/30 transition-colors disabled:opacity-30 text-xl leading-none">+</button>
-                          </div>
-                          {qty === 0 ? (
-                            <button onClick={() => adjustQty(sec, 1)}
-                              className="flex-1 py-2.5 rounded-xl bg-orange text-white font-heading text-sm hover:bg-orange/90 transition-all">
-                              {t('slug_add_to_cart')}
-                            </button>
-                          ) : (
-                            <button onClick={() => { setCart(prev => prev.filter(c => c.section.id !== sec.id)); setExpandedSection(''); }}
-                              className="flex-1 py-2.5 rounded-xl bg-white/[0.06] border border-white/10 text-gray-400 font-heading text-sm hover:border-red-500/50 hover:text-red-400 transition-all">
-                              {t('slug_remove')}
-                            </button>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Reserved section: inline seat map */}
-                      {sec.type === 'reserved' && (
-                        <div>
-                          {qty > 0 && seatSection?.id !== sec.id ? (
-                            <div className="flex items-center gap-3">
-                              <p className="text-xs text-orange font-bold flex-1">{qty} seat{qty > 1 ? 's' : ''} selected: {item?.seats.join(', ')}</p>
-                              <button onClick={() => { setSeatSection(sec); setPendingSeats(item?.seats || []); }}
-                                className="px-3 py-1.5 rounded-lg border border-orange/40 text-orange text-xs font-bold hover:bg-orange/10 transition-all">
-                                Edit seats
-                              </button>
-                              <button onClick={() => { setCart(prev => prev.filter(c => c.section.id !== sec.id)); setExpandedSection(''); }}
-                                className="px-3 py-1.5 rounded-lg border border-white/10 text-gray-400 text-xs font-bold hover:border-red-500/50 hover:text-red-400 transition-all">
-                                Remove
-                              </button>
-                            </div>
-                          ) : (
-                            <>
-                              <p className="text-xs text-gray-400 mb-4">
-                                {pendingSeats.length} {t('slug_seats_selected')} · {sec.name}
-                              </p>
-                              <SeatMap section={sec} takenIds={takenSeats} selected={pendingSeats} onToggle={togglePendingSeat} />
-                              <div className="flex gap-3 mt-4">
-                                <button onClick={() => { setSeatSection(null); setPendingSeats([]); setExpandedSection(''); }}
-                                  className="flex-1 py-2.5 rounded-xl border border-white/10 text-gray-400 font-heading text-sm hover:border-white/30 transition-all">
-                                  {t('back')}
-                                </button>
-                                <button disabled={pendingSeats.length === 0} onClick={confirmSeats}
-                                  className="flex-1 py-2.5 rounded-xl bg-orange text-white font-heading text-sm disabled:opacity-30 hover:bg-orange/90 transition-all">
-                                  {t('slug_confirm_seats')} ({pendingSeats.length}) →
-                                </button>
-                              </div>
-                            </>
-                          )}
-                        </div>
+                    <div className="border-t border-white/[0.06] pt-3 flex items-center gap-3">
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => adjustQty(sec, -1)} disabled={qty === 0}
+                          className="w-9 h-9 rounded-full bg-white/[0.08] text-white font-bold hover:bg-orange/30 transition-colors disabled:opacity-30 text-xl leading-none">−</button>
+                        <span className="text-lg font-heading w-8 text-center">{qty}</span>
+                        <button onClick={() => adjustQty(sec, 1)} disabled={qty >= Math.min(10, avail)}
+                          className="w-9 h-9 rounded-full bg-white/[0.08] text-white font-bold hover:bg-orange/30 transition-colors disabled:opacity-30 text-xl leading-none">+</button>
+                      </div>
+                      {qty === 0 ? (
+                        <button
+                          onClick={() => adjustQty(sec, 1)}
+                          className="flex-1 py-2.5 rounded-xl bg-orange text-white font-heading text-sm hover:bg-orange/90 transition-all">
+                          {t('slug_add_to_cart')}
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => { setCart(prev => prev.filter(c => c.section.id !== sec.id)); setExpandedSection(''); }}
+                          className="flex-1 py-2.5 rounded-xl bg-white/[0.06] border border-white/10 text-gray-400 font-heading text-sm hover:border-red-500/50 hover:text-red-400 transition-all">
+                          {t('slug_remove')}
+                        </button>
                       )}
                     </div>
                   </div>
@@ -663,91 +585,14 @@ function BuyPageInner() {
             );
           })}
         </div>
-
-        {/* ── Bar & Food Pre-Order ── */}
-        {preOrdersOpen && barMenuItems.length > 0 && organizerStripeId && (
-          <div className="mt-8 mb-32">
-            <h2 className="font-heading text-lg mb-1">🍺 Bar & Food Pre-Order</h2>
-            <p className="text-gray-500 text-xs mb-4">Add to your order — ready when you arrive</p>
-
-            {(barMenuStations.length > 0 ? barMenuStations : [{ id: '', name: 'Menu' }]).map(station => {
-              const stationItems = barMenuItems.filter(it => station.id === '' || it.stationId === station.id);
-              if (stationItems.length === 0) return null;
-              return (
-                <div key={station.id} className="mb-5">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-2 px-1">{station.name}</p>
-                  <div className="space-y-2">
-                    {stationItems.map(item => {
-                      const qty = barPreOrder[item.id!] || 0;
-                      return (
-                        <div key={item.id}
-                          className={`rounded-xl border transition-all ${qty > 0 ? 'border-orange bg-orange/10' : 'border-white/[0.08] bg-white/[0.03]'}`}>
-                          <div className="flex items-center gap-3 p-4">
-                            <div className="flex-1 min-w-0">
-                              <p className="font-bold text-sm">{item.name}</p>
-                              <p className="text-xs text-green font-bold mt-0.5">${item.price}</p>
-                              {qty > 0 && <p className="text-[11px] text-orange font-bold mt-0.5">{qty} in cart</p>}
-                            </div>
-                            <div className="flex items-center gap-2 flex-shrink-0">
-                              <button
-                                onClick={() => setBarPreOrder(p => { const n = { ...p }; if ((n[item.id!] || 0) <= 1) delete n[item.id!]; else n[item.id!]--; return n; })}
-                                disabled={qty === 0}
-                                className="w-9 h-9 rounded-full bg-white/[0.08] text-white font-bold hover:bg-orange/30 transition-colors disabled:opacity-20 text-xl leading-none flex items-center justify-center">−</button>
-                              <span className={`text-lg font-heading w-8 text-center ${qty > 0 ? 'text-orange' : 'text-gray-600'}`}>{qty}</span>
-                              <button
-                                onClick={() => setBarPreOrder(p => ({ ...p, [item.id!]: (p[item.id!] || 0) + 1 }))}
-                                className="w-9 h-9 rounded-full bg-white/[0.08] text-white font-bold hover:bg-orange/30 transition-colors text-xl leading-none flex items-center justify-center">+</button>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })}
-
-            {/* Extra credit */}
-            <div className="mt-4 rounded-xl border border-white/[0.08] bg-white/[0.03] p-4">
-              <p className="text-sm font-bold mb-1">💳 Extra Bar Credit</p>
-              <p className="text-xs text-gray-500 mb-3">Load extra balance beyond your order</p>
-              <div className="flex gap-2 mb-2">
-                {[10, 20, 50].map(amt => (
-                  <button key={amt}
-                    onClick={() => { setBarTabExtra(amt); setBarTabExtraInput(String(amt)); }}
-                    className={`flex-1 py-2 rounded-lg border text-xs font-bold transition-all ${barTabExtra === amt ? 'border-orange/50 bg-orange/10 text-orange' : 'border-white/[0.1] text-gray-400 hover:border-orange/30'}`}>
-                    +${amt}
-                  </button>
-                ))}
-                <button
-                  onClick={() => { setBarTabExtra(0); setBarTabExtraInput(''); }}
-                  className={`px-3 py-2 rounded-lg border text-xs font-bold transition-all ${barTabExtra === 0 ? 'border-orange/50 bg-orange/10 text-orange' : 'border-white/[0.1] text-gray-400 hover:border-orange/30'}`}>
-                  None
-                </button>
-              </div>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">$</span>
-                <input type="number" min={0} placeholder="Custom"
-                  value={barTabExtraInput}
-                  onChange={e => { setBarTabExtraInput(e.target.value); setBarTabExtra(Math.max(0, parseInt(e.target.value) || 0)); }}
-                  className="w-full pl-7 pr-4 py-2.5 rounded-lg bg-white/[0.06] border border-white/[0.1] text-white text-sm outline-none focus:border-orange placeholder:text-gray-600" />
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Sticky cart bar */}
-      {(cartCount > 0 || barItemCount > 0 || barTabExtra > 0) && (
+      {cartCount > 0 && (
         <div className="fixed bottom-0 left-0 right-0 bg-black/95 backdrop-blur border-t border-white/[0.08] px-4 py-4 z-50">
           <div className="max-w-2xl mx-auto flex items-center gap-4">
             <div className="flex-1">
-              <p className="text-xs text-gray-400">
-                {cartCount > 0 && `${cartCount} ${t('slug_tickets_label')}`}
-                {cartCount > 0 && (barItemCount > 0) && ' · '}
-                {barItemCount > 0 && `${barItemCount} bar item${barItemCount > 1 ? 's' : ''}`}
-                {serviceFee > 0 && <span className="text-gray-500"> · +${serviceFee.toFixed(2)} frè</span>}
-              </p>
+              <p className="text-xs text-gray-400">{cartCount} {t('slug_tickets_label')} · <span className="text-gray-500">+${serviceFee.toFixed(2)} frè</span></p>
               <div className="flex items-center gap-2">
                 <p className="font-heading text-lg text-green">${chargeTotal.toFixed(2)}</p>
                 <p className="text-xs text-red-400">{htg(chargeTotal).toLocaleString('fr-HT')} HTG</p>
@@ -760,6 +605,25 @@ function BuyPageInner() {
           </div>
         </div>
       )}
+    </div>
+  );
+
+  // ── Step: Seats ───────────────────────────────────────────────
+  if (step === 'seats' && seatSection) return (
+    <div className="min-h-screen bg-black text-white">
+      <div className="max-w-2xl mx-auto px-4 py-6">
+        <button onClick={() => { setSeatSection(null); setPendingSeats([]); setStep('detail'); }}
+          className="text-gray-400 hover:text-white text-sm mb-4">← {t('back')}</button>
+        <h2 className="font-heading text-xl mb-1">{t('slug_confirm_seats')}</h2>
+        <p className="text-gray-400 text-xs mb-6">
+          {pendingSeats.length} {t('slug_seats_selected')} · {seatSection.name}
+        </p>
+        <SeatMap section={seatSection} takenIds={takenSeats} selected={pendingSeats} onToggle={togglePendingSeat} />
+        <button disabled={pendingSeats.length === 0} onClick={confirmSeats}
+          className="w-full mt-8 py-3.5 rounded-xl font-heading text-base bg-orange text-white disabled:opacity-30 hover:bg-orange/90 transition-all">
+          {t('slug_confirm_seats')} ({pendingSeats.length}) →
+        </button>
+      </div>
     </div>
   );
 
@@ -818,18 +682,75 @@ function BuyPageInner() {
               <span className="text-red-400 ml-1 text-xs">{htg(chargeTotal).toLocaleString('fr-HT')} HTG</span>
             </span>
           </div>
-          {barTabAmount > 0 && (
-            <div className="flex justify-between text-xs text-gray-400 pt-1">
-              <span>🍺 Bar & Food pre-order</span>
-              <span className="text-orange">+${barTabAmount.toFixed(2)}</span>
-            </div>
-          )}
           <p className="text-[10px] text-gray-600 mt-1">{t('slug_fee_nonrefund')}</p>
         </div>
-        <button onClick={() => { if (validateInfo()) setStep('payment'); }}
+        <button onClick={() => {
+          if (!validateInfo()) return;
+          setShowBarTab(true);
+          if (event?.id) getBarItems(event.id).then(items => setBarMenuItems(items.map(x => ({ name: x.name, price: x.price })))).catch(() => {});
+        }}
           className="w-full mt-4 py-3.5 rounded-xl font-heading text-base bg-orange text-white hover:bg-orange/90 transition-all">
           {t('buy_continue')}
         </button>
+
+        {/* Bar tab modal */}
+        {showBarTab && (
+          <div className="fixed inset-0 bg-black/80 z-50 flex items-end sm:items-center justify-center p-4" onClick={() => { setShowBarTab(false); setStep('payment'); }}>
+            <div className="bg-[#12121a] border border-white/[0.1] rounded-2xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
+              <div className="text-center mb-5">
+                <p className="text-3xl mb-2">🍺</p>
+                <h3 className="font-heading text-xl text-white">Add a Bar Tab?</h3>
+                <p className="text-gray-400 text-sm mt-1">Pre-load credit — pay now, spend at the bar</p>
+              </div>
+
+              {/* Presets */}
+              <div className="flex gap-2 mb-4">
+                {[20, 50, 100].map(amt => (
+                  <button key={amt} onClick={() => { setBarTabAmount(amt); setCustomTab(''); }}
+                    className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all border ${barTabAmount === amt ? 'bg-orange/20 border-orange text-orange' : 'border-white/[0.1] text-gray-300 hover:border-orange/40'}`}>
+                    +${amt}
+                  </button>
+                ))}
+              </div>
+
+              {/* Custom */}
+              <div className="relative mb-5">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+                <input type="number" min={1} placeholder="Custom amount"
+                  value={customTab}
+                  onChange={e => { setCustomTab(e.target.value); setBarTabAmount(Math.max(0, parseInt(e.target.value) || 0)); }}
+                  className="w-full pl-8 pr-4 py-3 rounded-xl bg-white/[0.06] border border-white/[0.1] text-white text-sm outline-none focus:border-orange" />
+              </div>
+
+              {/* Bar menu preview */}
+              {barMenuItems.length > 0 && (
+                <div className="mb-5 bg-white/[0.03] rounded-xl p-4">
+                  <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wide mb-3">What's at the Bar</p>
+                  <div className="space-y-1.5 max-h-28 overflow-y-auto">
+                    {barMenuItems.slice(0, 8).map((item, i) => (
+                      <div key={i} className="flex justify-between text-xs">
+                        <span className="text-gray-300">{item.name}</span>
+                        <span className="text-orange font-bold">${item.price}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Actions */}
+              <div className="flex gap-3">
+                <button onClick={() => { setBarTabAmount(0); setCustomTab(''); setShowBarTab(false); setStep('payment'); }}
+                  className="flex-1 py-3 rounded-xl border border-white/[0.1] text-gray-400 font-bold text-sm hover:border-white/30 transition-all">
+                  Skip
+                </button>
+                <button onClick={() => { setShowBarTab(false); setStep('payment'); }}
+                  className="flex-1 py-3 rounded-xl bg-orange text-white font-bold text-sm hover:bg-orange/90 transition-all">
+                  {barTabAmount > 0 ? `Add $${barTabAmount} Tab →` : 'Continue →'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -856,9 +777,6 @@ function BuyPageInner() {
                       eventName: event?.title,
                       seats: cartCount,
                       connectedAccountId: organizerStripeId,
-                      ticketAmount: cartTotal,
-                      barTabAmount,
-                      serviceFee,
                     }),
                   });
                   const data = await res.json();
@@ -933,13 +851,7 @@ function BuyPageInner() {
                         txnId: paymentIntentId,
                         status: 'valid',
                         purchasedAt: serverTimestamp(),
-                        ...(firstTicket && barTabAmount > 0 ? {
-                          barTabBalance: barTabAmount,
-                          barTabSpent: 0,
-                          barTabPreOrders: barMenuItems
-                            .filter(it => (barPreOrder[it.id!] || 0) > 0)
-                            .map(it => ({ name: it.name, price: it.price, qty: barPreOrder[it.id!], station: it.stationName })),
-                        } : {}),
+                        ...(firstTicket && barTabAmount > 0 ? { barTabBalance: barTabAmount, barTabSpent: 0 } : {}),
                       });
                       codes.push(code);
                       firstTicket = false;
