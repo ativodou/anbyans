@@ -119,7 +119,7 @@ export default function LandingPage() {
       {/* MINIMAL NAV — landing only */}
       <nav style={{ position: 'fixed', top: 0, right: 0, zIndex: 50, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
         <LangSwitcher />
-        <button onClick={() => location.reload()} title="Reload" style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '50%', width: '32px', height: '32px', color: '#fff', fontSize: '18px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>↺</button>
+        <button onClick={async () => { try { const k = await caches.keys(); await Promise.all(k.map(n => caches.delete(n))); const r = await navigator.serviceWorker?.getRegistrations() || []; await Promise.all(r.map(s => s.unregister())); } catch(e) {} location.replace(location.href); }} title="Reload" style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '50%', width: '32px', height: '32px', color: '#fff', fontSize: '18px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>↺</button>
       </nav>
 
       <main className="flex-1">
