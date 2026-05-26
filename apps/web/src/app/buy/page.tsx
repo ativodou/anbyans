@@ -6,6 +6,7 @@ import { collection, query, where, getDocs, doc, getDoc, updateDoc } from 'fireb
 import { db } from '../../lib/firebase';
 import { getEventByPrivateToken, purchaseTickets, getPlatformFeeRate, getBarItems } from '../../lib/db';
 import { useT } from '../../i18n';
+import { useAuth } from '../../hooks/useAuth';
 import Link from 'next/link';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
@@ -163,8 +164,8 @@ function StripePaymentForm({ total, onSuccess, onError }: {
 
 function BuyPageInner() {
   const { t } = useT();
+  const { user } = useAuth();
   const searchParams = useSearchParams();
-  const router  = useRouter();
   // event ID comes from ?event=xxx; also support legacy ?slug= and ?token=
   const eventKey = searchParams.get('event') || searchParams.get('slug') || searchParams.get('token') || '';
 
@@ -355,6 +356,31 @@ function BuyPageInner() {
     );
   };
 
+  // ── Pre-fill from logged-in profile ──────────────────────────
+  useEffect(() => {
+    if (!user) return;
+    const u = user as any;
+    const fullName = [u.firstName, u.lastName].filter(Boolean).join(' ');
+    if (fullName)   setName(prev  => prev  || fullName);
+    if (u.phone)    setPhone(prev => prev  || u.phone);
+    if (user.email) setEmail(prev => prev  || user.email);
+  }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Skip info step for logged-in fans with complete profile ───
+  const goToInfo = () => {
+    const u = user as any;
+    const fullName = [u?.firstName, u?.lastName].filter(Boolean).join(' ');
+    if (fullName && u?.phone) {
+      setName(fullName);
+      setPhone(u.phone);
+      if (user?.email) setEmail(user.email);
+      setShowBarTab(true);
+      if (event?.id) getBarItems(event.id).then(items => setBarMenuItems(items.map(x => ({ name: x.name, price: x.price })))).catch(() => {});
+    } else {
+      setStep('info');
+    }
+  };
+
   // ── Validate buyer info ───────────────────────────────────────
   const validateInfo = () => {
     const e: Record<string, string> = {};
@@ -540,7 +566,7 @@ function BuyPageInner() {
         )}
 
         <button disabled={!selSection}
-          onClick={() => setStep(selSection?.type === 'reserved' ? 'seats' : 'info')}
+          onClick={() => selSection?.type === 'reserved' ? setStep('seats') : goToInfo()}
           className="w-full py-3.5 rounded-xl font-heading text-base bg-orange text-white disabled:opacity-30 hover:bg-orange/90 transition-all">
           {t('buy_continue')}
         </button>
@@ -564,7 +590,7 @@ function BuyPageInner() {
           onToggle={toggleSeat}
         />
         <button disabled={selSeats.length !== qty}
-          onClick={() => setStep('info')}
+          onClick={() => goToInfo()}
           className="w-full mt-8 py-3.5 rounded-xl font-heading text-base bg-orange text-white disabled:opacity-30 hover:bg-orange/90 transition-all">
           {t('buy_continue')}
         </button>
@@ -578,7 +604,13 @@ function BuyPageInner() {
       <div className="max-w-2xl mx-auto px-4 py-6">
         <button onClick={() => setStep(selSection?.type === 'reserved' ? 'seats' : 'detail')}
           className="text-gray-400 hover:text-white text-sm mb-4">← {t('back')}</button>
-        <h2 className="font-heading text-xl mb-6">{t('buy_your_info_h')}</h2>
+        <h2 className="font-heading text-xl mb-4">{t('buy_your_info_h')}</h2>
+
+        {user && (
+          <div className="flex items-center gap-2 mb-4 bg-green/10 border border-green/20 rounded-xl px-4 py-2.5 text-xs text-green font-bold">
+            ✓ Enfòmasyon ou ranpli otomatikman
+          </div>
+        )}
 
         <div className="space-y-4">
           <div>
