@@ -206,7 +206,7 @@ function BuyPageInner() {
   const [showBarTab, setShowBarTab]     = useState(false);
   const [barTabAmount, setBarTabAmount] = useState(0);
   const [customTab, setCustomTab]       = useState('');
-  const [barMenuItems, setBarMenuItems] = useState<{name: string; price: number; station: string}[]>([]);
+  const [barMenuItems, setBarMenuItems] = useState<{name: string; price: number; station: string; sections: string[]}[]>([]);
   const [barCart, setBarCart]           = useState<Record<string, number>>({});
 
   // ── Pre-fill buyer info from logged-in profile ───────────────
@@ -705,7 +705,7 @@ function BuyPageInner() {
         <button onClick={() => {
           if (!validateInfo()) return;
           setShowBarTab(true);
-          if (event?.id) getBarItems(event.id).then(items => setBarMenuItems(items.map(x => ({ name: x.name, price: x.price, station: x.stationName })))).catch(() => {});
+          if (event?.id) getBarItems(event.id).then(items => setBarMenuItems(items.map(x => ({ name: x.name, price: x.price, station: x.stationName, sections: x.sections ?? [] })))).catch(() => {});
         }}
           className="w-full mt-4 py-3.5 rounded-xl font-heading text-base bg-orange text-white hover:bg-orange/90 transition-all">
           {t('buy_continue')}
@@ -717,8 +717,10 @@ function BuyPageInner() {
             const item = barMenuItems.find(i => i.name === name);
             return sum + (item ? item.price * qty : 0);
           }, 0);
-          const hasMenu = barMenuItems.length > 0;
-          const stations = hasMenu ? Array.from(new Set(barMenuItems.map(i => i.station))) : [];
+          const cartSectionNames = cart.map(c => c.section.name);
+          const visibleItems = barMenuItems.filter(i => i.sections.length === 0 || i.sections.some(s => cartSectionNames.includes(s)));
+          const hasMenu = visibleItems.length > 0;
+          const stations = hasMenu ? Array.from(new Set(visibleItems.map(i => i.station))) : [];
           const confirm = () => { if (hasMenu) setBarTabAmount(cartTotal); setShowBarTab(false); setStep('payment'); };
           const skip = () => { setBarTabAmount(0); setCustomTab(''); setBarCart({}); setShowBarTab(false); setStep('payment'); };
           return (
@@ -738,7 +740,7 @@ function BuyPageInner() {
                           {stations.length > 1 && (
                             <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mt-4 mb-2">{station}</p>
                           )}
-                          {barMenuItems.filter(i => i.station === station).map(item => {
+                          {visibleItems.filter(i => i.station === station).map(item => {
                             const qty = barCart[item.name] ?? 0;
                             return (
                               <div key={item.name} className="flex items-center justify-between py-2.5 border-b border-white/[0.06] last:border-0">

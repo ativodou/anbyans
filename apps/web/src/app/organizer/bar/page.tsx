@@ -37,7 +37,7 @@ export default function OrganizerBarPage() {
   const [items, setItems] = useState<BarItem[]>([]);
   const [assignedStaff, setAssignedStaff] = useState<AssignedStaffMember[]>([]);
   const [newStation, setNewStation] = useState('');
-  const [newItem, setNewItem] = useState({ name: '', price: '', stock: '', stationId: '' });
+  const [newItem, setNewItem] = useState({ name: '', price: '', stock: '', stationId: '', sections: [] as string[] });
   const [editStock, setEditStock] = useState<Record<string, string>>({});
   const [savingStation, setSavingStation] = useState(false);
   const [savingItem, setSavingItem] = useState(false);
@@ -145,19 +145,21 @@ export default function OrganizerBarPage() {
   }
 
   async function handleAddItem() {
-    const { name, price, stock, stationId } = newItem;
+    const { name, price, stock, stationId, sections } = newItem;
     if (!name.trim() || !price || !stationId || !eventId) return;
     setSavingItem(true);
     const station = stations.find(s => s.id === stationId);
     const id = await saveBarItem({
       eventId, organizerId, stationId, stationName: station?.name ?? '',
       name: name.trim(), price: parseFloat(price), stock: parseInt(stock) || 0, sold: 0,
+      sections,
     });
     setItems(prev => [...prev, {
       id, eventId, organizerId, stationId, stationName: station?.name ?? '',
       name: name.trim(), price: parseFloat(price), stock: parseInt(stock) || 0, sold: 0,
+      sections,
     }]);
-    setNewItem(p => ({ ...p, name: '', price: '', stock: '' }));
+    setNewItem(p => ({ ...p, name: '', price: '', stock: '', sections: [] }));
     setSavingItem(false);
   }
 
@@ -345,7 +347,27 @@ export default function OrganizerBarPage() {
                     {savingItem ? '...' : '+ Add to Menu'}
                   </button>
                 </div>
-
+                {/* Section restriction */}
+                {(selectedEvent as any)?.sections?.length > 0 && (
+                  <div className="mb-2">
+                    <p className="text-[10px] font-bold text-gray-muted uppercase tracking-wide mb-1.5">Visible to sections <span className="normal-case font-normal">(leave blank = all)</span></p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {((selectedEvent as any).sections as { name: string }[]).map(s => {
+                        const sel = newItem.sections.includes(s.name);
+                        return (
+                          <button key={s.name} type="button"
+                            onClick={() => setNewItem(p => ({
+                              ...p,
+                              sections: sel ? p.sections.filter(x => x !== s.name) : [...p.sections, s.name],
+                            }))}
+                            className={`px-3 py-1 rounded-lg text-[11px] font-bold border transition-all ${sel ? 'border-orange bg-orange/10 text-orange' : 'border-border text-gray-muted hover:border-white/20'}`}>
+                            {s.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
                 {/* Menu preview by section */}
                 {items.length > 0 && (
                   <div className="mt-5 space-y-4">
@@ -357,7 +379,16 @@ export default function OrganizerBarPage() {
                           <p className="text-[10px] font-bold uppercase tracking-widest text-gray-muted px-3 py-2 border-b border-border">{st.name}</p>
                           {stItems.map(item => (
                             <div key={item.id} className="flex items-center gap-3 px-3 py-2.5 border-b border-border last:border-0">
-                              <span className="text-sm font-bold flex-1">{item.name}</span>
+                              <div className="flex-1 min-w-0">
+                                <span className="text-sm font-bold">{item.name}</span>
+                                {item.sections && item.sections.length > 0 && (
+                                  <div className="flex gap-1 flex-wrap mt-0.5">
+                                    {item.sections.map(sec => (
+                                      <span key={sec} className="text-[9px] font-bold px-1.5 py-0.5 rounded border border-orange/40 text-orange/80">{sec}</span>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
                               <span className="text-sm font-bold text-orange">${item.price.toFixed(2)}</span>
                               <span className="text-[10px] text-gray-muted w-16 text-right">Stock: {item.stock}</span>
                               <button onClick={() => handleDeleteItem(item.id!)} className="text-gray-muted hover:text-red-400 text-xs transition-colors ml-1">✕</button>

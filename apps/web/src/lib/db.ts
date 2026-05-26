@@ -1833,6 +1833,7 @@ export interface BarItem {
   price: number;
   stock: number;
   sold: number;
+  sections?: string[]; // ticket section names that can order this; empty/missing = all sections
 }
 
 export interface BarOrderItem {
