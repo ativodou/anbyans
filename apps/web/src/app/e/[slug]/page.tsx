@@ -10,6 +10,7 @@ import { collection, query, where, getDocs, doc, getDoc, addDoc, serverTimestamp
 import { db } from '@/lib/firebase';
 import { getEventByPrivateToken, getPlatformFeeRate, getBarItems } from '@/lib/db';
 import { useT } from '@/i18n';
+import { useAuth } from '@/hooks/useAuth';
 import Link from 'next/link';
 import FloorPlanViewer from '@/components/FloorPlanViewer';
 
@@ -168,6 +169,7 @@ function StripeForm({ onSuccess, processing, setProcessing }: {
 
 function BuyPageInner() {
   const { t } = useT();
+  const { user } = useAuth();
   const params = useParams();
   const slug   = params?.slug as string;
 
@@ -205,6 +207,16 @@ function BuyPageInner() {
   const [barTabAmount, setBarTabAmount] = useState(0);
   const [customTab, setCustomTab]       = useState('');
   const [barMenuItems, setBarMenuItems] = useState<{name: string; price: number}[]>([]);
+
+  // ── Pre-fill buyer info from logged-in profile ───────────────
+  useEffect(() => {
+    if (!user) return;
+    const u = user as any;
+    const fullName = [u.firstName, u.lastName].filter(Boolean).join(' ');
+    if (fullName)   setName(prev  => prev  || fullName);
+    if (u.phone)    setPhone(prev => prev  || u.phone);
+    if (user.email) setEmail(prev => prev  || user.email);
+  }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Load event ────────────────────────────────────────────────
   useEffect(() => {
@@ -632,7 +644,12 @@ function BuyPageInner() {
     <div className="min-h-screen bg-black text-white">
       <div className="max-w-2xl mx-auto px-4 py-6">
         <button onClick={() => setStep('detail')} className="text-gray-400 hover:text-white text-sm mb-4">← {t('back')}</button>
-        <h2 className="font-heading text-xl mb-6">{t('buy_your_info_h')}</h2>
+        <h2 className="font-heading text-xl mb-4">{t('buy_your_info_h')}</h2>
+        {user && (
+          <div className="flex items-center gap-2 mb-4 bg-green/10 border border-green/20 rounded-xl px-4 py-2.5 text-xs text-green font-bold">
+            ✓ Enfòmasyon ou ranpli otomatikman
+          </div>
+        )}
         <div className="space-y-4">
           <div>
             <label className="block text-xs font-bold text-gray-400 mb-1.5">{t('buy_full_name_req')}</label>
