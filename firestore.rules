@@ -51,6 +51,10 @@ service cloud.firestore {
     match /organizers/{uid} {
       allow read: if isAuth();
       allow write: if isUser(uid) || isAdmin();
+
+      match /drafts/{draftId} {
+        allow read, write: if isUser(uid);
+      }
     }
 
     // ── Fan/user profiles ──────────────────────────────────────────

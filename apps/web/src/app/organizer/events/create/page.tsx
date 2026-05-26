@@ -6,7 +6,7 @@ import { collection, addDoc, serverTimestamp, doc, getDoc } from 'firebase/fires
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/hooks/useAuth';
 import { useT } from '@/i18n';
-import { getFloorPlan, saveFloorPlan, saveEventLayout, getOrganizerVenueLayout } from '@/lib/db';
+import { getFloorPlan, saveFloorPlan, saveEventLayout, getOrganizerVenueLayout, saveEventDraft, loadEventDraft, clearEventDraft } from '@/lib/db';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -197,6 +197,9 @@ function CreateEventInner() {
   const [tab, setTab] = useState<'info' | 'venue' | 'payment'>('info');
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [draftStatus, setDraftStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const draftTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const draftLoaded = useRef(false);
 
   // Load organizer settings
   useEffect(() => {
@@ -212,6 +215,63 @@ function CreateEventInner() {
       } catch (e) { console.error(e); }
     })();
   }, [user]);
+
+  // Load draft from Firestore on mount
+  useEffect(() => {
+    if (!user || draftLoaded.current) return;
+    draftLoaded.current = true;
+    loadEventDraft(user.uid).then(d => {
+      if (!d) return;
+      if (d.title)          setTitle(d.title);
+      if (d.slug)           { setSlug(d.slug); setSlugEdited(true); }
+      if (d.description)    setDescription(d.description);
+      if (d.coverImage)     setCoverImage(d.coverImage);
+      if (d.dateStr)        setDateStr(d.dateStr);
+      if (d.timeStr)        setTimeStr(d.timeStr);
+      if (d.endDateStr)     setEndDateStr(d.endDateStr);
+      if (d.endTimeStr)     setEndTimeStr(d.endTimeStr);
+      if (d.isPrivate != null) setIsPrivate(d.isPrivate);
+      if (d.compLimit != null) setCompLimit(d.compLimit);
+      if (d.venueQuery)     setVenueQuery(d.venueQuery);
+      if (d.venue)          setVenue(d.venue);
+      if (d.venueAddress)   setVenueAddress(d.venueAddress);
+      if (d.city)           setCity(d.city);
+      if (d.venuePlaceId)   setVenuePlaceId(d.venuePlaceId);
+      if (d.venueSelected)  setVenueSelected(d.venueSelected);
+      if (d.sections?.length) setSections(d.sections);
+      if (d.mapZones?.length) setMapZones(d.mapZones);
+      if (d.paymentMethods) setPaymentMethods(d.paymentMethods);
+      if (d.exchangeRate)   setExchangeRate(d.exchangeRate);
+      if (d.tab)            setTab(d.tab);
+      setDraftStatus('saved');
+    }).catch(() => {});
+  }, [user]);
+
+  // Auto-save draft to Firestore (debounced 1.5s)
+  useEffect(() => {
+    if (!user || !draftLoaded.current) return;
+    if (draftTimer.current) clearTimeout(draftTimer.current);
+    setDraftStatus('saving');
+    draftTimer.current = setTimeout(() => {
+      saveEventDraft(user.uid, {
+        title, slug, description, coverImage,
+        dateStr, timeStr, endDateStr, endTimeStr,
+        isPrivate, compLimit,
+        venueQuery, venue, venueAddress, city, venuePlaceId, venueSelected,
+        sections, mapZones,
+        paymentMethods, exchangeRate,
+        tab,
+      }).then(() => setDraftStatus('saved')).catch(() => setDraftStatus('idle'));
+    }, 1500);
+  }, [
+    title, slug, description, coverImage,
+    dateStr, timeStr, endDateStr, endTimeStr,
+    isPrivate, compLimit,
+    venueQuery, venue, venueAddress, city, venuePlaceId, venueSelected,
+    sections, mapZones,
+    paymentMethods, exchangeRate,
+    tab, user,
+  ]);
 
   useEffect(() => {
     if (!slugEdited && title) setSlug(toSlug(title));
@@ -348,6 +408,7 @@ function CreateEventInner() {
           zones:       mapZones,
         });
       }
+      if (user) await clearEventDraft(user.uid).catch(() => {});
       router.push('/organizer/events');
     } catch (e) {
       console.error(e);
@@ -788,9 +849,12 @@ function CreateEventInner() {
       {/* ── Fixed publish bar ── */}
       <div className="fixed bottom-0 left-0 right-0 bg-black/90 backdrop-blur border-t border-border px-4 py-3 flex items-center gap-3">
         <div className="flex-1 text-xs text-gray-500">
-          {sections.length} sections ·{' '}
-          {sections.reduce((a, s) => a + s.capacity, 0)} seats
-          {mapZones.length > 0 && <span className="ml-2 text-orange">· 🗺 {mapZones.length} zones</span>}
+          {draftStatus === 'saving' && <span className="text-gray-600">Saving draft…</span>}
+          {draftStatus === 'saved' && <span className="text-green-600">✓ Draft saved</span>}
+          {draftStatus === 'idle' && (
+            <>{sections.length} sections · {sections.reduce((a, s) => a + s.capacity, 0)} seats
+            {mapZones.length > 0 && <span className="ml-2 text-orange">· 🗺 {mapZones.length} zones</span>}</>
+          )}
         </div>
         <button onClick={save} disabled={saving}
           className="px-6 py-3 rounded-xl bg-orange text-white font-heading text-sm hover:bg-orange/90 disabled:opacity-40 transition-all flex items-center gap-2">

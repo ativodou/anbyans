@@ -2019,3 +2019,21 @@ export async function getPlatformConfig(): Promise<{ platformFee: number; posFee
   } catch {}
   return { platformFee: 9, posFee: 50, chargebackReserve: 20, payoutDelayDays: 7 };
 }
+
+// ─── Event Create Draft ──────────────────────────────────────────────────────
+
+export async function saveEventDraft(uid: string, draft: Record<string, any>): Promise<void> {
+  await setDoc(doc(db, 'organizers', uid, 'drafts', 'event_create'), {
+    ...draft,
+    savedAt: serverTimestamp(),
+  });
+}
+
+export async function loadEventDraft(uid: string): Promise<Record<string, any> | null> {
+  const snap = await getDoc(doc(db, 'organizers', uid, 'drafts', 'event_create'));
+  return snap.exists() ? snap.data() : null;
+}
+
+export async function clearEventDraft(uid: string): Promise<void> {
+  await deleteDoc(doc(db, 'organizers', uid, 'drafts', 'event_create'));
+}
