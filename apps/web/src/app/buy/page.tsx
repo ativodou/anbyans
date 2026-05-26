@@ -2,9 +2,9 @@
 
 import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
-import { getEventByPrivateToken, purchaseTickets, getPlatformFeeRate } from '../../lib/db';
+import { getEventByPrivateToken, purchaseTickets, getPlatformFeeRate, getBarItems } from '../../lib/db';
 import { useT } from '../../i18n';
 import Link from 'next/link';
 import { loadStripe } from '@stripe/stripe-js';
@@ -195,6 +195,12 @@ function BuyPageInner() {
   const [organizerStripeAccountId, setOrganizerStripeAccountId] = useState<string | null>(null);
   const [feeRate, setFeeRate] = useState(0.09);
 
+  // Bar tab pre-order
+  const [barTabAmount, setBarTabAmount] = useState(0);
+  const [customTab, setCustomTab]       = useState('');
+  const [showBarTab, setShowBarTab]     = useState(false);
+  const [barMenuItems, setBarMenuItems] = useState<{name: string; price: number}[]>([]);
+
   // ── Restore cart from localStorage after event loads ─────────
   useEffect(() => {
     if (!event || !eventKey) return;
@@ -295,16 +301,18 @@ function BuyPageInner() {
 
   // ── Fetch Stripe PaymentIntent when Stripe selected ──────────
   useEffect(() => {
-    const amount = selSection ? selSection.price * qty : 0;
-    if (payMethod !== 'stripe' || !event || !amount) return;
+    const ticketAmount = selSection ? selSection.price * qty : 0;
+    const chargeAmount = ticketAmount + barTabAmount;
+    if (payMethod !== 'stripe' || !event || !chargeAmount) return;
     setStripeClientSecret(null);
     setStripeError('');
     fetch('/api/payment/stripe', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        amount,
-        applicationFeeAmount: amount * feeRate,
+        amount: chargeAmount,
+        applicationFeeAmount: ticketAmount * feeRate,
+        barTabAmount: barTabAmount || undefined,
         currency: 'usd',
         eventName: event.title,
         seats: qty,
@@ -317,7 +325,7 @@ function BuyPageInner() {
         else setStripeClientSecret(data.clientSecret);
       })
       .catch(e => setStripeError(e.message));
-  }, [payMethod, selSection, qty]);
+  }, [payMethod, selSection, qty, barTabAmount]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Load taken seats when section selected ────────────────────
   useEffect(() => {
@@ -336,7 +344,8 @@ function BuyPageInner() {
 
   const htg = (usd: number) => Math.round(usd * (event?.exchangeRate || 130));
   const fmtPrice = (usd: number) => `$${usd.toFixed(2)} · ${htg(usd).toLocaleString('fr-HT')} HTG`;
-  const total = selSection ? selSection.price * qty : 0;
+  const total       = selSection ? selSection.price * qty : 0;
+  const chargeTotal = total + barTabAmount;
 
   // ── Seat toggle ───────────────────────────────────────────────
   const toggleSeat = (id: string) => {
@@ -371,6 +380,9 @@ function BuyPageInner() {
         { organizerId: event.organizerId, sectionName: selSection.name, priceHTG: htg(selSection.price) },
       );
       setTicketCodes(tkts.map(tk => tk.ticketCode));
+      if (barTabAmount > 0 && tkts[0]?.id) {
+        try { await updateDoc(doc(db, 'tickets', tkts[0].id), { barTabBalance: barTabAmount, barTabSpent: 0 }); } catch {}
+      }
       try { localStorage.removeItem(`anbyans-cart-${eventKey}`); } catch {}
       setStep('done');
     } catch (e) { console.error(e); setStripeError('Erè apre peman. Kontakte sipò.'); }
@@ -408,6 +420,9 @@ function BuyPageInner() {
       );
 
       setTicketCodes(tkts.map(tk => tk.ticketCode));
+      if (barTabAmount > 0 && tkts[0]?.id) {
+        try { await updateDoc(doc(db, 'tickets', tkts[0].id), { barTabBalance: barTabAmount, barTabSpent: 0 }); } catch {}
+      }
       try { localStorage.removeItem(`anbyans-cart-${eventKey}`); } catch {}
       setStep('done');
     } catch (e) {
@@ -600,15 +615,85 @@ function BuyPageInner() {
             <span>{selSection?.name} × {qty}</span>
             <span className="text-green">${total.toFixed(2)} <span className="text-red-400">· {htg(total).toLocaleString('fr-HT')} HTG</span></span>
           </div>
+          {barTabAmount > 0 && (
+            <div className="flex justify-between text-gray-400 text-xs mb-1">
+              <span>🍺 Bar Tab</span>
+              <span className="text-orange">+${barTabAmount.toFixed(2)}</span>
+            </div>
+          )}
           {selSeats.length > 0 && (
             <p className="text-[10px] text-gray-500">Plas: {selSeats.join(', ')}</p>
           )}
         </div>
 
-        <button onClick={() => { if (validateInfo()) setStep('payment'); }}
+        <button onClick={() => {
+          if (!validateInfo()) return;
+          setShowBarTab(true);
+          if (event?.id) getBarItems(event.id).then(items => setBarMenuItems(items.map(x => ({ name: x.name, price: x.price })))).catch(() => {});
+        }}
           className="w-full mt-4 py-3.5 rounded-xl font-heading text-base bg-orange text-white hover:bg-orange/90 transition-all">
           {t('buy_continue')}
         </button>
+
+        {/* ── Bar tab modal ───────────────────────────────────── */}
+        {showBarTab && (
+          <div className="fixed inset-0 bg-black/80 z-50 flex items-end sm:items-center justify-center p-4"
+            onClick={() => { setShowBarTab(false); setStep('payment'); }}>
+            <div className="bg-[#12121a] border border-white/[0.1] rounded-2xl w-full max-w-md p-6"
+              onClick={e => e.stopPropagation()}>
+              <div className="text-center mb-5">
+                <p className="text-3xl mb-2">🍺</p>
+                <h3 className="font-heading text-xl text-white">Add a Bar Tab?</h3>
+                <p className="text-gray-400 text-sm mt-1">Pre-load credit — pay now, spend at the bar</p>
+              </div>
+
+              {/* Presets */}
+              <div className="flex gap-2 mb-4">
+                {[20, 50, 100].map(amt => (
+                  <button key={amt} onClick={() => { setBarTabAmount(amt); setCustomTab(''); }}
+                    className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all border ${barTabAmount === amt ? 'bg-orange/20 border-orange text-orange' : 'border-white/[0.1] text-gray-300 hover:border-orange/40'}`}>
+                    +${amt}
+                  </button>
+                ))}
+              </div>
+
+              {/* Custom amount */}
+              <div className="relative mb-5">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+                <input type="number" min={1} placeholder="Custom amount"
+                  value={customTab}
+                  onChange={e => { setCustomTab(e.target.value); setBarTabAmount(Math.max(0, parseInt(e.target.value) || 0)); }}
+                  className="w-full pl-8 pr-4 py-3 rounded-xl bg-white/[0.06] border border-white/[0.1] text-white text-sm outline-none focus:border-orange" />
+              </div>
+
+              {/* Menu preview */}
+              {barMenuItems.length > 0 && (
+                <div className="mb-5 bg-white/[0.03] rounded-xl p-4">
+                  <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wide mb-3">What's at the Bar</p>
+                  <div className="space-y-1.5 max-h-28 overflow-y-auto">
+                    {barMenuItems.slice(0, 8).map((item, i) => (
+                      <div key={i} className="flex justify-between text-xs">
+                        <span className="text-gray-300">{item.name}</span>
+                        <span className="text-orange font-bold">${item.price}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex gap-3">
+                <button onClick={() => { setBarTabAmount(0); setCustomTab(''); setShowBarTab(false); setStep('payment'); }}
+                  className="flex-1 py-3 rounded-xl border border-white/[0.1] text-gray-400 font-bold text-sm hover:border-white/30 transition-all">
+                  Skip
+                </button>
+                <button onClick={() => { setShowBarTab(false); setStep('payment'); }}
+                  className="flex-1 py-3 rounded-xl bg-orange text-white font-bold text-sm hover:bg-orange/90 transition-all">
+                  {barTabAmount > 0 ? `Add $${barTabAmount} Tab →` : 'Continue →'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -691,7 +776,7 @@ function BuyPageInner() {
                 stripe={stripePromise}
                 options={{ clientSecret: stripeClientSecret, appearance: { theme: 'night' } }}>
                 <StripePaymentForm
-                  total={total}
+                  total={chargeTotal}
                   onSuccess={completeStripePayment}
                   onError={msg => setStripeError(msg)}
                 />
@@ -702,11 +787,21 @@ function BuyPageInner() {
 
         {/* Order total */}
         <div className="bg-white/[0.04] rounded-xl p-4 mb-4">
-          <div className="flex justify-between text-sm">
+          <div className="flex justify-between text-sm mb-1">
+            <span className="text-gray-400">{selSection?.name} × {qty}</span>
+            <span className="font-bold text-green">${total.toFixed(2)}</span>
+          </div>
+          {barTabAmount > 0 && (
+            <div className="flex justify-between text-sm mb-1">
+              <span className="text-gray-400">🍺 Bar Tab</span>
+              <span className="font-bold text-orange">+${barTabAmount.toFixed(2)}</span>
+            </div>
+          )}
+          <div className="flex justify-between text-sm border-t border-white/[0.06] pt-2 mt-1">
             <span className="text-gray-400">{t('total')}</span>
             <div className="text-right">
-              <p className="font-bold text-green">${total.toFixed(2)}</p>
-              <p className="text-[11px] text-red-400">{htg(total).toLocaleString('fr-HT')} HTG</p>
+              <p className="font-bold text-green">${chargeTotal.toFixed(2)}</p>
+              <p className="text-[11px] text-red-400">{htg(chargeTotal).toLocaleString('fr-HT')} HTG</p>
             </div>
           </div>
         </div>
