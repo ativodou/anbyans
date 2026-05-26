@@ -201,6 +201,7 @@ function BuyPageInner() {
   const [customTab, setCustomTab]       = useState('');
   const [showBarTab, setShowBarTab]     = useState(false);
   const [barMenuItems, setBarMenuItems] = useState<{name: string; price: number}[]>([]);
+  const [barCart, setBarCart]           = useState<Record<string, number>>({});
 
   // ── Restore cart from localStorage after event loads ─────────
   useEffect(() => {
@@ -407,7 +408,8 @@ function BuyPageInner() {
       );
       setTicketCodes(tkts.map(tk => tk.ticketCode));
       if (barTabAmount > 0 && tkts[0]?.id) {
-        try { await updateDoc(doc(db, 'tickets', tkts[0].id), { barTabBalance: barTabAmount, barTabSpent: 0 }); } catch {}
+        const barPreorder = Object.entries(barCart).map(([name, qty]) => ({ name, qty, price: barMenuItems.find(i => i.name === name)?.price ?? 0 })).filter(x => x.qty > 0);
+        try { await updateDoc(doc(db, 'tickets', tkts[0].id), { barTabBalance: barTabAmount, barTabSpent: 0, ...(barPreorder.length > 0 ? { barPreorder } : {}) }); } catch {}
       }
       try { localStorage.removeItem(`anbyans-cart-${eventKey}`); } catch {}
       setStep('done');
@@ -447,7 +449,8 @@ function BuyPageInner() {
 
       setTicketCodes(tkts.map(tk => tk.ticketCode));
       if (barTabAmount > 0 && tkts[0]?.id) {
-        try { await updateDoc(doc(db, 'tickets', tkts[0].id), { barTabBalance: barTabAmount, barTabSpent: 0 }); } catch {}
+        const barPreorder = Object.entries(barCart).map(([name, qty]) => ({ name, qty, price: barMenuItems.find(i => i.name === name)?.price ?? 0 })).filter(x => x.qty > 0);
+        try { await updateDoc(doc(db, 'tickets', tkts[0].id), { barTabBalance: barTabAmount, barTabSpent: 0, ...(barPreorder.length > 0 ? { barPreorder } : {}) }); } catch {}
       }
       try { localStorage.removeItem(`anbyans-cart-${eventKey}`); } catch {}
       setStep('done');
@@ -668,64 +671,107 @@ function BuyPageInner() {
         </button>
 
         {/* ── Bar tab modal ───────────────────────────────────── */}
-        {showBarTab && (
-          <div className="fixed inset-0 bg-black/80 z-50 flex items-end sm:items-center justify-center p-4"
-            onClick={() => { setShowBarTab(false); setStep('payment'); }}>
-            <div className="bg-[#12121a] border border-white/[0.1] rounded-2xl w-full max-w-md p-6"
-              onClick={e => e.stopPropagation()}>
-              <div className="text-center mb-5">
-                <p className="text-3xl mb-2">🍺</p>
-                <h3 className="font-heading text-xl text-white">Add a Bar Tab?</h3>
-                <p className="text-gray-400 text-sm mt-1">Pre-load credit — pay now, spend at the bar</p>
-              </div>
+        {showBarTab && (() => {
+          const cartTotal = Object.entries(barCart).reduce((sum, [name, qty]) => {
+            const item = barMenuItems.find(i => i.name === name);
+            return sum + (item ? item.price * qty : 0);
+          }, 0);
+          const hasMenu = barMenuItems.length > 0;
+          const confirm = () => {
+            if (hasMenu) setBarTabAmount(cartTotal);
+            setShowBarTab(false);
+            setStep('payment');
+          };
+          const skip = () => { setBarTabAmount(0); setCustomTab(''); setBarCart({}); setShowBarTab(false); setStep('payment'); };
+          return (
+            <div className="fixed inset-0 bg-black/80 z-50 flex items-end sm:items-center justify-center"
+              onClick={skip}>
+              <div className="bg-[#12121a] border border-white/[0.1] rounded-t-2xl sm:rounded-2xl w-full max-w-md flex flex-col max-h-[85vh]"
+                onClick={e => e.stopPropagation()}>
 
-              {/* Presets */}
-              <div className="flex gap-2 mb-4">
-                {[20, 50, 100].map(amt => (
-                  <button key={amt} onClick={() => { setBarTabAmount(amt); setCustomTab(''); }}
-                    className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all border ${barTabAmount === amt ? 'bg-orange/20 border-orange text-orange' : 'border-white/[0.1] text-gray-300 hover:border-orange/40'}`}>
-                    +${amt}
-                  </button>
-                ))}
-              </div>
-
-              {/* Custom amount */}
-              <div className="relative mb-5">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
-                <input type="number" min={1} placeholder="Custom amount"
-                  value={customTab}
-                  onChange={e => { setCustomTab(e.target.value); setBarTabAmount(Math.max(0, parseInt(e.target.value) || 0)); }}
-                  className="w-full pl-8 pr-4 py-3 rounded-xl bg-white/[0.06] border border-white/[0.1] text-white text-sm outline-none focus:border-orange" />
-              </div>
-
-              {/* Menu preview */}
-              {barMenuItems.length > 0 && (
-                <div className="mb-5 bg-white/[0.03] rounded-xl p-4">
-                  <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wide mb-3">What's at the Bar</p>
-                  <div className="space-y-1.5 max-h-28 overflow-y-auto">
-                    {barMenuItems.slice(0, 8).map((item, i) => (
-                      <div key={i} className="flex justify-between text-xs">
-                        <span className="text-gray-300">{item.name}</span>
-                        <span className="text-orange font-bold">${item.price}</span>
-                      </div>
-                    ))}
-                  </div>
+                {/* Header */}
+                <div className="text-center px-6 pt-6 pb-4 flex-shrink-0">
+                  <p className="text-3xl mb-2">🍺</p>
+                  <h3 className="font-heading text-xl text-white">Pre-order from the Bar</h3>
+                  <p className="text-gray-400 text-sm mt-1">Pay now, pick up at the event</p>
                 </div>
-              )}
 
-              <div className="flex gap-3">
-                <button onClick={() => { setBarTabAmount(0); setCustomTab(''); setShowBarTab(false); setStep('payment'); }}
-                  className="flex-1 py-3 rounded-xl border border-white/[0.1] text-gray-400 font-bold text-sm hover:border-white/30 transition-all">
-                  Skip
-                </button>
-                <button onClick={() => { setShowBarTab(false); setStep('payment'); }}
-                  className="flex-1 py-3 rounded-xl bg-orange text-white font-bold text-sm hover:bg-orange/90 transition-all">
-                  {barTabAmount > 0 ? `Add $${barTabAmount} Tab →` : 'Continue →'}
-                </button>
+                {hasMenu ? (
+                  <>
+                    {/* Scrollable item list */}
+                    <div className="flex-1 overflow-y-auto px-6 pb-2 space-y-2">
+                      {barMenuItems.map((item) => {
+                        const qty = barCart[item.name] ?? 0;
+                        return (
+                          <div key={item.name} className="flex items-center justify-between py-2.5 border-b border-white/[0.06] last:border-0">
+                            <div>
+                              <p className="text-sm font-semibold text-white">{item.name}</p>
+                              <p className="text-orange text-xs font-bold">${item.price.toFixed(2)}</p>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              {qty > 0 && (
+                                <button onClick={() => setBarCart(prev => {
+                                  const next = { ...prev };
+                                  if (next[item.name] <= 1) delete next[item.name]; else next[item.name]--;
+                                  return next;
+                                })} className="w-8 h-8 rounded-full border border-white/20 text-white flex items-center justify-center text-lg leading-none hover:border-orange transition-colors">−</button>
+                              )}
+                              {qty > 0 && <span className="text-white font-bold text-sm w-4 text-center">{qty}</span>}
+                              <button onClick={() => setBarCart(prev => ({ ...prev, [item.name]: (prev[item.name] ?? 0) + 1 }))}
+                                className="w-8 h-8 rounded-full border border-white/20 text-white flex items-center justify-center text-lg leading-none hover:border-orange transition-colors">+</button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Footer */}
+                    <div className="px-6 pb-6 pt-3 flex-shrink-0 border-t border-white/[0.07]">
+                      {cartTotal > 0 && (
+                        <div className="flex justify-between text-sm font-bold mb-3">
+                          <span className="text-gray-400">Total pre-order</span>
+                          <span className="text-orange text-lg">${cartTotal.toFixed(2)}</span>
+                        </div>
+                      )}
+                      <div className="flex gap-3">
+                        <button onClick={skip} className="flex-1 py-3 rounded-xl border border-white/[0.1] text-gray-400 font-bold text-sm hover:border-white/30 transition-all">Skip</button>
+                        <button onClick={confirm} className="flex-1 py-3 rounded-xl bg-orange text-white font-bold text-sm hover:bg-orange/90 transition-all">
+                          {cartTotal > 0 ? `Add $${cartTotal.toFixed(2)} →` : 'Continue →'}
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  /* No menu — fallback to amount picker */
+                  <div className="px-6 pb-6">
+                    <div className="flex gap-2 mb-4">
+                      {[20, 50, 100].map(amt => (
+                        <button key={amt} onClick={() => { setBarTabAmount(amt); setCustomTab(''); }}
+                          className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all border ${barTabAmount === amt ? 'bg-orange/20 border-orange text-orange' : 'border-white/[0.1] text-gray-300 hover:border-orange/40'}`}>
+                          +${amt}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="relative mb-5">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+                      <input type="number" min={1} placeholder="Custom amount"
+                        value={customTab}
+                        onChange={e => { setCustomTab(e.target.value); setBarTabAmount(Math.max(0, parseInt(e.target.value) || 0)); }}
+                        className="w-full pl-8 pr-4 py-3 rounded-xl bg-white/[0.06] border border-white/[0.1] text-white text-sm outline-none focus:border-orange" />
+                    </div>
+                    <div className="flex gap-3">
+                      <button onClick={skip} className="flex-1 py-3 rounded-xl border border-white/[0.1] text-gray-400 font-bold text-sm hover:border-white/30 transition-all">Skip</button>
+                      <button onClick={() => { setShowBarTab(false); setStep('payment'); }}
+                        className="flex-1 py-3 rounded-xl bg-orange text-white font-bold text-sm hover:bg-orange/90 transition-all">
+                        {barTabAmount > 0 ? `Add $${barTabAmount} →` : 'Continue →'}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
       </div>
     </div>
   );
