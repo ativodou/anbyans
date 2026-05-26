@@ -211,7 +211,7 @@ export default function StaffPosPage() {
               </div>
             ) : (
               <>
-                <div className="grid grid-cols-2 gap-3 mb-4">
+                <div className="grid grid-cols-2 gap-3 mb-44">
                   {stationItems.map(item => {
                     const inCart = cart.find(c => c.item.id === item.id)?.qty ?? 0;
                     const remaining = item.stock > 0 ? item.stock - item.sold - inCart : Infinity;
@@ -235,11 +235,27 @@ export default function StaffPosPage() {
                 </div>
 
                 {cart.length > 0 && (
-                  <div className="fixed bottom-0 left-0 right-0 p-4 bg-[#0a0a0f] border-t border-white/[0.07]">
-                    <button onClick={() => setStep('confirm')}
-                      className="w-full py-4 rounded-2xl bg-orange text-white font-bold text-base">
-                      Kontwole — ${cartTotal.toFixed(2)}
-                    </button>
+                  <div className="fixed bottom-0 left-0 right-0 p-4 bg-[#0a0a0f] border-t border-white/[0.07] space-y-2.5">
+                    {/* Payment method quick-select */}
+                    <div className="flex gap-1.5 overflow-x-auto pb-0.5">
+                      {PAYMENT_METHODS.map(m => (
+                        <button key={m.key} onClick={() => setPayMethod(m.key)}
+                          className={`flex-shrink-0 px-3 py-1.5 rounded-xl border text-[11px] font-bold transition-all ${payMethod === m.key ? 'border-orange bg-orange/20 text-orange' : 'border-white/[0.12] text-gray-400'}`}>
+                          {m.label}
+                        </button>
+                      ))}
+                    </div>
+                    {/* Actions */}
+                    <div className="flex gap-2">
+                      <button onClick={handleSubmit} disabled={submitting}
+                        className="flex-1 py-3.5 rounded-2xl bg-green-600 hover:bg-green-500 text-white font-bold text-sm disabled:opacity-50 transition-all">
+                        {submitting ? '...' : `✓ Voye Kòmand — $${cartTotal.toFixed(2)}`}
+                      </button>
+                      <button onClick={() => setStep('confirm')}
+                        className="px-4 py-3.5 rounded-2xl bg-white/[0.08] text-gray-300 font-bold text-sm hover:bg-white/[0.12] transition-all">
+                        Revize
+                      </button>
+                    </div>
                   </div>
                 )}
               </>
