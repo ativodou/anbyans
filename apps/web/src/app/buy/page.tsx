@@ -200,7 +200,7 @@ function BuyPageInner() {
   const [barTabAmount, setBarTabAmount] = useState(0);
   const [customTab, setCustomTab]       = useState('');
   const [showBarTab, setShowBarTab]     = useState(false);
-  const [barMenuItems, setBarMenuItems] = useState<{name: string; price: number}[]>([]);
+  const [barMenuItems, setBarMenuItems] = useState<{name: string; price: number; station: string}[]>([]);
   const [barCart, setBarCart]           = useState<Record<string, number>>({});
 
   // ── Restore cart from localStorage after event loads ─────────
@@ -376,7 +376,7 @@ function BuyPageInner() {
       setPhone(u.phone);
       if (user?.email) setEmail(user.email);
       setShowBarTab(true);
-      if (event?.id) getBarItems(event.id).then(items => setBarMenuItems(items.map(x => ({ name: x.name, price: x.price })))).catch(() => {});
+      if (event?.id) getBarItems(event.id).then(items => setBarMenuItems(items.map(x => ({ name: x.name, price: x.price, station: x.stationName })))).catch(() => {});
     } else {
       setStep('info');
     }
@@ -664,7 +664,7 @@ function BuyPageInner() {
         <button onClick={() => {
           if (!validateInfo()) return;
           setShowBarTab(true);
-          if (event?.id) getBarItems(event.id).then(items => setBarMenuItems(items.map(x => ({ name: x.name, price: x.price })))).catch(() => {});
+          if (event?.id) getBarItems(event.id).then(items => setBarMenuItems(items.map(x => ({ name: x.name, price: x.price, station: x.stationName })))).catch(() => {});
         }}
           className="w-full mt-4 py-3.5 rounded-xl font-heading text-base bg-orange text-white hover:bg-orange/90 transition-all">
           {t('buy_continue')}
@@ -677,6 +677,7 @@ function BuyPageInner() {
             return sum + (item ? item.price * qty : 0);
           }, 0);
           const hasMenu = barMenuItems.length > 0;
+          const stations = hasMenu ? Array.from(new Set(barMenuItems.map(i => i.station))) : [];
           const confirm = () => {
             if (hasMenu) setBarTabAmount(cartTotal);
             setShowBarTab(false);
@@ -698,31 +699,38 @@ function BuyPageInner() {
 
                 {hasMenu ? (
                   <>
-                    {/* Scrollable item list */}
-                    <div className="flex-1 overflow-y-auto px-6 pb-2 space-y-2">
-                      {barMenuItems.map((item) => {
-                        const qty = barCart[item.name] ?? 0;
-                        return (
-                          <div key={item.name} className="flex items-center justify-between py-2.5 border-b border-white/[0.06] last:border-0">
-                            <div>
-                              <p className="text-sm font-semibold text-white">{item.name}</p>
-                              <p className="text-orange text-xs font-bold">${item.price.toFixed(2)}</p>
-                            </div>
-                            <div className="flex items-center gap-3">
-                              {qty > 0 && (
-                                <button onClick={() => setBarCart(prev => {
-                                  const next = { ...prev };
-                                  if (next[item.name] <= 1) delete next[item.name]; else next[item.name]--;
-                                  return next;
-                                })} className="w-8 h-8 rounded-full border border-white/20 text-white flex items-center justify-center text-lg leading-none hover:border-orange transition-colors">−</button>
-                              )}
-                              {qty > 0 && <span className="text-white font-bold text-sm w-4 text-center">{qty}</span>}
-                              <button onClick={() => setBarCart(prev => ({ ...prev, [item.name]: (prev[item.name] ?? 0) + 1 }))}
-                                className="w-8 h-8 rounded-full border border-white/20 text-white flex items-center justify-center text-lg leading-none hover:border-orange transition-colors">+</button>
-                            </div>
-                          </div>
-                        );
-                      })}
+                    {/* Scrollable item list grouped by station */}
+                    <div className="flex-1 overflow-y-auto px-6 pb-2">
+                      {stations.map(station => (
+                        <div key={station}>
+                          {stations.length > 1 && (
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mt-4 mb-2">{station}</p>
+                          )}
+                          {barMenuItems.filter(i => i.station === station).map((item) => {
+                            const qty = barCart[item.name] ?? 0;
+                            return (
+                              <div key={item.name} className="flex items-center justify-between py-2.5 border-b border-white/[0.06] last:border-0">
+                                <div>
+                                  <p className="text-sm font-semibold text-white">{item.name}</p>
+                                  <p className="text-orange text-xs font-bold">${item.price.toFixed(2)}</p>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  {qty > 0 && (
+                                    <button onClick={() => setBarCart(prev => {
+                                      const next = { ...prev };
+                                      if (next[item.name] <= 1) delete next[item.name]; else next[item.name]--;
+                                      return next;
+                                    })} className="w-8 h-8 rounded-full border border-white/20 text-white flex items-center justify-center text-lg leading-none hover:border-orange transition-colors">−</button>
+                                  )}
+                                  {qty > 0 && <span className="text-white font-bold text-sm w-4 text-center">{qty}</span>}
+                                  <button onClick={() => setBarCart(prev => ({ ...prev, [item.name]: (prev[item.name] ?? 0) + 1 }))}
+                                    className="w-8 h-8 rounded-full border border-white/20 text-white flex items-center justify-center text-lg leading-none hover:border-orange transition-colors">+</button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ))}
                     </div>
 
                     {/* Footer */}
