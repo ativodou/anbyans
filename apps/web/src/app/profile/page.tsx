@@ -192,7 +192,7 @@ export default function FanProfilePage() {
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
             <div>
-              <label style={{ display: 'block', fontSize: 11, color: '#555', marginBottom: 5 }}>{t('profile_firstname_label') || 'Prenon'}</label>
+              <label style={{ display: 'block', fontSize: 11, color: '#555', marginBottom: 5 }}>Prenon</label>
               <input
                 value={firstName}
                 onChange={e => setFirstName(e.target.value)}
@@ -200,7 +200,7 @@ export default function FanProfilePage() {
               />
             </div>
             <div>
-              <label style={{ display: 'block', fontSize: 11, color: '#555', marginBottom: 5 }}>{t('profile_lastname_label') || 'Non'}</label>
+              <label style={{ display: 'block', fontSize: 11, color: '#555', marginBottom: 5 }}>Non</label>
               <input
                 value={lastName}
                 onChange={e => setLastName(e.target.value)}
