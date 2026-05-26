@@ -19,6 +19,8 @@ import {
   getPlatformFeeRate,
   vendorBulkPurchase,
   vendorSellTicket,
+  saveVendorDraft,
+  loadVendorDraft,
   VendorData,
   VendorPurchase,
   EventData,
@@ -107,6 +109,8 @@ export default function VendorDashboardPage() {
   const { user, loading: authLoading } = useAuth();
   const [profileOpen, setProfileOpen] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
+  const draftApplied = useRef(false);
+  const draftTimer = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -166,6 +170,8 @@ export default function VendorDashboardPage() {
     let cancelled = false;
 
     const loadData = async (uid: string) => {
+      let draft: Record<string, any> | null = null;
+      try { draft = await loadVendorDraft(uid); } catch {}
       try {
         let v = await getVendorByUid(uid);
         if (cancelled) return;
@@ -231,7 +237,30 @@ export default function VendorDashboardPage() {
                   } catch { return null; }
                 })
               );
-              if (!cancelled) setApprovedEvents(withPricing.filter(Boolean) as (EventData & { pricing: ResellerSectionPricing[] })[]);
+              const filtered = withPricing.filter(Boolean) as (EventData & { pricing: ResellerSectionPricing[] })[];
+              if (!cancelled) {
+                setApprovedEvents(filtered);
+                if (draft && !draftApplied.current) {
+                  draftApplied.current = true;
+                  if (draft.tab) setTab(draft.tab as Tab);
+                  if (draft.buyQty) setBuyQty(Number(draft.buyQty) || 10);
+                  if (draft.buyEventId) {
+                    const evIdx = filtered.findIndex(e => e.id === draft!.buyEventId);
+                    if (evIdx >= 0) {
+                      setBuyEventIdx(evIdx);
+                      if (draft.buySectionName) {
+                        const secIdx = filtered[evIdx]!.pricing.findIndex(s => s.section === draft!.buySectionName);
+                        if (secIdx >= 0) setBuySectionIdx(secIdx);
+                      }
+                    }
+                  }
+                }
+              }
+            }
+            // Apply tab from draft even if no approved events
+            if (!draftApplied.current && draft?.tab) {
+              draftApplied.current = true;
+              if (!cancelled) setTab(draft.tab as Tab);
             }
           } catch (e) { console.warn('vendorRequests', e); }
         }
@@ -253,6 +282,18 @@ export default function VendorDashboardPage() {
     return () => { cancelled = true; unsub(); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ── Auto-save vendor dashboard draft ───────────────────────────
+  useEffect(() => {
+    if (!user?.uid || !draftApplied.current) return;
+    if (draftTimer.current) clearTimeout(draftTimer.current);
+    draftTimer.current = setTimeout(() => {
+      const buyEventId = approvedEvents[buyEventIdx]?.id ?? '';
+      const buySectionName = approvedEvents[buyEventIdx]?.pricing[buySectionIdx]?.section ?? '';
+      saveVendorDraft(user.uid!, { tab, buyEventId, buySectionName, buyQty }).catch(() => {});
+    }, 1500);
+    return () => { if (draftTimer.current) clearTimeout(draftTimer.current); };
+  }, [tab, buyEventIdx, buySectionIdx, buyQty, user?.uid]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const totalStock = owned.reduce((a, b) => a + b.qty, 0);
   const totalSold = owned.reduce((a, b) => a + b.sold, 0);

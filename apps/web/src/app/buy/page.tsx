@@ -195,6 +195,38 @@ function BuyPageInner() {
   const [organizerStripeAccountId, setOrganizerStripeAccountId] = useState<string | null>(null);
   const [feeRate, setFeeRate] = useState(0.09);
 
+  // ── Restore cart from localStorage after event loads ─────────
+  useEffect(() => {
+    if (!event || !eventKey) return;
+    try {
+      const raw = localStorage.getItem(`anbyans-cart-${eventKey}`);
+      if (!raw) return;
+      const saved = JSON.parse(raw);
+      if (saved.selSectionId) {
+        const sec = event.sections.find(s => s.id === saved.selSectionId);
+        if (sec) setSelSection(sec);
+      }
+      if (saved.qty) setQty(Math.max(1, Math.min(10, Number(saved.qty) || 1)));
+      if (saved.name)  setName(saved.name);
+      if (saved.phone) setPhone(saved.phone);
+      if (saved.email) setEmail(saved.email);
+    } catch {}
+  }, [event]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Auto-save cart to localStorage ───────────────────────────
+  useEffect(() => {
+    if (!eventKey || step === 'done') return;
+    try {
+      localStorage.setItem(`anbyans-cart-${eventKey}`, JSON.stringify({
+        selSectionId: selSection?.id ?? null,
+        qty,
+        name,
+        phone,
+        email,
+      }));
+    } catch {}
+  }, [selSection, qty, name, phone, email, eventKey, step]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Load event ────────────────────────────────────────────────
   useEffect(() => {
     if (!eventKey) return;
@@ -339,6 +371,7 @@ function BuyPageInner() {
         { organizerId: event.organizerId, sectionName: selSection.name, priceHTG: htg(selSection.price) },
       );
       setTicketCodes(tkts.map(tk => tk.ticketCode));
+      try { localStorage.removeItem(`anbyans-cart-${eventKey}`); } catch {}
       setStep('done');
     } catch (e) { console.error(e); setStripeError('Erè apre peman. Kontakte sipò.'); }
     finally { setProcessing(false); }
@@ -375,6 +408,7 @@ function BuyPageInner() {
       );
 
       setTicketCodes(tkts.map(tk => tk.ticketCode));
+      try { localStorage.removeItem(`anbyans-cart-${eventKey}`); } catch {}
       setStep('done');
     } catch (e) {
       console.error(e);

@@ -61,6 +61,10 @@ service cloud.firestore {
     match /users/{uid} {
       allow read: if isUser(uid) || isAdmin();
       allow write: if isUser(uid) || isAdmin();
+
+      match /drafts/{draftId} {
+        allow read, write: if isUser(uid);
+      }
     }
 
     // ── Vendor profiles ────────────────────────────────────────────

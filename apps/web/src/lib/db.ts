@@ -2037,3 +2037,17 @@ export async function loadEventDraft(uid: string): Promise<Record<string, any> |
 export async function clearEventDraft(uid: string): Promise<void> {
   await deleteDoc(doc(db, 'organizers', uid, 'drafts', 'event_create'));
 }
+
+// ─── Vendor Dashboard Draft ──────────────────────────────────────────────────
+
+export async function saveVendorDraft(uid: string, draft: Record<string, any>): Promise<void> {
+  await setDoc(doc(db, 'users', uid, 'drafts', 'vendor_dashboard'), {
+    ...draft,
+    savedAt: serverTimestamp(),
+  });
+}
+
+export async function loadVendorDraft(uid: string): Promise<Record<string, any> | null> {
+  const snap = await getDoc(doc(db, 'users', uid, 'drafts', 'vendor_dashboard'));
+  return snap.exists() ? snap.data() : null;
+}
