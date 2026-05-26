@@ -1704,6 +1704,11 @@ export async function updateUserPhoto(uid: string, base64: string): Promise<void
   await updateDoc(doc(db, 'users', uid), { photoURL: base64, updatedAt: serverTimestamp() });
 }
 
+/** Update editable profile fields for fans/vendors */
+export async function updateUserProfile(uid: string, fields: { firstName: string; lastName: string; phone: string; city: string }): Promise<void> {
+  await updateDoc(doc(db, 'users', uid), { ...fields, updatedAt: serverTimestamp() });
+}
+
 /** Save a compressed base64 logo for organizers (organizers collection) */
 export async function updateOrganizerLogo(uid: string, base64: string): Promise<void> {
   await setDoc(doc(db, 'organizers', uid), { uid, logoURL: base64, updatedAt: serverTimestamp() }, { merge: true });

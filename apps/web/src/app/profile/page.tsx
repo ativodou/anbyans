@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useT } from '@/i18n';
-import { updateUserPhoto, getUserPhoto } from '@/lib/db';
+import { updateUserPhoto, getUserPhoto, updateUserProfile } from '@/lib/db';
 import { compressImage } from '@/lib/compressImage';
 
 export default function FanProfilePage() {
@@ -17,6 +17,15 @@ export default function FanProfilePage() {
   const [saved,       setSaved]       = useState(false);
   const [error,       setError]       = useState('');
 
+  // Editable profile fields
+  const [firstName,   setFirstName]   = useState('');
+  const [lastName,    setLastName]    = useState('');
+  const [phone,       setPhone]       = useState('');
+  const [city,        setCity]        = useState('');
+  const [infoSaving,  setInfoSaving]  = useState(false);
+  const [infoSaved,   setInfoSaved]   = useState(false);
+  const [infoError,   setInfoError]   = useState('');
+
   const displayName = (user as any)?.firstName
     ? `${(user as any).firstName} ${(user as any).lastName ?? ''}`.trim()
     : user?.email?.split('@')[0] ?? '';
@@ -24,6 +33,11 @@ export default function FanProfilePage() {
   useEffect(() => {
     if (!user?.uid) return;
     getUserPhoto(user.uid).then(url => setPhotoURL(url)).catch(() => {});
+    const u = user as any;
+    setFirstName(u?.firstName ?? '');
+    setLastName(u?.lastName ?? '');
+    setPhone(u?.phone ?? '');
+    setCity(u?.city ?? '');
   }, [user?.uid]);
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -46,6 +60,21 @@ export default function FanProfilePage() {
       console.error(err);
     } finally {
       setUploading(false);
+    }
+  }
+
+  async function handleSaveInfo() {
+    if (!user?.uid) return;
+    setInfoSaving(true);
+    setInfoError('');
+    try {
+      await updateUserProfile(user.uid, { firstName, lastName, phone, city });
+      setInfoSaved(true);
+      setTimeout(() => setInfoSaved(false), 2500);
+    } catch {
+      setInfoError('Erè — eseye ankò.');
+    } finally {
+      setInfoSaving(false);
     }
   }
 
@@ -147,22 +176,75 @@ export default function FanProfilePage() {
           )}
         </div>
 
-        {/* Other profile info (read-only for now) */}
+        {/* Editable account info */}
         <div style={{ background: '#12121a', border: '1px solid #1e1e2e', borderRadius: 16, padding: 24, marginTop: 16 }}>
           <h2 style={{ fontSize: 14, fontWeight: 700, color: '#aaa', marginBottom: 16, textTransform: 'uppercase', letterSpacing: 1 }}>
             {t('profile_account_info')}
           </h2>
-          {[
-            { label: t('profile_email_label'), value: user.email ?? '' },
-            { label: t('profile_name_label'),  value: displayName },
-            { label: t('profile_phone_label'), value: (user as any)?.phone || '—' },
-            { label: t('profile_city_label'), value: (user as any)?.city || '—' },
-          ].map(row => (
-            <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #1a1a2a' }}>
-              <span style={{ color: '#555', fontSize: 12 }}>{row.label}</span>
-              <span style={{ color: '#ccc', fontSize: 12 }}>{row.value}</span>
+
+          {/* Email — read-only */}
+          <div style={{ marginBottom: 14 }}>
+            <label style={{ display: 'block', fontSize: 11, color: '#555', marginBottom: 5 }}>{t('profile_email_label')}</label>
+            <div style={{ padding: '10px 12px', borderRadius: 10, background: '#0a0a0f', border: '1px solid #1a1a2a', color: '#555', fontSize: 13 }}>
+              {user.email}
             </div>
-          ))}
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+            <div>
+              <label style={{ display: 'block', fontSize: 11, color: '#555', marginBottom: 5 }}>{t('profile_firstname_label') || 'Prenon'}</label>
+              <input
+                value={firstName}
+                onChange={e => setFirstName(e.target.value)}
+                style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: 10, background: '#0a0a0f', border: '1px solid #1a1a2a', color: '#fff', fontSize: 13, outline: 'none' }}
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: 11, color: '#555', marginBottom: 5 }}>{t('profile_lastname_label') || 'Non'}</label>
+              <input
+                value={lastName}
+                onChange={e => setLastName(e.target.value)}
+                style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: 10, background: '#0a0a0f', border: '1px solid #1a1a2a', color: '#fff', fontSize: 13, outline: 'none' }}
+              />
+            </div>
+          </div>
+
+          <div style={{ marginBottom: 14 }}>
+            <label style={{ display: 'block', fontSize: 11, color: '#555', marginBottom: 5 }}>{t('profile_phone_label')}</label>
+            <input
+              value={phone}
+              onChange={e => setPhone(e.target.value)}
+              type="tel"
+              style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: 10, background: '#0a0a0f', border: '1px solid #1a1a2a', color: '#fff', fontSize: 13, outline: 'none' }}
+            />
+          </div>
+
+          <div style={{ marginBottom: 20 }}>
+            <label style={{ display: 'block', fontSize: 11, color: '#555', marginBottom: 5 }}>{t('profile_city_label')}</label>
+            <input
+              value={city}
+              onChange={e => setCity(e.target.value)}
+              style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: 10, background: '#0a0a0f', border: '1px solid #1a1a2a', color: '#fff', fontSize: 13, outline: 'none' }}
+            />
+          </div>
+
+          {infoError && (
+            <div style={{ background: '#2a1515', border: '1px solid #ef4444', borderRadius: 8, padding: '10px 14px', marginBottom: 14, color: '#ef4444', fontSize: 13 }}>
+              {infoError}
+            </div>
+          )}
+          {infoSaved && (
+            <div style={{ background: '#0d2a1a', border: '1px solid #22c55e', borderRadius: 8, padding: '10px 14px', marginBottom: 14, color: '#22c55e', fontSize: 13 }}>
+              ✓ Sove!
+            </div>
+          )}
+
+          <button
+            onClick={handleSaveInfo}
+            disabled={infoSaving}
+            style={{ width: '100%', padding: '12px', borderRadius: 10, border: 'none', background: '#06b6d4', color: '#000', fontSize: 14, fontWeight: 700, cursor: infoSaving ? 'not-allowed' : 'pointer', opacity: infoSaving ? 0.6 : 1 }}>
+            {infoSaving ? '...' : 'Sove Chanjman yo'}
+          </button>
         </div>
 
         {/* Legal link */}
