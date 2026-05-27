@@ -687,10 +687,17 @@ function BuyPageInner() {
             return sum + (item ? item.price * qty : 0);
           }, 0);
           const fanSection = selSection?.name ?? '';
+          const eventSectionNames = event?.sections?.map(s => s.name) ?? [];
+          const stationVisible = (stationName: string, stationSections: string[]) => {
+            if (stationSections.length > 0) return stationSections.includes(fanSection);
+            const inferred = eventSectionNames.filter(sec => stationName.toLowerCase().includes(sec.toLowerCase()));
+            if (inferred.length > 0) return inferred.includes(fanSection);
+            return true;
+          };
           const visibleItems = barMenuItems.filter(i => {
-            const stationOk = i.stationSections.length === 0 || (fanSection && i.stationSections.includes(fanSection));
-            const itemOk = i.sections.length === 0 || (fanSection && i.sections.includes(fanSection));
-            return stationOk && itemOk;
+            if (!stationVisible(i.station, i.stationSections)) return false;
+            if (i.sections.length > 0 && !i.sections.includes(fanSection)) return false;
+            return true;
           });
           const hasMenu = visibleItems.length > 0;
           const stations = hasMenu ? Array.from(new Set(visibleItems.map(i => i.station))) : [];
