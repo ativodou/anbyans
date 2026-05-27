@@ -154,6 +154,11 @@ export default function AdminDashboardPage() {
     setOrganizers(prev => prev.map(o => o.id === uid ? { ...o, suspended: !suspended } : o));
   }
 
+  async function setOrganizerStatus(uid: string, status: 'approved' | 'rejected') {
+    await updateDoc(doc(db, 'users', uid), { organizerStatus: status });
+    setOrganizers(prev => prev.map(o => o.id === uid ? { ...o, organizerStatus: status } : o));
+  }
+
   async function adminDeleteUser(uid: string, role: string, email: string) {
     if (!confirm(`Efase ${email} pou toutan? Sa pa ka defèt.`)) return;
     setDeletingUser(uid);
@@ -531,19 +536,38 @@ export default function AdminDashboardPage() {
                       <p className="text-[11px] text-gray-muted">{o.email}</p>
                       <p className="text-[11px] text-gray-light mt-0.5">{o.totalEvents} {t('admin_events_count')} · ${(o.totalRevenue||0).toLocaleString()} {t('admin_total_revenue_lbl')}</p>
                     </div>
-                    {o.suspended && <span className="text-[9px] bg-red/20 text-red px-2 py-0.5 rounded font-bold">{t('admin_suspended').toUpperCase()}</span>}
-                    <div className="flex gap-2 flex-shrink-0">
-                      <button
-                        onClick={() => toggleSuspendUser(o.id, !!o.suspended)}
-                        className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${o.suspended ? 'bg-green-dim text-green border border-green/30' : 'bg-red/10 text-red border border-red/30'}`}>
-                        {o.suspended ? t('admin_reactivate') : t('admin_suspend')}
-                      </button>
-                      <button
-                        onClick={() => adminDeleteUser(o.id, 'organizer', o.email)}
-                        disabled={deletingUser === o.id}
-                        className="px-3 py-1.5 rounded-lg text-[10px] font-bold bg-red/20 text-red border border-red/40 hover:bg-red hover:text-white transition-all disabled:opacity-40">
-                        {deletingUser === o.id ? '…' : '🗑'}
-                      </button>
+                    <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+                      {(o as any).organizerStatus === 'pending' && (
+                        <span className="text-[9px] bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded font-bold">EN ATANT</span>
+                      )}
+                      {o.suspended && (
+                        <span className="text-[9px] bg-red/20 text-red px-2 py-0.5 rounded font-bold">{t('admin_suspended').toUpperCase()}</span>
+                      )}
+                      <div className="flex gap-1.5">
+                        {(o as any).organizerStatus === 'pending' && (
+                          <>
+                            <button onClick={() => setOrganizerStatus(o.id, 'approved')}
+                              className="px-3 py-1.5 rounded-lg text-[10px] font-bold bg-green-600/20 text-green-400 border border-green-500/30 hover:bg-green-600 hover:text-white transition-all">
+                              ✅ Aprouve
+                            </button>
+                            <button onClick={() => setOrganizerStatus(o.id, 'rejected')}
+                              className="px-3 py-1.5 rounded-lg text-[10px] font-bold bg-red/10 text-red border border-red/30 hover:bg-red hover:text-white transition-all">
+                              🚫 Refize
+                            </button>
+                          </>
+                        )}
+                        {(o as any).organizerStatus !== 'pending' && (
+                          <button onClick={() => toggleSuspendUser(o.id, !!o.suspended)}
+                            className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${o.suspended ? 'bg-green-dim text-green border border-green/30' : 'bg-red/10 text-red border border-red/30'}`}>
+                            {o.suspended ? t('admin_reactivate') : t('admin_suspend')}
+                          </button>
+                        )}
+                        <button onClick={() => adminDeleteUser(o.id, 'organizer', o.email)}
+                          disabled={deletingUser === o.id}
+                          className="px-3 py-1.5 rounded-lg text-[10px] font-bold bg-red/20 text-red border border-red/40 hover:bg-red hover:text-white transition-all disabled:opacity-40">
+                          {deletingUser === o.id ? '…' : '🗑'}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}
