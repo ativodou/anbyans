@@ -10,13 +10,8 @@ service cloud.firestore {
       return isAuth() && request.auth.uid == '4tnDCh99SFR4KFqYnTxYTIRfN8j2';
     }
 
-    function isSuspended() {
-      return isAuth() &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.suspended == true;
-    }
-
     function isActiveAuth() {
-      return isAuth() && !isSuspended();
+      return isAuth();
     }
 
     function isApprovedOrganizer() {
