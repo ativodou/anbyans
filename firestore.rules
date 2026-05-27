@@ -18,14 +18,9 @@ service cloud.firestore {
         resource.data.organizerId == request.auth.uid || isAdmin()
       );
 
-      // Sub-collection tickets (admin + organizer can read all)
+      // Sub-collection tickets
       match /tickets/{ticketId} {
-        allow read: if isAuth() && (
-          resource.data.buyerUid == request.auth.uid ||
-          resource.data.organizerId == request.auth.uid ||
-          resource.data.vendorId == request.auth.uid ||
-          isAdmin()
-        );
+        allow read: if isAuth();
         allow create: if isAuth();
         allow update: if isAuth() && (
           resource.data.organizerId == request.auth.uid || isAdmin()
@@ -33,14 +28,9 @@ service cloud.firestore {
       }
     }
 
-    // ── Top-level tickets (legacy path) ───────────────────────────
+    // ── Top-level tickets ─────────────────────────────────────────
     match /tickets/{ticketId} {
-      allow read: if isAuth() && (
-        resource.data.buyerUid == request.auth.uid ||
-        resource.data.organizerId == request.auth.uid ||
-        resource.data.vendorId == request.auth.uid ||
-        isAdmin()
-      );
+      allow read: if isAuth();
       allow create: if isAuth();
       allow update: if isAuth() && (
         resource.data.organizerId == request.auth.uid || isAdmin()
