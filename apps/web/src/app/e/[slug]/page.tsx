@@ -8,7 +8,7 @@ const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
 import { useParams } from 'next/navigation';
 import { collection, query, where, getDocs, doc, getDoc, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { getEventByPrivateToken, getPlatformFeeRate, getBarItems } from '@/lib/db';
+import { getEventByPrivateToken, getPlatformFeeRate, getBarItems, getBarStations } from '@/lib/db';
 import { useT } from '@/i18n';
 import { useAuth } from '@/hooks/useAuth';
 import Link from 'next/link';
@@ -206,7 +206,7 @@ function BuyPageInner() {
   const [showBarTab, setShowBarTab]     = useState(false);
   const [barTabAmount, setBarTabAmount] = useState(0);
   const [customTab, setCustomTab]       = useState('');
-  const [barMenuItems, setBarMenuItems] = useState<{name: string; price: number; station: string; sections: string[]}[]>([]);
+  const [barMenuItems, setBarMenuItems] = useState<{name: string; price: number; station: string; stationId: string; stationSections: string[]; sections: string[]}[]>([]);
   const [barCart, setBarCart]           = useState<Record<string, number>>({});
 
   // ── Pre-fill buyer info from logged-in profile ───────────────
@@ -705,7 +705,12 @@ function BuyPageInner() {
         <button onClick={() => {
           if (!validateInfo()) return;
           setShowBarTab(true);
-          if (event?.id) getBarItems(event.id).then(items => setBarMenuItems(items.map(x => ({ name: x.name, price: x.price, station: x.stationName, sections: x.sections ?? [] })))).catch(() => {});
+          if (event?.id) Promise.all([getBarItems(event.id), getBarStations(event.id)]).then(([items, stations]) => {
+            setBarMenuItems(items.map(x => {
+              const st = stations.find(s => s.id === x.stationId);
+              return { name: x.name, price: x.price, station: x.stationName, stationId: x.stationId, stationSections: st?.sections ?? [], sections: x.sections ?? [] };
+            }));
+          }).catch(() => {});
         }}
           className="w-full mt-4 py-3.5 rounded-xl font-heading text-base bg-orange text-white hover:bg-orange/90 transition-all">
           {t('buy_continue')}
@@ -718,7 +723,11 @@ function BuyPageInner() {
             return sum + (item ? item.price * qty : 0);
           }, 0);
           const cartSectionNames = cart.map(c => c.section.name);
-          const visibleItems = barMenuItems.filter(i => i.sections.length === 0 || i.sections.some(s => cartSectionNames.includes(s)));
+          const visibleItems = barMenuItems.filter(i => {
+            const stationOk = i.stationSections.length === 0 || i.stationSections.some(s => cartSectionNames.includes(s));
+            const itemOk = i.sections.length === 0 || i.sections.some(s => cartSectionNames.includes(s));
+            return stationOk && itemOk;
+          });
           const hasMenu = visibleItems.length > 0;
           const stations = hasMenu ? Array.from(new Set(visibleItems.map(i => i.station))) : [];
           const confirm = () => { if (hasMenu) setBarTabAmount(cartTotal); setShowBarTab(false); setStep('payment'); };

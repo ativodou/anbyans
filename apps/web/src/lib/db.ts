@@ -1821,6 +1821,7 @@ export interface BarStation {
   eventId: string;
   organizerId: string;
   name: string;
+  sections?: string[]; // ticket section names that can access this station; empty/missing = all
 }
 
 export interface BarItem {
@@ -1869,6 +1870,10 @@ export async function getBarStations(eventId: string): Promise<BarStation[]> {
   const q = query(collection(db, 'barStations'), where('eventId', '==', eventId));
   const snap = await getDocs(q);
   return snap.docs.map(d => ({ id: d.id, ...d.data() } as BarStation));
+}
+
+export async function updateBarStationSections(stationId: string, sections: string[]): Promise<void> {
+  await updateDoc(doc(db, 'barStations', stationId), { sections });
 }
 
 export async function saveBarStation(station: Omit<BarStation, 'id'>): Promise<string> {

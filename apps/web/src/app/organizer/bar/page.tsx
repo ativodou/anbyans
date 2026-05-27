@@ -8,7 +8,7 @@ import { db } from '@/lib/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import {
-  getBarStations, saveBarStation, deleteBarStation,
+  getBarStations, saveBarStation, deleteBarStation, updateBarStationSections,
   getBarItems, saveBarItem, deleteBarItem, updateBarItemStock,
   subscribeBarOrders, updateBarOrderStatus, getAssignedStaff,
   type BarStation, type BarItem, type BarOrder, type BarOrderStatus, type AssignedStaffMember,
@@ -314,11 +314,35 @@ export default function OrganizerBarPage() {
               </div>
               {stationError && <p className="text-xs text-red-400 mb-2">{stationError}</p>}
               {stations.length > 0 && (
-                <div className="flex flex-wrap gap-2">
+                <div className="space-y-2">
                   {stations.map(s => (
-                    <div key={s.id} className="flex items-center gap-1.5 px-3 py-1.5 bg-white/[0.04] border border-border rounded-lg">
-                      <span className="text-xs font-bold">{s.name}</span>
-                      <button onClick={() => handleDeleteStation(s.id!)} className="text-gray-muted hover:text-red-400 text-xs transition-colors">✕</button>
+                    <div key={s.id} className="bg-white/[0.03] border border-border rounded-xl p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-bold">{s.name}</span>
+                        <button onClick={() => handleDeleteStation(s.id!)} className="text-gray-muted hover:text-red-400 text-xs transition-colors">✕</button>
+                      </div>
+                      {(selectedEvent as any)?.sections?.length > 0 && (
+                        <div>
+                          <p className="text-[9px] text-gray-muted mb-1.5 uppercase tracking-wide">Visible to <span className="normal-case font-normal">(blank = all)</span></p>
+                          <div className="flex flex-wrap gap-1">
+                            {((selectedEvent as any).sections as { name: string }[]).map(sec => {
+                              const active = (s.sections ?? []).includes(sec.name);
+                              return (
+                                <button key={sec.name} type="button"
+                                  onClick={async () => {
+                                    const cur = s.sections ?? [];
+                                    const next = active ? cur.filter(x => x !== sec.name) : [...cur, sec.name];
+                                    await updateBarStationSections(s.id!, next);
+                                    setStations(prev => prev.map(st => st.id === s.id ? { ...st, sections: next } : st));
+                                  }}
+                                  className={`px-2 py-0.5 rounded text-[10px] font-bold border transition-all ${active ? 'border-orange bg-orange/10 text-orange' : 'border-border text-gray-muted hover:border-white/20'}`}>
+                                  {sec.name}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
