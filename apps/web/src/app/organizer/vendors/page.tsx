@@ -52,15 +52,15 @@ export default function OrganizerVendorsPage() {
   const [showInvite, setShowInvite]     = useState(false);
   const [showPricing, setShowPricing]   = useState(false);
   const [filterStatus, setFilterStatus] = useState<string>('all');
-  const [pricingEventIdx, setPricingEventIdx] = useState(0);
+  const [pricingEventId, setPricingEventId] = useState<string>('');
   const [draftTiers, setDraftTiers]     = useState<Record<string, BulkTier[]>>({});
 
-  // Sync pricing panel to the globally selected event
+  // Sync pricing panel to the globally selected event (non-private only)
   useEffect(() => {
     if (!selectedEvent?.id) return;
-    const idx = events.findIndex(e => e.id === selectedEvent.id);
-    if (idx >= 0) setPricingEventIdx(idx);
-  }, [selectedEvent?.id, events.length]);
+    const ev = events.find(e => e.id === selectedEvent.id);
+    if (ev && !ev.isPrivate) setPricingEventId(selectedEvent.id);
+  }, [selectedEvent?.id, events]);
 
   const [inviteForm, setInviteForm] = useState({
     name: '', contact: '', phone: '', city: '', payMethod: 'MonCash', eventId: '',
@@ -103,7 +103,8 @@ export default function OrganizerVendorsPage() {
   const totalSold      = filtered.flatMap(v => v.purchases).reduce((a, b) => a + b.sold, 0);
   const totalRevenue   = filtered.flatMap(v => v.purchases).reduce((a, b) => a + b.totalPaid, 0);
 
-  const pricingEvent = events[pricingEventIdx] ?? null;
+  const pricingEvents = events.filter(ev => !ev.isPrivate);
+  const pricingEvent = pricingEvents.find(e => e.id === pricingEventId) ?? pricingEvents[0] ?? null;
 
   // ── Handlers ──
   const handleInvite = async () => {
@@ -232,8 +233,7 @@ export default function OrganizerVendorsPage() {
               </div>
               <button
                 onClick={() => {
-                  const evIdx = events.findIndex(e => e.id === justApproved.eventId);
-                  if (evIdx >= 0) setPricingEventIdx(evIdx);
+                  setPricingEventId(justApproved.eventId);
                   setShowPricing(true);
                   setJustApproved(null);
                   setMainTab('my');
@@ -316,14 +316,14 @@ export default function OrganizerVendorsPage() {
                 <button onClick={() => setShowPricing(false)} className="text-gray-muted hover:text-white text-sm">✕</button>
               </div>
               <p className="text-xs text-gray-light mb-4">{t('resellers_pricing_subtitle')}</p>
-              {events.length === 0 ? (
-                <p className="text-xs text-gray-muted">Pa gen evènman ankò.</p>
+              {pricingEvents.length === 0 ? (
+                <p className="text-xs text-gray-muted">Pa gen evènman piblik ankò.</p>
               ) : (
                 <>
                   <div className="flex gap-2 mb-4 flex-wrap">
-                    {events.map((ev, i) => (
-                      <button key={ev.id} onClick={() => setPricingEventIdx(i)}
-                        className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all ${pricingEventIdx === i ? 'bg-orange text-white' : 'border border-border text-gray-light hover:text-white hover:border-white/[0.15]'}`}>
+                    {pricingEvents.map(ev => (
+                      <button key={ev.id} onClick={() => setPricingEventId(ev.id!)}
+                        className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all ${pricingEventId === ev.id || pricingEvent?.id === ev.id ? 'bg-orange text-white' : 'border border-border text-gray-light hover:text-white hover:border-white/[0.15]'}`}>
                         {ev.emoji} {ev.name}
                       </button>
                     ))}
@@ -626,9 +626,8 @@ export default function OrganizerVendorsPage() {
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  const evIds = new Set(v.purchases.map(p => p.eventId));
-                                  const evIdx = events.findIndex(ev => evIds.has(ev.id!));
-                                  if (evIdx >= 0) setPricingEventIdx(evIdx);
+                                  const firstEventId = v.purchases[0]?.eventId;
+                                  if (firstEventId) setPricingEventId(firstEventId);
                                   setShowPricing(true);
                                 }}
                                 className="px-3 py-1 rounded-lg text-[10px] font-bold border border-orange/40 text-orange hover:bg-orange/10 transition-all">
