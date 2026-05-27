@@ -1,70 +1,61 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
-import { FieldValue } from 'firebase-admin/firestore';
+import type { Firestore } from 'firebase-admin/firestore';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-async function deleteDocs(col: string, field: string, value: string) {
-  const snap = await adminDb.collection(col).where(field, '==', value).get();
+async function deleteDocs(db: Firestore, col: string, field: string, value: string) {
+  const snap = await db.collection(col).where(field, '==', value).get();
   await Promise.all(snap.docs.map(d => d.ref.delete()));
-}
-
-async function deleteOrganizerData(uid: string) {
-  await Promise.all([
-    deleteDocs('events',          'organizerId', uid),
-    deleteDocs('vendors',         'organizerId', uid),
-    deleteDocs('vendorRequests',  'organizerId', uid),
-    deleteDocs('tickets',         'organizerId', uid),
-    deleteDocs('vendorPurchases', 'organizerId', uid),
-    deleteDocs('staff',           'organizerId', uid),
-  ]);
-  await adminDb.doc(`organizers/${uid}`).delete().catch(() => {});
-  await adminDb.doc(`users/${uid}`).delete().catch(() => {});
-}
-
-async function deleteVendorData(uid: string) {
-  const snap = await adminDb.collection('vendors').where('uid', '==', uid).get();
-  const vendorIds = snap.docs.map(d => d.id);
-  await Promise.all(snap.docs.map(d => d.ref.delete()));
-  for (const vid of vendorIds) {
-    await Promise.all([
-      deleteDocs('vendorRequests',  'vendorId', vid),
-      deleteDocs('vendorPurchases', 'vendorId', vid),
-      deleteDocs('tickets',         'vendorId', vid),
-    ]);
-  }
-  await adminDb.doc(`users/${uid}`).delete().catch(() => {});
-}
-
-async function deleteFanData(uid: string, email: string) {
-  await deleteDocs('tickets', 'buyerEmail', email);
-  await adminDb.doc(`users/${uid}`).delete().catch(() => {});
 }
 
 export async function POST(req: NextRequest) {
   try {
     const { targetUid, targetRole, targetEmail, idToken } = await req.json();
 
+    // Lazy-init so env vars are available at request time, not build time
+    const auth = adminAuth.get();
+    const db   = adminDb.get();
+
     // Verify caller is an admin
-    const decoded = await adminAuth.verifyIdToken(idToken);
-    const callerSnap = await adminDb.doc(`users/${decoded.uid}`).get();
+    const decoded = await auth.verifyIdToken(idToken);
+    const callerSnap = await db.doc(`users/${decoded.uid}`).get();
     if (!callerSnap.exists || callerSnap.data()?.role !== 'admin') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
-    // Delete Firestore data based on role
+    const del = (col: string, field: string, val: string) => deleteDocs(db, col, field, val);
+
     if (targetRole === 'organizer') {
-      await deleteOrganizerData(targetUid);
+      await Promise.all([
+        del('events', 'organizerId', targetUid),
+        del('vendors', 'organizerId', targetUid),
+        del('vendorRequests', 'organizerId', targetUid),
+        del('tickets', 'organizerId', targetUid),
+        del('vendorPurchases', 'organizerId', targetUid),
+        del('staff', 'organizerId', targetUid),
+      ]);
+      await db.doc(`organizers/${targetUid}`).delete().catch(() => {});
+      await db.doc(`users/${targetUid}`).delete().catch(() => {});
     } else if (targetRole === 'reseller') {
-      await deleteVendorData(targetUid);
+      const snap = await db.collection('vendors').where('uid', '==', targetUid).get();
+      const vendorIds = snap.docs.map(d => d.id);
+      await Promise.all(snap.docs.map(d => d.ref.delete()));
+      for (const vid of vendorIds) {
+        await Promise.all([
+          del('vendorRequests', 'vendorId', vid),
+          del('vendorPurchases', 'vendorId', vid),
+          del('tickets', 'vendorId', vid),
+        ]);
+      }
+      await db.doc(`users/${targetUid}`).delete().catch(() => {});
     } else {
-      await deleteFanData(targetUid, targetEmail || '');
+      await del('tickets', 'buyerEmail', targetEmail || '');
+      await db.doc(`users/${targetUid}`).delete().catch(() => {});
     }
 
-    // Delete Firebase Auth account
-    await adminAuth.deleteUser(targetUid);
-
+    await auth.deleteUser(targetUid);
     return NextResponse.json({ success: true });
   } catch (e: any) {
     console.error('delete-user error:', e);
