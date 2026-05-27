@@ -7,7 +7,7 @@ import { useT } from '@/i18n';
 import LangSwitcher from '@/components/LangSwitcher';
 import { useAuth } from '@/hooks/useAuth';
 import { auth, db } from '@/lib/firebase';
-import { collection, query, where, getDocs, addDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, addDoc, serverTimestamp, doc, getDoc, onSnapshot } from 'firebase/firestore';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import {
@@ -282,6 +282,30 @@ export default function VendorDashboardPage() {
     return () => { cancelled = true; unsub(); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ── Real-time listener: vendor request status (approval shows without refresh) ──
+  useEffect(() => {
+    if (!vendor?.id) return;
+    const q = query(collection(db, 'vendorRequests'), where('vendorId', '==', vendor.id));
+    const unsub = onSnapshot(q, async (snap) => {
+      const reqs = snap.docs.map(d => ({ id: d.id, ...d.data() } as VendorRequest));
+      setVendorRequests(reqs);
+      const approvedReqs = reqs.filter(r => r.status === 'approved');
+      if (approvedReqs.length > 0) {
+        const withPricing = await Promise.all(
+          approvedReqs.map(async r => {
+            try {
+              const [ev, pricing] = await Promise.all([getEvent(r.eventId), getEventBulkPricing(r.eventId)]);
+              if (!ev) return null;
+              return { ...ev, pricing } as EventData & { pricing: ResellerSectionPricing[] };
+            } catch { return null; }
+          })
+        );
+        setApprovedEvents(withPricing.filter(Boolean) as (EventData & { pricing: ResellerSectionPricing[] })[]);
+      }
+    });
+    return () => unsub();
+  }, [vendor?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Auto-save vendor dashboard draft ───────────────────────────
   useEffect(() => {
