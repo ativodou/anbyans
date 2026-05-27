@@ -58,7 +58,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const timeout = new Promise<null>((_, reject) =>
             setTimeout(() => reject(new Error('timeout')), 8000)
           );
-          const profile = await Promise.race([getUserProfile(firebaseUser.uid), timeout]);
+          let profile = await Promise.race([getUserProfile(firebaseUser.uid), timeout]);
+          if (!profile) {
+            // Firestore doc may still be writing after signup — retry once
+            await new Promise(r => setTimeout(r, 2000));
+            profile = await getUserProfile(firebaseUser.uid).catch(() => null);
+          }
           if (profile?.suspended) {
             await authSignOut();
             setUser(null);

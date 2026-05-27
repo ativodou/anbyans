@@ -165,7 +165,7 @@ function OrganizerLayoutInner({ children }: { children: React.ReactNode }) {
   // ── Role guard ───────────────────────────────────────────────────
   useEffect(() => {
     if (loading) return;
-    if (!user) return; // firebase briefly null during token refresh — wait
+    if (!user) { router.push('/organizer/auth'); return; }
     if (user.role !== 'organizer' && user.role !== 'admin') router.push('/organizer/auth');
   }, [user, loading]);
 
@@ -186,8 +186,15 @@ function OrganizerLayoutInner({ children }: { children: React.ReactNode }) {
     return t('org_nav_dashboard');
   })();
 
+  // Show spinner while auth is resolving or user profile is loading
+  if (loading || !user) return (
+    <div className="min-h-screen bg-dark flex items-center justify-center">
+      <div className="text-gray-muted text-sm animate-pulse">Chajman…</div>
+    </div>
+  );
+
   // Approval gate at layout level — covers all organizer pages
-  if (!loading && user?.organizerStatus === 'rejected') return (
+  if (user?.organizerStatus === 'rejected') return (
     <div className="min-h-screen bg-dark flex flex-col items-center justify-center text-center px-6">
       <p className="text-5xl mb-4">🚫</p>
       <p className="text-lg font-bold text-white mb-2">Demann ou refize</p>
@@ -196,7 +203,7 @@ function OrganizerLayoutInner({ children }: { children: React.ReactNode }) {
     </div>
   );
 
-  if (!loading && user?.organizerStatus === 'pending') return (
+  if (user?.organizerStatus === 'pending') return (
     <div className="min-h-screen bg-dark flex flex-col items-center justify-center text-center px-6">
       <div className="w-16 h-16 rounded-full bg-orange/10 border border-orange/30 flex items-center justify-center mb-4 text-3xl">⏳</div>
       <p className="text-lg font-bold text-white mb-2">Kont ou an atant apwobasyon</p>

@@ -114,6 +114,7 @@ export async function signInWithGoogle(role: UserRole = 'fan'): Promise<{ user: 
       businessName: '',
       businessType: '',
       notifications: ['email'],
+      ...(role === 'organizer' && { organizerStatus: 'pending' }),
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     };
