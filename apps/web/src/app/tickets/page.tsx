@@ -265,9 +265,10 @@ ${acceptUrl}`
             {tickets.map(tk => {
               const isValid = tk.status === 'valid';
               const isUsed = tk.status === 'used';
-              const isPending = tk.status === 'pending_transfer';
-              const statusColor = isValid ? '#22c55e' : isUsed ? '#f97316' : isPending ? '#f59e0b' : '#ef4444';
-              const statusLabel = isValid ? t('tickets_status_valid') : isUsed ? t('tickets_status_used') : isPending ? t('tickets_status_transfer') : t('tickets_status_cancelled');
+              const isPendingTransfer = tk.status === 'pending_transfer';
+              const isPendingApproval = tk.status === 'pending';
+              const statusColor = isValid ? '#22c55e' : isUsed ? '#f97316' : isPendingTransfer ? '#6366f1' : isPendingApproval ? '#f59e0b' : '#ef4444';
+              const statusLabel = isValid ? t('tickets_status_valid') : isUsed ? t('tickets_status_used') : isPendingTransfer ? t('tickets_status_transfer') : isPendingApproval ? '⏳ An atant' : t('tickets_status_cancelled');
 
               return (
                 <div key={tk.id} style={{ background: '#12121a', border: '1px solid #1e1e2e', borderRadius: 12, overflow: 'hidden' }}>
@@ -314,7 +315,7 @@ ${acceptUrl}`
                       </button>
                     </div>
                   )}
-                  {isPending && tk.transferToken && (
+                  {isPendingTransfer && tk.transferToken && (
                     <div style={{ borderTop: '1px solid #1e1e2e', padding: '10px 16px', display: 'flex', gap: 8 }}>
                       <span style={{ flex: 1, fontSize: 11, color: '#f59e0b', alignSelf: 'center' }}>
                         ⏳ {t('tickets_awaiting_accept')}
