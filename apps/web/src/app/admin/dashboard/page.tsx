@@ -8,7 +8,7 @@ import { useAuth } from '@/hooks/useAuth';
 import LangSwitcher from '@/components/LangSwitcher';
 import { db } from '@/lib/firebase';
 import {
-  collection, getDocs, doc, updateDoc, deleteDoc,
+  collection, getDocs, doc, updateDoc, setDoc, deleteDoc,
   query, orderBy, serverTimestamp, getDoc
 } from 'firebase/firestore';
 import { updateEvent, getVenues, createVenue, updateVenue, deleteVenue, seedKnownVenues, getUserPhoto, type EventData, type VenueData } from '@/lib/db';
@@ -225,14 +225,16 @@ export default function AdminDashboardPage() {
   async function handleSaveSettings() {
     setSettingsSaving(true);
     try {
-      await updateDoc(doc(db, 'config', 'platform'), {
+      await setDoc(doc(db, 'config', 'platform'), {
         platformFee: settingsFee,
         posFee: settingsPosFee,
         chargebackReserve: settingsReserve,
         payoutDelayDays: settingsDelay,
-      });
+      }, { merge: true });
       setSettingsSaved(true);
       setTimeout(() => setSettingsSaved(false), 2000);
+    } catch (e) {
+      console.error('settings save failed', e);
     } finally {
       setSettingsSaving(false);
     }
