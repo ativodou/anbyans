@@ -127,7 +127,7 @@ export default function FanProfilePage() {
             </div>
             <div>
               <div style={{ fontWeight: 700, fontSize: 16, color: '#fff', marginBottom: 2 }}>{displayName}</div>
-              <div style={{ fontSize: 12, color: '#06b6d4', marginBottom: 4 }}>Fan</div>
+              <div style={{ fontSize: 12, color: '#06b6d4', marginBottom: 4, textTransform: 'capitalize' }}>{(user as any)?.role ?? 'Fan'}</div>
               <div style={{ fontSize: 11, color: '#555' }}>{user.email}</div>
             </div>
           </div>
