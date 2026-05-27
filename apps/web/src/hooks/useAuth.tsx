@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { getUserProfile, onAuthChange, signIn, signUp, signOut, UserRole } from '@/lib/auth';
+import { getUserProfile, onAuthChange, signIn, signUp, signOut as authSignOut, UserRole } from '@/lib/auth';
 
 type AnbyansUser = Awaited<ReturnType<typeof getUserProfile>>;
 
@@ -57,7 +57,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setTimeout(() => reject(new Error('timeout')), 8000)
           );
           const profile = await Promise.race([getUserProfile(firebaseUser.uid), timeout]);
-          if (profile) setUser(profile);
+          if (profile?.suspended) {
+            await authSignOut();
+            setUser(null);
+            setError('Kont ou a suspann. Kontakte nou pou plis enfòmasyon.');
+          } else if (profile) {
+            setUser(profile);
+          }
         } catch {
           // Firestore read failed or timed out — keep existing user, don't wipe session
         }
@@ -74,9 +80,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const authUser = await signIn(email, password);
       const profile = await getUserProfile(authUser.uid);
+      if (profile?.suspended) {
+        await authSignOut();
+        const msg = 'Kont ou a suspann. Kontakte nou pou plis enfòmasyon.';
+        setError(msg);
+        throw new Error(msg);
+      }
       setUser(profile);
       return profile;
     } catch (err: unknown) {
+      if ((err as Error).message.includes('suspann')) throw err;
       const msg = parseAuthError(err);
       setError(msg);
       throw new Error(msg);
@@ -98,7 +111,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = async () => {
-    await signOut();
+    await authSignOut();
     setUser(null);
   };
 

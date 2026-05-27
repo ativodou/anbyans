@@ -30,6 +30,7 @@ export interface UserProfile {
   businessName?: string;
   businessType?: string;
   notifications?: string[];
+  suspended?: boolean;
   createdAt: any;
   updatedAt: any;
 }

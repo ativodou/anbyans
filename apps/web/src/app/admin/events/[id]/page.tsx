@@ -2,29 +2,64 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
-import { getEvent, type EventData } from '@/lib/db';
+import { db } from '@/lib/firebase';
+import { collection, getDocs, query, where } from 'firebase/firestore';
+import { getEvent, updateEvent, type EventData } from '@/lib/db';
+
+interface Ticket {
+  id: string;
+  buyerName: string;
+  buyerEmail: string;
+  buyerPhone?: string;
+  section: string;
+  sectionName?: string;
+  price: number;
+  status: string;
+  paymentStatus: string;
+  paymentMethod: string;
+  ticketCode: string;
+  purchasedAt: any;
+  vendorName?: string;
+}
 
 export default function AdminEventDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
 
-  const [event, setEvent] = useState<EventData | null>(null);
+  const [event, setEvent]     = useState<EventData | null>(null);
+  const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
+  const [ticketSearch, setTicketSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [toggling, setToggling] = useState(false);
 
   useEffect(() => {
     if (authLoading) return;
     if (!user || user.role !== 'admin') { router.push('/'); return; }
-
-    async function load() {
-      const id = Array.isArray(params.id) ? params.id[0] : params.id as string;
-      if (!id) { setLoading(false); return; }
-      const data = await getEvent(id);
-      setEvent(data);
-      setLoading(false);
-    }
     load();
-  }, [params.id, user, authLoading, router]);
+  }, [params.id, user, authLoading]);
+
+  async function load() {
+    const id = Array.isArray(params.id) ? params.id[0] : params.id as string;
+    if (!id) { setLoading(false); return; }
+    const [data, ticketSnap] = await Promise.all([
+      getEvent(id),
+      getDocs(query(collection(db, 'tickets'), where('eventId', '==', id))),
+    ]);
+    setEvent(data);
+    setTickets(ticketSnap.docs.map(d => ({ id: d.id, ...d.data() } as Ticket)));
+    setLoading(false);
+  }
+
+  async function toggleStatus() {
+    if (!event?.id) return;
+    setToggling(true);
+    const next = event.status === 'published' ? 'cancelled' : 'published';
+    await updateEvent(event.id, { status: next as any });
+    setEvent(prev => prev ? { ...prev, status: next as any } : prev);
+    setToggling(false);
+  }
 
   if (authLoading || loading) return (
     <div className="min-h-screen bg-dark flex items-center justify-center">
@@ -35,103 +70,207 @@ export default function AdminEventDetailPage() {
   if (!event) return (
     <div className="min-h-screen bg-dark flex items-center justify-center text-white">
       <div className="text-center">
-        <p className="text-gray-muted mb-4">Event not found</p>
-        <button onClick={() => router.back()} className="text-orange text-sm">{'← Back'}</button>
+        <p className="text-gray-muted mb-4">Evenman pa jwenn</p>
+        <button onClick={() => router.back()} className="text-orange text-sm">← Retounen</button>
       </div>
     </div>
   );
+
+  const validTickets  = tickets.filter(t => t.status !== 'cancelled' && t.status !== 'refunded');
+  const grossRevenue  = validTickets.reduce((s, t) => s + (t.price || 0), 0);
+  const platformFee   = Math.round(grossRevenue * 0.09);
+  const refundedAmt   = tickets.filter(t => t.status === 'refunded').reduce((s, t) => s + (t.price || 0), 0);
 
   const { totalCap, totalSold } = event.sections?.reduce(
     (acc, s) => ({ totalCap: acc.totalCap + s.capacity, totalSold: acc.totalSold + (s.sold || 0) }),
     { totalCap: 0, totalSold: 0 }
   ) ?? { totalCap: 0, totalSold: 0 };
 
+  const byMethod: Record<string, number> = {};
+  validTickets.forEach(t => {
+    const m = t.paymentMethod || 'unknown';
+    byMethod[m] = (byMethod[m] || 0) + (t.price || 0);
+  });
+
+  const filtered = tickets.filter(t => {
+    const matchSearch = !ticketSearch ||
+      t.buyerName?.toLowerCase().includes(ticketSearch.toLowerCase()) ||
+      t.buyerEmail?.toLowerCase().includes(ticketSearch.toLowerCase()) ||
+      t.ticketCode?.toLowerCase().includes(ticketSearch.toLowerCase());
+    const matchStatus = statusFilter === 'all' || t.status === statusFilter;
+    return matchSearch && matchStatus;
+  });
+
+  const statusColors: Record<string, string> = {
+    valid: 'bg-green/20 text-green border-green/20',
+    used:  'bg-gray-500/20 text-gray-400 border-gray-500/20',
+    pending: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/20',
+    pending_cash: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/20',
+    pending_verification: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/20',
+    cancelled: 'bg-red/20 text-red border-red/20',
+    refunded: 'bg-red/20 text-red border-red/20',
+  };
+
   return (
     <div className="min-h-screen bg-dark text-white">
-      <div className="max-w-2xl mx-auto px-5 py-8">
+      <div className="max-w-4xl mx-auto px-5 py-8">
 
-        <button onClick={() => router.back()} className="text-orange text-sm mb-6 flex items-center gap-1 hover:opacity-80 transition-opacity">
-          {'←'} Back to Dashboard
-        </button>
-
-        {event.imageUrl ? (
-          <div className="rounded-2xl overflow-hidden mb-6 h-64">
-            <img src={event.imageUrl} alt={event.name} className="w-full h-full object-cover" />
-          </div>
-        ) : (
-          <div className="rounded-2xl h-40 bg-dark-card border border-border flex items-center justify-center mb-6">
-            <span className="text-5xl">🎵</span>
-          </div>
-        )}
-
-        <div className="flex items-start justify-between mb-6">
-          <h1 className="text-2xl font-bold flex-1">{event.name}</h1>
-          {event.category && (
-            <span className="ml-3 text-[11px] bg-dark-card border border-border text-gray-muted px-3 py-1 rounded-full whitespace-nowrap">
-              {event.category}
-            </span>
-          )}
+        {/* Header */}
+        <div className="flex items-center gap-3 mb-6">
+          <button onClick={() => router.back()} className="text-gray-muted hover:text-white text-sm transition-colors">
+            ← Retounen
+          </button>
+          <span className="text-gray-muted">/</span>
+          <span className="text-sm text-gray-light truncate">{event.name}</span>
         </div>
 
-        <div className="bg-dark-card border border-border rounded-xl p-4 mb-6 space-y-3">
-          <Row label="Status">
-            <span className={`text-[11px] font-bold px-2 py-0.5 rounded ${ ({
-              published: 'bg-green/20 text-green',
-              live:      'bg-green/20 text-green',
-              cancelled: 'bg-red/20 text-red',
-              ended:     'bg-gray-500/20 text-gray-400',
-            } as Record<string, string>)[event.status] ?? 'bg-orange/20 text-orange'}`}>{event.status}</span>
-          </Row>
-          <Row label="Organizer">{event.organizerName || '—'}</Row>
-          <Row label="Date">{event.startDate}{event.endDate && event.endDate !== event.startDate ? ` – ${event.endDate}` : ''}</Row>
-          {event.startTime && <Row label="Time">{event.startTime}{event.endTime ? ` – ${event.endTime}` : ''}</Row>}
-          {event.venue && (
-            <Row label="Venue">
-              {event.venue.name}
-              {event.venue.city ? `, ${event.venue.city}` : ''}
-            </Row>
-          )}
-          {event.isPrivate && <Row label="Visibility"><span className="text-orange text-xs font-bold">PRIVATE</span></Row>}
+        {/* Title + status toggle */}
+        <div className="flex items-start justify-between gap-4 mb-6">
+          <div>
+            <h1 className="text-2xl font-bold mb-1">{event.name}</h1>
+            <p className="text-sm text-gray-muted">{event.organizerName || '—'} · {event.startDate}</p>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <StatusBadge status={event.status} />
+            <button onClick={toggleStatus} disabled={toggling}
+              className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all disabled:opacity-40 ${
+                event.status === 'cancelled'
+                  ? 'bg-green/10 text-green border border-green/30'
+                  : 'bg-red/10 text-red border border-red/30'
+              }`}>
+              {toggling ? '…' : event.status === 'cancelled' ? 'Reaktive' : 'Anile'}
+            </button>
+          </div>
         </div>
 
-        {event.description && (
-          <div className="mb-6">
-            <p className="text-[11px] uppercase tracking-widest text-gray-muted font-bold mb-2">About</p>
-            <p className="text-sm text-gray-light leading-relaxed whitespace-pre-wrap">{event.description}</p>
-          </div>
-        )}
-
-        {event.sections && event.sections.length > 0 && (
-          <div className="mb-6">
-            <p className="text-[11px] uppercase tracking-widest text-gray-muted font-bold mb-3">Tickets</p>
-            <div className="space-y-2">
-              {event.sections.map((s, i) => {
-                const avail = s.capacity - (s.sold || 0);
-                return (
-                  <div key={i} className="bg-dark-card border border-border rounded-xl px-4 py-3 flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-semibold">{s.name}</p>
-                      <p className="text-[11px] text-gray-muted">{s.sold || 0} sold · {avail} left / {s.capacity}</p>
-                    </div>
-                    <p className="text-cyan font-bold">${s.price}</p>
-                  </div>
-                );
-              })}
+        {/* Revenue stats */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+          {[
+            { label: 'TIKÈ VANN', val: validTickets.length, sub: `${totalCap} kapasite`, color: 'text-white' },
+            { label: 'REVNI BRI', val: '$' + grossRevenue.toLocaleString(), sub: '', color: 'text-white' },
+            { label: 'FRÈ PLATFÒM (9%)', val: '$' + platformFee.toLocaleString(), sub: '', color: 'text-orange' },
+            { label: 'RANBOUSMAN', val: '$' + refundedAmt.toLocaleString(), sub: `${tickets.filter(t => t.status === 'refunded').length} tikè`, color: 'text-red' },
+          ].map(k => (
+            <div key={k.label} className="bg-dark-card border border-border rounded-xl p-4">
+              <p className="text-[10px] text-gray-muted uppercase tracking-widest mb-1">{k.label}</p>
+              <p className={`font-heading text-2xl ${k.color}`}>{k.val}</p>
+              {k.sub && <p className="text-[10px] text-gray-muted mt-1">{k.sub}</p>}
             </div>
-            <p className="text-[11px] text-gray-muted mt-3">{totalSold} sold total · {totalCap - totalSold} remaining · {totalCap} capacity</p>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+          {/* Sections breakdown */}
+          <div className="bg-dark-card border border-border rounded-xl p-4">
+            <p className="text-[10px] uppercase tracking-widest text-orange font-bold mb-3">SEKSYON</p>
+            {event.sections?.map((s, i) => {
+              const pct = s.capacity > 0 ? Math.round((s.sold || 0) / s.capacity * 100) : 0;
+              return (
+                <div key={i} className="mb-3">
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="font-bold">{s.name}</span>
+                    <span className="text-gray-muted">{s.sold || 0} / {s.capacity} · ${s.price}</span>
+                  </div>
+                  <div className="w-full bg-white/[0.05] rounded-full h-1.5">
+                    <div className="h-1.5 rounded-full bg-orange" style={{ width: `${pct}%` }} />
+                  </div>
+                </div>
+              );
+            })}
+            <p className="text-[10px] text-gray-muted mt-2 pt-2 border-t border-border">
+              {totalSold} tikè vann · {totalCap - totalSold} rete
+            </p>
           </div>
-        )}
+
+          {/* Payment methods */}
+          <div className="bg-dark-card border border-border rounded-xl p-4">
+            <p className="text-[10px] uppercase tracking-widest text-orange font-bold mb-3">METÒD PEMAN</p>
+            {Object.entries(byMethod).sort((a, b) => (b[1] as number) - (a[1] as number)).map(([m, amt]) => (
+              <div key={m} className="mb-3">
+                <div className="flex justify-between text-xs mb-1">
+                  <span className="font-bold capitalize">
+                    {m === 'stripe' ? '💳 Kat' : m === 'moncash' ? '📱 MonCash' : m === 'cash' ? '💵 Kach' : m === 'natcash' ? '💚 Natcash' : m}
+                  </span>
+                  <span className="text-gray-muted">${(amt as number).toLocaleString()} ({grossRevenue > 0 ? Math.round((amt as number) / grossRevenue * 100) : 0}%)</span>
+                </div>
+                <div className="w-full bg-white/[0.05] rounded-full h-1.5">
+                  <div className="h-1.5 rounded-full bg-orange" style={{ width: `${grossRevenue > 0 ? Math.round((amt as number) / grossRevenue * 100) : 0}%` }} />
+                </div>
+              </div>
+            ))}
+            {Object.keys(byMethod).length === 0 && <p className="text-gray-muted text-xs py-4 text-center">Okenn tikè ankò</p>}
+          </div>
+        </div>
+
+        {/* Attendee list */}
+        <div className="bg-dark-card border border-border rounded-xl p-4">
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-[10px] uppercase tracking-widest text-orange font-bold">MOUN KI ACHTE ({tickets.length})</p>
+            <div className="flex gap-2">
+              {['all','valid','pending','used','cancelled','refunded'].map(s => (
+                <button key={s} onClick={() => setStatusFilter(s)}
+                  className={`px-2.5 py-1 rounded-lg text-[9px] font-bold transition-all ${statusFilter === s ? 'bg-orange text-black' : 'bg-white/[0.05] text-gray-muted hover:text-white'}`}>
+                  {s === 'all' ? 'Tout' : s}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <input
+            value={ticketSearch}
+            onChange={e => setTicketSearch(e.target.value)}
+            placeholder="Chèche pa non, imèl, oswa kòd tikè…"
+            className="w-full px-3 py-2.5 rounded-xl bg-dark border border-border text-white text-sm outline-none focus:border-orange placeholder:text-gray-muted mb-3"
+          />
+
+          {filtered.length === 0 ? (
+            <p className="text-gray-muted text-center py-8 text-sm">Okenn rezilta</p>
+          ) : (
+            <div className="space-y-2">
+              {filtered.map(t => (
+                <div key={t.id} className="flex items-center gap-3 py-2.5 border-b border-border last:border-0">
+                  <div className="w-8 h-8 rounded-full bg-white/[0.06] flex items-center justify-center text-xs font-black flex-shrink-0">
+                    {t.buyerName?.[0]?.toUpperCase() || '?'}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold truncate">{t.buyerName}</p>
+                    <p className="text-[11px] text-gray-muted truncate">
+                      {t.buyerEmail} {t.buyerPhone ? '· ' + t.buyerPhone : ''}
+                    </p>
+                    <p className="text-[10px] text-gray-muted mt-0.5">
+                      {t.sectionName || t.section} ·{' '}
+                      {t.paymentMethod === 'stripe' ? '💳' : t.paymentMethod === 'moncash' ? '📱' : t.paymentMethod === 'cash' ? '💵' : '💳'}{' '}
+                      {t.vendorName ? `via ${t.vendorName}` : ''}
+                    </p>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <p className="text-sm font-bold">${t.price}</p>
+                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${statusColors[t.status] || 'bg-white/5 text-gray-400 border-border'}`}>
+                      {t.status}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
       </div>
     </div>
   );
 }
 
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
+function StatusBadge({ status }: { status: string }) {
+  const map: Record<string, string> = {
+    published: 'bg-green/20 text-green border-green/20',
+    live:      'bg-green/20 text-green border-green/20',
+    cancelled: 'bg-red/20 text-red border-red/20',
+    ended:     'bg-gray-500/20 text-gray-400 border-gray-500/20',
+    draft:     'bg-orange/20 text-orange border-orange/20',
+  };
   return (
-    <div className="flex items-center gap-3">
-      <span className="text-[11px] text-gray-muted w-24 flex-shrink-0">{label}</span>
-      <span className="text-sm text-white">{children}</span>
-    </div>
+    <span className={`text-[10px] font-bold px-2 py-0.5 rounded border capitalize ${map[status] ?? 'bg-orange/20 text-orange border-orange/20'}`}>
+      {status}
+    </span>
   );
 }
