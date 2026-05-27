@@ -6,7 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useCurrency } from '@/hooks/useCurrency';
 import { PriceDisplay } from '@/hooks/PriceDisplay';
 import { useT } from '@/i18n';
-import { getOrganizerEvents, type EventData } from '@/lib/db';
+import { getOrganizerEvents, requestPayout, type EventData } from '@/lib/db';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { useOrganizerEvent } from '../OrganizerEventContext';
@@ -43,6 +43,13 @@ export default function OrganizerDashboardPage() {
 
   // Toggle: 'all' or 'selected'
   const [viewMode, setViewMode] = useState<'all' | 'selected'>('selected');
+  const [payoutModal, setPayoutModal] = useState(false);
+  const [payoutAmount, setPayoutAmount] = useState('');
+  const [payoutMethod, setPayoutMethod] = useState('MonCash');
+  const [payoutAccount, setPayoutAccount] = useState('');
+  const [payoutNote, setPayoutNote] = useState('');
+  const [payoutSending, setPayoutSending] = useState(false);
+  const [payoutSent, setPayoutSent] = useState(false);
 
   useEffect(() => {
     if (authLoading) return;
@@ -53,13 +60,9 @@ export default function OrganizerDashboardPage() {
         setEvents(evs);
         const eventIds = evs.map(e => e.id!).filter(Boolean);
 
-        const tickets: any[] = [];
         if (eventIds.length > 0) {
-          await Promise.all(eventIds.map(async (eid) => {
-            const snap = await getDocs(collection(db, 'events', eid, 'tickets'));
-            snap.docs.forEach(d => tickets.push({ id: d.id, eventId: eid, ...d.data() }));
-          }));
-          setAllTickets(tickets);
+          const tSnap = await getDocs(query(collection(db, 'tickets'), where('organizerId', '==', user.uid)));
+          setAllTickets(tSnap.docs.map(d => ({ id: d.id, ...d.data() })));
         }
 
         const vSnap = await getDocs(query(collection(db, 'vendors'), where('organizerId', '==', user.uid)));
@@ -306,6 +309,95 @@ export default function OrganizerDashboardPage() {
           </div>
         )}
       </div>
+
+      {/* ── Payout CTA ── */}
+      {totalRevenue > 0 && (
+        <div className="bg-dark-card border border-border rounded-card p-4 mt-6 flex items-center justify-between gap-4">
+          <div>
+            <p className="text-xs font-bold text-white mb-0.5">Retiran Lajan</p>
+            <p className="text-[11px] text-gray-muted">Mande peman pou revni ou yo</p>
+          </div>
+          <button onClick={() => { setPayoutAmount(totalRevenue.toFixed(2)); setPayoutModal(true); }}
+            className="px-4 py-2 rounded-xl bg-orange text-black text-xs font-bold whitespace-nowrap hover:opacity-90 transition-opacity">
+            💸 Mande Peman
+          </button>
+        </div>
+      )}
+
+      {/* ── Payout modal ── */}
+      {payoutModal && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+          <div className="bg-dark-card border border-border rounded-2xl w-full max-w-sm p-6">
+            {payoutSent ? (
+              <div className="text-center py-4">
+                <p className="text-4xl mb-3">✅</p>
+                <p className="font-bold text-white mb-1">Demann Voye!</p>
+                <p className="text-xs text-gray-muted mb-4">Admin ap revize demann ou a epi kontakte ou.</p>
+                <button onClick={() => { setPayoutModal(false); setPayoutSent(false); }}
+                  className="px-6 py-2.5 rounded-xl bg-orange text-black text-sm font-bold">OK</button>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-heading text-base">Mande Peman</h3>
+                  <button onClick={() => setPayoutModal(false)} className="text-gray-muted hover:text-white text-xl">✕</button>
+                </div>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-gray-muted uppercase tracking-wider mb-1.5">Montan (USD)</label>
+                    <input type="number" value={payoutAmount} onChange={e => setPayoutAmount(e.target.value)}
+                      className="w-full px-3 py-2.5 rounded-xl bg-dark border border-border text-white text-sm outline-none focus:border-orange" />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-gray-muted uppercase tracking-wider mb-1.5">Metòd</label>
+                    <select value={payoutMethod} onChange={e => setPayoutMethod(e.target.value)}
+                      className="w-full px-3 py-2.5 rounded-xl bg-dark border border-border text-white text-sm outline-none focus:border-orange">
+                      {['MonCash','Natcash','Virement Bankè','Zelle','Cash App','PayPal'].map(m => <option key={m}>{m}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-gray-muted uppercase tracking-wider mb-1.5">Nimewo / Kont</label>
+                    <input value={payoutAccount} onChange={e => setPayoutAccount(e.target.value)}
+                      placeholder="Nimewo telefòn oswa kont"
+                      className="w-full px-3 py-2.5 rounded-xl bg-dark border border-border text-white text-sm outline-none focus:border-orange placeholder:text-gray-muted" />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-gray-muted uppercase tracking-wider mb-1.5">Nòt (opsyonèl)</label>
+                    <input value={payoutNote} onChange={e => setPayoutNote(e.target.value)}
+                      className="w-full px-3 py-2.5 rounded-xl bg-dark border border-border text-white text-sm outline-none focus:border-orange" />
+                  </div>
+                </div>
+                <div className="flex gap-2 mt-5">
+                  <button onClick={() => setPayoutModal(false)}
+                    className="flex-1 py-2.5 rounded-xl bg-white/[0.05] border border-border text-gray-light text-sm font-bold">Anile</button>
+                  <button
+                    disabled={!payoutAmount || !payoutAccount || payoutSending}
+                    onClick={async () => {
+                      if (!user) return;
+                      setPayoutSending(true);
+                      try {
+                        await requestPayout({
+                          organizerId: user.uid,
+                          organizerName: `${user.firstName} ${user.lastName}`,
+                          organizerEmail: user.email || '',
+                          amount: parseFloat(payoutAmount),
+                          payoutMethod,
+                          payoutAccount,
+                          note: payoutNote,
+                        });
+                        setPayoutSent(true);
+                      } catch (e) { console.error(e); }
+                      setPayoutSending(false);
+                    }}
+                    className="flex-1 py-2.5 rounded-xl bg-orange text-black text-sm font-bold disabled:opacity-40">
+                    {payoutSending ? '…' : 'Voye Demann'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
     </div>
   );

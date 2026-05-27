@@ -6,7 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useT } from '@/i18n';
 import { getOrganizerEvents, type EventData, markEventEnded, markEventPublished, markEventLive, getPlatformConfig } from '@/lib/db';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, updateDoc, query, where } from 'firebase/firestore';
 import FloorPlanViewer from '@/components/FloorPlanViewer';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
@@ -41,13 +41,8 @@ export default function OrganizerEventsPage() {
       try {
         const evs = await getOrganizerEvents(user.uid);
         setEvents(evs);
-        const tickets: any[] = [];
-        await Promise.all(evs.map(async (e) => {
-          if (!e.id) return;
-          const snap = await getDocs(collection(db, 'events', e.id, 'tickets'));
-          snap.docs.forEach(d => tickets.push({ id: d.id, eventId: e.id, ...d.data() }));
-        }));
-        setAllTickets(tickets);
+        const tSnap = await getDocs(query(collection(db, 'tickets'), where('organizerId', '==', user.uid)));
+        setAllTickets(tSnap.docs.map(d => ({ id: d.id, ...d.data() })));
       } catch (err) {
         console.error('events load', err);
       } finally {

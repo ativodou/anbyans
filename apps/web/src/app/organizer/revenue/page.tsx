@@ -47,13 +47,8 @@ export default function OrganizerRevenuePage() {
       try {
         const evs = await getOrganizerEvents(user.uid);
         setEvents(evs);
-        const tickets: any[] = [];
-        await Promise.all(evs.map(async (e) => {
-          if (!e.id) return;
-          const snap = await getDocs(collection(db, 'events', e.id, 'tickets'));
-          snap.docs.forEach(d => tickets.push({ id: d.id, eventId: e.id, ...d.data() }));
-        }));
-        setAllTickets(tickets);
+        const tSnap = await getDocs(query(collection(db, 'tickets'), where('organizerId', '==', user.uid)));
+        setAllTickets(tSnap.docs.map(d => ({ id: d.id, ...d.data() })));
 
         const vSnap = await getDocs(query(collection(db, 'vendors'), where('organizerId', '==', user.uid)));
         setVendors(vSnap.docs.map(d => ({ id: d.id, ...d.data() } as VendorData)));

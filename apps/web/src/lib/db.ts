@@ -2116,6 +2116,32 @@ export async function loadVendorDraft(uid: string): Promise<Record<string, any> 
 
 // ─── Account Deletion ────────────────────────────────────────────
 
+export async function requestPayout(data: {
+  organizerId: string;
+  organizerName: string;
+  organizerEmail: string;
+  amount: number;
+  payoutMethod: string;
+  payoutAccount: string;
+  note?: string;
+}): Promise<string> {
+  const ref = await addDoc(collection(db, 'payoutRequests'), {
+    ...data,
+    status: 'pending',
+    createdAt: serverTimestamp(),
+  });
+  return ref.id;
+}
+
+export async function getOrganizerPayoutRequests(organizerId: string) {
+  const snap = await getDocs(query(
+    collection(db, 'payoutRequests'),
+    where('organizerId', '==', organizerId),
+    orderBy('createdAt', 'desc'),
+  ));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
 async function deleteDocs(q: ReturnType<typeof query>) {
   const snap = await getDocs(q);
   await Promise.all(snap.docs.map(d => deleteDoc(d.ref)));

@@ -24,6 +24,7 @@ interface OrganizerData {
   role: string;
   createdAt: any;
   suspended?: boolean;
+  organizerStatus?: 'pending' | 'approved' | 'rejected';
   totalEvents?: number;
   totalRevenue?: number;
 }
@@ -84,6 +85,7 @@ export default function AdminDashboardPage() {
   const [roleModal, setRoleModal] = useState<{ uid: string; email: string; currentRole: string } | null>(null);
   const [newRole, setNewRole] = useState('');
   const [changingRole, setChangingRole] = useState(false);
+  const [payoutRequests, setPayoutRequests] = useState<any[]>([]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -131,8 +133,12 @@ export default function AdminDashboardPage() {
       })));
 
       // Load all tickets for finance (top-level collection)
-      const ticketSnap = await getDocs(collection(db, 'tickets'));
+      const [ticketSnap, payoutSnap] = await Promise.all([
+        getDocs(collection(db, 'tickets')),
+        getDocs(query(collection(db, 'payoutRequests'), orderBy('createdAt', 'desc'))),
+      ]);
       setAllTickets(ticketSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+      setPayoutRequests(payoutSnap.docs.map(d => ({ id: d.id, ...d.data() })));
 
       // Load platform settings
       try {
@@ -218,6 +224,11 @@ export default function AdminDashboardPage() {
     } finally {
       setChangingRole(false);
     }
+  }
+
+  async function setOrganizerStatus(uid: string, status: 'approved' | 'rejected') {
+    await updateDoc(doc(db, 'users', uid), { organizerStatus: status });
+    setOrganizers(prev => prev.map(o => o.id === uid ? { ...o, organizerStatus: status } : o));
   }
 
   async function toggleEventStatus(eventId: string, current: string) {
@@ -345,6 +356,16 @@ export default function AdminDashboardPage() {
               {t(`admin_tab_${id}` as any) || id}
               {id === 'refunds' && pendingRefunds > 0 && (
                 <span className="ml-auto bg-red text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">{pendingRefunds}</span>
+              )}
+              {id === 'organizers' && organizers.filter(o => o.organizerStatus === 'pending').length > 0 && (
+                <span className="ml-auto bg-yellow-500 text-black text-[9px] font-bold px-1.5 py-0.5 rounded-full">
+                  {organizers.filter(o => o.organizerStatus === 'pending').length}
+                </span>
+              )}
+              {id === 'finance' && payoutRequests.filter(p => p.status === 'pending').length > 0 && (
+                <span className="ml-auto bg-orange text-black text-[9px] font-bold px-1.5 py-0.5 rounded-full">
+                  {payoutRequests.filter(p => p.status === 'pending').length}
+                </span>
               )}
             </button>
           ))}
@@ -569,13 +590,43 @@ export default function AdminDashboardPage() {
                       <p className="text-[11px] text-gray-muted">{o.email}</p>
                       <p className="text-[11px] text-gray-light mt-0.5">{o.totalEvents} {t('admin_events_count')} · ${(o.totalRevenue||0).toLocaleString()} {t('admin_total_revenue_lbl')}</p>
                     </div>
-                    {o.suspended && <span className="text-[9px] bg-red/20 text-red px-2 py-0.5 rounded font-bold">{t('admin_suspended').toUpperCase()}</span>}
+                    <div className="flex flex-col gap-1 items-end flex-shrink-0">
+                      {o.organizerStatus === 'pending' && (
+                        <span className="text-[9px] bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded font-bold border border-yellow-500/30">⏳ EN ATANT</span>
+                      )}
+                      {o.organizerStatus === 'rejected' && (
+                        <span className="text-[9px] bg-red/20 text-red px-2 py-0.5 rounded font-bold">✗ REFIZE</span>
+                      )}
+                      {o.suspended && (
+                        <span className="text-[9px] bg-red/20 text-red px-2 py-0.5 rounded font-bold">{t('admin_suspended').toUpperCase()}</span>
+                      )}
+                    </div>
                     <div className="flex gap-2 flex-shrink-0">
-                      <button
-                        onClick={() => toggleSuspendUser(o.id, !!o.suspended)}
-                        className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${o.suspended ? 'bg-green-dim text-green border border-green/30' : 'bg-red/10 text-red border border-red/30'}`}>
-                        {o.suspended ? t('admin_reactivate') : t('admin_suspend')}
-                      </button>
+                      {o.organizerStatus === 'pending' && (
+                        <>
+                          <button onClick={() => setOrganizerStatus(o.id, 'approved')}
+                            className="px-3 py-1.5 rounded-lg text-[10px] font-bold bg-green/10 text-green border border-green/30 hover:bg-green/20 transition-all">
+                            ✓ Aprouve
+                          </button>
+                          <button onClick={() => setOrganizerStatus(o.id, 'rejected')}
+                            className="px-3 py-1.5 rounded-lg text-[10px] font-bold bg-red/10 text-red border border-red/30 hover:bg-red/20 transition-all">
+                            ✗ Refize
+                          </button>
+                        </>
+                      )}
+                      {(o.organizerStatus === 'approved' || !o.organizerStatus) && (
+                        <button
+                          onClick={() => toggleSuspendUser(o.id, !!o.suspended)}
+                          className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${o.suspended ? 'bg-green-dim text-green border border-green/30' : 'bg-red/10 text-red border border-red/30'}`}>
+                          {o.suspended ? t('admin_reactivate') : t('admin_suspend')}
+                        </button>
+                      )}
+                      {o.organizerStatus === 'rejected' && (
+                        <button onClick={() => setOrganizerStatus(o.id, 'approved')}
+                          className="px-3 py-1.5 rounded-lg text-[10px] font-bold bg-green/10 text-green border border-green/30 hover:bg-green/20 transition-all">
+                          ✓ Aprouve
+                        </button>
+                      )}
                       <button
                         onClick={() => { setRoleModal({ uid: o.id, email: o.email, currentRole: 'organizer' }); setNewRole('organizer'); }}
                         title="Chanje wòl"
@@ -751,6 +802,53 @@ export default function AdminDashboardPage() {
                       <p className="text-[10px] text-gray-muted">{o.totalEvents} {t('admin_events_count')} · {t('admin_fee_lbl')}: ${Math.round((o.totalRevenue||0)*0.09).toLocaleString()}</p>
                     </div>
                     <p className="text-sm font-black text-orange">${(o.totalRevenue||0).toLocaleString()}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Payout Requests */}
+              <div className="bg-dark-card border border-border rounded-card p-5 mt-4">
+                <p className="text-[10px] uppercase tracking-widest text-orange font-bold mb-4">
+                  💸 DEMANN PEMAN ({payoutRequests.filter(p => p.status === 'pending').length} an atant)
+                </p>
+                {payoutRequests.length === 0 && (
+                  <p className="text-gray-muted text-xs text-center py-4">Okenn demann peman ankò</p>
+                )}
+                {payoutRequests.map(p => (
+                  <div key={p.id} className={`flex items-start gap-3 py-3 border-b border-border last:border-0 ${p.status !== 'pending' ? 'opacity-50' : ''}`}>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold">{p.organizerName}</p>
+                      <p className="text-[11px] text-gray-muted">{p.organizerEmail}</p>
+                      <p className="text-[11px] text-gray-light mt-0.5">{p.payoutMethod} · {p.payoutAccount}</p>
+                      {p.note && <p className="text-[10px] text-gray-muted italic mt-0.5">"{p.note}"</p>}
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <p className="text-sm font-black text-orange">${(p.amount || 0).toLocaleString()}</p>
+                      {p.status === 'pending' ? (
+                        <div className="flex gap-1 mt-1">
+                          <button
+                            onClick={async () => {
+                              await updateDoc(doc(db, 'payoutRequests', p.id), { status: 'paid', paidAt: serverTimestamp() });
+                              setPayoutRequests(prev => prev.map(r => r.id === p.id ? { ...r, status: 'paid' } : r));
+                            }}
+                            className="px-2 py-1 rounded text-[9px] font-bold bg-green/10 text-green border border-green/30 hover:bg-green/20 transition-all">
+                            ✓ Peye
+                          </button>
+                          <button
+                            onClick={async () => {
+                              await updateDoc(doc(db, 'payoutRequests', p.id), { status: 'rejected', rejectedAt: serverTimestamp() });
+                              setPayoutRequests(prev => prev.map(r => r.id === p.id ? { ...r, status: 'rejected' } : r));
+                            }}
+                            className="px-2 py-1 rounded text-[9px] font-bold bg-red/10 text-red border border-red/30 hover:bg-red/20 transition-all">
+                            ✗
+                          </button>
+                        </div>
+                      ) : (
+                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${p.status === 'paid' ? 'bg-green/20 text-green' : 'bg-red/20 text-red'}`}>
+                          {p.status === 'paid' ? '✓ Peye' : '✗ Refize'}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>

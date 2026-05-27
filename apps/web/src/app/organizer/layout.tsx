@@ -186,6 +186,26 @@ function OrganizerLayoutInner({ children }: { children: React.ReactNode }) {
     return t('org_nav_dashboard');
   })();
 
+  // Approval gate at layout level — covers all organizer pages
+  if (!loading && user?.organizerStatus === 'rejected') return (
+    <div className="min-h-screen bg-dark flex flex-col items-center justify-center text-center px-6">
+      <p className="text-5xl mb-4">🚫</p>
+      <p className="text-lg font-bold text-white mb-2">Demann ou refize</p>
+      <p className="text-sm text-gray-muted max-w-sm mb-6">Kontakte nou nan anbyanssa@gmail.com pou plis enfòmasyon.</p>
+      <button onClick={handleSignOut} className="px-5 py-2 rounded-xl bg-white/10 text-gray-light text-sm font-bold">Dekonekte</button>
+    </div>
+  );
+
+  if (!loading && user?.organizerStatus === 'pending') return (
+    <div className="min-h-screen bg-dark flex flex-col items-center justify-center text-center px-6">
+      <div className="w-16 h-16 rounded-full bg-orange/10 border border-orange/30 flex items-center justify-center mb-4 text-3xl">⏳</div>
+      <p className="text-lg font-bold text-white mb-2">Kont ou an atant apwobasyon</p>
+      <p className="text-sm text-gray-muted max-w-sm mb-6">Ekip Anbyans ap revize demann ou a. Ou pral resevwa yon imèl lè yo aprouve ou.</p>
+      <p className="text-xs text-gray-muted">Kesyon? anbyanssa@gmail.com</p>
+      <button onClick={handleSignOut} className="mt-4 px-5 py-2 rounded-xl bg-white/10 text-gray-light text-sm font-bold">Dekonekte</button>
+    </div>
+  );
+
   return (
     <div className="min-h-screen flex bg-dark">
 

@@ -360,13 +360,8 @@ function OrganizerStaffPageInner() {
       setEvents(evs);
       setPool(poolSnap.docs.map(d => ({ id: d.id, ...d.data() } as StaffMember)));
       setAssignments(assignSnap.docs.map(d => ({ id: d.id, ...d.data() } as StaffAssignment)));
-      const tix: any[] = [];
-      await Promise.all(evs.map(async e => {
-        if (!e.id) return;
-        const snap = await getDocs(collection(db, 'events', e.id, 'tickets'));
-        snap.docs.forEach(d => tix.push({ id: d.id, eventId: e.id, ...d.data() }));
-      }));
-      setTickets(tix);
+      const tSnap = await getDocs(query(collection(db, 'tickets'), where('organizerId', '==', user.uid)));
+      setTickets(tSnap.docs.map(d => ({ id: d.id, ...d.data() })));
     } catch (err) { console.error('staff load', err); }
     finally { setLoading(false); }
   }, [user?.uid]);

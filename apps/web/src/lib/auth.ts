@@ -31,6 +31,7 @@ export interface UserProfile {
   businessType?: string;
   notifications?: string[];
   suspended?: boolean;
+  organizerStatus?: 'pending' | 'approved' | 'rejected';
   createdAt: any;
   updatedAt: any;
 }
@@ -62,6 +63,7 @@ export async function signUp(
     businessName: profile.businessName || '',
     businessType: profile.businessType || '',
     notifications: profile.notifications || ['whatsapp'],
+    ...(profile.role === 'organizer' && { organizerStatus: 'pending' }),
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   };
