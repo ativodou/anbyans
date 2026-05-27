@@ -704,13 +704,16 @@ function BuyPageInner() {
         </div>
         <button onClick={() => {
           if (!validateInfo()) return;
-          setShowBarTab(true);
           if (event?.id) Promise.all([getBarItems(event.id), getBarStations(event.id)]).then(([items, stations]) => {
+            console.log('[bar] stations', stations.map(s => ({ id: s.id, name: s.name, sections: s.sections })));
             setBarMenuItems(items.map(x => {
               const st = stations.find(s => s.id === x.stationId);
+              console.log('[bar] item', x.name, 'stationId', x.stationId, '→ station', st?.name, 'sections', st?.sections);
               return { name: x.name, price: x.price, station: x.stationName, stationId: x.stationId, stationSections: st?.sections ?? [], sections: x.sections ?? [] };
             }));
-          }).catch(() => {});
+            setShowBarTab(true);
+          }).catch(err => { console.error('[bar] load error', err); setShowBarTab(true); });
+          else setShowBarTab(true);
         }}
           className="w-full mt-4 py-3.5 rounded-xl font-heading text-base bg-orange text-white hover:bg-orange/90 transition-all">
           {t('buy_continue')}
