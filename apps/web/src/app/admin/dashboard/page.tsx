@@ -73,7 +73,8 @@ export default function AdminDashboardPage() {
   const [settingsPosFee, setSettingsPosFee] = useState(50);
   const [settingsReserve, setSettingsReserve] = useState(20);
   const [settingsDelay, setSettingsDelay] = useState(7);
-  const [settingsSaved, setSettingsSaved] = useState(false);
+  const [settingsSaved,  setSettingsSaved]  = useState(false);
+  const [settingsSaving, setSettingsSaving] = useState(false);
 
   // Search
   const [eventSearch, setEventSearch] = useState('');
@@ -222,14 +223,19 @@ export default function AdminDashboardPage() {
   }
 
   async function handleSaveSettings() {
-    await updateDoc(doc(db, 'config', 'platform'), {
-      platformFee: settingsFee,
-      posFee: settingsPosFee,
-      chargebackReserve: settingsReserve,
-      payoutDelayDays: settingsDelay,
-    });
-    setSettingsSaved(true);
-    setTimeout(() => setSettingsSaved(false), 2000);
+    setSettingsSaving(true);
+    try {
+      await updateDoc(doc(db, 'config', 'platform'), {
+        platformFee: settingsFee,
+        posFee: settingsPosFee,
+        chargebackReserve: settingsReserve,
+        payoutDelayDays: settingsDelay,
+      });
+      setSettingsSaved(true);
+      setTimeout(() => setSettingsSaved(false), 2000);
+    } finally {
+      setSettingsSaving(false);
+    }
   }
 
   async function handleSeedVenues() {
@@ -877,8 +883,8 @@ export default function AdminDashboardPage() {
                     <input value={settingsDelay} onChange={e => setSettingsDelay(Number(e.target.value))} type="number" className="w-32 px-3 py-2 rounded-lg bg-white/[0.04] border border-border text-white text-sm outline-none focus:border-orange" />
                   </div>
                 </div>
-                <button onClick={handleSaveSettings} className="mt-4 px-5 py-2 rounded-lg bg-orange text-white text-xs font-bold hover:bg-orange/80 transition-all">
-                  {settingsSaved ? '✓ ' + t('admin_save') : t('admin_save')}
+                <button onClick={handleSaveSettings} disabled={settingsSaving} className={`mt-4 px-5 py-2 rounded-lg text-white text-xs font-bold transition-all disabled:opacity-60 ${settingsSaved ? 'bg-green-600' : 'bg-orange hover:bg-orange/80'}`}>
+                  {settingsSaving ? '...' : settingsSaved ? '✓ Sove!' : t('admin_save')}
                 </button>
               </div>
 
