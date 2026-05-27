@@ -723,15 +723,8 @@ function BuyPageInner() {
             return sum + (item ? item.price * qty : 0);
           }, 0);
           const cartSectionNames = cart.map(c => c.section.name);
-          const eventSectionNames = event?.sections?.map(s => s.name) ?? [];
-          const stationVisible = (stationName: string, stationSections: string[]) => {
-            if (stationSections.length > 0) return stationSections.some(s => cartSectionNames.includes(s));
-            const inferred = eventSectionNames.filter(sec => stationName.toLowerCase().includes(sec.toLowerCase()));
-            if (inferred.length > 0) return inferred.some(s => cartSectionNames.includes(s));
-            return true;
-          };
           const visibleItems = barMenuItems.filter(i => {
-            if (!stationVisible(i.station, i.stationSections)) return false;
+            if (i.stationSections.length > 0 && !i.stationSections.some(s => cartSectionNames.includes(s))) return false;
             if (i.sections.length > 0 && !i.sections.some(s => cartSectionNames.includes(s))) return false;
             return true;
           });

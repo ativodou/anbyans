@@ -300,6 +300,13 @@ export default function OrganizerBarPage() {
               </div>
             )}
 
+            {/* Warning if no station has section restrictions */}
+            {stations.length > 0 && (selectedEvent as any)?.sections?.length > 0 && stations.every(s => !s.sections?.length) && (
+              <div className="mb-4 p-3 rounded-xl bg-orange/10 border border-orange/30 text-xs text-orange leading-relaxed">
+                ⚠️ <strong>Tout estasyon yo vizib pou tout adetè.</strong> Klike sou yon estasyon epi chwazi ki nivo tikè ki gen aksè a li.
+              </div>
+            )}
+
             {/* Section (station) management */}
             <div className="mb-4">
               <p className="text-[10px] font-bold text-gray-muted mb-2 uppercase tracking-wide">Sections</p>
