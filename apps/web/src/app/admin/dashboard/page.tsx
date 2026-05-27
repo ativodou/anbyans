@@ -236,7 +236,7 @@ export default function AdminDashboardPage() {
       setSettingsSaved(true);
       setTimeout(() => setSettingsSaved(false), 2000);
     } catch (e: any) {
-      setSettingsError(e?.code || e?.message || 'Erè enkoni');
+      setSettingsError(`${e?.code || e?.message || 'Erè enkoni'} (uid:${user?.uid?.slice(0,8)})`);
     } finally {
       setSettingsSaving(false);
     }
