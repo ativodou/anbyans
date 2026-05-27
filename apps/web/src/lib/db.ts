@@ -857,12 +857,11 @@ export async function getVendorRequests(vendorId: string): Promise<VendorRequest
   return snap.docs.map(d => ({ id: d.id, ...d.data() } as VendorRequest));
 }
 
-export async function getOrganizerVendorRequests(organizerId: string): Promise<VendorRequest[]> {
-  const q = query(
-    collection(db, 'vendorRequests'),
-    where('organizerId', '==', organizerId),
-    where('status', '==', 'pending')
-  );
+export async function getOrganizerVendorRequests(organizerId: string, status?: 'pending' | 'approved' | 'all'): Promise<VendorRequest[]> {
+  const constraints: any[] = [where('organizerId', '==', organizerId)];
+  if (!status || status === 'pending') constraints.push(where('status', '==', 'pending'));
+  else if (status === 'approved') constraints.push(where('status', '==', 'approved'));
+  const q = query(collection(db, 'vendorRequests'), ...constraints);
   const snap = await getDocs(q);
   return snap.docs.map(d => ({ id: d.id, ...d.data() } as VendorRequest))
     .sort((a, b) => (b.requestedAt?.seconds || 0) - (a.requestedAt?.seconds || 0));

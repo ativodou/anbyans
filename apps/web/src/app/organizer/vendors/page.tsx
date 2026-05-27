@@ -57,10 +57,12 @@ export default function OrganizerVendorsPage() {
   const [filterStatus, setFilterStatus]   = useState<string>('all');
   const [filterEvent, setFilterEvent]     = useState<string>('all');
 
-  // Sync filter to selected event from context
+  // Sync pricing panel to selected event from context (but don't force the list filter)
   useEffect(() => {
-    setFilterEvent(selectedEvent?.id || 'all');
-  }, [selectedEvent?.id]);
+    if (!selectedEvent?.id) return;
+    const idx = events.findIndex(e => e.id === selectedEvent.id);
+    if (idx >= 0) setPricingEventIdx(idx);
+  }, [selectedEvent?.id, events.length]);
   const [pricingEventIdx, setPricingEventIdx] = useState(0);
   const [assigning, setAssigning]         = useState<string | null>(null);
 
@@ -75,14 +77,15 @@ export default function OrganizerVendorsPage() {
     if (!user?.uid) return;
     setLoading(true);
     try {
-      const [evList, resellerList, purchaseList, unassignedList, reqList] = await Promise.all([
+      const [evList, resellerList, purchaseList, unassignedList, pendingReqs, approvedReqs] = await Promise.all([
         getOrganizerEvents(user.uid),
         getOrganizerVendors(user.uid),
         getOrganizerVendorPurchases(user.uid),
         getAllUnassignedVendors(),
-        getOrganizerVendorRequests(user.uid),
+        getOrganizerVendorRequests(user.uid, 'pending'),
+        getOrganizerVendorRequests(user.uid, 'approved'),
       ]);
-      setVendorRequests(reqList);
+      setVendorRequests([...pendingReqs, ...approvedReqs]);
       setUnassigned(unassignedList);
       setResellers(resellerList.map(v => ({
         ...v,
@@ -106,7 +109,11 @@ export default function OrganizerVendorsPage() {
 
   const filtered = resellers.filter(v => {
     if (filterStatus !== 'all' && v.status !== filterStatus) return false;
-    if (filterEvent !== 'all' && !v.purchases.some(p => p.eventId === filterEvent)) return false;
+    if (filterEvent !== 'all') {
+      const hasPurchase = v.purchases.some(p => p.eventId === filterEvent);
+      const hasApprovedReq = vendorRequests.some(r => r.vendorId === v.id && r.eventId === filterEvent);
+      if (!hasPurchase && !hasApprovedReq) return false;
+    }
     return true;
   });
 
@@ -223,7 +230,7 @@ Konekte sou dachbod ou pou achte tikè bulk:
         {([
           ['my', `👥 ${t('org_my_resellers')}`, resellers.length],
           ['available', `🔍 ${t('org_available_resellers')}`, unassigned.length],
-          ['requests', `🙋 ${t('org_requests')}`, vendorRequests.length],
+          ['requests', `🙋 ${t('org_requests')}`, vendorRequests.filter(r => r.status === 'pending').length],
         ] as const).map(([id, label, count]) => (
           <button key={id} onClick={() => setMainTab(id)}
             className={`px-4 py-2 text-xs font-bold border-b-2 transition-colors ${mainTab === id ? 'border-orange text-orange' : 'border-transparent text-gray-muted hover:text-white'}`}>
@@ -260,14 +267,14 @@ Konekte sou dachbod ou pou achte tikè bulk:
           <p className="text-xs text-gray-muted mb-4">
             {t('org_requests_desc')}
           </p>
-          {vendorRequests.length === 0 ? (
+          {vendorRequests.filter(r => r.status === 'pending').length === 0 ? (
             <div className="bg-dark-card border border-border rounded-card p-10 text-center">
               <p className="text-2xl mb-2">🙌</p>
               <p className="text-xs text-gray-muted">{t('org_no_requests')}</p>
             </div>
           ) : (
             <div className="space-y-3">
-              {vendorRequests.map(req => (
+              {vendorRequests.filter(r => r.status === 'pending').map(req => (
                 <div key={req.id} className="bg-dark-card border border-border rounded-card p-4">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1 min-w-0">
