@@ -4,7 +4,7 @@ import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { collection, query, where, getDocs, doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
-import { getEventByPrivateToken, purchaseTickets, getPlatformFeeRate, getBarItems, getBarStations } from '../../lib/db';
+import { getEventByPrivateToken, purchaseTickets, getPlatformFeeRate, getBarItems } from '../../lib/db';
 import { useT } from '../../i18n';
 import { useAuth } from '../../hooks/useAuth';
 import Link from 'next/link';
@@ -200,7 +200,7 @@ function BuyPageInner() {
   const [barTabAmount, setBarTabAmount] = useState(0);
   const [customTab, setCustomTab]       = useState('');
   const [showBarTab, setShowBarTab]     = useState(false);
-  const [barMenuItems, setBarMenuItems] = useState<{name: string; price: number; station: string; stationId: string; stationSections: string[]; sections: string[]}[]>([]);
+  const [barMenuItems, setBarMenuItems] = useState<{name: string; price: number; station: string}[]>([]);
   const [barCart, setBarCart]           = useState<Record<string, number>>({});
 
   // ── Restore cart from localStorage after event loads ─────────
@@ -375,15 +375,8 @@ function BuyPageInner() {
       setName(fullName);
       setPhone(u.phone);
       if (user?.email) setEmail(user.email);
-      if (event?.id) Promise.all([getBarItems(event.id), getBarStations(event.id)]).then(([items, stations]) => {
-        const stationMap = new Map(stations.map(s => [s.id!, s]));
-        setBarMenuItems(items.filter(x => stationMap.has(x.stationId)).map(x => {
-          const st = stationMap.get(x.stationId)!;
-          return { name: x.name, price: x.price, station: x.stationName, stationId: x.stationId, stationSections: st.sections ?? [], sections: x.sections ?? [] };
-        }));
-        setShowBarTab(true);
-      }).catch(() => setShowBarTab(true));
-      else setShowBarTab(true);
+      setShowBarTab(true);
+      if (event?.id) getBarItems(event.id).then(items => setBarMenuItems(items.map(x => ({ name: x.name, price: x.price, station: x.stationName })))).catch(() => {});
     } else {
       setStep('info');
     }
@@ -670,15 +663,8 @@ function BuyPageInner() {
 
         <button onClick={() => {
           if (!validateInfo()) return;
-          if (event?.id) Promise.all([getBarItems(event.id), getBarStations(event.id)]).then(([items, stations]) => {
-            const stationMap = new Map(stations.map(s => [s.id!, s]));
-            setBarMenuItems(items.filter(x => stationMap.has(x.stationId)).map(x => {
-              const st = stationMap.get(x.stationId)!;
-              return { name: x.name, price: x.price, station: x.stationName, stationId: x.stationId, stationSections: st.sections ?? [], sections: x.sections ?? [] };
-            }));
-            setShowBarTab(true);
-          }).catch(() => setShowBarTab(true));
-          else setShowBarTab(true);
+          setShowBarTab(true);
+          if (event?.id) getBarItems(event.id).then(items => setBarMenuItems(items.map(x => ({ name: x.name, price: x.price, station: x.stationName })))).catch(() => {});
         }}
           className="w-full mt-4 py-3.5 rounded-xl font-heading text-base bg-orange text-white hover:bg-orange/90 transition-all">
           {t('buy_continue')}
@@ -690,22 +676,8 @@ function BuyPageInner() {
             const item = barMenuItems.find(i => i.name === name);
             return sum + (item ? item.price * qty : 0);
           }, 0);
-          const fanSection = selSection?.name ?? '';
-          const eventSectionNames = event?.sections?.map(s => s.name) ?? [];
-          const inferStationSections = (stationName: string): string[] => {
-            const tokens = stationName.toUpperCase().split(/\s+/);
-            return eventSectionNames.filter(sec =>
-              tokens.some(tok => tok === sec.toUpperCase() || sec.toUpperCase().includes(tok))
-            );
-          };
-          const visibleItems = barMenuItems.filter(i => {
-            const effectiveSections = i.stationSections.length > 0 ? i.stationSections : inferStationSections(i.station);
-            if (effectiveSections.length > 0 && !effectiveSections.includes(fanSection)) return false;
-            if (i.sections.length > 0 && !i.sections.includes(fanSection)) return false;
-            return true;
-          });
-          const hasMenu = visibleItems.length > 0;
-          const stations = hasMenu ? Array.from(new Set(visibleItems.map(i => i.station))) : [];
+          const hasMenu = barMenuItems.length > 0;
+          const stations = hasMenu ? Array.from(new Set(barMenuItems.map(i => i.station))) : [];
           const confirm = () => {
             if (hasMenu) setBarTabAmount(cartTotal);
             setShowBarTab(false);
@@ -734,7 +706,7 @@ function BuyPageInner() {
                           {stations.length > 1 && (
                             <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mt-4 mb-2">{station}</p>
                           )}
-                          {visibleItems.filter(i => i.station === station).map((item) => {
+                          {barMenuItems.filter(i => i.station === station).map((item) => {
                             const qty = barCart[item.name] ?? 0;
                             return (
                               <div key={item.name} className="flex items-center justify-between py-2.5 border-b border-white/[0.06] last:border-0">

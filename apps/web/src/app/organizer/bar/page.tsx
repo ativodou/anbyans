@@ -8,10 +8,9 @@ import { db } from '@/lib/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import {
-  getBarStations, saveBarStation, deleteBarStation, updateBarStationSections,
+  getBarStations, saveBarStation, deleteBarStation,
   getBarItems, saveBarItem, deleteBarItem, updateBarItemStock,
-  subscribeBarOrders, updateBarOrderStatus, getAssignedStaff,
-  type BarStation, type BarItem, type BarOrder, type BarOrderStatus, type AssignedStaffMember,
+  subscribeBarOrders, updateBarOrderStatus, getAssignedStaff, type BarStation, type BarItem, type BarOrder, type BarOrderStatus, type AssignedStaffMember,
 } from '@/lib/db';
 
 type Tab = 'setup' | 'live' | 'inventory' | 'stats' | 'preorders';
@@ -300,13 +299,6 @@ export default function OrganizerBarPage() {
               </div>
             )}
 
-            {/* Warning if no station has section restrictions */}
-            {stations.length > 0 && (selectedEvent as any)?.sections?.length > 0 && stations.every(s => !s.sections?.length) && (
-              <div className="mb-4 p-3 rounded-xl bg-orange/10 border border-orange/30 text-xs text-orange leading-relaxed">
-                ⚠️ <strong>Tout estasyon yo vizib pou tout adetè.</strong> Klike sou yon estasyon epi chwazi ki nivo tikè ki gen aksè a li.
-              </div>
-            )}
-
             {/* Section (station) management */}
             <div className="mb-4">
               <p className="text-[10px] font-bold text-gray-muted mb-2 uppercase tracking-wide">Sections</p>
@@ -321,35 +313,11 @@ export default function OrganizerBarPage() {
               </div>
               {stationError && <p className="text-xs text-red-400 mb-2">{stationError}</p>}
               {stations.length > 0 && (
-                <div className="space-y-2">
+                <div className="flex flex-wrap gap-2">
                   {stations.map(s => (
-                    <div key={s.id} className="bg-white/[0.03] border border-border rounded-xl p-3">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs font-bold">{s.name}</span>
-                        <button onClick={() => handleDeleteStation(s.id!)} className="text-gray-muted hover:text-red-400 text-xs transition-colors">✕</button>
-                      </div>
-                      {(selectedEvent as any)?.sections?.length > 0 && (
-                        <div>
-                          <p className="text-[9px] text-gray-muted mb-1.5 uppercase tracking-wide">Visible to <span className="normal-case font-normal">(blank = all)</span></p>
-                          <div className="flex flex-wrap gap-1">
-                            {((selectedEvent as any).sections as { name: string }[]).map(sec => {
-                              const active = (s.sections ?? []).includes(sec.name);
-                              return (
-                                <button key={sec.name} type="button"
-                                  onClick={async () => {
-                                    const cur = s.sections ?? [];
-                                    const next = active ? cur.filter(x => x !== sec.name) : [...cur, sec.name];
-                                    await updateBarStationSections(s.id!, next);
-                                    setStations(prev => prev.map(st => st.id === s.id ? { ...st, sections: next } : st));
-                                  }}
-                                  className={`px-2 py-0.5 rounded text-[10px] font-bold border transition-all ${active ? 'border-orange bg-orange/10 text-orange' : 'border-border text-gray-muted hover:border-white/20'}`}>
-                                  {sec.name}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
+                    <div key={s.id} className="flex items-center gap-1.5 px-3 py-1.5 bg-white/[0.04] border border-border rounded-lg">
+                      <span className="text-xs font-bold">{s.name}</span>
+                      <button onClick={() => handleDeleteStation(s.id!)} className="text-gray-muted hover:text-red-400 text-xs transition-colors">✕</button>
                     </div>
                   ))}
                 </div>
