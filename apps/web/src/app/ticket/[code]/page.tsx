@@ -247,6 +247,7 @@ export default function TicketPage() {
 
   const isUsed = ticket.status === 'used';
   const isValid = ticket.status === 'valid';
+  const isPending = ticket.status === 'pending';
 
   const handleTransfer = async () => {
     if (!ticket?.id || !ticket.eventId) return;
@@ -300,11 +301,11 @@ ${acceptUrl}`
           <span style={{ flex: 1 }} />
           <span style={{
             padding: '4px 10px', borderRadius: 6, fontSize: 10, fontWeight: 800,
-            background: isValid ? '#22c55e20' : isUsed ? '#f9731620' : '#ef444420',
-            color: isValid ? '#22c55e' : isUsed ? '#f97316' : '#ef4444',
-            border: `1px solid ${isValid ? '#22c55e40' : isUsed ? '#f9731640' : '#ef444440'}`,
+            background: isValid ? '#22c55e20' : isUsed ? '#f9731620' : isPending ? '#f59e0b20' : '#ef444420',
+            color: isValid ? '#22c55e' : isUsed ? '#f97316' : isPending ? '#f59e0b' : '#ef4444',
+            border: `1px solid ${isValid ? '#22c55e40' : isUsed ? '#f9731640' : isPending ? '#f59e0b40' : '#ef444440'}`,
           }}>
-            {isValid ? t('ticket_status_valid') : isUsed ? t('ticket_status_used') : t('ticket_status_cancelled')}
+            {isValid ? t('ticket_status_valid') : isUsed ? t('ticket_status_used') : isPending ? '⏳ An atant' : t('ticket_status_cancelled')}
           </span>
         </div>
       </nav>
@@ -364,6 +365,12 @@ ${acceptUrl}`
                   {t('ticket_qr_refreshes')}
                 </p>
               </div>
+            </div>
+          ) : isPending ? (
+            <div style={{ textAlign: 'center', padding: '24px 0', marginBottom: 16 }}>
+              <div style={{ fontSize: 48 }}>⏳</div>
+              <p style={{ color: '#f59e0b', fontSize: 14, fontWeight: 700, marginTop: 8 }}>Peman an atant konfirmasyon</p>
+              <p style={{ color: '#888', fontSize: 12, marginTop: 4 }}>Òganizatè a ap verifye peman ou an. Tikè a ap aktive lè sa.</p>
             </div>
           ) : (
             <div style={{ textAlign: 'center', padding: '24px 0', marginBottom: 16 }}>
