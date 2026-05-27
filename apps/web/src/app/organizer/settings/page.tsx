@@ -337,8 +337,9 @@ function OrganizerSettingsInner() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-[11px] font-semibold text-gray-light mb-1.5">{t('email')}</label>
-                <input value={email} onChange={e => setEmail(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-[10px] bg-white/[0.04] border border-border text-white text-[13px] outline-none focus:border-orange" />
+                <div className="w-full px-3.5 py-2.5 rounded-[10px] bg-white/[0.02] border border-border text-gray-muted text-[13px]">
+                  {email}
+                </div>
               </div>
               <div>
                 <label className="block text-[11px] font-semibold text-gray-light mb-1.5">{t('phone')}</label>

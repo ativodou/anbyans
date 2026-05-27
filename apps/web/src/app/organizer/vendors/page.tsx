@@ -39,31 +39,30 @@ export default function OrganizerVendorsPage() {
   const { t } = useT();
   const { selectedEvent } = useOrganizerEvent();
 
-  const [events, setEvents]             = useState<EventData[]>([]);
-  const [resellers, setResellers]       = useState<VendorWithPurchases[]>([]);
-  const [pendingRequests, setPendingRequests] = useState<VendorRequest[]>([]);
-  const [loading, setLoading]           = useState(true);
-  const [saving, setSaving]             = useState(false);
+  const [events, setEvents]       = useState<EventData[]>([]);
+  const [resellers, setResellers] = useState<VendorWithPurchases[]>([]);
+  const [loading, setLoading]     = useState(true);
+  const [saving, setSaving]       = useState(false);
 
-  const [mainTab, setMainTab]           = useState<'my' | 'requests'>('my');
-  const [resolvingReq, setResolvingReq] = useState<string | null>(null);
-  const [justApproved, setJustApproved] = useState<VendorRequest | null>(null);
+  const [mainTab, setMainTab]             = useState<'my' | 'requests'>('my');
+  const [vendorRequests, setVendorRequests] = useState<VendorRequest[]>([]);
+  const [resolvingReq, setResolvingReq]     = useState<string | null>(null);
+  const [justApproved, setJustApproved]     = useState<VendorRequest | null>(null);
   const [expandedReseller, setExpandedReseller] = useState<string | null>(null);
-  const [showInvite, setShowInvite]     = useState(false);
-  const [showPricing, setShowPricing]   = useState(false);
-  const [filterStatus, setFilterStatus] = useState<string>('all');
-  const [pricingEventId, setPricingEventId] = useState<string>('');
-  const [draftTiers, setDraftTiers]     = useState<Record<string, BulkTier[]>>({});
+  const [showInvite, setShowInvite]       = useState(false);
+  const [showPricing, setShowPricing]     = useState(false);
+  const [filterStatus, setFilterStatus]   = useState<string>('all');
 
-  // Sync pricing panel to the globally selected event (non-private only)
+  // Sync pricing panel to selected event from context (but don't force the list filter)
   useEffect(() => {
     if (!selectedEvent?.id) return;
-    const ev = events.find(e => e.id === selectedEvent.id);
-    if (ev && !ev.isPrivate) setPricingEventId(selectedEvent.id);
-  }, [selectedEvent?.id, events]);
+    const idx = events.findIndex(e => e.id === selectedEvent.id);
+    if (idx >= 0) setPricingEventIdx(idx);
+  }, [selectedEvent?.id, events.length]);
+  const [pricingEventIdx, setPricingEventIdx] = useState(0);
 
   const [inviteForm, setInviteForm] = useState({
-    name: '', contact: '', phone: '', city: '', payMethod: 'MonCash', eventId: '',
+    name: '', contact: '', phone: '', city: '', payMethod: 'MonCash',
   });
   const [inviteError, setInviteError] = useState('');
   const [inviteSent, setInviteSent]   = useState(false);
@@ -73,13 +72,14 @@ export default function OrganizerVendorsPage() {
     if (!user?.uid) return;
     setLoading(true);
     try {
-      const [evList, resellerList, purchaseList, pending] = await Promise.all([
+      const [evList, resellerList, purchaseList, pendingReqs, approvedReqs] = await Promise.all([
         getOrganizerEvents(user.uid),
         getOrganizerVendors(user.uid),
         getOrganizerVendorPurchases(user.uid),
         getOrganizerVendorRequests(user.uid, 'pending'),
+        getOrganizerVendorRequests(user.uid, 'approved'),
       ]);
-      setPendingRequests(pending);
+      setVendorRequests([...pendingReqs, ...approvedReqs]);
       setResellers(resellerList.map(v => ({
         ...v,
         purchases: purchaseList.filter(p => p.vendorId === v.id),
@@ -95,16 +95,17 @@ export default function OrganizerVendorsPage() {
   useEffect(() => { loadData(); }, [loadData]);
 
   // ── Computed ──
-  const filtered = filterStatus === 'all'
-    ? resellers
-    : resellers.filter(v => v.status === filterStatus);
+  const allPurchases   = resellers.flatMap(v => v.purchases);
+  const totalPurchased = allPurchases.reduce((a, b) => a + b.qty, 0);
+  const totalSold      = allPurchases.reduce((a, b) => a + b.sold, 0);
+  const totalRevenue   = allPurchases.reduce((a, b) => a + b.totalPaid, 0);
 
-  const totalPurchased = filtered.flatMap(v => v.purchases).reduce((a, b) => a + b.qty, 0);
-  const totalSold      = filtered.flatMap(v => v.purchases).reduce((a, b) => a + b.sold, 0);
-  const totalRevenue   = filtered.flatMap(v => v.purchases).reduce((a, b) => a + b.totalPaid, 0);
+  const filtered = resellers.filter(v => {
+    if (filterStatus !== 'all' && v.status !== filterStatus) return false;
+    return true;
+  });
 
-  const pricingEvents = events.filter(ev => !ev.isPrivate);
-  const pricingEvent = pricingEvents.find(e => e.id === pricingEventId) ?? pricingEvents[0] ?? null;
+  const pricingEvent = events[pricingEventIdx] ?? null;
 
   // ── Handlers ──
   const handleInvite = async () => {
@@ -116,24 +117,13 @@ export default function OrganizerVendorsPage() {
     setSaving(true);
     setInviteError('');
     try {
-      const selectedEv = events.find(e => e.id === inviteForm.eventId);
-      const reseller = await inviteVendor({
-        organizerId: user.uid,
-        name: inviteForm.name,
-        contact: inviteForm.contact,
-        phone: inviteForm.phone,
-        city: inviteForm.city,
-        payMethod: inviteForm.payMethod,
-        eventId: inviteForm.eventId || undefined,
-        eventName: selectedEv?.name,
-        eventEmoji: selectedEv?.emoji,
-      });
+      const reseller = await inviteVendor({ organizerId: user.uid, ...inviteForm });
       const msg = encodeURIComponent(
         `Bonjou ${inviteForm.contact}! Ou envite kòm vandè sou Anbyans.\n\nKlike lyen sa a pou kreye kont ou:\n${window.location.origin}/vendor/join?token=${reseller.inviteToken}\n\nMèsi!`
       );
       setWhatsAppUrl(`https://wa.me/${inviteForm.phone.replace(/\D/g, '')}?text=${msg}`);
       setInviteSent(true);
-      setInviteForm({ name: '', contact: '', phone: '', city: '', payMethod: 'MonCash', eventId: '' });
+      setInviteForm({ name: '', contact: '', phone: '', city: '', payMethod: 'MonCash' });
       await loadData();
     } catch {
       setInviteError('Erè — Eseye ankò');
@@ -146,8 +136,6 @@ export default function OrganizerVendorsPage() {
     setSaving(true);
     try {
       await saveEventBulkTiers(eventId, sectionName, tiers);
-      const key = `${eventId}:${sectionName}`;
-      setDraftTiers(d => { const next = { ...d }; delete next[key]; return next; });
       await loadData();
     } catch (err) {
       console.error('Save tiers error:', err);
@@ -161,26 +149,38 @@ export default function OrganizerVendorsPage() {
     setResolvingReq(req.id);
     try {
       await resolveVendorRequest(req.id, status);
-      setPendingRequests(prev => prev.filter(r => r.id !== req.id));
-      if (status === 'approved') {
-        setJustApproved(req);
-        await loadData();
-      }
+      setVendorRequests(prev => prev.filter(r => r.id !== req.id));
+      if (status === 'approved') setJustApproved(req);
+
       if (status === 'approved' && req.vendorPhone) {
         const msg = encodeURIComponent(
-          `✅ *ANBYANS — Demann ou apwouve!*\n\n` +
-          `Bonjou ${req.vendorName}!\n\n` +
-          `Ou apwouve pou vann tikè pou evènman sa a:\n` +
-          `${req.eventEmoji ?? '🎪'} *${req.eventName}*\n` +
-          (req.eventDate ? `📅 ${req.eventDate}\n` : '') +
-          `\nKonekte sou dachbod ou pou achte tikè bulk:\n` +
-          `${window.location.origin}/vendor/dashboard\n\nAnbyans 🎫`
+          `✅ *ANBYANS — Demann ou apwouve!*
+
+` +
+          `Bonjou ${req.vendorName}!
+
+` +
+          `Ou apwouve pou vann tikè pou evènman sa a:
+` +
+          `${req.eventEmoji ?? '🎪'} *${req.eventName}*
+` +
+          (req.eventDate ? `📅 ${req.eventDate}
+` : '') +
+          `
+Konekte sou dachbod ou pou achte tikè bulk:
+` +
+          `${window.location.origin}/vendor/dashboard
+
+` +
+          `Anbyans 🎫`
         );
-        window.open(`https://wa.me/${req.vendorPhone.replace(/[^0-9]/g, '')}?text=${msg}`, '_blank');
+        const phone = req.vendorPhone.replace(/[^0-9]/g, '');
+        window.open(`https://wa.me/${phone}?text=${msg}`, '_blank');
       }
     } catch (e) { console.error(e); }
     finally { setResolvingReq(null); }
   };
+
 
   if (loading) return (
     <div className="flex items-center justify-center py-32">
@@ -210,7 +210,7 @@ export default function OrganizerVendorsPage() {
       <div className="flex gap-2 mb-5 border-b border-border">
         {([
           ['my', `👥 ${t('org_my_resellers')}`, resellers.length],
-          ['requests', `🙋 ${t('org_requests')}`, pendingRequests.length],
+          ['requests', `🙋 ${t('org_requests')}`, vendorRequests.filter(r => r.status === 'pending').length],
         ] as const).map(([id, label, count]) => (
           <button key={id} onClick={() => setMainTab(id)}
             className={`px-4 py-2 text-xs font-bold border-b-2 transition-colors ${mainTab === id ? 'border-orange text-orange' : 'border-transparent text-gray-muted hover:text-white'}`}>
@@ -233,7 +233,8 @@ export default function OrganizerVendorsPage() {
               </div>
               <button
                 onClick={() => {
-                  setPricingEventId(justApproved.eventId);
+                  const evIdx = events.findIndex(e => e.id === justApproved.eventId);
+                  if (evIdx >= 0) setPricingEventIdx(evIdx);
                   setShowPricing(true);
                   setJustApproved(null);
                   setMainTab('my');
@@ -243,15 +244,17 @@ export default function OrganizerVendorsPage() {
               </button>
             </div>
           )}
-          <p className="text-xs text-gray-muted mb-4">{t('org_requests_desc')}</p>
-          {pendingRequests.length === 0 ? (
+          <p className="text-xs text-gray-muted mb-4">
+            {t('org_requests_desc')}
+          </p>
+          {vendorRequests.filter(r => r.status === 'pending').length === 0 ? (
             <div className="bg-dark-card border border-border rounded-card p-10 text-center">
               <p className="text-2xl mb-2">🙌</p>
               <p className="text-xs text-gray-muted">{t('org_no_requests')}</p>
             </div>
           ) : (
             <div className="space-y-3">
-              {pendingRequests.map(req => (
+              {vendorRequests.filter(r => r.status === 'pending').map(req => (
                 <div key={req.id} className="bg-dark-card border border-border rounded-card p-4">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1 min-w-0">
@@ -293,10 +296,10 @@ export default function OrganizerVendorsPage() {
       {/* ── My vendors tab ── */}
       {mainTab === 'my' && (
         <>
-          {/* Stats — computed from filtered list */}
+          {/* Stats */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
             {[
-              { label: t('resellers_active'),    value: filtered.filter(v => v.status === 'active').length.toString() },
+              { label: t('resellers_active'),    value: resellers.filter(v => v.status === 'active').length.toString() },
               { label: t('resellers_purchased'), value: totalPurchased.toString() },
               { label: t('sold'),                value: `${totalSold} (${totalPurchased > 0 ? Math.round(totalSold / totalPurchased * 100) : 0}%)`, color: 'text-green' },
               { label: `💰 ${t('resellers_revenue')}`, value: `$${totalRevenue.toLocaleString()}`, color: 'text-green', border: 'border-green' },
@@ -316,24 +319,22 @@ export default function OrganizerVendorsPage() {
                 <button onClick={() => setShowPricing(false)} className="text-gray-muted hover:text-white text-sm">✕</button>
               </div>
               <p className="text-xs text-gray-light mb-4">{t('resellers_pricing_subtitle')}</p>
-              {pricingEvents.length === 0 ? (
-                <p className="text-xs text-gray-muted">Pa gen evènman piblik ankò.</p>
+              {events.length === 0 ? (
+                <p className="text-xs text-gray-muted">Pa gen evènman ankò.</p>
               ) : (
                 <>
                   <div className="flex gap-2 mb-4 flex-wrap">
-                    {pricingEvents.map(ev => (
-                      <button key={ev.id} onClick={() => setPricingEventId(ev.id!)}
-                        className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all ${pricingEventId === ev.id || pricingEvent?.id === ev.id ? 'bg-orange text-white' : 'border border-border text-gray-light hover:text-white hover:border-white/[0.15]'}`}>
-                        {ev.emoji} {ev.name}
+                    {events.map((ev, i) => (
+                      <button key={ev.id} onClick={() => setPricingEventIdx(i)}
+                        className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all ${pricingEventIdx === i ? 'bg-orange text-white' : 'border border-border text-gray-light hover:text-white hover:border-white/[0.15]'}`}>
+                        {ev.name}
                       </button>
                     ))}
                   </div>
                   {pricingEvent && (
                     <div className="space-y-4">
                       {pricingEvent.sections.map(sec => {
-                        const key = `${pricingEvent.id}:${sec.name}`;
-                        const tiers: BulkTier[] = draftTiers[key] ?? (sec as any).bulkTiers ?? [];
-                        const isDirty = key in draftTiers;
+                        const tiers: BulkTier[] = (sec as any).bulkTiers || [];
                         const color = sectionColors[sec.name] || sec.color || '#888';
                         return (
                           <div key={sec.name} className="border border-border rounded-xl p-4">
@@ -345,76 +346,40 @@ export default function OrganizerVendorsPage() {
                                 · {sec.capacity - sec.sold} {t('resellers_available')}
                               </span>
                             </div>
-
-                            {tiers.length > 0 && (
-                              <div className="mb-3">
-                                <div className="grid grid-cols-[1fr_1fr_1fr_auto] gap-2 text-[9px] text-gray-muted uppercase tracking-widest pb-1.5 border-b border-border mb-2">
-                                  <span>Min Qty</span><span>Max Qty</span><span>Pri Chak ($)</span><span />
-                                </div>
-                                <div className="space-y-2">
-                                  {tiers.map((tier, i) => {
-                                    const discount = sec.price > 0 ? Math.round(((sec.price - tier.priceEach) / sec.price) * 100) : 0;
-                                    return (
-                                      <div key={i} className="grid grid-cols-[1fr_1fr_1fr_auto] gap-2 items-center">
-                                        <input type="number" min="1" value={tier.minQty}
-                                          onChange={e => {
-                                            const t2 = [...tiers]; t2[i] = { ...t2[i], minQty: +e.target.value };
-                                            setDraftTiers(d => ({ ...d, [key]: t2 }));
-                                          }}
-                                          className="px-2 py-1.5 rounded-lg bg-white/[0.04] border border-border text-white text-xs outline-none focus:border-orange w-full" />
-                                        <input type="number" min="1" value={tier.maxQty ?? ''} placeholder="∞"
-                                          onChange={e => {
-                                            const t2 = [...tiers]; t2[i] = { ...t2[i], maxQty: e.target.value ? +e.target.value : null };
-                                            setDraftTiers(d => ({ ...d, [key]: t2 }));
-                                          }}
-                                          className="px-2 py-1.5 rounded-lg bg-white/[0.04] border border-border text-white text-xs outline-none focus:border-orange w-full placeholder:text-gray-muted" />
-                                        <div className="flex items-center gap-1">
-                                          <input type="number" min="0" step="0.5" value={tier.priceEach}
-                                            onChange={e => {
-                                              const t2 = [...tiers]; t2[i] = { ...t2[i], priceEach: +e.target.value };
-                                              setDraftTiers(d => ({ ...d, [key]: t2 }));
-                                            }}
-                                            className="px-2 py-1.5 rounded-lg bg-white/[0.04] border border-border text-white text-xs outline-none focus:border-orange w-full" />
-                                          {discount > 0 && <span className="text-[9px] text-green font-bold whitespace-nowrap">-{discount}%</span>}
-                                        </div>
-                                        <button onClick={() => {
-                                          const t2 = tiers.filter((_, j) => j !== i);
-                                          setDraftTiers(d => ({ ...d, [key]: t2 }));
-                                        }} className="text-gray-muted hover:text-red text-xs px-1 transition-colors">✕</button>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
+                            {tiers.length === 0 ? (
+                              <p className="text-[11px] text-gray-muted mb-3">Pa gen pri angwo konfigire pou seksyon sa a.</p>
+                            ) : (
+                              <div className="overflow-x-auto mb-3">
+                                <table className="w-full text-left">
+                                  <thead>
+                                    <tr className="border-b border-border">
+                                      {[t('resellers_qty'), t('resellers_price_per'), t('vend_buy_discount'), t('resellers_example')].map(h => (
+                                        <th key={h} className={`text-[9px] text-gray-muted uppercase tracking-widest pb-2 ${h !== t('resellers_qty') ? 'text-right' : ''}`}>{h}</th>
+                                      ))}
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {tiers.map((tier, i) => {
+                                      const discount = Math.round(((sec.price - tier.priceEach) / sec.price) * 100);
+                                      return (
+                                        <tr key={i} className="border-b border-border last:border-0">
+                                          <td className="py-2.5 text-xs font-bold">{fmtTier(tier)} {t('tickets')}</td>
+                                          <td className="py-2.5 text-xs text-right"><span className="font-heading text-lg">${tier.priceEach}</span><span className="text-[10px] text-gray-muted ml-1">{t('buy_each')}</span></td>
+                                          <td className="py-2.5 text-xs text-right"><span className="text-green font-bold">-{discount}%</span></td>
+                                          <td className="py-2.5 text-xs text-right text-gray-light">{tier.minQty} × ${tier.priceEach} = <strong className="text-white">${tier.minQty * tier.priceEach}</strong></td>
+                                        </tr>
+                                      );
+                                    })}
+                                  </tbody>
+                                </table>
                               </div>
                             )}
-
-                            <div className="flex items-center gap-3 flex-wrap">
-                              <button onClick={() => {
-                                const last = tiers[tiers.length - 1];
-                                const newTier: BulkTier = {
-                                  minQty: last ? (last.maxQty ?? last.minQty) + 1 : 10,
-                                  maxQty: null,
-                                  priceEach: Math.round(sec.price * 0.8),
-                                };
-                                setDraftTiers(d => ({ ...d, [key]: [...tiers, newTier] }));
-                              }} className="text-[10px] text-orange hover:underline">
-                                ✚ {tiers.length === 0 ? 'Add Tier' : 'Add Tier'}
-                              </button>
-                              {isDirty && (
-                                <>
-                                  <button onClick={() => {
-                                    setDraftTiers(d => { const next = { ...d }; delete next[key]; return next; });
-                                  }} className="text-[10px] text-gray-muted hover:text-white">
-                                    Anile
-                                  </button>
-                                  <button onClick={() => handleSaveTiers(pricingEvent.id!, sec.name, tiers)}
-                                    disabled={saving}
-                                    className="ml-auto px-3 py-1.5 rounded-lg bg-orange text-white text-[10px] font-bold hover:bg-orange/80 disabled:opacity-50 transition-all">
-                                    {saving ? '…' : '💾 Sove'}
-                                  </button>
-                                </>
-                              )}
-                            </div>
+                            <button onClick={() => {
+                              const newTier: BulkTier = { minQty: 10, maxQty: 25, priceEach: Math.round(sec.price * 0.8) };
+                              handleSaveTiers(pricingEvent.id!, sec.name, [...tiers, newTier]);
+                            }} className="text-[10px] text-orange hover:underline">
+                              ✏️ {t('resellers_edit_price')}
+                            </button>
                           </div>
                         );
                       })}
@@ -485,16 +450,6 @@ export default function OrganizerVendorsPage() {
                         className="w-full px-3.5 py-2.5 rounded-[10px] bg-white/[0.04] border border-border text-white text-[13px] outline-none focus:border-orange">
                         {['📱 MonCash', '💚 Natcash', '🏦 Kont Bank', '💳 Stripe', '⚡ Zelle', '🅿️ PayPal', '💲 Cash App'].map(m => (
                           <option key={m} className="bg-dark-card">{m}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-semibold text-gray-light mb-1.5">Evènman (opsyonèl)</label>
-                      <select value={inviteForm.eventId} onChange={e => setInviteForm(f => ({ ...f, eventId: e.target.value }))}
-                        className="w-full px-3.5 py-2.5 rounded-[10px] bg-white/[0.04] border border-border text-white text-[13px] outline-none focus:border-orange">
-                        <option value="" className="bg-dark-card">— Okenn evènman spesifik</option>
-                        {events.map(ev => (
-                          <option key={ev.id} value={ev.id} className="bg-dark-card">{ev.emoji} {ev.name}</option>
                         ))}
                       </select>
                     </div>
@@ -626,8 +581,9 @@ export default function OrganizerVendorsPage() {
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  const firstEventId = v.purchases[0]?.eventId;
-                                  if (firstEventId) setPricingEventId(firstEventId);
+                                  const evIds = new Set(v.purchases.map(p => p.eventId));
+                                  const evIdx = events.findIndex(ev => evIds.has(ev.id!));
+                                  if (evIdx >= 0) setPricingEventIdx(evIdx);
                                   setShowPricing(true);
                                 }}
                                 className="px-3 py-1 rounded-lg text-[10px] font-bold border border-orange/40 text-orange hover:bg-orange/10 transition-all">

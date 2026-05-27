@@ -117,14 +117,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   };
 
-  // Real-time suspension enforcement — kicks user immediately when admin suspends them
+  // Real-time user sync — kicks on suspension, refreshes profile fields on save
   useEffect(() => {
     if (!user?.uid) return;
     const unsub = onSnapshot(doc(db, 'users', user.uid), (snap) => {
-      if (snap.exists() && snap.data()?.suspended === true) {
+      if (!snap.exists()) return;
+      const data = snap.data();
+      if (data?.suspended === true) {
         authSignOut();
         setUser(null);
         setError('Kont ou a suspann. Kontakte nou pou plis enfòmasyon.');
+      } else {
+        setUser(prev => prev ? { ...prev, ...data } as typeof prev : prev);
       }
     });
     return unsub;

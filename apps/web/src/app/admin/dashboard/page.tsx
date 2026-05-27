@@ -9,11 +9,11 @@ import LangSwitcher from '@/components/LangSwitcher';
 import { db } from '@/lib/firebase';
 import {
   collection, getDocs, doc, updateDoc, deleteDoc,
-  query, orderBy, serverTimestamp, getDoc, setDoc
+  query, orderBy, serverTimestamp, getDoc
 } from 'firebase/firestore';
-import { updateEvent, getVenues, createVenue, updateVenue, deleteVenue, seedKnownVenues, getUserPhoto, resetOrganizerData, resetVendorData, resetFanData, writeAuditLog, type EventData, type VenueData } from '@/lib/db';
+import { updateEvent, getVenues, createVenue, updateVenue, deleteVenue, seedKnownVenues, getUserPhoto, type EventData, type VenueData } from '@/lib/db';
 
-type Tab = 'overview' | 'events' | 'organizers' | 'users' | 'refunds' | 'finance' | 'venues' | 'settings' | 'pending' | 'audit';
+type Tab = 'overview' | 'events' | 'organizers' | 'users' | 'refunds' | 'finance' | 'venues' | 'settings';
 
 interface OrganizerData {
   id: string;
@@ -24,7 +24,6 @@ interface OrganizerData {
   role: string;
   createdAt: any;
   suspended?: boolean;
-  organizerStatus?: 'pending' | 'approved' | 'rejected';
   totalEvents?: number;
   totalRevenue?: number;
 }
@@ -42,8 +41,8 @@ interface UserData {
   country?: string;
 }
 
-const NAV_IDS = ['overview','events','organizers','users','refunds','pending','finance','venues','audit','settings'] as const;
-const NAV_ICONS: Record<string, string> = { overview:'📊', events:'📅', organizers:'🎪', users:'👥', refunds:'💸', pending:'⏳', finance:'💰', venues:'🏟️', audit:'📋', settings:'⚙️' };
+const NAV_IDS = ['overview','events','organizers','users','refunds','finance','venues','settings'] as const;
+const NAV_ICONS: Record<string, string> = { overview:'📊', events:'📅', organizers:'🎪', users:'👥', refunds:'💸', finance:'💰', venues:'🏟️', settings:'⚙️' };
 
 export default function AdminDashboardPage() {
   const { t } = useT();
@@ -80,14 +79,7 @@ export default function AdminDashboardPage() {
   const [eventSearch, setEventSearch] = useState('');
   const [orgSearch, setOrgSearch] = useState('');
   const [userSearch, setUserSearch] = useState('');
-  const [deletingUser,  setDeletingUser]  = useState<string | null>(null);
-  const [resettingUser, setResettingUser] = useState<string | null>(null);
-  const [roleModal, setRoleModal] = useState<{ uid: string; email: string; currentRole: string } | null>(null);
-  const [newRole, setNewRole] = useState('');
-  const [changingRole, setChangingRole] = useState(false);
-  const [payoutRequests, setPayoutRequests] = useState<any[]>([]);
-  const [pendingTickets, setPendingTickets] = useState<any[]>([]);
-  const [auditLog, setAuditLog] = useState<any[]>([]);
+  const [deletingUser, setDeletingUser] = useState<string | null>(null);
 
   useEffect(() => {
     if (authLoading) return;
@@ -134,19 +126,13 @@ export default function AdminDashboardPage() {
         totalRevenue: orgMap[o.id]?.revenue || 0,
       })));
 
-      // Load all tickets for finance (top-level collection)
-      const [ticketSnap, payoutSnap, auditSnap] = await Promise.all([
-        getDocs(collection(db, 'tickets')),
-        getDocs(query(collection(db, 'payoutRequests'), orderBy('createdAt', 'desc'))),
-        getDocs(query(collection(db, 'auditLog'), orderBy('createdAt', 'desc'))),
-      ]);
-      const allTix = ticketSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-      setAllTickets(allTix);
-      setPendingTickets(allTix.filter((t: any) =>
-        t.paymentStatus === 'pending_verification' || t.paymentStatus === 'pending_cash'
-      ));
-      setPayoutRequests(payoutSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-      setAuditLog(auditSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+      // Load all tickets for finance
+      const tickets: any[] = [];
+      await Promise.all(evList.map(async e => {
+        const snap = await getDocs(collection(db, 'events', e.id!, 'tickets'));
+        snap.docs.forEach(d => tickets.push({ id: d.id, ...d.data() }));
+      }));
+      setAllTickets(tickets);
 
       // Load platform settings
       try {
@@ -164,15 +150,9 @@ export default function AdminDashboardPage() {
   }
 
   async function toggleSuspendUser(uid: string, suspended: boolean) {
-    const newState = !suspended;
-    const target = [...users, ...organizers].find(u => u.id === uid);
-    await updateDoc(doc(db, 'users', uid), { suspended: newState });
-    await writeAuditLog(user!.uid, newState ? 'suspend_user' : 'reactivate_user', uid, { email: target?.email });
-    if (newState && target?.email) {
-      await notify('suspended', target.email, { firstName: target.firstName });
-    }
-    setUsers(prev => prev.map(u => u.id === uid ? { ...u, suspended: newState } : u));
-    setOrganizers(prev => prev.map(o => o.id === uid ? { ...o, suspended: newState } : o));
+    await updateDoc(doc(db, 'users', uid), { suspended: !suspended });
+    setUsers(prev => prev.map(u => u.id === uid ? { ...u, suspended: !suspended } : u));
+    setOrganizers(prev => prev.map(o => o.id === uid ? { ...o, suspended: !suspended } : o));
   }
 
   async function adminDeleteUser(uid: string, role: string, email: string) {
@@ -186,7 +166,6 @@ export default function AdminDashboardPage() {
         body: JSON.stringify({ targetUid: uid, targetRole: role, targetEmail: email, idToken }),
       });
       if (!res.ok) throw new Error((await res.json()).error);
-      await writeAuditLog(user!.uid, 'delete_user', uid, { role, email });
       setUsers(prev => prev.filter(u => u.id !== uid));
       setOrganizers(prev => prev.filter(o => o.id !== uid));
     } catch (e: any) {
@@ -194,71 +173,6 @@ export default function AdminDashboardPage() {
     } finally {
       setDeletingUser(null);
     }
-  }
-
-  async function adminResetUser(uid: string, role: string, email: string) {
-    if (!confirm(`Efase done ${email}? Kont li ap rete men tout done li yo ap disparèt.`)) return;
-    setResettingUser(uid);
-    try {
-      if (role === 'organizer') {
-        await resetOrganizerData(uid);
-      } else if (role === 'reseller') {
-        await resetVendorData(uid);
-      } else {
-        await resetFanData(email);
-      }
-    } catch (e: any) {
-      alert('Erè: ' + e.message);
-    } finally {
-      setResettingUser(null);
-    }
-  }
-
-  async function notify(type: string, to: string, data: Record<string, any>) {
-    try {
-      await fetch('/api/notify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type, to, data }),
-      });
-    } catch { /* email is best-effort */ }
-  }
-
-  async function changeUserRole() {
-    if (!roleModal || !newRole) return;
-    setChangingRole(true);
-    try {
-      await updateDoc(doc(db, 'users', roleModal.uid), { role: newRole });
-      await writeAuditLog(user!.uid, 'change_role', roleModal.uid, { from: roleModal.currentRole, to: newRole, email: roleModal.email });
-      if (newRole === 'organizer') {
-        await setDoc(doc(db, 'organizers', roleModal.uid), { uid: roleModal.uid, approvedAt: serverTimestamp() }, { merge: true });
-      } else if (roleModal.currentRole === 'organizer') {
-        await deleteDoc(doc(db, 'organizers', roleModal.uid)).catch(() => {});
-      }
-      // Update local state
-      setUsers(prev => prev.map(u => u.id === roleModal.uid ? { ...u, role: newRole } : u));
-      setOrganizers(prev => {
-        if (newRole === 'organizer') return prev; // will reappear on next loadAll
-        return prev.filter(o => o.id !== roleModal.uid);
-      });
-      setRoleModal(null);
-      // Reload to get fresh lists
-      await loadAll();
-    } catch (e: any) {
-      alert('Erè: ' + e.message);
-    } finally {
-      setChangingRole(false);
-    }
-  }
-
-  async function setOrganizerStatus(uid: string, status: 'approved' | 'rejected') {
-    const org = organizers.find(o => o.id === uid);
-    await updateDoc(doc(db, 'users', uid), { organizerStatus: status });
-    await writeAuditLog(user!.uid, `organizer_${status}`, uid, { email: org?.email });
-    if (org?.email) {
-      await notify(`organizer_${status}`, org.email, { firstName: org.firstName });
-    }
-    setOrganizers(prev => prev.map(o => o.id === uid ? { ...o, organizerStatus: status } : o));
   }
 
   async function toggleEventStatus(eventId: string, current: string) {
@@ -386,21 +300,6 @@ export default function AdminDashboardPage() {
               {t(`admin_tab_${id}` as any) || id}
               {id === 'refunds' && pendingRefunds > 0 && (
                 <span className="ml-auto bg-red text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">{pendingRefunds}</span>
-              )}
-              {id === 'organizers' && organizers.filter(o => o.organizerStatus === 'pending').length > 0 && (
-                <span className="ml-auto bg-yellow-500 text-black text-[9px] font-bold px-1.5 py-0.5 rounded-full">
-                  {organizers.filter(o => o.organizerStatus === 'pending').length}
-                </span>
-              )}
-              {id === 'pending' && pendingTickets.length > 0 && (
-                <span className="ml-auto bg-yellow-500 text-black text-[9px] font-bold px-1.5 py-0.5 rounded-full">
-                  {pendingTickets.length}
-                </span>
-              )}
-              {id === 'finance' && payoutRequests.filter(p => p.status === 'pending').length > 0 && (
-                <span className="ml-auto bg-orange text-black text-[9px] font-bold px-1.5 py-0.5 rounded-full">
-                  {payoutRequests.filter(p => p.status === 'pending').length}
-                </span>
               )}
             </button>
           ))}
@@ -625,65 +524,19 @@ export default function AdminDashboardPage() {
                       <p className="text-[11px] text-gray-muted">{o.email}</p>
                       <p className="text-[11px] text-gray-light mt-0.5">{o.totalEvents} {t('admin_events_count')} · ${(o.totalRevenue||0).toLocaleString()} {t('admin_total_revenue_lbl')}</p>
                     </div>
-                    <div className="flex flex-col gap-1 items-end flex-shrink-0">
-                      {o.organizerStatus === 'pending' && (
-                        <span className="text-[9px] bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded font-bold border border-yellow-500/30">⏳ EN ATANT</span>
-                      )}
-                      {o.organizerStatus === 'rejected' && (
-                        <span className="text-[9px] bg-red/20 text-red px-2 py-0.5 rounded font-bold">✗ REFIZE</span>
-                      )}
-                      {o.suspended && (
-                        <span className="text-[9px] bg-red/20 text-red px-2 py-0.5 rounded font-bold">{t('admin_suspended').toUpperCase()}</span>
-                      )}
-                    </div>
+                    {o.suspended && <span className="text-[9px] bg-red/20 text-red px-2 py-0.5 rounded font-bold">{t('admin_suspended').toUpperCase()}</span>}
                     <div className="flex gap-2 flex-shrink-0">
-                      {o.organizerStatus === 'pending' && (
-                        <>
-                          <button onClick={() => setOrganizerStatus(o.id, 'approved')}
-                            className="px-3 py-1.5 rounded-lg text-[10px] font-bold bg-green/10 text-green border border-green/30 hover:bg-green/20 transition-all">
-                            ✓ Aprouve
-                          </button>
-                          <button onClick={() => setOrganizerStatus(o.id, 'rejected')}
-                            className="px-3 py-1.5 rounded-lg text-[10px] font-bold bg-red/10 text-red border border-red/30 hover:bg-red/20 transition-all">
-                            ✗ Refize
-                          </button>
-                        </>
-                      )}
-                      {(o.organizerStatus === 'approved' || !o.organizerStatus) && (
-                        <button
-                          onClick={() => toggleSuspendUser(o.id, !!o.suspended)}
-                          className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${o.suspended ? 'bg-green-dim text-green border border-green/30' : 'bg-red/10 text-red border border-red/30'}`}>
-                          {o.suspended ? t('admin_reactivate') : t('admin_suspend')}
-                        </button>
-                      )}
-                      {o.organizerStatus === 'rejected' && (
-                        <button onClick={() => setOrganizerStatus(o.id, 'approved')}
-                          className="px-3 py-1.5 rounded-lg text-[10px] font-bold bg-green/10 text-green border border-green/30 hover:bg-green/20 transition-all">
-                          ✓ Aprouve
-                        </button>
-                      )}
                       <button
-                        onClick={() => { setRoleModal({ uid: o.id, email: o.email, currentRole: 'organizer' }); setNewRole('organizer'); }}
-                        title="Chanje wòl"
-                        className="px-3 py-1.5 rounded-lg text-[10px] font-bold bg-cyan/10 text-cyan border border-cyan/30 hover:bg-cyan/20 transition-all">
-                        ⇄
+                        onClick={() => toggleSuspendUser(o.id, !!o.suspended)}
+                        className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${o.suspended ? 'bg-green-dim text-green border border-green/30' : 'bg-red/10 text-red border border-red/30'}`}>
+                        {o.suspended ? t('admin_reactivate') : t('admin_suspend')}
                       </button>
                       <button
-                        onClick={() => adminResetUser(o.id, 'organizer', o.email)}
-                        disabled={resettingUser === o.id}
-                        title="Efase done yo (kont rete)"
-                        className="px-3 py-1.5 rounded-lg text-[10px] font-bold bg-yellow-500/10 text-yellow-400 border border-yellow-500/30 hover:bg-yellow-500/20 transition-all disabled:opacity-40">
-                        {resettingUser === o.id ? '…' : '↺'}
+                        onClick={() => adminDeleteUser(o.id, 'organizer', o.email)}
+                        disabled={deletingUser === o.id}
+                        className="px-3 py-1.5 rounded-lg text-[10px] font-bold bg-red/20 text-red border border-red/40 hover:bg-red hover:text-white transition-all disabled:opacity-40">
+                        {deletingUser === o.id ? '…' : '🗑'}
                       </button>
-                      {user?.email === 'anbyanssa@gmail.com' && (
-                        <button
-                          onClick={() => adminDeleteUser(o.id, 'organizer', o.email)}
-                          disabled={deletingUser === o.id}
-                          title="Efase kont pou toutan"
-                          className="px-3 py-1.5 rounded-lg text-[10px] font-bold bg-red/20 text-red border border-red/40 hover:bg-red hover:text-white transition-all disabled:opacity-40">
-                          {deletingUser === o.id ? '…' : '🗑'}
-                        </button>
-                      )}
                     </div>
                   </div>
                 ))}
@@ -719,27 +572,11 @@ export default function AdminDashboardPage() {
                         {u.suspended ? t('admin_reactivate') : t('admin_suspend')}
                       </button>
                       <button
-                        onClick={() => { setRoleModal({ uid: u.id, email: u.email, currentRole: u.role }); setNewRole(u.role); }}
-                        title="Chanje wòl"
-                        className="px-3 py-1.5 rounded-lg text-[10px] font-bold bg-cyan/10 text-cyan border border-cyan/30 hover:bg-cyan/20 transition-all">
-                        ⇄
+                        onClick={() => adminDeleteUser(u.id, u.role, u.email)}
+                        disabled={deletingUser === u.id}
+                        className="px-3 py-1.5 rounded-lg text-[10px] font-bold bg-red/20 text-red border border-red/40 hover:bg-red hover:text-white transition-all disabled:opacity-40">
+                        {deletingUser === u.id ? '…' : '🗑'}
                       </button>
-                      <button
-                        onClick={() => adminResetUser(u.id, u.role, u.email)}
-                        disabled={resettingUser === u.id}
-                        title="Efase done yo (kont rete)"
-                        className="px-3 py-1.5 rounded-lg text-[10px] font-bold bg-yellow-500/10 text-yellow-400 border border-yellow-500/30 hover:bg-yellow-500/20 transition-all disabled:opacity-40">
-                        {resettingUser === u.id ? '…' : '↺'}
-                      </button>
-                      {user?.email === 'anbyanssa@gmail.com' && (
-                        <button
-                          onClick={() => adminDeleteUser(u.id, u.role, u.email)}
-                          disabled={deletingUser === u.id}
-                          title="Efase kont pou toutan"
-                          className="px-3 py-1.5 rounded-lg text-[10px] font-bold bg-red/20 text-red border border-red/40 hover:bg-red hover:text-white transition-all disabled:opacity-40">
-                          {deletingUser === u.id ? '…' : '🗑'}
-                        </button>
-                      )}
                     </div>
                   </div>
                 ))}
@@ -840,156 +677,9 @@ export default function AdminDashboardPage() {
                   </div>
                 ))}
               </div>
-
-              {/* Payout Requests */}
-              <div className="bg-dark-card border border-border rounded-card p-5 mt-4">
-                <p className="text-[10px] uppercase tracking-widest text-orange font-bold mb-4">
-                  💸 DEMANN PEMAN ({payoutRequests.filter(p => p.status === 'pending').length} an atant)
-                </p>
-                {payoutRequests.length === 0 && (
-                  <p className="text-gray-muted text-xs text-center py-4">Okenn demann peman ankò</p>
-                )}
-                {payoutRequests.map(p => (
-                  <div key={p.id} className={`flex items-start gap-3 py-3 border-b border-border last:border-0 ${p.status !== 'pending' ? 'opacity-50' : ''}`}>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-bold">{p.organizerName}</p>
-                      <p className="text-[11px] text-gray-muted">{p.organizerEmail}</p>
-                      <p className="text-[11px] text-gray-light mt-0.5">{p.payoutMethod} · {p.payoutAccount}</p>
-                      {p.note && <p className="text-[10px] text-gray-muted italic mt-0.5">"{p.note}"</p>}
-                    </div>
-                    <div className="text-right flex-shrink-0">
-                      <p className="text-sm font-black text-orange">${(p.amount || 0).toLocaleString()}</p>
-                      {p.status === 'pending' ? (
-                        <div className="flex gap-1 mt-1">
-                          <button
-                            onClick={async () => {
-                              await updateDoc(doc(db, 'payoutRequests', p.id), { status: 'paid', paidAt: serverTimestamp() });
-                              await writeAuditLog(user!.uid, 'payout_paid', p.organizerId, { amount: p.amount, method: p.payoutMethod });
-                              await notify('payout_paid', p.organizerEmail, { firstName: p.organizerName?.split(' ')[0], amount: p.amount, method: p.payoutMethod });
-                              setPayoutRequests(prev => prev.map(r => r.id === p.id ? { ...r, status: 'paid' } : r));
-                            }}
-                            className="px-2 py-1 rounded text-[9px] font-bold bg-green/10 text-green border border-green/30 hover:bg-green/20 transition-all">
-                            ✓ Peye
-                          </button>
-                          <button
-                            onClick={async () => {
-                              await updateDoc(doc(db, 'payoutRequests', p.id), { status: 'rejected', rejectedAt: serverTimestamp() });
-                              await writeAuditLog(user!.uid, 'payout_rejected', p.organizerId, { amount: p.amount });
-                              await notify('payout_rejected', p.organizerEmail, { firstName: p.organizerName?.split(' ')[0], amount: p.amount });
-                              setPayoutRequests(prev => prev.map(r => r.id === p.id ? { ...r, status: 'rejected' } : r));
-                            }}
-                            className="px-2 py-1 rounded text-[9px] font-bold bg-red/10 text-red border border-red/30 hover:bg-red/20 transition-all">
-                            ✗
-                          </button>
-                        </div>
-                      ) : (
-                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${p.status === 'paid' ? 'bg-green/20 text-green' : 'bg-red/20 text-red'}`}>
-                          {p.status === 'paid' ? '✓ Peye' : '✗ Refize'}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
             </div>
           )}
 
-
-          {/* ═══ PENDING TICKETS ═══ */}
-          {tab === 'pending' && (
-            <div>
-              <p className="text-[10px] text-gray-muted uppercase tracking-widest mb-4">
-                Tikè ki ap tann verifikasyon peman (MonCash / Kach)
-              </p>
-              {pendingTickets.length === 0 && (
-                <p className="text-gray-muted text-center py-16">✅ Okenn tikè an atant</p>
-              )}
-              <div className="space-y-2">
-                {pendingTickets.map(t => (
-                  <div key={t.id} className="bg-dark-card border border-border rounded-xl p-4 flex items-center gap-4">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold">{t.buyerName}</p>
-                      <p className="text-[11px] text-gray-muted">{t.buyerEmail} {t.buyerPhone ? '· ' + t.buyerPhone : ''}</p>
-                      <p className="text-[11px] text-gray-light mt-0.5">
-                        {t.sectionName || t.section} ·{' '}
-                        {t.paymentMethod === 'moncash' ? '📱 MonCash' : t.paymentMethod === 'natcash' ? '💚 Natcash' : '💵 Kach'}{' '}
-                        {t.txnId ? `· #${t.txnId}` : ''}
-                      </p>
-                      <p className="text-[10px] text-gray-muted mt-0.5 font-mono">{t.ticketCode}</p>
-                    </div>
-                    <div className="text-right flex-shrink-0">
-                      <p className="text-sm font-bold text-orange mb-2">${t.price}</p>
-                      <div className="flex gap-1">
-                        <button
-                          onClick={async () => {
-                            await updateDoc(doc(db, 'tickets', t.id), { paymentStatus: 'paid', status: 'valid' });
-                            await writeAuditLog(user!.uid, 'verify_ticket', t.id, { buyerEmail: t.buyerEmail, amount: t.price });
-                            setPendingTickets(prev => prev.filter(x => x.id !== t.id));
-                          }}
-                          className="px-3 py-1.5 rounded-lg text-[10px] font-bold bg-green/10 text-green border border-green/30 hover:bg-green/20 transition-all">
-                          ✓ Verifye
-                        </button>
-                        <button
-                          onClick={async () => {
-                            await updateDoc(doc(db, 'tickets', t.id), { paymentStatus: 'rejected', status: 'cancelled' });
-                            await writeAuditLog(user!.uid, 'reject_ticket', t.id, { buyerEmail: t.buyerEmail, amount: t.price });
-                            setPendingTickets(prev => prev.filter(x => x.id !== t.id));
-                          }}
-                          className="px-3 py-1.5 rounded-lg text-[10px] font-bold bg-red/10 text-red border border-red/30 hover:bg-red/20 transition-all">
-                          ✗
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* ═══ AUDIT LOG ═══ */}
-          {tab === 'audit' && (
-            <div>
-              <p className="text-[10px] text-gray-muted uppercase tracking-widest mb-4">
-                Istwa aksyon admin yo
-              </p>
-              {auditLog.length === 0 && (
-                <p className="text-gray-muted text-center py-16">Okenn aksyon ankò</p>
-              )}
-              <div className="space-y-1">
-                {auditLog.map(a => {
-                  const actionLabels: Record<string, string> = {
-                    suspend_user: '🔒 Suspann',
-                    reactivate_user: '✅ Reaktive',
-                    delete_user: '🗑 Efase kont',
-                    change_role: '⇄ Chanje wòl',
-                    organizer_approved: '✓ Aprouve òganizatè',
-                    organizer_rejected: '✗ Refize òganizatè',
-                    verify_ticket: '🎫 Verifye tikè',
-                    reject_ticket: '❌ Refize tikè',
-                  };
-                  const adminName = [...organizers, ...users].find(u => u.id === a.adminUid);
-                  const ts = a.createdAt?.toDate ? a.createdAt.toDate() : new Date();
-                  return (
-                    <div key={a.id} className="flex items-start gap-3 py-2.5 border-b border-border last:border-0">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-bold">{actionLabels[a.action] || a.action}</p>
-                        <p className="text-[11px] text-gray-muted">
-                          {a.details?.email || a.details?.buyerEmail || a.targetUid}
-                          {a.details?.from && ` — ${a.details.from} → ${a.details.to}`}
-                        </p>
-                        <p className="text-[10px] text-gray-muted mt-0.5">
-                          par {adminName ? `${adminName.firstName} ${adminName.lastName}` : a.adminUid}
-                        </p>
-                      </div>
-                      <p className="text-[10px] text-gray-muted flex-shrink-0">
-                        {ts.toLocaleDateString()} {ts.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </p>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
 
           {/* ═══ VENUES ═══ */}
           {tab === 'venues' && (
@@ -1230,37 +920,6 @@ export default function AdminDashboardPage() {
 
         </div>
       </div>
-
-      {/* ── Role change modal ── */}
-      {roleModal && (
-        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
-          <div className="bg-dark-card border border-border rounded-2xl w-full max-w-sm p-6">
-            <h3 className="font-heading text-base mb-1">Chanje Wòl</h3>
-            <p className="text-xs text-gray-muted mb-4">{roleModal.email}</p>
-            <label className="block text-[11px] font-semibold text-gray-muted uppercase tracking-wider mb-2">Nouvo Wòl</label>
-            <div className="grid grid-cols-2 gap-2 mb-5">
-              {(['fan', 'reseller', 'organizer', 'admin'] as const).map(r => (
-                <button key={r} onClick={() => setNewRole(r)}
-                  className={`py-2.5 rounded-xl text-xs font-bold border transition-all capitalize ${newRole === r ? 'bg-orange text-black border-orange' : 'bg-white/[0.04] border-border text-gray-light hover:text-white'}`}>
-                  {r === 'fan' ? '🎫 Fan' : r === 'reseller' ? '🏪 Reseller' : r === 'organizer' ? '🎪 Organizer' : '🔐 Admin'}
-                </button>
-              ))}
-            </div>
-            {newRole === 'admin' && (
-              <p className="text-[11px] text-red mb-4 bg-red/10 border border-red/20 rounded-lg p-3">
-                ⚠️ Aksyon sa bay aksè konplè admin. Fè sa sèlman pou moun ou fè konfyans.
-              </p>
-            )}
-            <div className="flex gap-2">
-              <button onClick={() => setRoleModal(null)} className="flex-1 py-2.5 rounded-xl bg-white/[0.05] border border-border text-gray-light text-sm font-bold">Anile</button>
-              <button onClick={changeUserRole} disabled={changingRole || newRole === roleModal.currentRole}
-                className="flex-1 py-2.5 rounded-xl bg-orange text-black text-sm font-bold disabled:opacity-40">
-                {changingRole ? '…' : 'Chanje'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ── Deny refund modal ── */}
       {denyModal && (

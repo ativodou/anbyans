@@ -4,7 +4,6 @@ import { Resend } from 'resend';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM = 'Anbyans <noreply@anbyans.com>';
 
 export async function POST(req: NextRequest) {
@@ -15,6 +14,8 @@ export async function POST(req: NextRequest) {
       console.warn('RESEND_API_KEY not set — email skipped');
       return NextResponse.json({ skipped: true });
     }
+
+    const resend = new Resend(process.env.RESEND_API_KEY);
 
     let subject = '';
     let html = '';
