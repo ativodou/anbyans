@@ -2,6 +2,8 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { getUserProfile, onAuthChange, signIn, signUp, signOut as authSignOut, UserRole } from '@/lib/auth';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 type AnbyansUser = Awaited<ReturnType<typeof getUserProfile>>;
 
@@ -114,6 +116,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await authSignOut();
     setUser(null);
   };
+
+  // Real-time suspension enforcement — kicks user immediately when admin suspends them
+  useEffect(() => {
+    if (!user?.uid) return;
+    const unsub = onSnapshot(doc(db, 'users', user.uid), (snap) => {
+      if (snap.exists() && snap.data()?.suspended === true) {
+        authSignOut();
+        setUser(null);
+        setError('Kont ou a suspann. Kontakte nou pou plis enfòmasyon.');
+      }
+    });
+    return unsub;
+  }, [user?.uid]);
 
   const clearError = () => setError(null);
 

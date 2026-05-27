@@ -2116,6 +2116,21 @@ export async function loadVendorDraft(uid: string): Promise<Record<string, any> 
 
 // ─── Account Deletion ────────────────────────────────────────────
 
+export async function writeAuditLog(
+  adminUid: string,
+  action: string,
+  targetUid: string,
+  details: Record<string, any> = {}
+): Promise<void> {
+  await addDoc(collection(db, 'auditLog'), {
+    adminUid,
+    action,
+    targetUid,
+    details,
+    createdAt: serverTimestamp(),
+  });
+}
+
 export async function requestPayout(data: {
   organizerId: string;
   organizerName: string;

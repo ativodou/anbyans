@@ -11,9 +11,9 @@ import {
   collection, getDocs, doc, updateDoc, deleteDoc,
   query, orderBy, serverTimestamp, getDoc, setDoc
 } from 'firebase/firestore';
-import { updateEvent, getVenues, createVenue, updateVenue, deleteVenue, seedKnownVenues, getUserPhoto, resetOrganizerData, resetVendorData, resetFanData, type EventData, type VenueData } from '@/lib/db';
+import { updateEvent, getVenues, createVenue, updateVenue, deleteVenue, seedKnownVenues, getUserPhoto, resetOrganizerData, resetVendorData, resetFanData, writeAuditLog, type EventData, type VenueData } from '@/lib/db';
 
-type Tab = 'overview' | 'events' | 'organizers' | 'users' | 'refunds' | 'finance' | 'venues' | 'settings';
+type Tab = 'overview' | 'events' | 'organizers' | 'users' | 'refunds' | 'finance' | 'venues' | 'settings' | 'pending' | 'audit';
 
 interface OrganizerData {
   id: string;
@@ -42,8 +42,8 @@ interface UserData {
   country?: string;
 }
 
-const NAV_IDS = ['overview','events','organizers','users','refunds','finance','venues','settings'] as const;
-const NAV_ICONS: Record<string, string> = { overview:'📊', events:'📅', organizers:'🎪', users:'👥', refunds:'💸', finance:'💰', venues:'🏟️', settings:'⚙️' };
+const NAV_IDS = ['overview','events','organizers','users','refunds','pending','finance','venues','audit','settings'] as const;
+const NAV_ICONS: Record<string, string> = { overview:'📊', events:'📅', organizers:'🎪', users:'👥', refunds:'💸', pending:'⏳', finance:'💰', venues:'🏟️', audit:'📋', settings:'⚙️' };
 
 export default function AdminDashboardPage() {
   const { t } = useT();
@@ -86,6 +86,8 @@ export default function AdminDashboardPage() {
   const [newRole, setNewRole] = useState('');
   const [changingRole, setChangingRole] = useState(false);
   const [payoutRequests, setPayoutRequests] = useState<any[]>([]);
+  const [pendingTickets, setPendingTickets] = useState<any[]>([]);
+  const [auditLog, setAuditLog] = useState<any[]>([]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -133,12 +135,18 @@ export default function AdminDashboardPage() {
       })));
 
       // Load all tickets for finance (top-level collection)
-      const [ticketSnap, payoutSnap] = await Promise.all([
+      const [ticketSnap, payoutSnap, auditSnap] = await Promise.all([
         getDocs(collection(db, 'tickets')),
         getDocs(query(collection(db, 'payoutRequests'), orderBy('createdAt', 'desc'))),
+        getDocs(query(collection(db, 'auditLog'), orderBy('createdAt', 'desc'))),
       ]);
-      setAllTickets(ticketSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+      const allTix = ticketSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      setAllTickets(allTix);
+      setPendingTickets(allTix.filter((t: any) =>
+        t.paymentStatus === 'pending_verification' || t.paymentStatus === 'pending_cash'
+      ));
       setPayoutRequests(payoutSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+      setAuditLog(auditSnap.docs.map(d => ({ id: d.id, ...d.data() })));
 
       // Load platform settings
       try {
@@ -156,9 +164,15 @@ export default function AdminDashboardPage() {
   }
 
   async function toggleSuspendUser(uid: string, suspended: boolean) {
-    await updateDoc(doc(db, 'users', uid), { suspended: !suspended });
-    setUsers(prev => prev.map(u => u.id === uid ? { ...u, suspended: !suspended } : u));
-    setOrganizers(prev => prev.map(o => o.id === uid ? { ...o, suspended: !suspended } : o));
+    const newState = !suspended;
+    const target = [...users, ...organizers].find(u => u.id === uid);
+    await updateDoc(doc(db, 'users', uid), { suspended: newState });
+    await writeAuditLog(user!.uid, newState ? 'suspend_user' : 'reactivate_user', uid, { email: target?.email });
+    if (newState && target?.email) {
+      await notify('suspended', target.email, { firstName: target.firstName });
+    }
+    setUsers(prev => prev.map(u => u.id === uid ? { ...u, suspended: newState } : u));
+    setOrganizers(prev => prev.map(o => o.id === uid ? { ...o, suspended: newState } : o));
   }
 
   async function adminDeleteUser(uid: string, role: string, email: string) {
@@ -172,6 +186,7 @@ export default function AdminDashboardPage() {
         body: JSON.stringify({ targetUid: uid, targetRole: role, targetEmail: email, idToken }),
       });
       if (!res.ok) throw new Error((await res.json()).error);
+      await writeAuditLog(user!.uid, 'delete_user', uid, { role, email });
       setUsers(prev => prev.filter(u => u.id !== uid));
       setOrganizers(prev => prev.filter(o => o.id !== uid));
     } catch (e: any) {
@@ -199,12 +214,22 @@ export default function AdminDashboardPage() {
     }
   }
 
+  async function notify(type: string, to: string, data: Record<string, any>) {
+    try {
+      await fetch('/api/notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type, to, data }),
+      });
+    } catch { /* email is best-effort */ }
+  }
+
   async function changeUserRole() {
     if (!roleModal || !newRole) return;
     setChangingRole(true);
     try {
       await updateDoc(doc(db, 'users', roleModal.uid), { role: newRole });
-      // If promoting to organizer, create organizers doc; if demoting, remove it
+      await writeAuditLog(user!.uid, 'change_role', roleModal.uid, { from: roleModal.currentRole, to: newRole, email: roleModal.email });
       if (newRole === 'organizer') {
         await setDoc(doc(db, 'organizers', roleModal.uid), { uid: roleModal.uid, approvedAt: serverTimestamp() }, { merge: true });
       } else if (roleModal.currentRole === 'organizer') {
@@ -227,7 +252,12 @@ export default function AdminDashboardPage() {
   }
 
   async function setOrganizerStatus(uid: string, status: 'approved' | 'rejected') {
+    const org = organizers.find(o => o.id === uid);
     await updateDoc(doc(db, 'users', uid), { organizerStatus: status });
+    await writeAuditLog(user!.uid, `organizer_${status}`, uid, { email: org?.email });
+    if (org?.email) {
+      await notify(`organizer_${status}`, org.email, { firstName: org.firstName });
+    }
     setOrganizers(prev => prev.map(o => o.id === uid ? { ...o, organizerStatus: status } : o));
   }
 
@@ -360,6 +390,11 @@ export default function AdminDashboardPage() {
               {id === 'organizers' && organizers.filter(o => o.organizerStatus === 'pending').length > 0 && (
                 <span className="ml-auto bg-yellow-500 text-black text-[9px] font-bold px-1.5 py-0.5 rounded-full">
                   {organizers.filter(o => o.organizerStatus === 'pending').length}
+                </span>
+              )}
+              {id === 'pending' && pendingTickets.length > 0 && (
+                <span className="ml-auto bg-yellow-500 text-black text-[9px] font-bold px-1.5 py-0.5 rounded-full">
+                  {pendingTickets.length}
                 </span>
               )}
               {id === 'finance' && payoutRequests.filter(p => p.status === 'pending').length > 0 && (
@@ -829,6 +864,8 @@ export default function AdminDashboardPage() {
                           <button
                             onClick={async () => {
                               await updateDoc(doc(db, 'payoutRequests', p.id), { status: 'paid', paidAt: serverTimestamp() });
+                              await writeAuditLog(user!.uid, 'payout_paid', p.organizerId, { amount: p.amount, method: p.payoutMethod });
+                              await notify('payout_paid', p.organizerEmail, { firstName: p.organizerName?.split(' ')[0], amount: p.amount, method: p.payoutMethod });
                               setPayoutRequests(prev => prev.map(r => r.id === p.id ? { ...r, status: 'paid' } : r));
                             }}
                             className="px-2 py-1 rounded text-[9px] font-bold bg-green/10 text-green border border-green/30 hover:bg-green/20 transition-all">
@@ -837,6 +874,8 @@ export default function AdminDashboardPage() {
                           <button
                             onClick={async () => {
                               await updateDoc(doc(db, 'payoutRequests', p.id), { status: 'rejected', rejectedAt: serverTimestamp() });
+                              await writeAuditLog(user!.uid, 'payout_rejected', p.organizerId, { amount: p.amount });
+                              await notify('payout_rejected', p.organizerEmail, { firstName: p.organizerName?.split(' ')[0], amount: p.amount });
                               setPayoutRequests(prev => prev.map(r => r.id === p.id ? { ...r, status: 'rejected' } : r));
                             }}
                             className="px-2 py-1 rounded text-[9px] font-bold bg-red/10 text-red border border-red/30 hover:bg-red/20 transition-all">
@@ -855,6 +894,102 @@ export default function AdminDashboardPage() {
             </div>
           )}
 
+
+          {/* ═══ PENDING TICKETS ═══ */}
+          {tab === 'pending' && (
+            <div>
+              <p className="text-[10px] text-gray-muted uppercase tracking-widest mb-4">
+                Tikè ki ap tann verifikasyon peman (MonCash / Kach)
+              </p>
+              {pendingTickets.length === 0 && (
+                <p className="text-gray-muted text-center py-16">✅ Okenn tikè an atant</p>
+              )}
+              <div className="space-y-2">
+                {pendingTickets.map(t => (
+                  <div key={t.id} className="bg-dark-card border border-border rounded-xl p-4 flex items-center gap-4">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold">{t.buyerName}</p>
+                      <p className="text-[11px] text-gray-muted">{t.buyerEmail} {t.buyerPhone ? '· ' + t.buyerPhone : ''}</p>
+                      <p className="text-[11px] text-gray-light mt-0.5">
+                        {t.sectionName || t.section} ·{' '}
+                        {t.paymentMethod === 'moncash' ? '📱 MonCash' : t.paymentMethod === 'natcash' ? '💚 Natcash' : '💵 Kach'}{' '}
+                        {t.txnId ? `· #${t.txnId}` : ''}
+                      </p>
+                      <p className="text-[10px] text-gray-muted mt-0.5 font-mono">{t.ticketCode}</p>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <p className="text-sm font-bold text-orange mb-2">${t.price}</p>
+                      <div className="flex gap-1">
+                        <button
+                          onClick={async () => {
+                            await updateDoc(doc(db, 'tickets', t.id), { paymentStatus: 'paid', status: 'valid' });
+                            await writeAuditLog(user!.uid, 'verify_ticket', t.id, { buyerEmail: t.buyerEmail, amount: t.price });
+                            setPendingTickets(prev => prev.filter(x => x.id !== t.id));
+                          }}
+                          className="px-3 py-1.5 rounded-lg text-[10px] font-bold bg-green/10 text-green border border-green/30 hover:bg-green/20 transition-all">
+                          ✓ Verifye
+                        </button>
+                        <button
+                          onClick={async () => {
+                            await updateDoc(doc(db, 'tickets', t.id), { paymentStatus: 'rejected', status: 'cancelled' });
+                            await writeAuditLog(user!.uid, 'reject_ticket', t.id, { buyerEmail: t.buyerEmail, amount: t.price });
+                            setPendingTickets(prev => prev.filter(x => x.id !== t.id));
+                          }}
+                          className="px-3 py-1.5 rounded-lg text-[10px] font-bold bg-red/10 text-red border border-red/30 hover:bg-red/20 transition-all">
+                          ✗
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ═══ AUDIT LOG ═══ */}
+          {tab === 'audit' && (
+            <div>
+              <p className="text-[10px] text-gray-muted uppercase tracking-widest mb-4">
+                Istwa aksyon admin yo
+              </p>
+              {auditLog.length === 0 && (
+                <p className="text-gray-muted text-center py-16">Okenn aksyon ankò</p>
+              )}
+              <div className="space-y-1">
+                {auditLog.map(a => {
+                  const actionLabels: Record<string, string> = {
+                    suspend_user: '🔒 Suspann',
+                    reactivate_user: '✅ Reaktive',
+                    delete_user: '🗑 Efase kont',
+                    change_role: '⇄ Chanje wòl',
+                    organizer_approved: '✓ Aprouve òganizatè',
+                    organizer_rejected: '✗ Refize òganizatè',
+                    verify_ticket: '🎫 Verifye tikè',
+                    reject_ticket: '❌ Refize tikè',
+                  };
+                  const adminName = [...organizers, ...users].find(u => u.id === a.adminUid);
+                  const ts = a.createdAt?.toDate ? a.createdAt.toDate() : new Date();
+                  return (
+                    <div key={a.id} className="flex items-start gap-3 py-2.5 border-b border-border last:border-0">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold">{actionLabels[a.action] || a.action}</p>
+                        <p className="text-[11px] text-gray-muted">
+                          {a.details?.email || a.details?.buyerEmail || a.targetUid}
+                          {a.details?.from && ` — ${a.details.from} → ${a.details.to}`}
+                        </p>
+                        <p className="text-[10px] text-gray-muted mt-0.5">
+                          par {adminName ? `${adminName.firstName} ${adminName.lastName}` : a.adminUid}
+                        </p>
+                      </div>
+                      <p className="text-[10px] text-gray-muted flex-shrink-0">
+                        {ts.toLocaleDateString()} {ts.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* ═══ VENUES ═══ */}
           {tab === 'venues' && (
