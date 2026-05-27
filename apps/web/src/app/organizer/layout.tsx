@@ -186,6 +186,9 @@ function OrganizerLayoutInner({ children }: { children: React.ReactNode }) {
     return t('org_nav_dashboard');
   })();
 
+  // Auth page is inside this layout but must never be gated
+  if (pathname === '/organizer/auth') return <>{children}</>;
+
   // Show spinner while auth is resolving or user profile is loading
   if (loading || !user) return (
     <div className="min-h-screen bg-dark flex items-center justify-center">
