@@ -52,7 +52,6 @@ export default function OrganizerVendorsPage() {
   const [showInvite, setShowInvite]       = useState(false);
   const [showPricing, setShowPricing]     = useState(false);
   const [filterStatus, setFilterStatus]   = useState<string>('all');
-  const [filterEvent, setFilterEvent]     = useState<string>('all');
 
   // Sync pricing panel to selected event from context (but don't force the list filter)
   useEffect(() => {
@@ -103,11 +102,6 @@ export default function OrganizerVendorsPage() {
 
   const filtered = resellers.filter(v => {
     if (filterStatus !== 'all' && v.status !== filterStatus) return false;
-    if (filterEvent !== 'all') {
-      const hasPurchase = v.purchases.some(p => p.eventId === filterEvent);
-      const hasApprovedReq = vendorRequests.some(r => r.vendorId === v.id && r.eventId === filterEvent);
-      if (!hasPurchase && !hasApprovedReq) return false;
-    }
     return true;
   });
 
@@ -405,11 +399,6 @@ Konekte sou dachbod ou pou achte tikè bulk:
               <option value="active" className="bg-dark-card">✅ {t('active')}</option>
               <option value="pending" className="bg-dark-card">⏳ {t('pending')}</option>
               <option value="inactive" className="bg-dark-card">⛔ {t('inactive')}</option>
-            </select>
-            <select value={filterEvent} onChange={e => setFilterEvent(e.target.value)}
-              className="px-3 py-1.5 rounded-full border border-border bg-transparent text-gray-light text-[11px] font-semibold outline-none cursor-pointer">
-              <option value="all" className="bg-dark-card">{t('all')} {t('events')}</option>
-              {events.map(ev => <option key={ev.id} value={ev.id} className="bg-dark-card">{ev.name}</option>)}
             </select>
             <span className="text-[11px] text-gray-muted ml-auto">{filtered.length} {t('org_nav_resellers').toLowerCase()}</span>
           </div>
