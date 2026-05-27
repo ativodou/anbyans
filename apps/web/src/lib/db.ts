@@ -886,10 +886,18 @@ export async function inviteVendor(data: {
   phone: string;
   city: string;
   payMethod: string;
+  eventId?: string;
+  eventName?: string;
+  eventEmoji?: string;
 }): Promise<VendorData> {
   const token = Math.random().toString(36).slice(2, 10).toUpperCase();
   const vendorDoc: Omit<VendorData, 'id'> = {
-    ...data,
+    organizerId: data.organizerId,
+    name: data.name,
+    contact: data.contact,
+    phone: data.phone,
+    city: data.city,
+    payMethod: data.payMethod,
     payAccount: data.phone,
     status: 'pending',
     joinedDate: '—',
@@ -898,6 +906,21 @@ export async function inviteVendor(data: {
     updatedAt: serverTimestamp(),
   };
   const ref = await addDoc(collection(db, 'vendors'), vendorDoc);
+  if (data.eventId && data.eventName) {
+    await addDoc(collection(db, 'vendorRequests'), {
+      vendorId: ref.id,
+      vendorName: data.name,
+      vendorPhone: data.phone,
+      vendorCity: data.city,
+      eventId: data.eventId,
+      eventName: data.eventName,
+      eventEmoji: data.eventEmoji ?? '',
+      organizerId: data.organizerId,
+      status: 'approved',
+      requestedAt: serverTimestamp(),
+      resolvedAt: serverTimestamp(),
+    });
+  }
   return { id: ref.id, ...vendorDoc };
 }
 
@@ -976,16 +999,20 @@ export async function vendorBulkPurchase(params: {
   priceEach: number;
   paymentMethod?: string;
 }): Promise<VendorPurchase> {
-  // Verify vendor has an approved request for this event
-  const reqQ = query(
-    collection(db, 'vendorRequests'),
-    where('vendorId', '==', params.vendorId),
-    where('eventId', '==', params.eventId),
-    where('status', '==', 'approved'),
-    limit(1)
-  );
-  const reqSnap = await getDocs(reqQ);
-  if (reqSnap.empty) throw new Error('Vendor not approved for this event');
+  // Allow directly-invited vendors (organizerId match) OR self-registered with approved request
+  const vendorSnap = await getDoc(doc(db, 'vendors', params.vendorId));
+  const isDirectInvite = vendorSnap.exists() && vendorSnap.data().organizerId === params.organizerId;
+  if (!isDirectInvite) {
+    const reqQ = query(
+      collection(db, 'vendorRequests'),
+      where('vendorId', '==', params.vendorId),
+      where('eventId', '==', params.eventId),
+      where('status', '==', 'approved'),
+      limit(1)
+    );
+    const reqSnap = await getDocs(reqQ);
+    if (reqSnap.empty) throw new Error('Vendor not approved for this event');
+  }
 
   const totalPaid = params.qty * params.priceEach;
   const now = new Date();
