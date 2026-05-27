@@ -50,6 +50,7 @@ export default function OrganizerVendorsPage() {
   const [mainTab, setMainTab]             = useState<'my' | 'available' | 'requests'>('my');
   const [vendorRequests, setVendorRequests] = useState<VendorRequest[]>([]);
   const [resolvingReq, setResolvingReq]     = useState<string | null>(null);
+  const [justApproved, setJustApproved]     = useState<VendorRequest | null>(null);
   const [expandedReseller, setExpandedReseller] = useState<string | null>(null);
   const [showInvite, setShowInvite]       = useState(false);
   const [showPricing, setShowPricing]     = useState(false);
@@ -154,6 +155,7 @@ export default function OrganizerVendorsPage() {
     try {
       await resolveVendorRequest(req.id, status);
       setVendorRequests(prev => prev.filter(r => r.id !== req.id));
+      if (status === 'approved') setJustApproved(req);
 
       if (status === 'approved' && req.vendorPhone) {
         const msg = encodeURIComponent(
@@ -233,6 +235,28 @@ Konekte sou dachbod ou pou achte tikè bulk:
       {/* ── Requests tab ── */}
       {mainTab === 'requests' && (
         <div>
+          {justApproved && (
+            <div className="mb-4 p-4 rounded-xl border border-green/40 bg-green/5 flex items-start gap-3">
+              <span className="text-2xl">✅</span>
+              <div className="flex-1">
+                <p className="text-sm font-bold text-green">{justApproved.vendorName} apwouve!</p>
+                <p className="text-xs text-gray-muted mt-0.5">
+                  Kounye a ou dwe konfigire <strong className="text-white">pri angwo</strong> pou {justApproved.eventName} pou yo ka achte tikè.
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  const evIdx = events.findIndex(e => e.id === justApproved.eventId);
+                  if (evIdx >= 0) setPricingEventIdx(evIdx);
+                  setShowPricing(true);
+                  setJustApproved(null);
+                  setMainTab('my');
+                }}
+                className="px-4 py-2 rounded-lg bg-orange text-white text-xs font-bold hover:bg-orange/80 transition-all flex-shrink-0">
+                💲 Set Bulk Pricing
+              </button>
+            </div>
+          )}
           <p className="text-xs text-gray-muted mb-4">
             {t('org_requests_desc')}
           </p>
@@ -621,7 +645,18 @@ Konekte sou dachbod ou pou achte tikè bulk:
                             <div><span className="text-[9px] text-gray-muted uppercase">{t('total')} {t('resellers_bought')}:</span> <span className="text-xs font-bold">{vTotalQty}</span></div>
                             <div><span className="text-[9px] text-gray-muted uppercase">{t('total')} {t('sold')}:</span> <span className="text-xs font-bold text-green">{vTotalSold}</span></div>
                             <div><span className="text-[9px] text-green uppercase font-bold">💰 {t('resellers_paid_upfront')}:</span> <span className="text-xs font-bold text-green">${vTotalPaid.toLocaleString()}</span></div>
-                            <div className="ml-auto">
+                            <div className="ml-auto flex items-center gap-2">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const evIds = new Set(v.purchases.map(p => p.eventId));
+                                  const evIdx = events.findIndex(ev => evIds.has(ev.id!));
+                                  if (evIdx >= 0) setPricingEventIdx(evIdx);
+                                  setShowPricing(true);
+                                }}
+                                className="px-3 py-1 rounded-lg text-[10px] font-bold border border-orange/40 text-orange hover:bg-orange/10 transition-all">
+                                💲 Bulk Pricing
+                              </button>
                               <button
                                 onClick={async (e) => { e.stopPropagation(); await updateVendorTrusted(v.id!, !(v as any).trusted); await loadData(); }}
                                 className={`px-3 py-1 rounded-lg text-[10px] font-bold border transition-all ${

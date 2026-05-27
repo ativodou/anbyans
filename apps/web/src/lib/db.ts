@@ -16,6 +16,7 @@ import {
   increment,
   Timestamp,
   type Unsubscribe,
+  documentId,
 } from 'firebase/firestore';
 import { db } from './firebase';
 
@@ -904,12 +905,36 @@ export async function inviteVendor(data: {
 // ─── Get Resellers by Organizer ────────────────────────────────────
 
 export async function getOrganizerVendors(organizerId: string): Promise<VendorData[]> {
-  const q = query(
-    collection(db, 'vendors'),
-    where('organizerId', '==', organizerId)
-  );
+  // 1. Vendors directly assigned via invite
+  const q = query(collection(db, 'vendors'), where('organizerId', '==', organizerId));
   const snap = await getDocs(q);
-  return snap.docs.map(d => ({ id: d.id, ...d.data() } as VendorData));
+  const byOrg = snap.docs.map(d => ({ id: d.id, ...d.data() } as VendorData));
+
+  // 2. Vendors who self-registered and have approved requests for this organizer's events
+  const reqQ = query(
+    collection(db, 'vendorRequests'),
+    where('organizerId', '==', organizerId),
+    where('status', '==', 'approved')
+  );
+  const reqSnap = await getDocs(reqQ);
+  const existingIds = new Set(byOrg.map(v => v.id));
+  const seen = new Set<string>();
+  const missingIds: string[] = [];
+  reqSnap.docs.forEach(d => {
+    const id = d.data().vendorId as string;
+    if (id && !existingIds.has(id) && !seen.has(id)) { seen.add(id); missingIds.push(id); }
+  });
+
+  if (missingIds.length === 0) return byOrg;
+
+  // Batch in groups of 10 (Firestore 'in' limit)
+  const extra: VendorData[] = [];
+  for (let i = 0; i < missingIds.length; i += 10) {
+    const batch = missingIds.slice(i, i + 10);
+    const bSnap = await getDocs(query(collection(db, 'vendors'), where(documentId(), 'in', batch)));
+    bSnap.docs.forEach(d => extra.push({ id: d.id, ...d.data() } as VendorData));
+  }
+  return [...byOrg, ...extra];
 }
 
 // ─── Get Reseller Purchases ────────────────────────────────────────
