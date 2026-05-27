@@ -7,8 +7,7 @@ service cloud.firestore {
     function isUser(uid) { return isAuth() && request.auth.uid == uid; }
 
     function isAdmin() {
-      return isAuth() &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      return isAuth() && request.auth.uid == '4tnDCh99SFR4KFqYnTxYTIRfN8j2';
     }
 
     function isSuspended() {
