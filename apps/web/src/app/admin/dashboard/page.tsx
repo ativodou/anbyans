@@ -97,6 +97,17 @@ export default function AdminDashboardPage() {
 
   async function loadAll() {
     setLoading(true);
+
+    // Config read is independent — must not be blocked by other fetch failures
+    getDoc(doc(db, 'config', 'platform')).then(cfgSnap => {
+      if (!cfgSnap.exists()) return;
+      const cfg = cfgSnap.data();
+      if (cfg.platformFee != null)       setSettingsFee(cfg.platformFee);
+      if (cfg.posFee != null)            setSettingsPosFee(cfg.posFee);
+      if (cfg.chargebackReserve != null) setSettingsReserve(cfg.chargebackReserve);
+      if (cfg.payoutDelayDays != null)   setSettingsDelay(cfg.payoutDelayDays);
+    }).catch(e => console.warn('config load', e));
+
     try {
       const [evSnap, usersSnap, refSnap, venSnap] = await Promise.all([
         getDocs(collection(db, 'events')),
@@ -114,7 +125,6 @@ export default function AdminDashboardPage() {
       setUsers(allUsers.filter(u => u.role !== 'organizer'));
 
       const orgs = allUsers.filter(u => u.role === 'organizer') as OrganizerData[];
-      // Attach event stats to each organizer
       const orgMap: Record<string, { count: number; revenue: number }> = {};
       evList.forEach(e => {
         if (!e.organizerId) return;
@@ -128,25 +138,12 @@ export default function AdminDashboardPage() {
         totalRevenue: orgMap[o.id]?.revenue || 0,
       })));
 
-      // Load all tickets for finance
       const tickets: any[] = [];
       await Promise.all(evList.map(async e => {
         const snap = await getDocs(collection(db, 'events', e.id!, 'tickets'));
         snap.docs.forEach(d => tickets.push({ id: d.id, ...d.data() }));
       }));
       setAllTickets(tickets);
-
-      // Load platform settings
-      try {
-        const cfgSnap = await getDoc(doc(db, 'config', 'platform'));
-        if (cfgSnap.exists()) {
-          const cfg = cfgSnap.data();
-          if (cfg.platformFee)       setSettingsFee(cfg.platformFee);
-          if (cfg.posFee)            setSettingsPosFee(cfg.posFee);
-          if (cfg.chargebackReserve) setSettingsReserve(cfg.chargebackReserve);
-          if (cfg.payoutDelayDays)   setSettingsDelay(cfg.payoutDelayDays);
-        }
-      } catch (e) { console.warn('config load', e); }
     } catch (e) { console.error(e); }
     setLoading(false);
   }
