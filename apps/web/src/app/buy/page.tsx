@@ -687,8 +687,16 @@ function BuyPageInner() {
             return sum + (item ? item.price * qty : 0);
           }, 0);
           const fanSection = selSection?.name ?? '';
+          const eventSectionNames = event?.sections?.map(s => s.name) ?? [];
+          const inferStationSections = (stationName: string): string[] => {
+            const tokens = stationName.toUpperCase().split(/\s+/);
+            return eventSectionNames.filter(sec =>
+              tokens.some(tok => tok === sec.toUpperCase() || sec.toUpperCase().includes(tok))
+            );
+          };
           const visibleItems = barMenuItems.filter(i => {
-            if (i.stationSections.length > 0 && !i.stationSections.includes(fanSection)) return false;
+            const effectiveSections = i.stationSections.length > 0 ? i.stationSections : inferStationSections(i.station);
+            if (effectiveSections.length > 0 && !effectiveSections.includes(fanSection)) return false;
             if (i.sections.length > 0 && !i.sections.includes(fanSection)) return false;
             return true;
           });

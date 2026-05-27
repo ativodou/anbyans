@@ -723,8 +723,16 @@ function BuyPageInner() {
             return sum + (item ? item.price * qty : 0);
           }, 0);
           const cartSectionNames = cart.map(c => c.section.name);
+          const eventSectionNames = event?.sections?.map(s => s.name) ?? [];
+          const inferStationSections = (stationName: string): string[] => {
+            const tokens = stationName.toUpperCase().split(/\s+/);
+            return eventSectionNames.filter(sec =>
+              tokens.some(tok => tok === sec.toUpperCase() || sec.toUpperCase().includes(tok))
+            );
+          };
           const visibleItems = barMenuItems.filter(i => {
-            if (i.stationSections.length > 0 && !i.stationSections.some(s => cartSectionNames.includes(s))) return false;
+            const effectiveSections = i.stationSections.length > 0 ? i.stationSections : inferStationSections(i.station);
+            if (effectiveSections.length > 0 && !effectiveSections.some(s => cartSectionNames.includes(s))) return false;
             if (i.sections.length > 0 && !i.sections.some(s => cartSectionNames.includes(s))) return false;
             return true;
           });
