@@ -3,11 +3,13 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { Suspense } from 'react';
 import { useT } from '@/i18n';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, where, setDoc, doc, serverTimestamp } from 'firebase/firestore';
-import { getOrganizerEvents, type EventData, updateOrganizerLogo, getOrganizerLogo } from '@/lib/db';
+import { getOrganizerEvents, type EventData, updateOrganizerLogo, getOrganizerLogo, deleteOrganizerData } from '@/lib/db';
+import { deleteUserAccount } from '@/lib/auth';
 import { compressLogo } from '@/lib/compressImage';
 
 interface PaymentMethod {
@@ -57,12 +59,16 @@ function Toggle({ label, hint, value, onChange, warn }: { label: string; hint?: 
 function OrganizerSettingsInner() {
   const { user } = useAuth();
   const searchParams = useSearchParams();
+  const router = useRouter();
   const { t } = useT();
 
   const [activeTab, setActiveTab] = useState<SettingsTab>('profile');
   const [events, setEvents]       = useState<EventData[]>([]);
   const [saving, setSaving]       = useState(false);
   const [saved, setSaved]         = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState('');
+  const [deleting, setDeleting]   = useState(false);
+  const [deleteError, setDeleteError] = useState('');
 
   // ── Profile ──
   const [bizName, setBizName]   = useState('');
@@ -656,6 +662,43 @@ function OrganizerSettingsInner() {
           t('settings_save_changes')
         )}
       </button>
+
+      {/* ── Danger Zone ── */}
+      <div className="mt-10 border border-red/30 rounded-card p-5">
+        <p className="text-[10px] uppercase tracking-widest text-red font-bold mb-1">Danger Zone</p>
+        <p className="text-xs text-gray-muted mb-4">
+          Efase kont ou pou toutan. Tout evènman, vandè, tikè ak done ou yo ap disparèt. Sa pa ka defèt.
+        </p>
+        <input
+          value={deleteConfirm}
+          onChange={e => { setDeleteConfirm(e.target.value); setDeleteError(''); }}
+          placeholder='Tape "DELETE" pou konfime'
+          className="w-full max-w-xs px-3.5 py-2.5 rounded-[10px] bg-white/[0.04] border border-red/30 text-white text-[13px] outline-none focus:border-red placeholder:text-gray-muted mb-3"
+        />
+        {deleteError && <p className="text-xs text-red mb-3">{deleteError}</p>}
+        <button
+          disabled={deleteConfirm !== 'DELETE' || deleting}
+          onClick={async () => {
+            if (!user?.uid || deleteConfirm !== 'DELETE') return;
+            setDeleting(true);
+            setDeleteError('');
+            try {
+              await deleteOrganizerData(user.uid);
+              await deleteUserAccount();
+              router.push('/');
+            } catch (e: any) {
+              if (e?.code === 'auth/requires-recent-login') {
+                setDeleteError('Rekonekte epi eseye ankò.');
+              } else {
+                setDeleteError('Erè — eseye ankò.');
+              }
+              setDeleting(false);
+            }
+          }}
+          className="px-5 py-2.5 rounded-[10px] bg-red/10 border border-red/40 text-red text-xs font-bold hover:bg-red hover:text-white transition-all disabled:opacity-30 disabled:cursor-not-allowed">
+          {deleting ? 'Ap efase…' : '🗑 Efase Kont Mwen'}
+        </button>
+      </div>
 
     </div>
   );

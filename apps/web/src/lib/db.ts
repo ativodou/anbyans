@@ -2113,3 +2113,42 @@ export async function loadVendorDraft(uid: string): Promise<Record<string, any> 
   const snap = await getDoc(doc(db, 'users', uid, 'drafts', 'vendor_dashboard'));
   return snap.exists() ? snap.data() : null;
 }
+
+// ─── Account Deletion ────────────────────────────────────────────
+
+async function deleteDocs(q: ReturnType<typeof query>) {
+  const snap = await getDocs(q);
+  await Promise.all(snap.docs.map(d => deleteDoc(d.ref)));
+}
+
+export async function deleteOrganizerData(organizerId: string): Promise<void> {
+  await Promise.all([
+    deleteDocs(query(collection(db, 'events'),          where('organizerId', '==', organizerId))),
+    deleteDocs(query(collection(db, 'vendors'),         where('organizerId', '==', organizerId))),
+    deleteDocs(query(collection(db, 'vendorRequests'),  where('organizerId', '==', organizerId))),
+    deleteDocs(query(collection(db, 'tickets'),         where('organizerId', '==', organizerId))),
+    deleteDocs(query(collection(db, 'vendorPurchases'), where('organizerId', '==', organizerId))),
+    deleteDocs(query(collection(db, 'staff'),           where('organizerId', '==', organizerId))),
+  ]);
+  await deleteDoc(doc(db, 'organizers', organizerId)).catch(() => {});
+  await deleteDoc(doc(db, 'users', organizerId)).catch(() => {});
+}
+
+export async function deleteVendorData(vendorUid: string): Promise<void> {
+  const vendorSnap = await getDocs(query(collection(db, 'vendors'), where('uid', '==', vendorUid)));
+  const vendorIds = vendorSnap.docs.map(d => d.id);
+  await Promise.all(vendorSnap.docs.map(d => deleteDoc(d.ref)));
+  for (const vid of vendorIds) {
+    await Promise.all([
+      deleteDocs(query(collection(db, 'vendorRequests'),  where('vendorId', '==', vid))),
+      deleteDocs(query(collection(db, 'vendorPurchases'), where('vendorId', '==', vid))),
+      deleteDocs(query(collection(db, 'tickets'),         where('vendorId', '==', vid))),
+    ]);
+  }
+  await deleteDoc(doc(db, 'users', vendorUid)).catch(() => {});
+}
+
+export async function deleteFanData(uid: string, email: string): Promise<void> {
+  await deleteDocs(query(collection(db, 'tickets'), where('buyerEmail', '==', email)));
+  await deleteDoc(doc(db, 'users', uid)).catch(() => {});
+}

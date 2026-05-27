@@ -4,7 +4,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useT } from '@/i18n';
-import { updateUserPhoto, getUserPhoto, updateUserProfile } from '@/lib/db';
+import { updateUserPhoto, getUserPhoto, updateUserProfile, deleteFanData } from '@/lib/db';
+import { deleteUserAccount } from '@/lib/auth';
 import { compressImage } from '@/lib/compressImage';
 
 export default function FanProfilePage() {
@@ -16,6 +17,9 @@ export default function FanProfilePage() {
   const [uploading,   setUploading]   = useState(false);
   const [saved,       setSaved]       = useState(false);
   const [error,       setError]       = useState('');
+  const [deleteConfirm, setDeleteConfirm] = useState('');
+  const [deleting,    setDeleting]    = useState(false);
+  const [deleteError, setDeleteError] = useState('');
 
   // Editable profile fields
   const [firstName,   setFirstName]   = useState('');
@@ -253,6 +257,39 @@ export default function FanProfilePage() {
             ⚖️ {t('profile_terms_link')}
           </Link>
         </p>
+
+        {/* Danger Zone */}
+        <div style={{ marginTop: 32, border: '1px solid rgba(239,68,68,0.3)', borderRadius: 12, padding: 20 }}>
+          <p style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: 2, color: '#ef4444', fontWeight: 700, marginBottom: 4 }}>Danger Zone</p>
+          <p style={{ fontSize: 12, color: '#666', marginBottom: 16 }}>
+            Efase kont ou pou toutan. Tout tikè ak done ou yo ap disparèt. Sa pa ka defèt.
+          </p>
+          <input
+            value={deleteConfirm}
+            onChange={e => { setDeleteConfirm(e.target.value); setDeleteError(''); }}
+            placeholder='Tape "DELETE" pou konfime'
+            style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: 10, background: '#0a0a0f', border: '1px solid rgba(239,68,68,0.3)', color: '#fff', fontSize: 13, outline: 'none', marginBottom: 12 }}
+          />
+          {deleteError && <p style={{ fontSize: 12, color: '#ef4444', marginBottom: 12 }}>{deleteError}</p>}
+          <button
+            disabled={deleteConfirm !== 'DELETE' || deleting}
+            onClick={async () => {
+              if (!user?.uid || deleteConfirm !== 'DELETE') return;
+              setDeleting(true);
+              setDeleteError('');
+              try {
+                await deleteFanData(user.uid, user.email || '');
+                await deleteUserAccount();
+                router.push('/');
+              } catch (e: any) {
+                setDeleteError(e?.code === 'auth/requires-recent-login' ? 'Rekonekte epi eseye ankò.' : 'Erè — eseye ankò.');
+                setDeleting(false);
+              }
+            }}
+            style={{ padding: '10px 20px', borderRadius: 10, border: '1px solid rgba(239,68,68,0.4)', background: 'rgba(239,68,68,0.1)', color: '#ef4444', fontSize: 12, fontWeight: 700, cursor: deleteConfirm !== 'DELETE' || deleting ? 'not-allowed' : 'pointer', opacity: deleteConfirm !== 'DELETE' || deleting ? 0.3 : 1 }}>
+            {deleting ? 'Ap efase…' : '🗑 Efase Kont Mwen'}
+          </button>
+        </div>
       </div>
     </div>
   );

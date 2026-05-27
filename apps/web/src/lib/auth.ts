@@ -6,6 +6,7 @@ import {
   GoogleAuthProvider,
   signInWithPopup,
   updateProfile,
+  deleteUser,
   type User,
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
@@ -129,6 +130,12 @@ export async function getUserProfile(uid: string): Promise<UserProfile | null> {
   const snap = await getDoc(doc(db, 'users', uid));
   return snap.exists() ? (snap.data() as UserProfile) : null;
 }
+export async function deleteUserAccount(): Promise<void> {
+  const user = auth.currentUser;
+  if (!user) throw new Error('not-signed-in');
+  await deleteUser(user);
+}
+
 // ─── Auth State Listener ─────────────────────────────────────────
 
 export function onAuthChange(callback: (user: User | null) => void) {
