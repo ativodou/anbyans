@@ -7,9 +7,7 @@ import {
   getOrganizerEvents,
   getOrganizerVendors,
   getOrganizerVendorPurchases,
-  getAllUnassignedVendors,
   getOrganizerVendorRequests,
-  assignVendorToOrganizer,
   resolveVendorRequest,
   inviteVendor,
   updateVendorStatus,
@@ -43,11 +41,10 @@ export default function OrganizerVendorsPage() {
 
   const [events, setEvents]       = useState<EventData[]>([]);
   const [resellers, setResellers] = useState<VendorWithPurchases[]>([]);
-  const [unassigned, setUnassigned] = useState<VendorData[]>([]);
   const [loading, setLoading]     = useState(true);
   const [saving, setSaving]       = useState(false);
 
-  const [mainTab, setMainTab]             = useState<'my' | 'available' | 'requests'>('my');
+  const [mainTab, setMainTab]             = useState<'my' | 'requests'>('my');
   const [vendorRequests, setVendorRequests] = useState<VendorRequest[]>([]);
   const [resolvingReq, setResolvingReq]     = useState<string | null>(null);
   const [justApproved, setJustApproved]     = useState<VendorRequest | null>(null);
@@ -64,7 +61,6 @@ export default function OrganizerVendorsPage() {
     if (idx >= 0) setPricingEventIdx(idx);
   }, [selectedEvent?.id, events.length]);
   const [pricingEventIdx, setPricingEventIdx] = useState(0);
-  const [assigning, setAssigning]         = useState<string | null>(null);
 
   const [inviteForm, setInviteForm] = useState({
     name: '', contact: '', phone: '', city: '', payMethod: 'MonCash',
@@ -77,16 +73,14 @@ export default function OrganizerVendorsPage() {
     if (!user?.uid) return;
     setLoading(true);
     try {
-      const [evList, resellerList, purchaseList, unassignedList, pendingReqs, approvedReqs] = await Promise.all([
+      const [evList, resellerList, purchaseList, pendingReqs, approvedReqs] = await Promise.all([
         getOrganizerEvents(user.uid),
         getOrganizerVendors(user.uid),
         getOrganizerVendorPurchases(user.uid),
-        getAllUnassignedVendors(),
         getOrganizerVendorRequests(user.uid, 'pending'),
         getOrganizerVendorRequests(user.uid, 'approved'),
       ]);
       setVendorRequests([...pendingReqs, ...approvedReqs]);
-      setUnassigned(unassignedList);
       setResellers(resellerList.map(v => ({
         ...v,
         purchases: purchaseList.filter(p => p.vendorId === v.id),
@@ -193,13 +187,6 @@ Konekte sou dachbod ou pou achte tikè bulk:
     finally { setResolvingReq(null); }
   };
 
-  const handleAssign = async (vendorId: string) => {
-    if (!user?.uid) return;
-    setAssigning(vendorId);
-    try { await assignVendorToOrganizer(vendorId, user.uid); await loadData(); }
-    catch (e) { console.error(e); }
-    finally { setAssigning(null); }
-  };
 
   if (loading) return (
     <div className="flex items-center justify-center py-32">
@@ -229,7 +216,6 @@ Konekte sou dachbod ou pou achte tikè bulk:
       <div className="flex gap-2 mb-5 border-b border-border">
         {([
           ['my', `👥 ${t('org_my_resellers')}`, resellers.length],
-          ['available', `🔍 ${t('org_available_resellers')}`, unassigned.length],
           ['requests', `🙋 ${t('org_requests')}`, vendorRequests.filter(r => r.status === 'pending').length],
         ] as const).map(([id, label, count]) => (
           <button key={id} onClick={() => setMainTab(id)}
@@ -308,56 +294,6 @@ Konekte sou dachbod ou pou achte tikè bulk:
                   </div>
                 </div>
               ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ── Available vendors tab ── */}
-      {mainTab === 'available' && (
-        <div>
-          <p className="text-xs text-gray-muted mb-4">
-            Vande ki enskri men poko asosye ak yon òganizatè. Yo ki enterese nan evènman ou yo gen yon badge.
-          </p>
-          {unassigned.length === 0 ? (
-            <div className="bg-dark-card border border-border rounded-card p-10 text-center">
-              <p className="text-xs text-gray-muted">Pa gen vande disponib pou kounye a.</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {unassigned.map(v => {
-                const interestedInMyEvents = (v as any).interestedEvents?.filter(
-                  (ie: any) => ie.organizerId === user?.uid
-                ) || [];
-                return (
-                  <div key={v.id} className={`bg-dark-card border rounded-card p-4 flex items-start justify-between gap-4 ${interestedInMyEvents.length > 0 ? 'border-orange/60' : 'border-border'}`}>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="font-bold text-sm">{v.name}</p>
-                        {interestedInMyEvents.length > 0 && (
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange/20 text-orange">
-                            🎯 {t('org_interested')}
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-xs text-gray-muted mt-0.5">{v.contact} · {v.phone} · {v.city}</p>
-                      {interestedInMyEvents.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mt-2">
-                          {interestedInMyEvents.map((ie: any) => (
-                            <span key={ie.eventId} className="text-[11px] bg-dark border border-border rounded-full px-2 py-0.5 text-gray-light">
-                              {ie.emoji} {ie.eventName}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    <button onClick={() => handleAssign(v.id!)} disabled={assigning === v.id}
-                      className="px-4 py-2 rounded-lg bg-orange text-white text-xs font-bold hover:bg-orange/80 disabled:opacity-50 transition-all flex-shrink-0">
-                      {assigning === v.id ? '...' : '➕ Ajoute'}
-                    </button>
-                  </div>
-                );
-              })}
             </div>
           )}
         </div>
