@@ -79,6 +79,7 @@ export default function AdminDashboardPage() {
   const [eventSearch, setEventSearch] = useState('');
   const [orgSearch, setOrgSearch] = useState('');
   const [userSearch, setUserSearch] = useState('');
+  const [deletingUser, setDeletingUser] = useState<string | null>(null);
 
   useEffect(() => {
     if (authLoading) return;
@@ -152,6 +153,26 @@ export default function AdminDashboardPage() {
     await updateDoc(doc(db, 'users', uid), { suspended: !suspended });
     setUsers(prev => prev.map(u => u.id === uid ? { ...u, suspended: !suspended } : u));
     setOrganizers(prev => prev.map(o => o.id === uid ? { ...o, suspended: !suspended } : o));
+  }
+
+  async function adminDeleteUser(uid: string, role: string, email: string) {
+    if (!confirm(`Efase ${email} pou toutan? Sa pa ka defèt.`)) return;
+    setDeletingUser(uid);
+    try {
+      const idToken = await (await import('firebase/auth')).getAuth().currentUser?.getIdToken();
+      const res = await fetch('/api/admin/delete-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetUid: uid, targetRole: role, targetEmail: email, idToken }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error);
+      setUsers(prev => prev.filter(u => u.id !== uid));
+      setOrganizers(prev => prev.filter(o => o.id !== uid));
+    } catch (e: any) {
+      alert('Erè: ' + e.message);
+    } finally {
+      setDeletingUser(null);
+    }
   }
 
   async function toggleEventStatus(eventId: string, current: string) {
@@ -504,11 +525,19 @@ export default function AdminDashboardPage() {
                       <p className="text-[11px] text-gray-light mt-0.5">{o.totalEvents} {t('admin_events_count')} · ${(o.totalRevenue||0).toLocaleString()} {t('admin_total_revenue_lbl')}</p>
                     </div>
                     {o.suspended && <span className="text-[9px] bg-red/20 text-red px-2 py-0.5 rounded font-bold">{t('admin_suspended').toUpperCase()}</span>}
-                    <button
-                      onClick={() => toggleSuspendUser(o.id, !!o.suspended)}
-                      className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${o.suspended ? 'bg-green-dim text-green border border-green/30' : 'bg-red/10 text-red border border-red/30'}`}>
-                      {o.suspended ? t('admin_reactivate') : t('admin_suspend')}
-                    </button>
+                    <div className="flex gap-2 flex-shrink-0">
+                      <button
+                        onClick={() => toggleSuspendUser(o.id, !!o.suspended)}
+                        className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${o.suspended ? 'bg-green-dim text-green border border-green/30' : 'bg-red/10 text-red border border-red/30'}`}>
+                        {o.suspended ? t('admin_reactivate') : t('admin_suspend')}
+                      </button>
+                      <button
+                        onClick={() => adminDeleteUser(o.id, 'organizer', o.email)}
+                        disabled={deletingUser === o.id}
+                        className="px-3 py-1.5 rounded-lg text-[10px] font-bold bg-red/20 text-red border border-red/40 hover:bg-red hover:text-white transition-all disabled:opacity-40">
+                        {deletingUser === o.id ? '…' : '🗑'}
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -536,11 +565,19 @@ export default function AdminDashboardPage() {
                       <p className="text-[11px] text-gray-muted">{u.city} {u.country} · <span className="text-orange capitalize">{u.role}</span></p>
                     </div>
                     {u.suspended && <span className="text-[9px] bg-red/20 text-red px-2 py-0.5 rounded font-bold">{t('admin_suspended').toUpperCase()}</span>}
-                    <button
-                      onClick={() => toggleSuspendUser(u.id, !!u.suspended)}
-                      className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${u.suspended ? 'bg-green-dim text-green border border-green/30' : 'bg-red/10 text-red border border-red/30'}`}>
-                      {u.suspended ? t('admin_reactivate') : t('admin_suspend')}
-                    </button>
+                    <div className="flex gap-2 flex-shrink-0">
+                      <button
+                        onClick={() => toggleSuspendUser(u.id, !!u.suspended)}
+                        className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${u.suspended ? 'bg-green-dim text-green border border-green/30' : 'bg-red/10 text-red border border-red/30'}`}>
+                        {u.suspended ? t('admin_reactivate') : t('admin_suspend')}
+                      </button>
+                      <button
+                        onClick={() => adminDeleteUser(u.id, u.role, u.email)}
+                        disabled={deletingUser === u.id}
+                        className="px-3 py-1.5 rounded-lg text-[10px] font-bold bg-red/20 text-red border border-red/40 hover:bg-red hover:text-white transition-all disabled:opacity-40">
+                        {deletingUser === u.id ? '…' : '🗑'}
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
