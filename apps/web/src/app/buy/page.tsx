@@ -375,13 +375,15 @@ function BuyPageInner() {
       setName(fullName);
       setPhone(u.phone);
       if (user?.email) setEmail(user.email);
-      setShowBarTab(true);
       if (event?.id) Promise.all([getBarItems(event.id), getBarStations(event.id)]).then(([items, stations]) => {
-        setBarMenuItems(items.map(x => {
-          const st = stations.find(s => s.id === x.stationId);
-          return { name: x.name, price: x.price, station: x.stationName, stationId: x.stationId, stationSections: st?.sections ?? [], sections: x.sections ?? [] };
+        const stationMap = new Map(stations.map(s => [s.id!, s]));
+        setBarMenuItems(items.filter(x => stationMap.has(x.stationId)).map(x => {
+          const st = stationMap.get(x.stationId)!;
+          return { name: x.name, price: x.price, station: x.stationName, stationId: x.stationId, stationSections: st.sections ?? [], sections: x.sections ?? [] };
         }));
-      }).catch(() => {});
+        setShowBarTab(true);
+      }).catch(() => setShowBarTab(true));
+      else setShowBarTab(true);
     } else {
       setStep('info');
     }
@@ -668,13 +670,15 @@ function BuyPageInner() {
 
         <button onClick={() => {
           if (!validateInfo()) return;
-          setShowBarTab(true);
           if (event?.id) Promise.all([getBarItems(event.id), getBarStations(event.id)]).then(([items, stations]) => {
-        setBarMenuItems(items.map(x => {
-          const st = stations.find(s => s.id === x.stationId);
-          return { name: x.name, price: x.price, station: x.stationName, stationId: x.stationId, stationSections: st?.sections ?? [], sections: x.sections ?? [] };
-        }));
-      }).catch(() => {});
+            const stationMap = new Map(stations.map(s => [s.id!, s]));
+            setBarMenuItems(items.filter(x => stationMap.has(x.stationId)).map(x => {
+              const st = stationMap.get(x.stationId)!;
+              return { name: x.name, price: x.price, station: x.stationName, stationId: x.stationId, stationSections: st.sections ?? [], sections: x.sections ?? [] };
+            }));
+            setShowBarTab(true);
+          }).catch(() => setShowBarTab(true));
+          else setShowBarTab(true);
         }}
           className="w-full mt-4 py-3.5 rounded-xl font-heading text-base bg-orange text-white hover:bg-orange/90 transition-all">
           {t('buy_continue')}
