@@ -884,7 +884,7 @@ export default function AdminDashboardPage() {
                   </div>
                 </div>
                 <button onClick={handleSaveSettings} disabled={settingsSaving} className={`mt-4 px-5 py-2 rounded-lg text-white text-xs font-bold transition-all disabled:opacity-60 ${settingsSaved ? 'bg-green-600' : 'bg-orange hover:bg-orange/80'}`}>
-                  {settingsSaving ? '...' : settingsSaved ? '✓ Sove!' : t('admin_save')}
+                  {settingsSaving ? '...' : settingsSaved ? '✓ Anrejistre!' : t('admin_save')}
                 </button>
               </div>
 

@@ -233,13 +233,13 @@ export default function VendorProfilePage() {
           )}
           {infoSaved && (
             <div style={{ background: '#0d2a1a', border: '1px solid #22c55e', borderRadius: 8, padding: '10px 14px', marginBottom: 14, color: '#22c55e', fontSize: 13 }}>
-              ✓ Sove!
+              ✓ Anrejistre!
             </div>
           )}
 
           <button onClick={handleSaveInfo} disabled={infoSaving}
             style={{ width: '100%', padding: '12px', borderRadius: 10, border: 'none', background: '#a855f7', color: '#fff', fontSize: 14, fontWeight: 700, cursor: infoSaving ? 'not-allowed' : 'pointer', opacity: infoSaving ? 0.6 : 1 }}>
-            {infoSaving ? '...' : 'Sove Chanjman yo'}
+            {infoSaving ? '...' : 'Anrejistre Chanjman yo'}
           </button>
         </div>
 
