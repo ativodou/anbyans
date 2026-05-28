@@ -346,13 +346,15 @@ function CreateEventInner() {
     if (sections.length === 0) e.sections = 'Ajoute omwen yon seksyon / Add at least one section';
     if (sections.some(s => !s.name.trim())) e.sections = 'Tout seksyon bezwen yon non';
     setErrors(e);
-    return Object.keys(e).length === 0;
+    return e;
   };
 
   const save = async () => {
     setSaveError('');
-    if (!validate()) {
-      setTab('info');
+    const validationErrors = validate();
+    if (Object.keys(validationErrors).length > 0) {
+      if (validationErrors.venue || validationErrors.sections) setTab('venue');
+      else setTab('info');
       setSaveError('Ranpli tout chan obligatwa yo anvan ou pibliye / Fill all required fields');
       return;
     }
