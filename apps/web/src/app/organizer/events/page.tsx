@@ -4,9 +4,9 @@ import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useT } from '@/i18n';
-import { getOrganizerEvents, type EventData, markEventEnded, markEventPublished, markEventLive, getPlatformConfig } from '@/lib/db';
+import { type EventData, markEventEnded, markEventPublished, markEventLive, getPlatformConfig } from '@/lib/db';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, doc, updateDoc, query, where } from 'firebase/firestore';
+import { collection, getDocs, doc, updateDoc, query, where, onSnapshot } from 'firebase/firestore';
 import FloorPlanViewer from '@/components/FloorPlanViewer';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
@@ -35,21 +35,16 @@ export default function OrganizerEventsPage() {
   }, []);
 
   useEffect(() => {
-    if (authLoading) return;
-    if (!user?.uid) { setLoading(false); return; }
-    const load = async () => {
-      try {
-        const evs = await getOrganizerEvents(user.uid);
-        setEvents(evs);
-        const tSnap = await getDocs(query(collection(db, 'tickets'), where('organizerId', '==', user.uid)));
-        setAllTickets(tSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-      } catch (err) {
-        console.error('events load', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
+    if (authLoading || !user?.uid) return;
+    const q = query(collection(db, 'events'), where('organizerId', '==', user.uid));
+    const unsub = onSnapshot(q, (snap) => {
+      setEvents(snap.docs.map(d => ({ id: d.id, ...d.data() } as EventData)));
+      setLoading(false);
+    }, (err) => { console.error('events', err); setLoading(false); });
+    getDocs(query(collection(db, 'tickets'), where('organizerId', '==', user.uid)))
+      .then(s => setAllTickets(s.docs.map(d => ({ id: d.id, ...d.data() }))))
+      .catch(() => {});
+    return unsub;
   }, [user?.uid, authLoading]);
 
   async function handleGoLive(eventId: string) {
@@ -119,6 +114,7 @@ export default function OrganizerEventsPage() {
           {events.map(e => {
             const evTickets = allTickets.filter(t => t.eventId === e.id && t.status !== 'cancelled');
             const evRevenue = evTickets.reduce((a: number, t: any) => a + (t.price || 0), 0);
+            const isFreeEvent = (e.sections || []).length > 0 && (e.sections || []).every(s => !s.price);
             const cap = (e.sections || []).reduce((a, s) => a + (s.capacity || 0), 0);
             const pct = cap > 0 ? Math.round((evTickets.length / cap) * 100) : 0;
             const isOpen = !!e.id && expandedId === e.id;
@@ -167,7 +163,9 @@ export default function OrganizerEventsPage() {
                   </div>
 
                   <div className="text-right flex-shrink-0 flex flex-col items-end gap-1">
-                    <p className="font-heading text-2xl">${evRevenue.toLocaleString()}</p>
+                    {isFreeEvent
+                      ? <p className="font-heading text-2xl text-green">GRATIS</p>
+                      : <p className="font-heading text-2xl">${evRevenue.toLocaleString()}</p>}
                     <p className="text-[10px] text-gray-muted">{evTickets.length} {t('rev_ticket_count')}</p>
                     <span className={`text-[10px] mt-0.5 transition-all duration-200 ${isOpen ? 'text-orange' : 'text-gray-muted'}`}>
                       {isOpen ? '▲' : '▼'}
