@@ -892,7 +892,7 @@ function BuyPageInner() {
         <button onClick={() => setStep('info')} className="text-gray-400 hover:text-white text-sm mb-4">← {t('back')}</button>
         <h2 className="font-heading text-xl mb-6">{t('buy_payment_h')}</h2>
 
-        {chargeTotal === 0 && (
+        {chargeTotal === 0 ? (
           <div className="text-center py-8">
             <p className="text-5xl mb-4">🎟️</p>
             <p className="text-gray-400 text-sm mb-6">Tikè sa a gratis. Pa gen peman obligatwa.</p>
@@ -904,156 +904,148 @@ function BuyPageInner() {
                 : '🎫 Pran Tikè Gratis la'}
             </button>
           </div>
-        )}
-
-        {chargeTotal > 0 && <div className="space-y-3 mb-6">
-          {availMethods.map(m => (
-            <button key={m} onClick={async () => {
-              setPayMethod(m);
-              if (m === 'stripe' && !clientSecret) {
-                try {
-                  const res = await fetch('/api/payment/stripe', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      amount: chargeTotal,
-                      applicationFeeAmount: serviceFee,
-                      eventName: event?.title,
-                      seats: cartCount,
-                      connectedAccountId: organizerStripeId,
-                    }),
-                  });
-                  const data = await res.json();
-                  if (data.clientSecret) setClientSecret(data.clientSecret);
-                } catch (e) { console.error(e); }
-              }
-            }}
-              className={`w-full flex items-center gap-4 p-4 rounded-xl border transition-all text-left ${
-                payMethod === m ? 'border-orange bg-orange/10' : 'border-white/[0.08] hover:border-orange/30'
-              }`}>
-              <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${payMethod === m ? 'border-orange' : 'border-gray-500'}`}>
-                {payMethod === m && <div className="w-2 h-2 rounded-full bg-orange" />}
-              </div>
-              <span className="font-bold text-sm">{PAY_LABELS[m] || m}</span>
-            </button>
-          ))}
-        </div>
-
-        {(payMethod && MOBILE_METHODS.includes(payMethod)) && (
-          <div className="bg-white/[0.04] rounded-xl p-4 mb-4 text-sm">
-            <p className="font-bold mb-2">📱 {payMethod === 'moncash' ? 'MonCash' : 'Natcash'}</p>
-            <p className="text-gray-400 text-xs mb-3">
-              {t('buy_send_prefix')} ${chargeTotal.toFixed(2)} {t('buy_send_suffix')}
-            </p>
-            <div className="bg-black/40 rounded-lg p-3 text-center mb-3">
-              <p className="text-[10px] text-gray-500 mb-0.5">{payMethod === 'moncash' ? 'MonCash' : 'Natcash'} #</p>
-              <p className="font-heading text-xl text-orange">{event.paymentMethods?.[payMethod]?.values?.[0] || '—'}</p>
+        ) : (
+          <>
+            <div className="space-y-3 mb-6">
+              {availMethods.map(m => (
+                <button key={m} onClick={async () => {
+                  setPayMethod(m);
+                  if (m === 'stripe' && !clientSecret) {
+                    try {
+                      const res = await fetch('/api/payment/stripe', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          amount: chargeTotal,
+                          applicationFeeAmount: serviceFee,
+                          eventName: event?.title,
+                          seats: cartCount,
+                          connectedAccountId: organizerStripeId,
+                        }),
+                      });
+                      const data = await res.json();
+                      if (data.clientSecret) setClientSecret(data.clientSecret);
+                    } catch (e) { console.error(e); }
+                  }
+                }}
+                  className={`w-full flex items-center gap-4 p-4 rounded-xl border transition-all text-left ${
+                    payMethod === m ? 'border-orange bg-orange/10' : 'border-white/[0.08] hover:border-orange/30'
+                  }`}>
+                  <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${payMethod === m ? 'border-orange' : 'border-gray-500'}`}>
+                    {payMethod === m && <div className="w-2 h-2 rounded-full bg-orange" />}
+                  </div>
+                  <span className="font-bold text-sm">{PAY_LABELS[m] || m}</span>
+                </button>
+              ))}
             </div>
-            <label className="block text-[10px] font-bold text-gray-400 mb-1.5">{t('buy_txn_id')}</label>
-            <input value={txnId} onChange={e => setTxnId(e.target.value)} placeholder="ex: TXN123456"
-              className="w-full px-4 py-3 rounded-xl bg-white/[0.06] border border-white/[0.1] text-white text-sm outline-none focus:border-orange" />
-          </div>
-        )}
 
-        {payMethod === 'cash' && (
-          <div className="bg-white/[0.04] rounded-xl p-4 mb-4 text-sm">
-            <p className="font-bold mb-2">💵 Cash · Zelle · CashApp</p>
-            <p className="text-gray-400 text-xs">
-              {t('buy_cash_pending')}
-            </p>
-            {(event.paymentMethods?.cash?.values?.length ?? 0) > 0 && (
-              <div className="mt-3 bg-black/40 rounded-lg p-3">
-                {event.paymentMethods.cash.values!.map((v, i) => <p key={i} className="text-xs text-orange font-bold">{v}</p>)}
+            {(payMethod && MOBILE_METHODS.includes(payMethod)) && (
+              <div className="bg-white/[0.04] rounded-xl p-4 mb-4 text-sm">
+                <p className="font-bold mb-2">📱 {payMethod === 'moncash' ? 'MonCash' : 'Natcash'}</p>
+                <p className="text-gray-400 text-xs mb-3">{t('buy_send_prefix')} ${chargeTotal.toFixed(2)} {t('buy_send_suffix')}</p>
+                <div className="bg-black/40 rounded-lg p-3 text-center mb-3">
+                  <p className="text-[10px] text-gray-500 mb-0.5">{payMethod === 'moncash' ? 'MonCash' : 'Natcash'} #</p>
+                  <p className="font-heading text-xl text-orange">{event.paymentMethods?.[payMethod]?.values?.[0] || '—'}</p>
+                </div>
+                <label className="block text-[10px] font-bold text-gray-400 mb-1.5">{t('buy_txn_id')}</label>
+                <input value={txnId} onChange={e => setTxnId(e.target.value)} placeholder="ex: TXN123456"
+                  className="w-full px-4 py-3 rounded-xl bg-white/[0.06] border border-white/[0.1] text-white text-sm outline-none focus:border-orange" />
               </div>
             )}
-          </div>
-        )}
 
-        {payMethod === 'stripe' && clientSecret && (
-          <Elements stripe={stripePromise} options={{ clientSecret, appearance: { theme: 'night' } }}>
-            <StripeForm
-              processing={processing}
-              setProcessing={setProcessing}
-              onSuccess={async (paymentIntentId) => {
-                // Write tickets as paid
-                if (!event || cart.length === 0) return;
-                try {
-                  const codes: string[] = [];
-                  let firstTicket = true;
-                  for (const item of cart) {
-                    const seats = item.section.type === 'reserved' ? item.seats : Array(item.qty).fill(null);
-                    for (let i = 0; i < item.qty; i++) {
-                      const code = genCode();
-                      await addDoc(collection(db, 'tickets'), {
-                        ticketCode: code, qrData: code,
-                        eventId: event.id, organizerId: event.organizerId,
-                        buyerName: name.trim(), buyerPhone: phone.trim(), buyerEmail: email.trim() || null,
-                        buyerUid: user?.uid || null,
-                        section: item.section.id, sectionName: item.section.name, sectionColor: item.section.color,
-                        seat: seats[i] || null,
-                        price: item.section.price, priceHTG: htg(item.section.price),
-                        paymentMethod: 'stripe', paymentStatus: 'paid',
-                        txnId: paymentIntentId,
-                        status: 'valid',
-                        purchasedAt: serverTimestamp(),
-                        ...(firstTicket && barTabAmount > 0 ? { barTabBalance: barTabAmount, barTabSpent: 0, ...(Object.keys(barCart).length > 0 ? { barPreorder: Object.entries(barCart).map(([name, qty]) => ({ name, qty, price: barMenuItems.find(i => i.name === name)?.price ?? 0 })).filter(x => x.qty > 0) } : {}) } : {}),
-                      });
-                      codes.push(code);
-                      firstTicket = false;
-                    }
-                  }
-                  setTicketCodes(codes);
-                  setStep('done');
-                } catch (e) { console.error(e); }
-              }}
-            />
-          </Elements>
-        )}
-        {payMethod === 'stripe' && !clientSecret && (
-          <div className="bg-white/[0.04] rounded-xl p-4 mb-4 text-sm text-center text-gray-400">
-            <div className="w-5 h-5 border-2 border-orange border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-            {t('loading')}
-          </div>
-        )}
+            {payMethod === 'cash' && (
+              <div className="bg-white/[0.04] rounded-xl p-4 mb-4 text-sm">
+                <p className="font-bold mb-2">💵 Cash · Zelle · CashApp</p>
+                <p className="text-gray-400 text-xs">{t('buy_cash_pending')}</p>
+                {(event.paymentMethods?.cash?.values?.length ?? 0) > 0 && (
+                  <div className="mt-3 bg-black/40 rounded-lg p-3">
+                    {event.paymentMethods.cash.values!.map((v, i) => <p key={i} className="text-xs text-orange font-bold">{v}</p>)}
+                  </div>
+                )}
+              </div>
+            )}
 
-        <div className="bg-white/[0.04] rounded-xl p-4 mb-4 text-sm">
-          <p className="font-bold mb-2">{t('buy_summary')}</p>
-          {cart.map(item => (
-            <div key={item.section.id} className="flex justify-between text-xs text-gray-400 mb-1">
-              <span>{item.section.name} × {item.qty}</span>
-              <span className="text-green">${(item.section.price * item.qty).toFixed(2)}</span>
-            </div>
-          ))}
-          <div className="flex justify-between text-xs text-gray-500 border-t border-white/[0.06] pt-2 mt-1">
-            <span>{t('slug_fee_short')}</span>
-            <span>${serviceFee.toFixed(2)}</span>
-          </div>
-          {barTabAmount > 0 && (
-            <div className="flex justify-between text-xs text-gray-400 pt-1">
-              <span>🍺 Bar Tab</span>
-              <span className="text-orange">+${barTabAmount.toFixed(2)}</span>
-            </div>
-          )}
-          <div className="flex justify-between font-bold pt-1.5">
-            <span>{t('total')}</span>
-            <div className="text-right">
-              <p className="text-green">${chargeTotal.toFixed(2)}</p>
-              <p className="text-[11px] text-red-400">{htg(chargeTotal).toLocaleString('fr-HT')} HTG</p>
-            </div>
-          </div>
-          <p className="text-[10px] text-gray-600 mt-1">{t('slug_fee_nonrefund')}</p>
-        </div>
+            {payMethod === 'stripe' && clientSecret && (
+              <Elements stripe={stripePromise} options={{ clientSecret, appearance: { theme: 'night' } }}>
+                <StripeForm processing={processing} setProcessing={setProcessing}
+                  onSuccess={async (paymentIntentId) => {
+                    if (!event || cart.length === 0) return;
+                    try {
+                      const codes: string[] = [];
+                      let firstTicket = true;
+                      for (const item of cart) {
+                        const seats = item.section.type === 'reserved' ? item.seats : Array(item.qty).fill(null);
+                        for (let i = 0; i < item.qty; i++) {
+                          const code = genCode();
+                          await addDoc(collection(db, 'tickets'), {
+                            ticketCode: code, qrData: code,
+                            eventId: event.id, organizerId: event.organizerId,
+                            buyerName: name.trim(), buyerPhone: phone.trim(), buyerEmail: email.trim() || null,
+                            buyerUid: user?.uid || null,
+                            section: item.section.id, sectionName: item.section.name, sectionColor: item.section.color,
+                            seat: seats[i] || null,
+                            price: item.section.price, priceHTG: htg(item.section.price),
+                            paymentMethod: 'stripe', paymentStatus: 'paid',
+                            txnId: paymentIntentId, status: 'valid',
+                            purchasedAt: serverTimestamp(),
+                            ...(firstTicket && barTabAmount > 0 ? { barTabBalance: barTabAmount, barTabSpent: 0, ...(Object.keys(barCart).length > 0 ? { barPreorder: Object.entries(barCart).map(([name, qty]) => ({ name, qty, price: barMenuItems.find(i => i.name === name)?.price ?? 0 })).filter(x => x.qty > 0) } : {}) } : {}),
+                          });
+                          codes.push(code); firstTicket = false;
+                        }
+                      }
+                      setTicketCodes(codes); setStep('done');
+                    } catch (e) { console.error(e); }
+                  }}
+                />
+              </Elements>
+            )}
+            {payMethod === 'stripe' && !clientSecret && (
+              <div className="bg-white/[0.04] rounded-xl p-4 mb-4 text-sm text-center text-gray-400">
+                <div className="w-5 h-5 border-2 border-orange border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                {t('loading')}
+              </div>
+            )}
 
-        {purchaseError && <p style={{ color: '#ef4444', fontSize: 13, marginBottom: 8 }}>{purchaseError}</p>}
-        {payMethod !== 'stripe' && <button
-          disabled={!payMethod || processing || (payMethod && MOBILE_METHODS.includes(payMethod) && !txnId.trim())}
-          onClick={completePurchase}
-          className="w-full py-3.5 rounded-xl font-heading text-base bg-orange text-white disabled:opacity-30 hover:bg-orange/90 transition-all flex items-center justify-center gap-2">
-          {processing
-            ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> {t('buy_processing_btn')}</>
-            : t('buy_confirm_payment')}
-        </button>}
-        </div>}
+            <div className="bg-white/[0.04] rounded-xl p-4 mb-4 text-sm">
+              <p className="font-bold mb-2">{t('buy_summary')}</p>
+              {cart.map(item => (
+                <div key={item.section.id} className="flex justify-between text-xs text-gray-400 mb-1">
+                  <span>{item.section.name} × {item.qty}</span>
+                  <span className="text-green">${(item.section.price * item.qty).toFixed(2)}</span>
+                </div>
+              ))}
+              <div className="flex justify-between text-xs text-gray-500 border-t border-white/[0.06] pt-2 mt-1">
+                <span>{t('slug_fee_short')}</span><span>${serviceFee.toFixed(2)}</span>
+              </div>
+              {barTabAmount > 0 && (
+                <div className="flex justify-between text-xs text-gray-400 pt-1">
+                  <span>🍺 Bar Tab</span>
+                  <span className="text-orange">+${barTabAmount.toFixed(2)}</span>
+                </div>
+              )}
+              <div className="flex justify-between font-bold pt-1.5">
+                <span>{t('total')}</span>
+                <div className="text-right">
+                  <p className="text-green">${chargeTotal.toFixed(2)}</p>
+                  <p className="text-[11px] text-red-400">{htg(chargeTotal).toLocaleString('fr-HT')} HTG</p>
+                </div>
+              </div>
+              <p className="text-[10px] text-gray-600 mt-1">{t('slug_fee_nonrefund')}</p>
+            </div>
+
+            {purchaseError && <p style={{ color: '#ef4444', fontSize: 13, marginBottom: 8 }}>{purchaseError}</p>}
+            {payMethod !== 'stripe' && (
+              <button
+                disabled={!payMethod || processing || (payMethod && MOBILE_METHODS.includes(payMethod) && !txnId.trim())}
+                onClick={completePurchase}
+                className="w-full py-3.5 rounded-xl font-heading text-base bg-orange text-white disabled:opacity-30 hover:bg-orange/90 transition-all flex items-center justify-center gap-2">
+                {processing
+                  ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> {t('buy_processing_btn')}</>
+                  : t('buy_confirm_payment')}
+              </button>
+            )}
+          </>
+        )}
       </div>
     </div>
   );
