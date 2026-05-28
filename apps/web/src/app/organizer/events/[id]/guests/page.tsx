@@ -144,11 +144,22 @@ export default function GuestListPage() {
                 {STATUS_LABEL[g.status]}
               </span>
 
-              {/* Copy link */}
-              <button onClick={() => copyLink(g.id)}
-                className="text-[11px] text-orange hover:underline shrink-0">
-                {copied === g.id ? '✓ Kopye' : '🔗 Lyen'}
-              </button>
+              {/* Send buttons */}
+              <div className="flex items-center gap-1 shrink-0">
+                {g.guestPhone && (
+                  <a href={`https://wa.me/${g.guestPhone.replace(/\D/g,'')}?text=${encodeURIComponent(`Ou envite nan ${event?.name || 'evènman an'}! Klike sou lyen sa pou konfime prezans ou: ${inviteLink(g.id)}`)}`}
+                    target="_blank" rel="noopener noreferrer"
+                    className="text-[11px] text-green hover:underline">📱 WA</a>
+                )}
+                {g.guestEmail && (
+                  <a href={`mailto:${g.guestEmail}?subject=${encodeURIComponent(`Envitasyon — ${event?.name || 'Evènman'}`)}&body=${encodeURIComponent(`Bonjou ${g.guestName},\n\nOu envite nan ${event?.name || 'evènman an'}!\n\nKlike sou lyen sa pou konfime prezans ou:\n${inviteLink(g.id)}\n\nAnbyans`)}`}
+                    className="text-[11px] text-cyan hover:underline">✉️ Imèl</a>
+                )}
+                <button onClick={() => copyLink(g.id)}
+                  className="text-[11px] text-orange hover:underline">
+                  {copied === g.id ? '✓' : '🔗'}
+                </button>
+              </div>
 
               {/* Remove */}
               <button onClick={() => handleRemove(g.id)}
@@ -162,7 +173,7 @@ export default function GuestListPage() {
       {guests.length > 0 && (
         <div className="p-4 rounded-xl bg-white/[0.02] border border-border text-[11px] text-gray-muted">
           <p className="font-bold text-gray-light mb-1">Kijan sa mache?</p>
-          <p>Klike sou <span className="text-orange">🔗 Lyen</span> pou kopye lyen pèsonèl envite a. Voye lyen sa ba li. Li pral itilize lyen sa pou {isFree ? 'konfime prezans li (tikè gratis otomatik)' : 'achte tikè li'}.</p>
+          <p>Klike sou <span className="text-green">📱 WA</span> pou voye lyen nan WhatsApp, <span className="text-cyan">✉️ Imèl</span> pou voye pa imèl, oswa <span className="text-orange">🔗</span> pou kopye lyen an. Chak envite gen pwòp lyen pèsonèl li pou {isFree ? 'konfime prezans li (tikè gratis otomatik)' : 'achte tikè li'}.</p>
         </div>
       )}
 
