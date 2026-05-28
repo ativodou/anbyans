@@ -171,7 +171,7 @@ function OrganizerLayoutInner({ children }: { children: React.ReactNode }) {
 
   const handleSignOut = async () => {
     await auth.signOut();
-    router.push('/');
+    window.location.href = '/';
   };
 
   const pageTitle = (() => {
