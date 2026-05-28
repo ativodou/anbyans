@@ -283,6 +283,7 @@ function BuyPageInner() {
               type: s.type || 'ga',
               sold: s.sold || 0,
               name: String(s.name || ''),
+              price: Number(s.price) || 0,
             })),
             organizerId: data.organizerId,
             organizerName: data.organizerName,
@@ -747,6 +748,7 @@ function BuyPageInner() {
         </div>
         <button onClick={() => {
           if (!validateInfo()) return;
+          if (cartTotal === 0) { completeFreeOrder(); return; }
           if (event?.id) Promise.all([getBarItems(event.id), getBarStations(event.id)]).then(([items, stations]) => {
             const stationMap = new Map(stations.map(s => [s.id!, s]));
             setBarMenuItems(items
