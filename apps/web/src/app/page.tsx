@@ -76,6 +76,8 @@ export default function LandingPage() {
   useEffect(() => {
     if (authLoading) return;
     const role = (user as any)?.role;
+    if (role === 'fan')       router.replace('/events');
+    if (role === 'organizer') router.replace('/organizer/dashboard');
     if (role === 'reseller')  router.replace('/vendor/dashboard');
     if (role === 'admin')     router.replace('/admin/dashboard');
   }, [user, authLoading, router]);

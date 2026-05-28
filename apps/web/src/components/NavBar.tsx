@@ -203,53 +203,123 @@ export default function Navbar() {
     </div>
   ) : null;
 
+  // ── Bottom tab bar (CSS hides it on desktop) ──
+  type Tab = { href: string; icon: string; label: string };
+  let tabs: Tab[] = [];
+  if (user) {
+    if (role === 'fan') {
+      tabs = [
+        { href: '/events',    icon: '🎟️', label: L('Evenman', 'Events', 'Événements')! },
+        { href: '/dashboard', icon: '🏠', label: L('Dachbod', 'Dashboard', 'Dashboard')! },
+        { href: '/tickets',   icon: '🎫', label: L('Tikè', 'Tickets', 'Billets')! },
+        { href: '/profile',   icon: '👤', label: L('Pwofil', 'Profile', 'Profil')! },
+      ];
+    } else if (role === 'organizer') {
+      tabs = [
+        { href: '/organizer/dashboard',     icon: '🏠', label: L('Dachbod', 'Dashboard', 'Dashboard')! },
+        { href: '/organizer/events/create', icon: '➕', label: L('Kreye', 'Create', 'Créer')! },
+        { href: '/organizer/settings',      icon: '⚙️', label: L('Réglaj', 'Settings', 'Réglages')! },
+      ];
+    } else if (role === 'reseller') {
+      tabs = [
+        { href: '/vendor/dashboard', icon: '🏠', label: L('Dachbod', 'Dashboard', 'Dashboard')! },
+        { href: '/events',           icon: '🎟️', label: L('Evenman', 'Events', 'Événements')! },
+      ];
+    }
+  }
+
+  const bottomTabBar = tabs.length > 0 ? (
+    <>
+      <style>{`
+        .anb-bottom-bar { display: flex; }
+        .anb-top-links  { display: none; }
+        .anb-lang-top   { display: none; }
+        @media (min-width: 640px) {
+          .anb-bottom-bar { display: none; }
+          .anb-top-links  { display: flex; }
+          .anb-lang-top   { display: block; }
+        }
+      `}</style>
+      <div className="anb-bottom-bar" style={{
+        position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 60,
+        background: '#0a0a0f', borderTop: '1px solid #1e1e2e',
+        alignItems: 'stretch', paddingBottom: 'env(safe-area-inset-bottom)',
+      }}>
+        {tabs.map(tab => {
+          const active = isActive(tab.href);
+          return (
+            <Link key={tab.href} href={tab.href} style={{
+              flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
+              justifyContent: 'center', padding: '8px 4px', textDecoration: 'none', gap: 3,
+              borderTop: active ? '2px solid ' + accent : '2px solid transparent',
+              background: active ? accent + '10' : 'transparent',
+            }}>
+              <span style={{ fontSize: 20, lineHeight: 1 }}>{tab.icon}</span>
+              <span style={{ fontSize: 10, fontWeight: 600, color: active ? accent : '#666' }}>
+                {tab.label}
+              </span>
+            </Link>
+          );
+        })}
+      </div>
+    </>
+  ) : null;
+
   // ── On organizer pages: only show lang switcher + profile ──
   if (pathname.startsWith('/organizer')) {
     return (
-      <nav style={{ position: 'sticky', top: 0, zIndex: 50, background: '#0a0a0f', borderBottom: '1px solid #1e1e2e', padding: '0 16px' }}>
-        <div style={{ maxWidth: 1200, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', height: 56, gap: 8 }}>
-          <LangSwitcher />
-          {profileDropdown}
-        </div>
-      </nav>
+      <>
+        <nav style={{ position: 'sticky', top: 0, zIndex: 50, background: '#0a0a0f', borderBottom: '1px solid #1e1e2e', padding: '0 16px' }}>
+          <div style={{ maxWidth: 1200, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', height: 56, gap: 8 }}>
+            <LangSwitcher />
+            {profileDropdown}
+          </div>
+        </nav>
+        {bottomTabBar}
+      </>
     );
   }
 
   // ── Default navbar (all other pages) ──
   return (
-    <nav style={{ position: 'sticky', top: 0, zIndex: 50, background: '#0a0a0f', borderBottom: '1px solid #1e1e2e', padding: '0 16px' }}>
-      <div style={{ maxWidth: 1200, margin: '0 auto', display: 'flex', alignItems: 'center', height: 56, gap: 8 }}>
+    <>
+      <nav style={{ position: 'sticky', top: 0, zIndex: 50, background: '#0a0a0f', borderBottom: '1px solid #1e1e2e', padding: '0 16px' }}>
+        <div style={{ maxWidth: 1200, margin: '0 auto', display: 'flex', alignItems: 'center', height: 56, gap: 8 }}>
 
-        <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none', flexShrink: 0 }}>
-          <span style={{ fontWeight: 800, fontSize: 15, letterSpacing: 2, color: '#fff' }}>ANBYANS</span>
-        </Link>
+          <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none', flexShrink: 0 }}>
+            <span style={{ fontWeight: 800, fontSize: 15, letterSpacing: 2, color: '#fff' }}>ANBYANS</span>
+          </Link>
 
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 4, marginLeft: 16, overflowX: 'auto' }}>
-          {links.map(link => (
-            <Link key={link.href} href={link.href} style={{
-              padding: '6px 12px', borderRadius: 6, fontSize: 13, fontWeight: 600,
-              textDecoration: 'none', whiteSpace: 'nowrap',
-              color: isActive(link.href) ? accent : '#888',
-              background: isActive(link.href) ? accent + '15' : 'transparent',
-              borderBottom: isActive(link.href) ? '2px solid ' + accent : '2px solid transparent',
-            }}>{link.label}</Link>
-          ))}
-        </div>
-
-        <LangSwitcher />
-
-        {!user ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-            <Link href="/auth" style={{ padding: '7px 16px', borderRadius: 8, fontSize: 12, fontWeight: 700, textDecoration: 'none', border: '1px solid #06b6d4', color: '#06b6d4', background: 'transparent' }}>
-              {L('Konekte', 'Sign In', 'Connexion')}
-            </Link>
-            <Link href="/auth" style={{ padding: '7px 16px', borderRadius: 8, fontSize: 12, fontWeight: 700, textDecoration: 'none', border: 'none', color: '#000', background: '#06b6d4' }}>
-              {L('Enskri', 'Sign Up', "S'inscrire")}
-            </Link>
+          <div className="anb-top-links" style={{ flex: 1, alignItems: 'center', gap: 4, marginLeft: 16 }}>
+            {links.map(link => (
+              <Link key={link.href} href={link.href} style={{
+                padding: '6px 12px', borderRadius: 6, fontSize: 13, fontWeight: 600,
+                textDecoration: 'none', whiteSpace: 'nowrap',
+                color: isActive(link.href) ? accent : '#888',
+                background: isActive(link.href) ? accent + '15' : 'transparent',
+                borderBottom: isActive(link.href) ? '2px solid ' + accent : '2px solid transparent',
+              }}>{link.label}</Link>
+            ))}
           </div>
-        ) : profileDropdown}
 
-      </div>
-    </nav>
+          <div style={{ flex: 1 }} />
+
+          <span className="anb-lang-top"><LangSwitcher /></span>
+
+          {!user ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+              <Link href="/auth" style={{ padding: '7px 16px', borderRadius: 8, fontSize: 12, fontWeight: 700, textDecoration: 'none', border: '1px solid #06b6d4', color: '#06b6d4', background: 'transparent' }}>
+                {L('Konekte', 'Sign In', 'Connexion')}
+              </Link>
+              <Link href="/auth" style={{ padding: '7px 16px', borderRadius: 8, fontSize: 12, fontWeight: 700, textDecoration: 'none', border: 'none', color: '#000', background: '#06b6d4' }}>
+                {L('Enskri', 'Sign Up', "S'inscrire")}
+              </Link>
+            </div>
+          ) : profileDropdown}
+
+        </div>
+      </nav>
+      {bottomTabBar}
+    </>
   );
 }

@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useT } from '@/i18n';
-import { signUp, signIn, signInWithGoogle, startGoogleRedirect, handleGoogleRedirectResult, getUserProfile } from '@/lib/auth';
+import { signUp, signIn, signInWithGoogle, getUserProfile } from '@/lib/auth';
 import { useAuth } from '@/hooks/useAuth';
 
 export default function OrganizerAuth() {
@@ -42,15 +42,7 @@ export default function OrganizerAuth() {
     }
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Handle return from Google redirect (mobile)
-  useEffect(() => {
-    handleGoogleRedirectResult('organizer').then(result => {
-      if (!result) return;
-      router.replace('/organizer/dashboard');
-    }).catch(console.error);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  async function handleLogin(e: React.FormEvent) {
+async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     setError(''); setLoading(true);
     try {
@@ -90,16 +82,17 @@ export default function OrganizerAuth() {
 
   async function handleGoogleSignIn() {
     setError(''); setGoogleLoading(true);
-    const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
-    if (isMobile) {
-      await startGoogleRedirect();
-      return;
-    }
     try {
-      await signInWithGoogle('organizer');
+      const { role: actualRole } = await signInWithGoogle('organizer');
+      if (actualRole !== 'organizer' && actualRole !== 'admin') {
+        setError('Kont sa a pa yon kont òganizatè / This is not an organizer account');
+        return;
+      }
       router.push('/organizer/dashboard');
     } catch (err: any) {
-      if (err.code !== 'auth/popup-closed-by-user') setError(err.message);
+      if (err.code !== 'auth/popup-closed-by-user' && err.code !== 'auth/cancelled-popup-request') {
+        setError(err.message);
+      }
     } finally { setGoogleLoading(false); }
   }
 

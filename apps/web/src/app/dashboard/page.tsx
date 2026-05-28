@@ -42,7 +42,7 @@ export default function FanDashboard() {
 
   useEffect(() => {
     if (authLoading) return;
-    if (!user) { router.replace('/auth'); return; }
+    if (!user) { router.replace('/'); return; }
     getUserPhoto(user.uid).then(url => setPhotoURL(url)).catch(() => {});
     loadTickets();
   }, [user?.uid, authLoading]);
@@ -94,7 +94,7 @@ export default function FanDashboard() {
 
   const attended = tickets.filter(tk => tk.status === 'used').length;
 
-  if (authLoading || (!user && authLoading)) {
+  if (authLoading && !user) {
     return (
       <div style={{ minHeight: '100vh', background: '#0a0a0f', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ width: 32, height: 32, border: '3px solid #06b6d4', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />

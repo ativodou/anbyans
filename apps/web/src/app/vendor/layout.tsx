@@ -15,7 +15,7 @@ export default function VendorLayout({ children }: { children: React.ReactNode }
 
   useEffect(() => {
     if (loading || isPublic) return;
-    if (!user) { router.push('/vendor/auth'); return; }
+    if (!user) { router.push('/'); return; }
     if (user.role !== 'reseller' && user.role !== 'admin') router.push('/');
   }, [user, loading, isPublic]);
 

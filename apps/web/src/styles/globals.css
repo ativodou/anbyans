@@ -13,3 +13,8 @@ body { background: #08080D; color: #EEEEF2; font-family: 'DM Sans', sans-serif; 
 
 @keyframes scroll { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
 .animate-scroll { animation: scroll 25s linear infinite; }
+
+/* Bottom tab bar — add breathing room on mobile so content isn't hidden */
+@media (max-width: 639px) {
+  body { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
+}

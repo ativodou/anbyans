@@ -795,12 +795,10 @@ function BuyPageInner() {
             const effectiveBarTab = hasMenu ? cartTotal : barTabAmount;
             if (hasMenu) setBarTabAmount(effectiveBarTab);
             setShowBarTab(false);
-            if (cartTotal === 0 && effectiveBarTab === 0) { completeFreeOrder(); return; }
             setStep('payment');
           };
           const skip = () => {
             setBarTabAmount(0); setCustomTab(''); setBarCart({}); setShowBarTab(false);
-            if (cartTotal === 0) { completeFreeOrder(); return; }
             setStep('payment');
           };
           return (

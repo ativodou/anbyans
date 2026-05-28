@@ -5,14 +5,14 @@ import Link from 'next/link';
 import { Suspense } from 'react';
 import { useT } from '@/i18n';
 import LangSwitcher from '@/components/LangSwitcher';
-import { signUp, signIn, signInWithGoogle, startGoogleRedirect, handleGoogleRedirectResult, getUserProfile } from '@/lib/auth';
+import { signUp, signIn, signInWithGoogle, getUserProfile } from '@/lib/auth';
 import { useAuth } from '@/hooks/useAuth';
 
 type RoleTab = 'fan' | 'organizer' | 'reseller';
 type AuthTab = 'login' | 'register';
 
 const ROLE_CONFIG = {
-  fan:       { emoji: '🎫', accent: '#06b6d4', redirect: '/events' },
+  fan:       { emoji: '🎫', accent: '#06b6d4', redirect: '/dashboard' },
   organizer: { emoji: '🎤', accent: '#f97316', redirect: '/organizer/dashboard' },
   reseller:  { emoji: '🏪', accent: '#a855f7', redirect: '/vendor/dashboard' },
   admin:     { emoji: '⚙️', accent: '#ef4444', redirect: '/admin/dashboard' },
@@ -59,17 +59,7 @@ function AuthPage() {
     }
   }, [user, authLoading]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Handle return from Google redirect (mobile)
-  useEffect(() => {
-    const savedRole = (sessionStorage.getItem('anbyans-google-role') as RoleTab) || 'fan';
-    handleGoogleRedirectResult(savedRole).then(result => {
-      if (!result) return;
-      sessionStorage.removeItem('anbyans-google-role');
-      router.replace(ROLE_CONFIG[result.role as RoleTab]?.redirect ?? '/events');
-    }).catch(console.error);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  function switchRole(r: RoleTab) {
+function switchRole(r: RoleTab) {
     setRoleTab(r);
     setAuthTab('login');
     setError('');
@@ -139,17 +129,13 @@ function AuthPage() {
 
   async function handleGoogle() {
     setError(''); setGoogleLoading(true);
-    const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
-    if (isMobile) {
-      sessionStorage.setItem('anbyans-google-role', roleTab);
-      await startGoogleRedirect();
-      return; // page will redirect away
-    }
     try {
       const { role: actualRole } = await signInWithGoogle(roleTab);
       router.push(ROLE_CONFIG[actualRole as RoleTab]?.redirect ?? '/events');
     } catch (err: any) {
-      if (err.code !== 'auth/popup-closed-by-user') setError(err.message);
+      if (err.code !== 'auth/popup-closed-by-user' && err.code !== 'auth/cancelled-popup-request') {
+        setError(err.message);
+      }
     } finally { setGoogleLoading(false); }
   }
 
@@ -177,7 +163,7 @@ function AuthPage() {
           <p style={{ color: '#aaa', fontSize: 12, margin: 0 }}>Signed in as <strong style={{ color: '#fff' }}>{name}</strong></p>
           <Link href={dest} style={{ fontSize: 11, color: accent, textDecoration: 'none' }}>Go to dashboard →</Link>
         </div>
-        <button onClick={async () => { await logout(); }} style={{ background: 'transparent', border: 'none', color: '#555', fontSize: 12, cursor: 'pointer', padding: '4px 8px', borderRadius: 6, flexShrink: 0 }}>
+        <button onClick={async () => { await logout(); window.location.href = '/'; }} style={{ background: 'transparent', border: 'none', color: '#555', fontSize: 12, cursor: 'pointer', padding: '4px 8px', borderRadius: 6, flexShrink: 0 }}>
           Sign out
         </button>
       </div>

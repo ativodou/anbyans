@@ -165,8 +165,8 @@ function OrganizerLayoutInner({ children }: { children: React.ReactNode }) {
   // ── Role guard ───────────────────────────────────────────────────
   useEffect(() => {
     if (loading) return;
-    if (!user) { router.push('/organizer/auth'); return; }
-    if (user.role !== 'organizer' && user.role !== 'admin') router.push('/organizer/auth');
+    if (!user) { router.push('/'); return; }
+    if (user.role !== 'organizer' && user.role !== 'admin') router.push('/');
   }, [user, loading]);
 
   const handleSignOut = async () => {
@@ -359,11 +359,38 @@ function OrganizerLayoutInner({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-5">
+        <main className="flex-1 overflow-y-auto p-5 pb-24 md:pb-5">
           {children}
         </main>
 
       </div>
+
+      {/* ═══ MOBILE BOTTOM TAB BAR ═══ */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-dark border-t border-border flex"
+        style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+        {[
+          { href: '/organizer/dashboard',       icon: '📊', label: t('org_nav_dashboard') },
+          { href: '/organizer/events',          icon: '📅', label: t('org_nav_events') },
+          { href: '/organizer/pending-tickets', icon: '⏳', label: t('org_nav_pending'), badge: pendingCount },
+          { href: '/organizer/bar',             icon: '🍹', label: 'Bar' },
+          { href: '/organizer/settings',        icon: '⚙️', label: t('org_nav_settings') },
+        ].map(tab => {
+          const active = isActive(tab.href);
+          return (
+            <Link key={tab.href} href={tab.href}
+              className="relative flex-1 flex flex-col items-center justify-center py-2 gap-0.5 no-underline"
+              style={{ borderTop: active ? '2px solid #f97316' : '2px solid transparent', background: active ? '#f9731610' : 'transparent' }}>
+              <span className="text-lg leading-none">{tab.icon}</span>
+              <span className="text-[9px] font-semibold" style={{ color: active ? '#f97316' : '#666' }}>{tab.label}</span>
+              {(tab as any).badge > 0 && (
+                <span className="absolute top-1 right-[20%] bg-orange-500 text-white text-[8px] font-bold px-1 rounded-full min-w-[14px] text-center leading-[14px]">
+                  {(tab as any).badge}
+                </span>
+              )}
+            </Link>
+          );
+        })}
+      </nav>
     </div>
   );
 }

@@ -54,7 +54,11 @@ export default function PendingTicketsPage() {
     : tickets.filter((tk) => tk.paymentStatus === filter);
 
   const countOf    = (s: string) => tickets.filter((tk) => tk.paymentStatus === s).length;
-  const totalValue = tickets.reduce((sum, tk) => sum + (tk.priceHTG ?? tk.price ?? 0), 0);
+  const totalValue = tickets.reduce((sum, tk) => {
+    const ticketAmt = tk.priceHTG ?? tk.price ?? 0;
+    const barAmt = (tk as any).barTabBalance ?? 0;
+    return sum + ticketAmt + barAmt;
+  }, 0);
 
   // ── Approve / Reject ───────────────────────────────────────────
   async function handle(id: string, action: 'approve' | 'reject') {
@@ -208,8 +212,15 @@ export default function PendingTicketsPage() {
                   </td>
 
                   {/* Price */}
-                  <td className="px-4 py-3 text-right font-bold text-[13px]">
-                    {(tk.priceHTG ?? tk.price ?? 0).toLocaleString()} HTG
+                  <td className="px-4 py-3 text-right">
+                    <p className="font-bold text-[13px]">
+                      {((tk.priceHTG ?? tk.price ?? 0) + ((tk as any).barTabBalance ?? 0)).toLocaleString()} HTG
+                    </p>
+                    {(tk as any).barTabBalance > 0 && (
+                      <p className="text-[10px] text-orange mt-0.5">
+                        🍺 +{((tk as any).barTabBalance).toLocaleString()} bar
+                      </p>
+                    )}
                   </td>
 
                   {/* Date */}
