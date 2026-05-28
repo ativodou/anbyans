@@ -202,11 +202,12 @@ export default function OrganizerEventsPage() {
                       {e.isPrivate && e.privateToken && (
                         <>
                           <Link href={`/organizer/events/${e.id}/guests`}
+                            onClick={ev => ev.stopPropagation()}
                             className="px-3 py-1.5 rounded-lg bg-orange/10 border border-orange/30 text-[10px] font-bold text-orange hover:bg-orange hover:text-white transition-all">
                             🎟 Envite
                           </Link>
                           <button
-                            onClick={() => navigator.clipboard.writeText(`${window.location.origin}/e/${e.privateToken}`)}
+                            onClick={ev => { ev.stopPropagation(); navigator.clipboard.writeText(`${window.location.origin}/e/${e.privateToken}`); }}
                             className="px-3 py-1.5 rounded-lg bg-white/[0.04] border border-border text-[10px] font-bold text-gray-light hover:text-white hover:border-white/20 transition-all">
                             📋 {t('event_copy_private_link')}
                           </button>
