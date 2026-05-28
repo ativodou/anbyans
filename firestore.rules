@@ -166,7 +166,9 @@ service cloud.firestore {
 
     // ── Staff pool ─────────────────────────────────────────────────
     match /staffPool/{docId} {
-      allow read: if isActiveAuth();
+      allow read: if isActiveAuth() && (
+        resource.data.organizerId == request.auth.uid || isAdmin()
+      );
       allow create: if isActiveAuth() && (isApprovedOrganizer() || isAdmin());
       allow update, delete: if isActiveAuth() && (
         resource.data.organizerId == request.auth.uid || isAdmin()
@@ -174,7 +176,9 @@ service cloud.firestore {
     }
 
     match /staffAssignments/{docId} {
-      allow read: if isActiveAuth();
+      allow read: if isActiveAuth() && (
+        resource.data.organizerId == request.auth.uid || isAdmin()
+      );
       allow create: if isActiveAuth() && (isApprovedOrganizer() || isAdmin());
       allow update, delete: if isActiveAuth() && (
         resource.data.organizerId == request.auth.uid || isAdmin()
@@ -183,7 +187,9 @@ service cloud.firestore {
 
     // ── Staff (door staff collection) ──────────────────────────────
     match /staff/{docId} {
-      allow read: if isActiveAuth();
+      allow read: if isActiveAuth() && (
+        resource.data.organizerId == request.auth.uid || isAdmin()
+      );
       allow write: if isActiveAuth() && (
         resource == null ||
         resource.data.organizerId == request.auth.uid ||
