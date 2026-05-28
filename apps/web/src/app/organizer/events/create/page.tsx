@@ -388,7 +388,7 @@ function CreateEventInner() {
         privateToken:   isPrivate ? uid6() + uid6() : null,
         compLimit:      compLimit > 0 ? compLimit : 0,
         compIssued:     0,
-        sections:       sections.map(s => ({ ...s, sold: 0 })),
+        sections:       sections.map(s => Object.fromEntries(Object.entries({ ...s, sold: 0 }).filter(([, v]) => v !== undefined))),
         floorPlan:      floorPlanImage ? { image: floorPlanImage, zones: mapZones } : null,
         paymentMethods,
         exchangeRate,

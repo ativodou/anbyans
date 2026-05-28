@@ -343,7 +343,7 @@ function EditEventInner() {
         city:          city.trim() || null,
         isPrivate,
         compLimit,
-        sections:      sections.map(s => ({ ...s })),
+        sections:      sections.map(s => Object.fromEntries(Object.entries(s).filter(([, v]) => v !== undefined))),
         floorPlan:     floorPlanImage ? { image: floorPlanImage, zones: mapZones } : null,
         paymentMethods,
         exchangeRate,
