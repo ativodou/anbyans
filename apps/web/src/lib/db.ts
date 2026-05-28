@@ -1755,6 +1755,8 @@ export async function approveTicket(ticketId: string): Promise<void> {
   const snap = await getDoc(doc(db, 'tickets', ticketId));
   const data = snap.data() || {};
   const pendingCash = data.barTabPendingCash || 0;
+  const pendingItems = data.barTabPendingPreorder || [];
+  const existingPreorder = data.barPreorder || [];
   await updateDoc(doc(db, 'tickets', ticketId), {
     status: 'valid',
     paymentStatus: 'paid',
@@ -1763,6 +1765,8 @@ export async function approveTicket(ticketId: string): Promise<void> {
       barTabBalance: (data.barTabBalance || 0) + pendingCash,
       barTabPendingCash: 0,
       barTabPaymentStatus: 'paid',
+      barPreorder: [...existingPreorder, ...pendingItems],
+      barTabPendingPreorder: [],
     } : {}),
   });
 }

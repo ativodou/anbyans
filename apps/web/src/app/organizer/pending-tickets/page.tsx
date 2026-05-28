@@ -159,7 +159,7 @@ export default function PendingTicketsPage() {
         ) : (
           <div className="space-y-3">
             {barList.map(tk => {
-              const items: { name: string; qty: number; price: number; station: string }[] = (tk as any).barPreorder || [];
+              const items: { name: string; qty: number; price: number; station: string }[] = (tk as any).barTabPendingPreorder || [];
               const pendingCash: number = (tk as any).barTabPendingCash || 0;
               return (
                 <div key={tk.id} className={`${card} p-4`}>

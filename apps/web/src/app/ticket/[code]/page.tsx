@@ -140,13 +140,15 @@ export default function TicketPage() {
         });
         setTicket(prev => prev ? { ...prev, barTabBalance: newBalance } : prev);
       } else {
-        // Cash / MonCash: ticket goes pending, balance held until organizer confirms
+        // Cash / MonCash: ticket goes pending, items held until organizer confirms
         const pendingCash = ((ticket as any).barTabPendingCash || 0) + topupAmount;
+        const existingPending: typeof newItems = (ticket as any).barTabPendingPreorder || [];
+        const mergedPending = [...existingPending, ...newItems];
         await updateDoc(doc(db, 'tickets', ticket.id), {
           status: 'pending',
           barTabPaymentStatus: 'pending_cash',
           barTabPendingCash: pendingCash,
-          ...(mergedPreorder.length > 0 ? { barPreorder: mergedPreorder } : {}),
+          ...(mergedPending.length > 0 ? { barTabPendingPreorder: mergedPending } : {}),
           updatedAt: serverTimestamp(),
         });
         setTicket(prev => prev ? { ...prev, status: 'pending', barTabPendingCash: pendingCash } as any : prev);
