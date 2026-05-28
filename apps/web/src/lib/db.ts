@@ -86,7 +86,7 @@ export interface EventData {
   platformFee: number;
   isPrivate?: boolean;
   privateToken?: string;
-  privateMode?: 'rsvp' | 'kotizasyon' | 'paid';
+  privateMode?: 'paid' | 'free';
   suggestedAmount?: number;
   refundPolicy?: 'no_refund' | 'timed' | 'organizer_approval';
   refundDeadlineDays?: number; // for 'timed': how many days before event
@@ -2253,4 +2253,62 @@ export async function deleteFanData(uid: string, email: string): Promise<void> {
 
 export async function resetFanData(email: string): Promise<void> {
   await deleteDocs(query(collection(db, 'tickets'), where('buyerEmail', '==', email)));
+}
+
+// ─── Guest list / Invitations ─────────────────────────────────────────────────
+
+export interface Invitation {
+  id: string;
+  eventId: string;
+  organizerId: string;
+  guestName: string;
+  guestEmail?: string | null;
+  guestPhone?: string | null;
+  status: 'invited' | 'confirmed' | 'declined';
+  ticketCode?: string | null;
+  invitedAt: Timestamp | null;
+  confirmedAt?: Timestamp | null;
+}
+
+export async function addGuest(
+  eventId: string,
+  organizerId: string,
+  guest: { name: string; email?: string; phone?: string }
+): Promise<Invitation> {
+  const ref = doc(collection(db, 'invitations'));
+  const data = {
+    eventId, organizerId,
+    guestName: guest.name.trim(),
+    guestEmail: guest.email?.trim().toLowerCase() || null,
+    guestPhone: guest.phone?.trim() || null,
+    status: 'invited' as const,
+    ticketCode: null,
+    invitedAt: serverTimestamp(),
+    confirmedAt: null,
+  };
+  await setDoc(ref, data);
+  return { id: ref.id, ...data, invitedAt: null };
+}
+
+export async function getGuestList(eventId: string): Promise<Invitation[]> {
+  const snap = await getDocs(query(collection(db, 'invitations'), where('eventId', '==', eventId), orderBy('invitedAt', 'desc')));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as Invitation));
+}
+
+export async function removeGuest(inviteId: string): Promise<void> {
+  await deleteDoc(doc(db, 'invitations', inviteId));
+}
+
+export async function getInvitation(inviteId: string): Promise<Invitation | null> {
+  const snap = await getDoc(doc(db, 'invitations', inviteId));
+  if (!snap.exists()) return null;
+  return { id: snap.id, ...snap.data() } as Invitation;
+}
+
+export async function confirmGuest(inviteId: string, ticketCode: string): Promise<void> {
+  await updateDoc(doc(db, 'invitations', inviteId), {
+    status: 'confirmed',
+    ticketCode,
+    confirmedAt: serverTimestamp(),
+  });
 }

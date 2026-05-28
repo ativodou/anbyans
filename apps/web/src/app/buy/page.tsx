@@ -4,7 +4,7 @@ import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { collection, query, where, getDocs, doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
-import { getEventByPrivateToken, purchaseTickets, getPlatformFeeRate, getBarItems } from '../../lib/db';
+import { getEventByPrivateToken, purchaseTickets, getPlatformFeeRate, getBarItems, getInvitation, confirmGuest, type Invitation } from '../../lib/db';
 import { useT } from '../../i18n';
 import { useAuth } from '../../hooks/useAuth';
 import Link from 'next/link';
@@ -167,9 +167,12 @@ function BuyPageInner() {
   const { user } = useAuth();
   const searchParams = useSearchParams();
   // event ID comes from ?event=xxx; also support legacy ?slug= and ?token=
-  const eventKey = searchParams.get('event') || searchParams.get('slug') || searchParams.get('token') || '';
+  const eventKey    = searchParams.get('event') || searchParams.get('slug') || searchParams.get('token') || '';
+  const inviteParam = searchParams.get('invite') || '';
 
-  const [event, setEvent]       = useState<EventData | null>(null);
+  const [event, setEvent]           = useState<EventData | null>(null);
+  const [invite, setInvite]         = useState<Invitation | null>(null);
+  const [inviteError, setInviteError] = useState('');
   const [loading, setLoading]   = useState(true);
   const [step, setStep]         = useState<Step>('detail');
 
@@ -294,12 +297,23 @@ function BuyPageInner() {
             exchangeRate: data.exchangeRate || 130,
             status: data.status === 'published' ? 'upcoming' : (data.status || 'upcoming'),
             isPrivate: data.isPrivate || false,
+            privateMode: data.privateMode || null,
           } as EventData);
+          // Verify invite for private events
+          if (data.isPrivate) {
+            if (!inviteParam) { setInviteError('missing'); }
+            else {
+              const inv = await getInvitation(inviteParam);
+              if (!inv || inv.eventId !== (eventId || data.id)) setInviteError('invalid');
+              else if (inv.status === 'confirmed') setInviteError('used');
+              else setInvite(inv);
+            }
+          }
         }
       } catch (e) { console.error(e); }
       finally { setLoading(false); }
     })();
-  }, [eventKey]);
+  }, [eventKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Fetch Stripe PaymentIntent when Stripe selected ──────────
   useEffect(() => {
@@ -381,7 +395,9 @@ function BuyPageInner() {
         undefined, undefined, 'free',
         { organizerId: event.organizerId, sectionName: selSection.name, priceHTG: 0 },
       );
-      setTicketCodes(tkts.map(tk => tk.ticketCode));
+      const codes = tkts.map(tk => tk.ticketCode);
+      setTicketCodes(codes);
+      if (invite?.id && codes[0]) confirmGuest(invite.id, codes[0]).catch(() => {});
       setPayMethod('free');
       try { localStorage.removeItem(`anbyans-cart-${eventKey}`); } catch {}
       setStep('done');
@@ -433,7 +449,9 @@ function BuyPageInner() {
         undefined, undefined, 'stripe',
         { organizerId: event.organizerId, sectionName: selSection.name, priceHTG: htg(selSection.price) },
       );
-      setTicketCodes(tkts.map(tk => tk.ticketCode));
+      const stripeCodes = tkts.map(tk => tk.ticketCode);
+      setTicketCodes(stripeCodes);
+      if (invite?.id && stripeCodes[0]) confirmGuest(invite.id, stripeCodes[0]).catch(() => {});
       if (barTabAmount > 0 && tkts[0]?.id) {
         const barPreorder = Object.entries(barCart).map(([name, qty]) => ({ name, qty, price: barMenuItems.find(i => i.name === name)?.price ?? 0 })).filter(x => x.qty > 0);
         try { await updateDoc(doc(db, 'tickets', tkts[0].id), { barTabBalance: barTabAmount, barTabSpent: 0, ...(barPreorder.length > 0 ? { barPreorder } : {}) }); } catch {}
@@ -502,6 +520,20 @@ function BuyPageInner() {
       <p className="text-5xl">🎭</p>
       <p className="text-gray-400">{t('buy_event_not_found')}</p>
       <Link href="/events" className="text-orange text-sm">← {t('back')}</Link>
+    </div>
+  );
+
+  if (event.isPrivate && inviteError) return (
+    <div className="min-h-screen bg-black flex flex-col items-center justify-center text-white gap-4 p-6 text-center">
+      <p className="text-5xl">{inviteError === 'used' ? '✅' : '🔒'}</p>
+      <p className="font-heading text-xl">
+        {inviteError === 'used' ? 'Envitasyon sa deja itilize' : inviteError === 'missing' ? 'Evènman prive' : 'Envitasyon pa valid'}
+      </p>
+      <p className="text-gray-400 text-sm max-w-xs">
+        {inviteError === 'used'
+          ? 'Ou gen tikè deja. Tcheke nan seksyon tikè ou.'
+          : 'Ou bezwen yon lyen envitasyon pèsonèl pou accede evènman sa.'}
+      </p>
     </div>
   );
 
@@ -699,6 +731,8 @@ function BuyPageInner() {
 
         <button onClick={() => {
           if (!validateInfo()) return;
+          // No bar tab for fully free private events
+          if (event?.isPrivate && event.privateMode === 'free') { completeFreeOrder(); return; }
           setShowBarTab(true);
           if (event?.id) getBarItems(event.id).then(items => setBarMenuItems(items.map(x => ({ name: x.name, price: x.price, station: x.stationName })))).catch(() => {});
         }}

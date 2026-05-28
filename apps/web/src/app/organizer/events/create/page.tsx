@@ -159,6 +159,7 @@ function CreateEventInner() {
   const [endDateStr, setEndDateStr]   = useState('');
   const [endTimeStr, setEndTimeStr]   = useState('23:00');
   const [isPrivate, setIsPrivate]     = useState(false);
+  const [privateMode, setPrivateMode] = useState<'paid' | 'free'>('paid');
   const [compLimit, setCompLimit]     = useState(0);
 
   // Step 2 — Venue + Sections
@@ -385,6 +386,7 @@ function CreateEventInner() {
         venuePlaceId:   venuePlaceId || null,
         city:           city.trim() || null,
         isPrivate,
+        privateMode:    isPrivate ? privateMode : null,
         privateToken:   isPrivate ? uid6() + uid6() : null,
         compLimit:      compLimit > 0 ? compLimit : 0,
         compIssued:     0,
@@ -543,6 +545,22 @@ function CreateEventInner() {
                 <div className={`w-5 h-5 bg-white rounded-full absolute top-0.5 transition-all ${isPrivate ? 'left-6' : 'left-0.5'}`} />
               </button>
             </div>
+
+            {/* Private mode selector */}
+            {isPrivate && (
+              <div className="p-4 rounded-xl bg-white/[0.03] border border-border space-y-3">
+                <p className="text-sm font-bold">Tip evènman prive</p>
+                <div className="flex gap-3">
+                  {([['paid', '💳', 'Peye', 'Tikè peye, envitasyon obligatwa'], ['free', '🎊', 'Gratis', 'Maryaj, ba-mitsvah, selebrasyon…']] as const).map(([mode, icon, label, desc]) => (
+                    <button key={mode} type="button" onClick={() => setPrivateMode(mode)}
+                      className={`flex-1 p-3 rounded-xl border text-left transition-all ${privateMode === mode ? 'border-orange bg-orange/10' : 'border-border bg-white/[0.02] hover:border-white/20'}`}>
+                      <p className="text-sm font-bold">{icon} {label}</p>
+                      <p className="text-[10px] text-gray-muted mt-0.5">{desc}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Comp ticket limit */}
             <div className="flex items-center justify-between p-4 rounded-xl bg-white/[0.03] border border-border">

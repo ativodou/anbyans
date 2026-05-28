@@ -5,10 +5,10 @@ import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { collection, query, where, getDocs, doc, getDoc, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { getEventByPrivateToken, getPlatformFeeRate, getBarItems, getBarStations } from '@/lib/db';
+import { getEventByPrivateToken, getPlatformFeeRate, getBarItems, getBarStations, getInvitation, confirmGuest, type Invitation } from '@/lib/db';
 import { useT } from '@/i18n';
 import { useAuth } from '@/hooks/useAuth';
 import Link from 'next/link';
@@ -170,12 +170,16 @@ function StripeForm({ onSuccess, processing, setProcessing }: {
 function BuyPageInner() {
   const { t } = useT();
   const { user } = useAuth();
-  const params = useParams();
-  const slug   = params?.slug as string;
+  const params      = useParams();
+  const searchParams = useSearchParams();
+  const slug        = params?.slug as string;
+  const inviteParam = searchParams?.get('invite') || '';
 
-  const [event, setEvent]     = useState<EventData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [step, setStep]       = useState<Step>('detail');
+  const [event, setEvent]         = useState<EventData | null>(null);
+  const [loading, setLoading]     = useState(true);
+  const [invite, setInvite]       = useState<Invitation | null>(null);
+  const [inviteError, setInviteError] = useState('');
+  const [step, setStep]           = useState<Step>('detail');
 
   // Cart
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -293,10 +297,20 @@ function BuyPageInner() {
             isPrivate: data.isPrivate || false,
           } as EventData);
         }
+        // Verify invite for private events
+        if (data?.isPrivate) {
+          if (!inviteParam) { setInviteError('missing'); }
+          else {
+            const inv = await getInvitation(inviteParam);
+            if (!inv || inv.eventId !== eventId) setInviteError('invalid');
+            else if (inv.status === 'confirmed') setInviteError('used');
+            else setInvite(inv);
+          }
+        }
       } catch (e) { console.error(e); }
       finally { setLoading(false); }
     })();
-  }, [slug]);
+  }, [slug]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Load taken seats ──────────────────────────────────────────
   useEffect(() => {
@@ -420,6 +434,7 @@ function BuyPageInner() {
         }
       }
       setTicketCodes(codes);
+      if (invite?.id && codes[0]) confirmGuest(invite.id, codes[0]).catch(() => {});
       setStep('done');
     } catch (e: any) {
       console.error(e);
@@ -453,6 +468,7 @@ function BuyPageInner() {
       }
       setPayMethod('free');
       setTicketCodes(codes);
+      if (invite?.id && codes[0]) confirmGuest(invite.id, codes[0]).catch(() => {});
       setStep('done');
     } catch (e: any) {
       console.error(e);
@@ -472,6 +488,21 @@ function BuyPageInner() {
       <p className="text-5xl">🎭</p>
       <p className="text-gray-400">{t('buy_event_not_found')}</p>
       <Link href="/events" className="text-orange text-sm">← {t('back')}</Link>
+    </div>
+  );
+
+  // ── Private event gate ────────────────────────────────────────
+  if (event.isPrivate && inviteError) return (
+    <div className="min-h-screen bg-black flex flex-col items-center justify-center text-white gap-4 p-6 text-center">
+      <p className="text-5xl">{inviteError === 'used' ? '✅' : '🔒'}</p>
+      <p className="font-heading text-xl">
+        {inviteError === 'used' ? 'Envitasyon sa deja itilize' : inviteError === 'missing' ? 'Evènman prive' : 'Envitasyon pa valid'}
+      </p>
+      <p className="text-gray-400 text-sm max-w-xs">
+        {inviteError === 'used'
+          ? 'Ou gen tikè deja. Tcheke nan seksyon tikè ou.'
+          : 'Ou bezwen yon lyen envitasyon pèsonèl pou accede evènman sa.'}
+      </p>
     </div>
   );
 
@@ -750,6 +781,8 @@ function BuyPageInner() {
         <button onClick={() => {
           if (!validateInfo()) return;
           if (cartTotal === 0) { completeFreeOrder(); return; }
+          // No bar tab for fully free private events
+          if (event?.isPrivate && event.privateMode === 'free') { setStep('payment'); return; }
           if (event?.id) Promise.all([getBarItems(event.id), getBarStations(event.id)]).then(([items, stations]) => {
             const stationMap = new Map(stations.map(s => [s.id!, s]));
             setBarMenuItems(items

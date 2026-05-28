@@ -251,6 +251,20 @@ service cloud.firestore {
       allow write: if true;
     }
 
+    // ── Invitations (guest list) ───────────────────────────────────
+    // Doc ID acts as a secret token — public read so fans can verify
+    // their invite link without needing Firebase auth.
+    match /invitations/{inviteId} {
+      allow read: if true;
+      allow create: if isActiveAuth() && (isApprovedOrganizer() || isAdmin());
+      allow update: if isActiveAuth() && (
+        resource.data.organizerId == request.auth.uid || isAdmin()
+      );
+      allow delete: if isActiveAuth() && (
+        resource.data.organizerId == request.auth.uid || isAdmin()
+      );
+    }
+
     // ── Legal docs ─────────────────────────────────────────────────
     match /legal/{file} {
       allow read: if true;

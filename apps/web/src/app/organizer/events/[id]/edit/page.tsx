@@ -151,6 +151,7 @@ function EditEventInner() {
   const [endDateStr, setEndDateStr] = useState('');
   const [endTimeStr, setEndTimeStr] = useState('23:00');
   const [isPrivate, setIsPrivate]   = useState(false);
+  const [privateMode, setPrivateMode] = useState<'paid' | 'free'>('paid');
   const [compLimit, setCompLimit]   = useState(0);
 
   // Step 2
@@ -212,6 +213,7 @@ function EditEventInner() {
         setEndDateStr(d.endDate || '');
         setEndTimeStr(d.endTime || '23:00');
         setIsPrivate(d.isPrivate || false);
+        setPrivateMode((d.privateMode as 'paid' | 'free') || 'paid');
         setCompLimit((d.compLimit as number) || 0);
         setVenue(venueStr);
         setVenueQuery(venueStr);
@@ -342,6 +344,7 @@ function EditEventInner() {
         venuePlaceId:  venuePlaceId || null,
         city:          city.trim() || null,
         isPrivate,
+        privateMode: isPrivate ? privateMode : null,
         compLimit,
         sections:      sections.map(s => Object.fromEntries(Object.entries(s).filter(([, v]) => v !== undefined))),
         floorPlan:     floorPlanImage ? { image: floorPlanImage, zones: mapZones } : null,
@@ -470,6 +473,20 @@ function EditEventInner() {
                 <div className={`w-5 h-5 bg-white rounded-full absolute top-0.5 transition-all ${isPrivate ? 'left-6' : 'left-0.5'}`} />
               </button>
             </div>
+            {isPrivate && (
+              <div className="p-4 rounded-xl bg-white/[0.03] border border-border space-y-3">
+                <p className="text-sm font-bold">Tip evènman prive</p>
+                <div className="flex gap-3">
+                  {([['paid', '💳', 'Peye', 'Tikè peye, envitasyon obligatwa'], ['free', '🎊', 'Gratis', 'Maryaj, ba-mitsvah, selebrasyon…']] as const).map(([mode, icon, label, desc]) => (
+                    <button key={mode} type="button" onClick={() => setPrivateMode(mode)}
+                      className={`flex-1 p-3 rounded-xl border text-left transition-all ${privateMode === mode ? 'border-orange bg-orange/10' : 'border-border bg-white/[0.02] hover:border-white/20'}`}>
+                      <p className="text-sm font-bold">{icon} {label}</p>
+                      <p className="text-[10px] text-gray-muted mt-0.5">{desc}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             <div className="flex items-center justify-between p-4 rounded-xl bg-white/[0.03] border border-border">
               <div>
                 <p className="text-sm font-bold">Comp Ticket Limit</p>
