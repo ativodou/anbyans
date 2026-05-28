@@ -28,9 +28,10 @@ export default function GuestListPage() {
   const [error, setError]     = useState('');
   const [copied, setCopied]   = useState<string | null>(null);
 
-  const [name, setName]   = useState('');
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
+  const [name, setName]         = useState('');
+  const [email, setEmail]       = useState('');
+  const [phone, setPhone]       = useState('');
+  const [plusOnes, setPlusOnes] = useState<0|1|2>(0);
 
   useEffect(() => {
     if (!eventId) return;
@@ -56,9 +57,9 @@ export default function GuestListPage() {
     if (!name.trim() || !user?.uid) return;
     setSaving(true); setError('');
     try {
-      const inv = await addGuest(eventId, user.uid, { name, email, phone });
+      const inv = await addGuest(eventId, user.uid, { name, email, phone, allowPlusOnes: plusOnes });
       setGuests(prev => [inv, ...prev]);
-      setName(''); setEmail(''); setPhone('');
+      setName(''); setEmail(''); setPhone(''); setPlusOnes(0);
     } catch (e: any) {
       setError(e?.message || 'Erè. Eseye ankò.');
     } finally { setSaving(false); }
@@ -114,6 +115,19 @@ export default function GuestListPage() {
           <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="Telefòn (opsyonèl)"
             className="flex-1 px-3 py-2.5 rounded-xl bg-white/[0.05] border border-border text-sm text-white placeholder-gray-muted outline-none focus:border-orange" />
         </div>
+        {isFree && (
+          <div className="flex items-center justify-between p-3 rounded-xl bg-white/[0.03] border border-border">
+            <p className="text-xs text-gray-muted">Pèmèt +1 / +2?</p>
+            <div className="flex gap-1">
+              {([0,1,2] as const).map(n => (
+                <button key={n} type="button" onClick={() => setPlusOnes(n)}
+                  className={`px-3 py-1 rounded-lg text-[11px] font-bold transition-all ${plusOnes === n ? 'bg-orange text-black' : 'bg-white/[0.05] text-gray-muted hover:text-white'}`}>
+                  {n === 0 ? 'Non' : `+${n}`}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         {error && <p className="text-red-400 text-xs">{error}</p>}
         <button onClick={handleAdd} disabled={saving || !name.trim()}
           className="w-full py-2.5 rounded-xl bg-orange text-black font-bold text-sm disabled:opacity-40 hover:bg-orange/90 transition-all">
@@ -139,10 +153,15 @@ export default function GuestListPage() {
                 </p>
               </div>
 
-              {/* Status */}
-              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${STATUS_COLOR[g.status]}`}>
-                {STATUS_LABEL[g.status]}
-              </span>
+              {/* Status + plus ones */}
+              <div className="flex items-center gap-1 shrink-0">
+                {(g.allowPlusOnes ?? 0) > 0 && (
+                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-white/[0.06] text-gray-muted">+{g.allowPlusOnes}</span>
+                )}
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${STATUS_COLOR[g.status]}`}>
+                  {STATUS_LABEL[g.status]}{g.ticketCount && g.ticketCount > 1 ? ` ×${g.ticketCount}` : ''}
+                </span>
+              </div>
 
               {/* Send buttons */}
               <div className="flex items-center gap-1 shrink-0">

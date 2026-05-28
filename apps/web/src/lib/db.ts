@@ -2264,8 +2264,10 @@ export interface Invitation {
   guestName: string;
   guestEmail?: string | null;
   guestPhone?: string | null;
+  allowPlusOnes: 0 | 1 | 2;
   status: 'invited' | 'confirmed' | 'declined';
   ticketCode?: string | null;
+  ticketCount?: number;
   invitedAt: Timestamp | null;
   confirmedAt?: Timestamp | null;
 }
@@ -2273,7 +2275,7 @@ export interface Invitation {
 export async function addGuest(
   eventId: string,
   organizerId: string,
-  guest: { name: string; email?: string; phone?: string }
+  guest: { name: string; email?: string; phone?: string; allowPlusOnes?: 0 | 1 | 2 }
 ): Promise<Invitation> {
   const ref = doc(collection(db, 'invitations'));
   const data = {
@@ -2281,13 +2283,50 @@ export async function addGuest(
     guestName: guest.name.trim(),
     guestEmail: guest.email?.trim().toLowerCase() || null,
     guestPhone: guest.phone?.trim() || null,
+    allowPlusOnes: guest.allowPlusOnes ?? 0,
     status: 'invited' as const,
     ticketCode: null,
+    ticketCount: 0,
     invitedAt: serverTimestamp(),
     confirmedAt: null,
   };
   await setDoc(ref, data);
   return { id: ref.id, ...data, invitedAt: null };
+}
+
+export async function rsvpFreeInvitation(
+  invite: Invitation,
+  event: EventData,
+  qty: number
+): Promise<string[]> {
+  const codes: string[] = [];
+  const sectionName = event.sections?.[0]?.name ?? 'Général';
+  const sectionId = sectionName.toLowerCase().replace(/\s+/g, '-') || 'general';
+  const sectionColor = event.sections?.[0]?.color ?? '#f97316';
+  for (let i = 0; i < qty; i++) {
+    const code = Math.random().toString(36).substring(2, 10).toUpperCase();
+    await addDoc(collection(db, 'tickets'), {
+      ticketCode: code, qrData: code,
+      eventId: event.id, organizerId: event.organizerId,
+      buyerName: invite.guestName,
+      buyerPhone: invite.guestPhone || '',
+      buyerEmail: invite.guestEmail || null,
+      section: sectionId, sectionName, sectionColor,
+      seat: null,
+      price: 0, priceHTG: 0,
+      paymentMethod: 'free', paymentStatus: 'paid',
+      status: 'valid',
+      purchasedAt: serverTimestamp(),
+    });
+    codes.push(code);
+  }
+  await updateDoc(doc(db, 'invitations', invite.id), {
+    status: 'confirmed',
+    ticketCode: codes[0],
+    ticketCount: qty,
+    confirmedAt: serverTimestamp(),
+  });
+  return codes;
 }
 
 export async function getGuestList(eventId: string): Promise<Invitation[]> {
