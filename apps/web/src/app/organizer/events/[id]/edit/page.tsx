@@ -184,6 +184,7 @@ function EditEventInner() {
 
   const [tab, setTab]     = useState<'info' | 'venue' | 'payment'>('info');
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   // Load existing event
@@ -316,7 +317,12 @@ function EditEventInner() {
   };
 
   const save = async () => {
-    if (!validate()) { setTab('info'); return; }
+    setSaveError('');
+    const errs = validate();
+    if (Object.keys(errs).length > 0) {
+      if (errs.sections) { setTab('venue'); } else { setTab('info'); }
+      return;
+    }
     if (!user) return;
     setSaving(true);
     try {
@@ -354,8 +360,10 @@ function EditEventInner() {
       }
 
       router.push('/organizer/events');
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
+      setSaveError(e?.message || 'Erè. Eseye ankò.');
+    } finally {
       setSaving(false);
     }
   };
@@ -699,8 +707,11 @@ function EditEventInner() {
       {/* Fixed save bar */}
       <div className="fixed bottom-0 left-0 right-0 bg-black/90 backdrop-blur border-t border-border px-4 py-3 flex items-center gap-3">
         <div className="flex-1 text-xs text-gray-500">
-          {sections.length} sections · {sections.reduce((a,s) => a+s.capacity, 0)} seats
-          {mapZones.length > 0 && <span className="ml-2 text-orange">· 🗺 {mapZones.length} zones</span>}
+          {saveError
+            ? <span className="text-red-400">{saveError}</span>
+            : <>{sections.length} sections · {sections.reduce((a,s) => a+s.capacity, 0)} seats
+              {mapZones.length > 0 && <span className="ml-2 text-orange">· 🗺 {mapZones.length} zones</span>}</>
+          }
         </div>
         <button onClick={save} disabled={saving}
           className="px-6 py-3 rounded-xl bg-orange text-white font-heading text-sm hover:bg-orange/90 disabled:opacity-40 transition-all flex items-center gap-2">
