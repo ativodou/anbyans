@@ -562,8 +562,17 @@ function BuyPageInner() {
                     )}
                   </div>
                   <div className="text-right flex-shrink-0">
-                    <p className="font-heading text-sm text-green">${sec.price}</p>
-                    <p className="text-[10px] text-red-400">{htg(sec.price).toLocaleString('fr-HT')} HTG</p>
+                    {sec.price === 0 ? (
+                      <>
+                        <p className="font-heading text-sm text-green">FREE</p>
+                        <p className="text-[10px] text-gray-400">Tikè Obligatwa</p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="font-heading text-sm text-green">${sec.price}</p>
+                        <p className="text-[10px] text-red-400">{htg(sec.price).toLocaleString('fr-HT')} HTG</p>
+                      </>
+                    )}
                     {!soldOut && <p className="text-[10px] text-gray-500 mt-0.5">{isOpen ? '▲' : '▼'}</p>}
                   </div>
                 </div>

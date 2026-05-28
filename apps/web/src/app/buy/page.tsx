@@ -564,8 +564,17 @@ function BuyPageInner() {
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="font-heading text-base text-green">${sec.price}</p>
-                  <p className="text-[10px] text-red-400">{htg(sec.price).toLocaleString('fr-HT')} HTG</p>
+                  {sec.price === 0 ? (
+                    <>
+                      <p className="font-heading text-base text-green">FREE</p>
+                      <p className="text-[10px] text-gray-400">Tikè Obligatwa</p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="font-heading text-base text-green">${sec.price}</p>
+                      <p className="text-[10px] text-red-400">{htg(sec.price).toLocaleString('fr-HT')} HTG</p>
+                    </>
+                  )}
                 </div>
               </button>
             );

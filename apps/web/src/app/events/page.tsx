@@ -153,9 +153,20 @@ function EventsInner() {
                   <p className="text-[11px] text-gray-400 mb-0.5">📅 {dateStr((ev as any).startDate ? new Date((ev as any).startDate) : ev.date)}</p>
                   <p className="text-[11px] text-gray-400 mb-3">📍 {(ev as any).venue?.name || ev.venue}{(ev as any).venue?.city || ev.city ? `, ${(ev as any).venue?.city || ev.city}` : ''}</p>
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-orange">
-                      {(ev as any).sections ? `$${Math.min(...(ev as any).sections.map((s:any) => s.price))} – $${Math.max(...(ev as any).sections.map((s:any) => s.price))}` : fmt(ev.minPrice)}
-                    </span>
+                    {(() => {
+                      const secs = (ev as any).sections as any[] | undefined;
+                      const isFree = secs ? secs.every((s: any) => !s.price) : ev.minPrice === 0;
+                      return isFree ? (
+                        <span className="text-xs font-bold">
+                          <span className="text-green">FREE</span>
+                          <span className="text-gray-400"> · Tikè Obligatwa</span>
+                        </span>
+                      ) : (
+                        <span className="text-xs font-bold text-orange">
+                          {secs ? `$${Math.min(...secs.map((s: any) => s.price))} – $${Math.max(...secs.map((s: any) => s.price))}` : fmt(ev.minPrice)}
+                        </span>
+                      );
+                    })()}
                     <span className="text-[10px] font-bold bg-orange/10 text-orange px-3 py-1 rounded-full group-hover:bg-orange group-hover:text-white transition-all">
                       {t('browse_buy_arrow')} →
                     </span>
