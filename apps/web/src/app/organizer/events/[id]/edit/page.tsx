@@ -453,9 +453,21 @@ function EditEventInner() {
               </div>
             </div>
             <div>
-              <label className="block text-[11px] font-bold text-gray-400 mb-1.5">{t('create_upload_cover').toUpperCase()} (URL)</label>
-              <input value={coverImage} onChange={e => setCoverImage(e.target.value)} placeholder="https://..."
-                className="w-full px-4 py-3 rounded-xl bg-white/[0.05] border border-border text-white text-sm outline-none focus:border-orange" />
+              <label className="block text-[11px] font-bold text-gray-400 mb-1.5">{t('create_upload_cover').toUpperCase()}</label>
+              <div className="flex gap-2">
+                <input value={coverImage} onChange={e => setCoverImage(e.target.value)} placeholder="https://..."
+                  className="flex-1 px-4 py-3 rounded-xl bg-white/[0.05] border border-border text-white text-sm outline-none focus:border-orange" />
+                <label className="px-4 py-3 rounded-xl bg-white/[0.05] border border-border text-sm text-orange font-bold cursor-pointer hover:border-orange/50 transition-all whitespace-nowrap">
+                  📁 Browse
+                  <input type="file" accept="image/*" className="hidden" onChange={e => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = ev => setCoverImage(ev.target?.result as string);
+                    reader.readAsDataURL(file);
+                  }} />
+                </label>
+              </div>
               {coverImage && <img src={coverImage} alt="preview" className="mt-2 h-28 w-full object-cover rounded-xl opacity-80" onError={e => (e.currentTarget.style.display='none')} />}
             </div>
             <div>
