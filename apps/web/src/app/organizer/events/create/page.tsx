@@ -173,7 +173,7 @@ function CreateEventInner() {
   const venueDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [sections, setSections] = useState<Section[]>([
-    { id: uid6(), name: 'General Admission', price: 20, capacity: 200, color: '#f97316', type: 'ga' },
+    { id: uid6(), name: 'General Admission', price: 0, capacity: 200, color: '#f97316', type: 'ga' },
   ]);
 
   // Floor plan
@@ -521,8 +521,13 @@ function CreateEventInner() {
             {/* Private toggle */}
             <div className="flex items-center justify-between p-4 rounded-xl bg-white/[0.03] border border-border">
               <div>
-                <p className="text-sm font-bold">{t('create_event_private')}</p>
-                <p className="text-[10px] text-gray-500">{t('create_private_hint')}</p>
+                <div className="flex items-center gap-2 mb-0.5">
+                  <p className="text-sm font-bold">{t('create_event_private')}</p>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isPrivate ? 'bg-orange/20 text-orange' : 'bg-green-500/20 text-green-400'}`}>
+                    {isPrivate ? '🔒 Prive' : '🌐 Piblik'}
+                  </span>
+                </div>
+                <p className="text-[10px] text-gray-500">{isPrivate ? t('create_private_hint') : 'Tout moun ka wè epi achte tikè'}</p>
               </div>
               <button type="button" onClick={() => setIsPrivate(v => !v)}
                 className={`w-12 h-6 rounded-full transition-all relative ${isPrivate ? 'bg-orange' : 'bg-white/[0.1]'}`}>
