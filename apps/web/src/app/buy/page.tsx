@@ -43,6 +43,7 @@ interface EventData {
   exchangeRate: number;
   status: 'live' | 'upcoming' | 'ended';
   isPrivate?: boolean;
+  privateMode?: 'paid' | 'free' | null;
 }
 
 type Step = 'detail' | 'seats' | 'info' | 'payment' | 'done';
