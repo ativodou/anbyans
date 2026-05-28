@@ -564,7 +564,7 @@ function BuyPageInner() {
                   <div className="text-right flex-shrink-0">
                     {sec.price === 0 ? (
                       <>
-                        <p className="font-heading text-sm text-green">FREE</p>
+                        <p className="font-heading text-sm text-green">GRATIS</p>
                         <p className="text-[10px] text-gray-400">Tikè Obligatwa</p>
                       </>
                     ) : (

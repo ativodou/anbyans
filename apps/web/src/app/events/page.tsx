@@ -158,7 +158,7 @@ function EventsInner() {
                       const isFree = secs ? secs.every((s: any) => !s.price) : ev.minPrice === 0;
                       return isFree ? (
                         <span className="text-xs font-bold">
-                          <span className="text-green">FREE</span>
+                          <span className="text-green">GRATIS</span>
                           <span className="text-gray-400"> · Tikè Obligatwa</span>
                         </span>
                       ) : (
