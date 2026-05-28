@@ -1726,33 +1726,44 @@ export function subscribePendingTickets(
   organizerId: string,
   callback: (tickets: PendingTicket[]) => void,
 ): Unsubscribe {
-  const q = query(
-    collection(db, 'tickets'),
-    where('organizerId', '==', organizerId),
-    where('paymentStatus', 'in', ['pending_verification', 'pending_cash']),
-  );
-
-  return onSnapshot(q, (snap) => {
-    const tickets = snap.docs.map((d) => ({
-      id: d.id,
-      ...(d.data() as Omit<PendingTicket, 'id'>),
-    }));
-    // Newest first
+  const sort = (tickets: PendingTicket[]) =>
     tickets.sort((a, b) => {
       const at = (a.purchasedAt as Timestamp | null)?.toMillis() ?? 0;
       const bt = (b.purchasedAt as Timestamp | null)?.toMillis() ?? 0;
       return bt - at;
     });
-    callback(tickets);
-  });
+
+  const cache: { payment: PendingTicket[]; barTab: PendingTicket[] } = { payment: [], barTab: [] };
+  const emit = () => {
+    const seen = new Set<string>();
+    const merged: PendingTicket[] = [];
+    [...cache.payment, ...cache.barTab].forEach(t => { if (!seen.has(t.id)) { seen.add(t.id); merged.push(t); } });
+    callback(sort(merged));
+  };
+
+  const q1 = query(collection(db, 'tickets'), where('organizerId', '==', organizerId), where('paymentStatus', 'in', ['pending_verification', 'pending_cash']));
+  const q2 = query(collection(db, 'tickets'), where('organizerId', '==', organizerId), where('barTabPaymentStatus', '==', 'pending_cash'));
+
+  const unsub1 = onSnapshot(q1, snap => { cache.payment = snap.docs.map(d => ({ id: d.id, ...(d.data() as Omit<PendingTicket, 'id'>) })); emit(); });
+  const unsub2 = onSnapshot(q2, snap => { cache.barTab = snap.docs.map(d => ({ id: d.id, ...(d.data() as Omit<PendingTicket, 'id'>) })); emit(); });
+
+  return () => { unsub1(); unsub2(); };
 }
 
-/** Approve: set status=valid, paymentStatus=paid */
+/** Approve: set status=valid, paymentStatus=paid, credit any pending bar tab cash */
 export async function approveTicket(ticketId: string): Promise<void> {
+  const snap = await getDoc(doc(db, 'tickets', ticketId));
+  const data = snap.data() || {};
+  const pendingCash = data.barTabPendingCash || 0;
   await updateDoc(doc(db, 'tickets', ticketId), {
     status: 'valid',
     paymentStatus: 'paid',
     approvedAt: serverTimestamp(),
+    ...(pendingCash > 0 ? {
+      barTabBalance: (data.barTabBalance || 0) + pendingCash,
+      barTabPendingCash: 0,
+      barTabPaymentStatus: 'paid',
+    } : {}),
   });
 }
 
