@@ -29,7 +29,7 @@ interface ScanRecord {
   section: string;
   sectionColor: string;
   seat: string;
-  status: 'admitted' | 'already-used' | 'not-found';
+  status: 'admitted' | 'already-used' | 'not-found' | 'pending-payment';
   time: string;
   synced: boolean;
 }
@@ -504,6 +504,13 @@ function ScannerPageInner() {
         section: '—', sectionColor: '#666', seat: '—',
         status: 'not-found', time: now, synced: false,
       };
+    } else if (ticket.status === 'pending') {
+      record = {
+        ticketCode: ticket.ticketCode, buyerName: ticket.buyerName,
+        buyerPhone: (ticket as any).buyerPhone || '',
+        section: ticket.section, sectionColor: ticket.sectionColor, seat: ticket.seat,
+        status: 'pending-payment', time: now, synced: false,
+      };
     } else if (ticket.status === 'used' || scanHistory.some(h => h.ticketCode === ticket.ticketCode && h.status === 'admitted')) {
       record = {
         ticketCode: ticket.ticketCode, buyerName: ticket.buyerName,
@@ -670,9 +677,10 @@ function ScannerPageInner() {
   };
 
   const statusConfig = {
-    'admitted':     { bg: '#0a2a0a', border: '#22c55e', color: '#22c55e', icon: '✅', label: t('scanner_result_valid') },
-    'already-used': { bg: '#2a1a00', border: '#f97316', color: '#f97316', icon: '⚠️', label: t('scanner_result_used') },
-    'not-found':    { bg: '#2a0a0a', border: '#ef4444', color: '#ef4444', icon: '❌', label: t('scanner_result_invalid') },
+    'admitted':        { bg: '#0a2a0a', border: '#22c55e', color: '#22c55e', icon: '✅', label: t('scanner_result_valid') },
+    'already-used':    { bg: '#2a1a00', border: '#f97316', color: '#f97316', icon: '⚠️', label: t('scanner_result_used') },
+    'not-found':       { bg: '#2a0a0a', border: '#ef4444', color: '#ef4444', icon: '❌', label: t('scanner_result_invalid') },
+    'pending-payment': { bg: '#1a1a2a', border: '#a78bfa', color: '#a78bfa', icon: '⏳', label: 'Peman an atant' },
   };
 
   // ─── Styles ───────────────────────────────────────────────────

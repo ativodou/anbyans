@@ -87,7 +87,7 @@ export default function OrganizerBarPage() {
         const snap = await getDocs(query(collection(db, 'tickets'), where('eventId', '==', eventId)));
         const agg: Record<string, { qty: number; price: number; station: string }> = {};
         snap.docs.forEach(d => {
-          const orders = d.data().barTabPreOrders as { name: string; qty: number; price: number; station: string }[] | undefined;
+          const orders = d.data().barPreorder as { name: string; qty: number; price: number; station: string }[] | undefined;
           if (!orders) return;
           orders.forEach(o => {
             if (!agg[o.name]) agg[o.name] = { qty: 0, price: o.price, station: o.station };
