@@ -42,12 +42,7 @@ export default function GuestListPage() {
     })();
   }, [eventId]);
 
-  const inviteBase = () => {
-    if (!event?.privateToken) return null;
-    return `${window.location.origin}/e/${event.privateToken}`;
-  };
-
-  const inviteLink = (inviteId: string) => `${inviteBase()}?invite=${inviteId}`;
+  const inviteLink = (inviteId: string) => `${window.location.origin}/invite/${inviteId}`;
 
   const copyLink = (inviteId: string) => {
     navigator.clipboard.writeText(inviteLink(inviteId));
