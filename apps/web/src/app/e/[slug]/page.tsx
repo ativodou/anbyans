@@ -52,7 +52,7 @@ interface EventData {
 }
 
 type Step = 'detail' | 'seats' | 'info' | 'payment' | 'done';
-type PayMethod = 'stripe' | 'moncash' | 'natcash' | 'cash';
+type PayMethod = 'stripe' | 'moncash' | 'natcash' | 'cash' | 'free';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -420,9 +420,42 @@ function BuyPageInner() {
       }
       setTicketCodes(codes);
       setStep('done');
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      setPurchaseError(t('buy_error_retry'));
+      setPurchaseError(e?.message === 'SOLD_OUT' ? 'Seksyon sa a pa gen plas ankò.' : t('buy_error_retry'));
+    } finally { setProcessing(false); }
+  };
+
+  const completeFreeOrder = async () => {
+    if (!event || cart.length === 0) return;
+    setProcessing(true);
+    try {
+      const codes: string[] = [];
+      for (const item of cart) {
+        const seats = item.section.type === 'reserved' ? item.seats : Array(item.qty).fill(null);
+        for (let i = 0; i < item.qty; i++) {
+          const code = genCode();
+          await addDoc(collection(db, 'tickets'), {
+            ticketCode: code, qrData: code,
+            eventId: event.id, organizerId: event.organizerId,
+            buyerName: name.trim(), buyerPhone: phone.trim(), buyerEmail: email.trim() || null,
+            buyerUid: user?.uid || null,
+            section: item.section.id, sectionName: item.section.name, sectionColor: item.section.color,
+            seat: seats[i] || null,
+            price: 0, priceHTG: 0,
+            paymentMethod: 'free', paymentStatus: 'paid',
+            status: 'valid',
+            purchasedAt: serverTimestamp(),
+          });
+          codes.push(code);
+        }
+      }
+      setPayMethod('free');
+      setTicketCodes(codes);
+      setStep('done');
+    } catch (e: any) {
+      console.error(e);
+      setPurchaseError(e?.message === 'SOLD_OUT' ? 'Seksyon sa a pa gen plas ankò.' : t('buy_error_retry'));
     } finally { setProcessing(false); }
   };
 
@@ -752,8 +785,18 @@ function BuyPageInner() {
           });
           const hasMenu = visibleItems.length > 0;
           const stations = hasMenu ? Array.from(new Set(visibleItems.map(i => i.station))) : [];
-          const confirm = () => { if (hasMenu) setBarTabAmount(cartTotal); setShowBarTab(false); setStep('payment'); };
-          const skip = () => { setBarTabAmount(0); setCustomTab(''); setBarCart({}); setShowBarTab(false); setStep('payment'); };
+          const confirm = () => {
+            const effectiveBarTab = hasMenu ? cartTotal : barTabAmount;
+            if (hasMenu) setBarTabAmount(effectiveBarTab);
+            setShowBarTab(false);
+            if (cartTotal === 0 && effectiveBarTab === 0) { completeFreeOrder(); return; }
+            setStep('payment');
+          };
+          const skip = () => {
+            setBarTabAmount(0); setCustomTab(''); setBarCart({}); setShowBarTab(false);
+            if (cartTotal === 0) { completeFreeOrder(); return; }
+            setStep('payment');
+          };
           return (
             <div className="fixed inset-0 bg-black/80 z-50 flex items-end sm:items-center justify-center" onClick={skip}>
               <div className="bg-[#12121a] border border-white/[0.1] rounded-t-2xl sm:rounded-2xl w-full max-w-md flex flex-col max-h-[85vh]" onClick={e => e.stopPropagation()}>
@@ -827,7 +870,7 @@ function BuyPageInner() {
                     </div>
                     <div className="flex gap-3">
                       <button onClick={skip} className="flex-1 py-3 rounded-xl border border-white/[0.1] text-gray-400 font-bold text-sm hover:border-white/30 transition-all">Skip</button>
-                      <button onClick={() => { setShowBarTab(false); setStep('payment'); }}
+                      <button onClick={confirm}
                         className="flex-1 py-3 rounded-xl bg-orange text-white font-bold text-sm hover:bg-orange/90 transition-all">
                         {barTabAmount > 0 ? `Add $${barTabAmount} →` : 'Continue →'}
                       </button>
@@ -849,7 +892,21 @@ function BuyPageInner() {
         <button onClick={() => setStep('info')} className="text-gray-400 hover:text-white text-sm mb-4">← {t('back')}</button>
         <h2 className="font-heading text-xl mb-6">{t('buy_payment_h')}</h2>
 
-        <div className="space-y-3 mb-6">
+        {chargeTotal === 0 && (
+          <div className="text-center py-8">
+            <p className="text-5xl mb-4">🎟️</p>
+            <p className="text-gray-400 text-sm mb-6">Tikè sa a gratis. Pa gen peman obligatwa.</p>
+            {purchaseError && <p className="text-red-400 text-xs mb-3">{purchaseError}</p>}
+            <button onClick={completeFreeOrder} disabled={processing}
+              className="w-full py-3.5 rounded-xl font-heading text-base bg-orange text-white disabled:opacity-30 hover:bg-orange/90 transition-all flex items-center justify-center gap-2">
+              {processing
+                ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Chajman…</>
+                : '🎫 Pran Tikè Gratis la'}
+            </button>
+          </div>
+        )}
+
+        {chargeTotal > 0 && <div className="space-y-3 mb-6">
           {availMethods.map(m => (
             <button key={m} onClick={async () => {
               setPayMethod(m);
@@ -996,6 +1053,7 @@ function BuyPageInner() {
             ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> {t('buy_processing_btn')}</>
             : t('buy_confirm_payment')}
         </button>}
+        </div>}
       </div>
     </div>
   );
@@ -1006,12 +1064,16 @@ function BuyPageInner() {
       <div className="max-w-md w-full text-center">
         <div className="text-6xl mb-4">🎉</div>
         <h2 className="font-heading text-2xl mb-2">
-          {payMethod === 'cash' || payMethod === 'moncash' || payMethod === 'natcash'
+          {payMethod === 'free'
+            ? 'Tikè Gratis Konfime!'
+            : payMethod === 'cash' || payMethod === 'moncash' || payMethod === 'natcash'
             ? t('buy_pending_ticket')
             : t('buy_confirmed_ticket')}
         </h2>
         <p className="text-gray-400 text-sm mb-8">
-          {payMethod === 'cash'
+          {payMethod === 'free'
+            ? 'Tikè gratis ou konfime. Jwi evènman an!'
+            : payMethod === 'cash'
             ? t('buy_cash_confirm_msg')
             : payMethod === 'moncash' || payMethod === 'natcash'
             ? t('buy_moncash_pending_msg')
