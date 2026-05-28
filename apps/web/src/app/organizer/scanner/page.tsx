@@ -354,7 +354,7 @@ function ScannerPageInner() {
         setEvent(ev);
         // Load assigned staff from staffAssignments + staffPool
         const [assignSnap, poolSnap] = await Promise.all([
-          getDocs(query(collection(db, 'staffAssignments'), where('eventId', '==', eid))),
+          getDocs(query(collection(db, 'staffAssignments'), where('eventId', '==', eid), where('organizerId', '==', user!.uid))),
           getDocs(query(collection(db, 'staffPool'), where('organizerId', '==', user!.uid))),
         ]);
         const poolMap = new Map(poolSnap.docs.map(d => [d.id, { id: d.id, ...d.data() }]));

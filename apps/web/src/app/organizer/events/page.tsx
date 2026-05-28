@@ -188,14 +188,17 @@ export default function OrganizerEventsPage() {
                     {/* Actions */}
                     <div className="flex items-center gap-2 mt-3 pt-3 border-t border-border flex-wrap">
                       <Link href={`/organizer/events/${e.id}/edit`}
+                        onClick={ev => ev.stopPropagation()}
                         className="px-3 py-1.5 rounded-lg bg-white/[0.04] border border-border text-[10px] font-bold text-gray-light hover:text-white hover:border-white/20 transition-all">
                         ✏️ {t('event_action_edit')}
                       </Link>
                       <Link href={`/organizer/staff?event=${e.id}`}
+                        onClick={ev => ev.stopPropagation()}
                         className="px-3 py-1.5 rounded-lg bg-white/[0.04] border border-border text-[10px] font-bold text-gray-light hover:text-white hover:border-white/20 transition-all">
                         👥 {t('org_nav_staff')}
                       </Link>
                       <Link href={`/organizer/scanner?event=${e.id}`}
+                        onClick={ev => ev.stopPropagation()}
                         className="px-3 py-1.5 rounded-lg bg-white/[0.04] border border-border text-[10px] font-bold text-gray-light hover:text-white hover:border-white/20 transition-all">
                         📷 {t('event_action_scanner')}
                       </Link>
@@ -215,18 +218,18 @@ export default function OrganizerEventsPage() {
                       )}
                       {e.id && (
                         (e as any).posActivated
-                          ? <Link href="/organizer/bar" onClick={() => setSelectedEvent(e)}
+                          ? <Link href="/organizer/bar" onClick={ev => { ev.stopPropagation(); setSelectedEvent(e); }}
                               className="px-3 py-1.5 rounded-lg bg-purple/10 border border-purple/30 text-[10px] font-bold text-purple hover:bg-purple/20 transition-all">
                               🍽️ POS Active → Menu
                             </Link>
-                          : <button onClick={() => { setPosModal(e.id!); setPosClientSecret(null); setPosError(''); }}
+                          : <button onClick={ev => { ev.stopPropagation(); setPosModal(e.id!); setPosClientSecret(null); setPosError(''); }}
                               className="px-3 py-1.5 rounded-lg bg-white/[0.04] border border-border text-[10px] font-bold text-gray-light hover:text-purple hover:border-purple/30 transition-all">
                               🍽️ Activate POS — ${posFee}
                             </button>
                       )}
                       {e.status === 'published' && e.id && (
                         <button
-                          onClick={() => handleGoLive(e.id!)}
+                          onClick={ev => { ev.stopPropagation(); handleGoLive(e.id!); }}
                           disabled={statusLoading === e.id}
                           className="px-3 py-1.5 rounded-lg bg-green-dim border border-green/30 text-[10px] font-bold text-green hover:bg-green hover:text-black transition-all disabled:opacity-50">
                           {statusLoading === e.id ? '⏳' : `● ${t('status_live')}`}
@@ -234,7 +237,7 @@ export default function OrganizerEventsPage() {
                       )}
                       {(e.status === 'published' || e.status === 'live') && e.id && (
                         <button
-                          onClick={() => handleEndEvent(e.id!)}
+                          onClick={ev => { ev.stopPropagation(); handleEndEvent(e.id!); }}
                           disabled={statusLoading === e.id}
                           className="px-3 py-1.5 rounded-lg bg-red-900/20 border border-red-800/40 text-[10px] font-bold text-red-400 hover:bg-red-800/40 transition-all disabled:opacity-50">
                           {statusLoading === e.id ? '⏳' : `■ ${t('event_action_end')}`}
