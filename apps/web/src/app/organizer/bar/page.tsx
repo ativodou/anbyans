@@ -653,7 +653,48 @@ export default function OrganizerBarPage() {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <p className="text-xs text-gray-muted">Aggregated pre-orders from ticket purchases</p>
-            <button onClick={() => { setPreOrdersLoaded(false); }} className="text-[10px] text-orange hover:underline">Refresh</button>
+            <div className="flex items-center gap-3">
+              {preOrders.length > 0 && (
+                <>
+                  <button onClick={() => {
+                    const eventName = selectedEvent ? (selectedEvent as any).name || 'Evènman' : 'Evènman';
+                    const csv = ['Station,Item,Price,Qty,Total',
+                      ...preOrders.map(o => `${o.station},${o.name},$${o.price},${o.qty},$${(o.price * o.qty).toFixed(2)}`)
+                    ].join('\n');
+                    const a = document.createElement('a');
+                    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+                    a.download = `preorders-${eventName.replace(/\s+/g,'-')}.csv`;
+                    a.click();
+                  }} className="text-[10px] text-gray-muted hover:text-white">⬇ CSV</button>
+                  <button onClick={() => {
+                    const eventName = selectedEvent ? (selectedEvent as any).name || 'Evènman' : 'Evènman';
+                    const stations = Array.from(new Set(preOrders.map(o => o.station)));
+                    const total = preOrders.reduce((s, o) => s + o.price * o.qty, 0);
+                    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Pre-Orders — ${eventName}</title>
+                    <style>body{font-family:sans-serif;padding:32px;color:#111}h1{font-size:20px;margin-bottom:4px}p.sub{color:#666;font-size:12px;margin-bottom:24px}
+                    h2{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#888;margin:20px 0 8px}
+                    table{width:100%;border-collapse:collapse;margin-bottom:8px}th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#999;border-bottom:2px solid #eee;padding:6px 8px}
+                    td{padding:8px;border-bottom:1px solid #f0f0f0;font-size:14px}.qty{font-weight:800;font-size:18px;text-align:right}.amt{text-align:right;color:#16a34a}
+                    .station-total{text-align:right;font-size:12px;color:#16a34a;font-weight:700;padding:4px 8px}
+                    .grand{display:flex;justify-content:space-between;border-top:2px solid #111;margin-top:24px;padding-top:12px;font-weight:700;font-size:16px}
+                    @media print{body{padding:16px}}</style></head><body>
+                    <h1>📋 Pre-Orders</h1><p class="sub">${eventName} · Enprime ${new Date().toLocaleDateString()}</p>
+                    ${stations.map(st => {
+                      const items = preOrders.filter(o => o.station === st);
+                      const stTotal = items.reduce((s,o) => s + o.price*o.qty, 0);
+                      return `<h2>${st}</h2><table><thead><tr><th>Item</th><th>Prix</th><th style="text-align:right">Qte</th><th style="text-align:right">Total</th></tr></thead><tbody>
+                      ${items.map(o=>`<tr><td>${o.name}</td><td>$${o.price}</td><td class="qty">×${o.qty}</td><td class="amt">$${(o.price*o.qty).toFixed(2)}</td></tr>`).join('')}
+                      </tbody></table><p class="station-total">$${stTotal.toFixed(2)} pre-ordered</p>`;
+                    }).join('')}
+                    <div class="grand"><span>Total Pre-Order Value</span><span>$${total.toFixed(2)}</span></div>
+                    </body></html>`;
+                    const w = window.open('', '_blank');
+                    if (w) { w.document.write(html); w.document.close(); w.print(); }
+                  }} className="text-[10px] text-orange hover:underline">🖨 Print / PDF</button>
+                </>
+              )}
+              <button onClick={() => { setPreOrdersLoaded(false); }} className="text-[10px] text-orange hover:underline">Refresh</button>
+            </div>
           </div>
 
           {preOrdersLoading ? (
