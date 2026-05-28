@@ -167,9 +167,18 @@ export default function OrganizerEventsPage() {
                       ? <p className="font-heading text-2xl text-green">GRATIS</p>
                       : <p className="font-heading text-2xl">${evRevenue.toLocaleString()}</p>}
                     <p className="text-[10px] text-gray-muted">{evTickets.length} {t('rev_ticket_count')}</p>
-                    <span className={`text-[10px] mt-0.5 transition-all duration-200 ${isOpen ? 'text-orange' : 'text-gray-muted'}`}>
-                      {isOpen ? '▲' : '▼'}
-                    </span>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      {e.id && (
+                        <Link href={`/organizer/events/${e.id}/edit`}
+                          onClick={ev => ev.stopPropagation()}
+                          className="text-[10px] text-gray-muted hover:text-orange transition-colors">
+                          ✏️
+                        </Link>
+                      )}
+                      <span className={`text-[10px] transition-all duration-200 ${isOpen ? 'text-orange' : 'text-gray-muted'}`}>
+                        {isOpen ? '▲' : '▼'}
+                      </span>
+                    </div>
                   </div>
                 </div>
 

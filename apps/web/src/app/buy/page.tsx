@@ -385,9 +385,9 @@ function BuyPageInner() {
       setPayMethod('free');
       try { localStorage.removeItem(`anbyans-cart-${eventKey}`); } catch {}
       setStep('done');
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      setPurchaseError('Erè. Eseye ankò.');
+      setPurchaseError(e?.message === 'SOLD_OUT' ? 'Seksyon sa a pa gen plas ankò.' : 'Erè. Eseye ankò.');
     } finally {
       setProcessing(false);
     }
@@ -481,9 +481,9 @@ function BuyPageInner() {
       }
       try { localStorage.removeItem(`anbyans-cart-${eventKey}`); } catch {}
       setStep('done');
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      setPurchaseError(t('buy_error_retry'));
+      setPurchaseError(e?.message === 'SOLD_OUT' ? 'Seksyon sa a pa gen plas ankò.' : t('buy_error_retry'));
     } finally {
       setProcessing(false);
     }

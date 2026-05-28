@@ -14,6 +14,7 @@ import {
   onSnapshot,
   serverTimestamp,
   increment,
+  runTransaction,
   Timestamp,
   type Unsubscribe,
   documentId,
@@ -656,8 +657,6 @@ export async function purchaseTickets(
     vendorName?: string;
   }
 ): Promise<TicketData[]> {
-  const tickets: TicketData[] = [];
-
   // Resolve organizerId from event if not provided
   let organizerId = opts?.organizerId || '';
   if (!organizerId) {
@@ -673,10 +672,13 @@ export async function purchaseTickets(
   );
   const ticketStatus = paymentStatus === 'paid' ? 'valid' : 'pending';
 
-  for (const seat of seats) {
+  // Pre-build ticket refs and docs so they can be written inside the transaction
+  const resolvedPin = buyerPin || generateBuyerPin();
+  const ticketEntries = seats.map(seat => {
     const ticketCode = generateTicketCode();
     const qrData = `ANB:${eventId}:${ticketCode}:${Date.now().toString(36)}`;
-    const ticketDoc: Omit<TicketData, 'id'> = {
+    const ref = doc(collection(db, 'tickets'));
+    const data: Omit<TicketData, 'id'> = {
       eventId,
       organizerId,
       buyerName,
@@ -690,7 +692,7 @@ export async function purchaseTickets(
       ...(opts?.priceHTG && { priceHTG: opts.priceHTG }),
       ticketCode,
       qrData,
-      buyerPin: buyerPin || generateBuyerPin(),
+      buyerPin: resolvedPin,
       status: ticketStatus,
       paymentStatus,
       paymentMethod,
@@ -700,27 +702,37 @@ export async function purchaseTickets(
       ...(opts?.vendorName && { vendorName: opts.vendorName }),
       purchasedAt: serverTimestamp(),
     };
-    const ref = await addDoc(collection(db, 'tickets'), ticketDoc);
-    tickets.push({ id: ref.id, ...ticketDoc });
-  }
+    return { ref, data };
+  });
 
-  // Update event sold count and revenue (and section sold counter)
   const eventRef = doc(db, 'events', eventId);
-  const eventSnap = await getDoc(eventRef);
-  if (eventSnap.exists()) {
-    const data = eventSnap.data();
-    const sections = (data.sections || []).map((s: any) =>
-      s.name === section ? { ...s, sold: (s.sold || 0) + seats.length } : s
-    );
-    await updateDoc(eventRef, {
-      totalSold: (data.totalSold || 0) + seats.length,
-      revenue: (data.revenue || 0) + (seats.length * pricePerSeat),
-      sections,
-      updatedAt: serverTimestamp(),
-    });
-  }
 
-  return tickets;
+  // Atomic transaction: capacity check + ticket writes + sold counter update
+  await runTransaction(db, async (txn) => {
+    const eventSnap = await txn.get(eventRef);
+    if (eventSnap.exists()) {
+      const evData = eventSnap.data();
+      const targetSec = (evData.sections || []).find((s: any) => s.name === section);
+      if (targetSec) {
+        const available = (targetSec.capacity || 0) - (targetSec.sold || 0);
+        if (available < seats.length) throw new Error('SOLD_OUT');
+      }
+      const updatedSections = (evData.sections || []).map((s: any) =>
+        s.name === section ? { ...s, sold: (s.sold || 0) + seats.length } : s
+      );
+      txn.update(eventRef, {
+        totalSold: (evData.totalSold || 0) + seats.length,
+        revenue: (evData.revenue || 0) + (seats.length * pricePerSeat),
+        sections: updatedSections,
+        updatedAt: serverTimestamp(),
+      });
+    }
+    for (const { ref, data } of ticketEntries) {
+      txn.set(ref, data);
+    }
+  });
+
+  return ticketEntries.map(({ ref, data }) => ({ id: ref.id, ...data }));
 }
 export const KNOWN_VENUES: EventVenue[] = [
   { name: 'Karibe Hotel', address: 'Juvenat 7, Petion-Ville', city: 'Petion-Ville', country: 'Haiti', gps: { lat: 18.5135, lng: -72.2896 }, capacity: 2000 },
