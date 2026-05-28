@@ -806,7 +806,8 @@ function BuyPageInner() {
           return (
             <div className="fixed inset-0 bg-black/80 z-50 flex items-end sm:items-center justify-center" onClick={skip}>
               <div className="bg-[#12121a] border border-white/[0.1] rounded-t-2xl sm:rounded-2xl w-full max-w-md flex flex-col max-h-[85vh]" onClick={e => e.stopPropagation()}>
-                <div className="text-center px-6 pt-6 pb-4 flex-shrink-0">
+                <div className="relative text-center px-6 pt-6 pb-4 flex-shrink-0">
+                  <button onClick={() => setShowBarTab(false)} className="absolute top-4 right-4 text-gray-500 hover:text-white text-xl leading-none">✕</button>
                   <p className="text-3xl mb-2">🍺</p>
                   <h3 className="font-heading text-xl text-white">Pre-order from the Bar</h3>
                   <p className="text-gray-400 text-sm mt-1">Pay now, pick up at the event</p>

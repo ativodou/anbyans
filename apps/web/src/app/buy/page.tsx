@@ -733,7 +733,8 @@ function BuyPageInner() {
                 onClick={e => e.stopPropagation()}>
 
                 {/* Header */}
-                <div className="text-center px-6 pt-6 pb-4 flex-shrink-0">
+                <div className="relative text-center px-6 pt-6 pb-4 flex-shrink-0">
+                  <button onClick={() => setShowBarTab(false)} className="absolute top-4 right-4 text-gray-500 hover:text-white text-xl leading-none">✕</button>
                   <p className="text-3xl mb-2">🍺</p>
                   <h3 className="font-heading text-xl text-white">Pre-order from the Bar</h3>
                   <p className="text-gray-400 text-sm mt-1">Pay now, pick up at the event</p>

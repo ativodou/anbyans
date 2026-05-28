@@ -481,7 +481,8 @@ ${acceptUrl}`
       {/* Refund Modal */}
       {showRefund && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', padding: 16 }}>
-          <div style={{ background: '#12121a', border: '1px solid #1e1e2e', borderRadius: 20, width: '100%', maxWidth: 480, padding: 24 }}>
+          <div style={{ background: '#12121a', border: '1px solid #1e1e2e', borderRadius: 20, width: '100%', maxWidth: 480, padding: 24, position: 'relative' }}>
+            <button onClick={() => { setShowRefund(false); setRefundError(''); }} style={{ position: 'absolute', top: 16, right: 16, background: 'none', border: 'none', color: '#666', fontSize: 20, cursor: 'pointer', lineHeight: 1 }}>✕</button>
             <h3 style={{ fontSize: 18, fontWeight: 800, marginBottom: 4 }}>💸 {t('ticket_refund_btn')}</h3>
             <p style={{ color: '#888', fontSize: 12, marginBottom: 20 }}>{event?.name} · {ticket?.section}</p>
             <div style={{ marginBottom: 16 }}>
@@ -515,7 +516,8 @@ ${acceptUrl}`
           position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(0,0,0,0.85)',
           display: 'flex', alignItems: 'flex-end', justifyContent: 'center', padding: 16,
         }}>
-          <div style={{ background: '#12121a', border: '1px solid #1e1e2e', borderRadius: 20, width: '100%', maxWidth: 480, padding: 24 }}>
+          <div style={{ background: '#12121a', border: '1px solid #1e1e2e', borderRadius: 20, width: '100%', maxWidth: 480, padding: 24, position: 'relative' }}>
+            <button onClick={() => { setShowTransfer(false); setTransferName(''); setTransferPhone(''); }} style={{ position: 'absolute', top: 16, right: 16, background: 'none', border: 'none', color: '#666', fontSize: 20, cursor: 'pointer', lineHeight: 1 }}>✕</button>
             <h3 style={{ fontSize: 18, fontWeight: 800, marginBottom: 4 }}>
               🔄 {t('ticket_transfer_modal_h')}
             </h3>
