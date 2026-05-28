@@ -187,6 +187,11 @@ export default function OrganizerEventsPage() {
                   <div onClick={ev => ev.stopPropagation()}>
                     {/* Actions */}
                     <div className="flex items-center gap-2 mt-3 pt-3 border-t border-border flex-wrap">
+                      <Link href={`/organizer/events/${e.id}/overview`}
+                        onClick={ev => ev.stopPropagation()}
+                        className="px-3 py-1.5 rounded-lg bg-cyan/10 border border-cyan/30 text-[10px] font-bold text-cyan hover:bg-cyan/20 transition-all">
+                        📊 Overview
+                      </Link>
                       <Link href={`/organizer/events/${e.id}/edit`}
                         onClick={ev => ev.stopPropagation()}
                         className="px-3 py-1.5 rounded-lg bg-white/[0.04] border border-border text-[10px] font-bold text-gray-light hover:text-white hover:border-white/20 transition-all">

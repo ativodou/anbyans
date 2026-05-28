@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { getInvitation, getEvent, rsvpFreeInvitation, type Invitation, type EventData } from '@/lib/db';
+import { getInvitation, getEvent, type Invitation, type EventData } from '@/lib/db';
 
 function fmt(s: string) {
   if (!s) return '';
@@ -51,13 +51,19 @@ export default function InvitePage() {
       router.push(`/e/${event.privateToken}?invite=${inviteId}`);
       return;
     }
-    // Free private: RSVP directly
+    // Free private: RSVP via server API (no auth required)
     setConfirming(true);
     try {
-      const codes = await rsvpFreeInvitation(invite, event, qty);
-      setTicketCodes(codes);
+      const res = await fetch('/api/rsvp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ inviteId, qty }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Erè');
+      setTicketCodes(data.codes);
       setDone(true);
-    } catch (e) { console.error(e); }
+    } catch (e: any) { console.error(e); alert(e.message || 'Erè. Eseye ankò.'); }
     finally { setConfirming(false); }
   };
 
