@@ -2291,8 +2291,9 @@ export async function addGuest(
 }
 
 export async function getGuestList(eventId: string): Promise<Invitation[]> {
-  const snap = await getDocs(query(collection(db, 'invitations'), where('eventId', '==', eventId), orderBy('invitedAt', 'desc')));
-  return snap.docs.map(d => ({ id: d.id, ...d.data() } as Invitation));
+  const snap = await getDocs(query(collection(db, 'invitations'), where('eventId', '==', eventId)));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as Invitation))
+    .sort((a, b) => ((b.invitedAt as any)?.toMillis?.() ?? 0) - ((a.invitedAt as any)?.toMillis?.() ?? 0));
 }
 
 export async function removeGuest(inviteId: string): Promise<void> {

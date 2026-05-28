@@ -210,7 +210,19 @@ export default function OrganizerEventsPage() {
                             🎟 Envite
                           </Link>
                           <button
-                            onClick={ev => { ev.stopPropagation(); navigator.clipboard.writeText(`${window.location.origin}/e/${e.privateToken}`); }}
+                            onClick={ev => {
+                              ev.stopPropagation();
+                              const url = `${window.location.origin}/e/${e.privateToken}`;
+                              if (navigator.clipboard) {
+                                navigator.clipboard.writeText(url).catch(() => {
+                                  const ta = document.createElement('textarea');
+                                  ta.value = url; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+                                });
+                              } else {
+                                const ta = document.createElement('textarea');
+                                ta.value = url; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+                              }
+                            }}
                             className="px-3 py-1.5 rounded-lg bg-white/[0.04] border border-border text-[10px] font-bold text-gray-light hover:text-white hover:border-white/20 transition-all">
                             📋 {t('event_copy_private_link')}
                           </button>

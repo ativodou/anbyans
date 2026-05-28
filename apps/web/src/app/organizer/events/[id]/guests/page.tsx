@@ -35,10 +35,12 @@ export default function GuestListPage() {
   useEffect(() => {
     if (!eventId) return;
     (async () => {
-      const [ev, list] = await Promise.all([getEvent(eventId), getGuestList(eventId)]);
-      setEvent(ev);
-      setGuests(list);
-      setLoading(false);
+      try {
+        const [ev, list] = await Promise.all([getEvent(eventId), getGuestList(eventId)]);
+        setEvent(ev);
+        setGuests(list);
+      } catch (e) { console.error(e); }
+      finally { setLoading(false); }
     })();
   }, [eventId]);
 
