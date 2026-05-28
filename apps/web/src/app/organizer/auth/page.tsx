@@ -1,9 +1,9 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useT } from '@/i18n';
-import { signUp, signIn, signInWithGoogle } from '@/lib/auth';
+import { signUp, signIn, signInWithGoogle, startGoogleRedirect, handleGoogleRedirectResult, getUserProfile } from '@/lib/auth';
 import { useAuth } from '@/hooks/useAuth';
 
 export default function OrganizerAuth() {
@@ -36,15 +36,30 @@ export default function OrganizerAuth() {
   const [error, setError] = useState('');
   const [googleLoading, setGoogleLoading] = useState(false);
 
-  if (user && (user.role === 'organizer' || user.role === 'admin')) {
-    router.push('/organizer/dashboard'); return null;
-  }
+  useEffect(() => {
+    if (user && (user.role === 'organizer' || user.role === 'admin')) {
+      router.replace('/organizer/dashboard');
+    }
+  }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Handle return from Google redirect (mobile)
+  useEffect(() => {
+    handleGoogleRedirectResult('organizer').then(result => {
+      if (!result) return;
+      router.replace('/organizer/dashboard');
+    }).catch(console.error);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     setError(''); setLoading(true);
     try {
-      await signIn(loginEmail, loginPass);
+      const fbUser = await signIn(loginEmail, loginPass);
+      const profile = await getUserProfile(fbUser.uid);
+      if (profile?.role !== 'organizer' && profile?.role !== 'admin') {
+        setError('Kont sa a pa yon kont òganizatè / This is not an organizer account');
+        return;
+      }
       router.push('/organizer/dashboard');
     } catch (err: any) {
       setError(err.code === 'auth/invalid-credential'
@@ -75,6 +90,11 @@ export default function OrganizerAuth() {
 
   async function handleGoogleSignIn() {
     setError(''); setGoogleLoading(true);
+    const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+    if (isMobile) {
+      await startGoogleRedirect();
+      return;
+    }
     try {
       await signInWithGoogle('organizer');
       router.push('/organizer/dashboard');

@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Suspense } from 'react';
 import { useT } from '@/i18n';
 import LangSwitcher from '@/components/LangSwitcher';
-import { signUp, signIn, signInWithGoogle } from '@/lib/auth';
+import { signUp, signIn, signInWithGoogle, startGoogleRedirect, handleGoogleRedirectResult, getUserProfile } from '@/lib/auth';
 import { useAuth } from '@/hooks/useAuth';
 
 type RoleTab = 'fan' | 'organizer' | 'reseller';
@@ -51,6 +51,24 @@ function AuthPage() {
 
   const cfg = ROLE_CONFIG[roleTab];
 
+  // Auto-redirect if already signed in
+  useEffect(() => {
+    if (!authLoading && user) {
+      const role = (user as any)?.role ?? 'fan';
+      router.replace(ROLE_CONFIG[role as RoleTab]?.redirect ?? '/events');
+    }
+  }, [user, authLoading]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Handle return from Google redirect (mobile)
+  useEffect(() => {
+    const savedRole = (sessionStorage.getItem('anbyans-google-role') as RoleTab) || 'fan';
+    handleGoogleRedirectResult(savedRole).then(result => {
+      if (!result) return;
+      sessionStorage.removeItem('anbyans-google-role');
+      router.replace(ROLE_CONFIG[result.role as RoleTab]?.redirect ?? '/events');
+    }).catch(console.error);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   function switchRole(r: RoleTab) {
     setRoleTab(r);
     setAuthTab('login');
@@ -79,8 +97,10 @@ function AuthPage() {
     e.preventDefault();
     setError(''); setLoading(true);
     try {
-      await signIn(loginEmail, loginPass);
-      router.push(cfg.redirect);
+      const fbUser = await signIn(loginEmail, loginPass);
+      const profile = await getUserProfile(fbUser.uid);
+      const actualRole = profile?.role ?? roleTab;
+      router.push(ROLE_CONFIG[actualRole as RoleTab]?.redirect ?? '/events');
     } catch (err: any) {
       setError(err.code === 'auth/invalid-credential'
         ? t('err_invalid_credential')
@@ -119,6 +139,12 @@ function AuthPage() {
 
   async function handleGoogle() {
     setError(''); setGoogleLoading(true);
+    const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+    if (isMobile) {
+      sessionStorage.setItem('anbyans-google-role', roleTab);
+      await startGoogleRedirect();
+      return; // page will redirect away
+    }
     try {
       const { role: actualRole } = await signInWithGoogle(roleTab);
       router.push(ROLE_CONFIG[actualRole as RoleTab]?.redirect ?? '/events');

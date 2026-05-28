@@ -5,6 +5,8 @@ import {
   onAuthStateChanged,
   GoogleAuthProvider,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   updateProfile,
   deleteUser,
   type User,
@@ -86,46 +88,45 @@ export async function signOut() {
 const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });
 
-export async function signInWithGoogle(role: UserRole = 'fan'): Promise<{ user: User; role: UserRole; isNew: boolean }> {
-  const cred = await signInWithPopup(auth, googleProvider);
-  const user = cred.user;
-
-  const userRef = doc(db, 'users', user.uid);
+async function upsertGoogleProfile(fbUser: User, intendedRole: UserRole): Promise<UserRole> {
+  const userRef = doc(db, 'users', fbUser.uid);
   const userSnap = await getDoc(userRef);
-
   if (!userSnap.exists()) {
-    // First-time Google user — create profile with the selected role
-    const nameParts = (user.displayName || '').split(' ');
-    const firstName = nameParts[0] || '';
-    const lastName = nameParts.slice(1).join(' ') || '';
-
-    const userDoc: UserProfile = {
-      uid: user.uid,
-      email: user.email || '',
-      firstName,
-      lastName,
-      phone: user.phoneNumber || '',
-      city: '',
-      state: '',
-      country: '',
-      role,
-      payoutMethod: '',
-      payoutDetails: '',
-      businessName: '',
-      businessType: '',
+    const [firstName, ...rest] = (fbUser.displayName || '').split(' ');
+    await setDoc(userRef, {
+      uid: fbUser.uid, email: fbUser.email || '',
+      firstName: firstName || '', lastName: rest.join(' ') || '',
+      phone: fbUser.phoneNumber || '',
+      city: '', state: '', country: '',
+      role: intendedRole,
+      payoutMethod: '', payoutDetails: '',
+      businessName: '', businessType: '',
       notifications: ['email'],
-      ...(role === 'organizer' && { organizerStatus: 'pending' }),
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    };
-
-    await setDoc(userRef, userDoc);
-    return { user, role, isNew: true };
+      ...(intendedRole === 'organizer' && { organizerStatus: 'pending' }),
+      createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
+    } as UserProfile);
+    return intendedRole;
   }
+  return (userSnap.data() as UserProfile).role ?? intendedRole;
+}
 
-  // Existing user — don't redirect; let auth state update show "already signed in"
-  const existingProfile = userSnap.data() as UserProfile;
-  return { user, role: existingProfile.role ?? role, isNew: false };
+// Popup — desktop
+export async function signInWithGoogle(role: UserRole = 'fan'): Promise<{ user: User; role: UserRole }> {
+  const cred = await signInWithPopup(auth, googleProvider);
+  const actualRole = await upsertGoogleProfile(cred.user, role);
+  return { user: cred.user, role: actualRole };
+}
+
+// Redirect — mobile (call this to initiate, then handleGoogleRedirectResult on page load)
+export async function startGoogleRedirect(): Promise<void> {
+  await signInWithRedirect(auth, googleProvider);
+}
+
+export async function handleGoogleRedirectResult(intendedRole: UserRole = 'fan'): Promise<{ user: User; role: UserRole } | null> {
+  const result = await getRedirectResult(auth);
+  if (!result) return null;
+  const role = await upsertGoogleProfile(result.user, intendedRole);
+  return { user: result.user, role };
 }
 
 // ─── Get User Profile ────────────────────────────────────────────
