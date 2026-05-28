@@ -76,7 +76,6 @@ export default function OrganizerBarPage() {
 
   // ── Pre-orders state ──
   const [preOrders, setPreOrders] = useState<{ name: string; qty: number; price: number; station: string }[]>([]);
-  const [pendingCashTotal, setPendingCashTotal] = useState(0);
   const [preOrdersLoading, setPreOrdersLoading] = useState(false);
   const [preOrdersLoaded, setPreOrdersLoaded] = useState(false);
 
@@ -87,20 +86,15 @@ export default function OrganizerBarPage() {
       try {
         const snap = await getDocs(query(collection(db, 'tickets'), where('eventId', '==', eventId)));
         const agg: Record<string, { qty: number; price: number; station: string }> = {};
-        let pendingCash = 0;
         snap.docs.forEach(d => {
-          const data = d.data();
-          const orders = data.barPreorder as { name: string; qty: number; price: number; station: string }[] | undefined;
-          if (orders) {
-            orders.forEach(o => {
-              if (!agg[o.name]) agg[o.name] = { qty: 0, price: o.price, station: o.station };
-              agg[o.name].qty += o.qty;
-            });
-          }
-          if (data.barTabPendingCash) pendingCash += data.barTabPendingCash;
+          const orders = d.data().barPreorder as { name: string; qty: number; price: number; station: string }[] | undefined;
+          if (!orders) return;
+          orders.forEach(o => {
+            if (!agg[o.name]) agg[o.name] = { qty: 0, price: o.price, station: o.station };
+            agg[o.name].qty += o.qty;
+          });
         });
         setPreOrders(Object.entries(agg).map(([name, v]) => ({ name, ...v })).sort((a, b) => b.qty - a.qty));
-        setPendingCashTotal(pendingCash);
         setPreOrdersLoaded(true);
       } catch (e) { console.error(e); }
       finally { setPreOrdersLoading(false); }
@@ -699,17 +693,6 @@ export default function OrganizerBarPage() {
                   </div>
                 );
               })}
-
-              {/* Pending cash banner */}
-              {pendingCashTotal > 0 && (
-                <div className={`${card} flex justify-between items-center px-4 py-4 border-orange/40`}>
-                  <div>
-                    <p className="text-sm font-bold text-orange">⏳ Cash an atant</p>
-                    <p className="text-[10px] text-gray-muted">Kliyan yo pral peye nan evènman an</p>
-                  </div>
-                  <p className="font-heading text-xl text-orange">${pendingCashTotal.toFixed(2)}</p>
-                </div>
-              )}
 
               {/* Grand total */}
               <div className={`${card} flex justify-between items-center px-4 py-4`}>
