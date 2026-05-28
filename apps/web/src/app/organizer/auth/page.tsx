@@ -36,7 +36,9 @@ export default function OrganizerAuth() {
   const [error, setError] = useState('');
   const [googleLoading, setGoogleLoading] = useState(false);
 
-  if (user) { router.push('/organizer/dashboard'); return null; }
+  if (user && (user.role === 'organizer' || user.role === 'admin')) {
+    router.push('/organizer/dashboard'); return null;
+  }
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
