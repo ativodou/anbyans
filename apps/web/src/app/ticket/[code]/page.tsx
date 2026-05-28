@@ -124,9 +124,31 @@ export default function TicketPage() {
     if (!ticket?.id || topupAmount <= 0 || !topupPayMethod) return;
     setTopupProcessing(true); setTopupError('');
     try {
-      const newBalance = (ticket.barTabBalance || 0) + topupAmount;
-      await updateDoc(doc(db, 'tickets', ticket.id), { barTabBalance: newBalance, updatedAt: serverTimestamp() });
-      setTicket(prev => prev ? { ...prev, barTabBalance: newBalance } : prev);
+      const newItems = Object.entries(topupCart)
+        .filter(([, qty]) => qty > 0)
+        .map(([name, qty]) => ({ name, qty, price: topupMenuItems.find(i => i.name === name)?.price ?? 0, station: topupMenuItems.find(i => i.name === name)?.station ?? '' }));
+      const existingPreorder: typeof newItems = (ticket as any).barPreorder || [];
+      const mergedPreorder = [...existingPreorder, ...newItems];
+
+      const isPaidInstantly = topupPayMethod === 'stripe';
+      if (isPaidInstantly) {
+        const newBalance = (ticket.barTabBalance || 0) + topupAmount;
+        await updateDoc(doc(db, 'tickets', ticket.id), {
+          barTabBalance: newBalance,
+          ...(mergedPreorder.length > 0 ? { barPreorder: mergedPreorder } : {}),
+          updatedAt: serverTimestamp(),
+        });
+        setTicket(prev => prev ? { ...prev, barTabBalance: newBalance } : prev);
+      } else {
+        // Cash / MonCash: items visible to organizer but balance held pending collection
+        const pendingCash = ((ticket as any).barTabPendingCash || 0) + topupAmount;
+        await updateDoc(doc(db, 'tickets', ticket.id), {
+          barTabPendingCash: pendingCash,
+          ...(mergedPreorder.length > 0 ? { barPreorder: mergedPreorder } : {}),
+          updatedAt: serverTimestamp(),
+        });
+        setTicket(prev => prev ? { ...prev, barTabPendingCash: pendingCash } as any : prev);
+      }
       setTopupStep('done');
     } catch (e: any) {
       setTopupError(e?.message || 'Erè. Eseye ankò.');
@@ -601,10 +623,21 @@ ${acceptUrl}`
 
               {topupStep === 'done' ? (
                 <div style={{ textAlign:'center', paddingTop:16 }}>
-                  <div style={{ fontSize:48, marginBottom:12 }}>🍺✅</div>
-                  <p style={{ fontWeight:800, fontSize:18, marginBottom:8 }}>Bar Credit Ajoute!</p>
-                  <p style={{ color:'#888', fontSize:13, marginBottom:4 }}>+${topupAmount.toFixed(2)} ajoute sou tikè ou.</p>
-                  <p style={{ color:'#f97316', fontWeight:700, fontSize:15 }}>Balans: ${((ticket?.barTabBalance||0)).toFixed(2)}</p>
+                  {topupPayMethod === 'stripe' ? (
+                    <>
+                      <div style={{ fontSize:48, marginBottom:12 }}>🍺✅</div>
+                      <p style={{ fontWeight:800, fontSize:18, marginBottom:8 }}>Bar Credit Ajoute!</p>
+                      <p style={{ color:'#888', fontSize:13, marginBottom:4 }}>+${topupAmount.toFixed(2)} ajoute sou tikè ou.</p>
+                      <p style={{ color:'#f97316', fontWeight:700, fontSize:15 }}>Balans: ${((ticket?.barTabBalance||0)).toFixed(2)}</p>
+                    </>
+                  ) : (
+                    <>
+                      <div style={{ fontSize:48, marginBottom:12 }}>⏳</div>
+                      <p style={{ fontWeight:800, fontSize:18, marginBottom:8 }}>Kòmand Resevwa!</p>
+                      <p style={{ color:'#888', fontSize:13, marginBottom:4 }}>Yo pral kredite $${topupAmount.toFixed(2)} apre ou peye nan evènman an.</p>
+                      <p style={{ color:'#f97316', fontSize:12 }}>Montre tikè ou bay òganizatè a pou konfime peman an.</p>
+                    </>
+                  )}
                   <button onClick={() => setShowBarTopup(false)} style={{ marginTop:20, padding:'12px 32px', borderRadius:10, background:'#f97316', color:'#000', fontWeight:700, fontSize:14, border:'none', cursor:'pointer' }}>Fèmen</button>
                 </div>
               ) : topupStep === 'payment' ? (
