@@ -17,7 +17,7 @@ export default function TicketPage() {
   const params = useParams();
   const code = (params.code as string) || '';
   const { t } = useT();
-  const { user } = useAuth();
+  useAuth();
 
   const [loading, setLoading] = useState(true);
   const [ticket, setTicket] = useState<TicketData | null>(null);
