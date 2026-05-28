@@ -144,10 +144,15 @@ export interface TicketData {
   paymentStatus?: 'paid' | 'pending_verification' | 'pending_cash';
   txnId?: string;
   buyerIp?: string;
+  buyerUid?: string;
   status: 'valid' | 'used' | 'cancelled' | 'refunded' | 'pending_transfer' | 'pending';
   usedAt?: any;
   usedBy?: string;
   purchasedAt: any;
+  // Bar tab fields
+  barTabBalance?: number;
+  barTabSpent?: number;
+  barPreorder?: { name: string; qty: number; price: number }[];
   // Transfer fields
   transferToken?: string;
   transferToName?: string;

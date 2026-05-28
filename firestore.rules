@@ -49,16 +49,12 @@ service cloud.firestore {
 
     // ── Top-level tickets ──────────────────────────────────────────
     match /tickets/{ticketId} {
-      allow read: if isActiveAuth() && (
-        resource.data.buyerEmail == request.auth.token.email ||
-        resource.data.organizerId == request.auth.uid ||
-        resource.data.vendorId == request.auth.uid ||
-        isAdmin()
-      );
+      allow read: if isActiveAuth();
       allow create: if isActiveAuth();
       allow update: if isActiveAuth() && (
         resource.data.organizerId == request.auth.uid ||
         resource.data.buyerEmail == request.auth.token.email ||
+        resource.data.buyerUid == request.auth.uid ||
         isAdmin()
       );
       allow delete: if isAdmin();

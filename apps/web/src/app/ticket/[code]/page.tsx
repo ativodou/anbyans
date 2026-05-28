@@ -4,7 +4,10 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useT } from '@/i18n';
-import { verifyTicketByCode, initiateTransfer, requestRefund, type TicketData, type EventData } from '@/lib/db';
+import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { verifyTicketByCode, initiateTransfer, requestRefund, getBarItems, getBarStations, type TicketData, type EventData } from '@/lib/db';
+import { useAuth } from '@/hooks/useAuth';
 
 function getQrWindow(): number {
   return Math.floor(Date.now() / 15000);
@@ -14,6 +17,7 @@ export default function TicketPage() {
   const params = useParams();
   const code = (params.code as string) || '';
   const { t } = useT();
+  const { user } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [ticket, setTicket] = useState<TicketData | null>(null);
@@ -37,6 +41,20 @@ export default function TicketPage() {
   const [refundDone, setRefundDone] = useState(false);
   const [refundError, setRefundError] = useState('');
   const [downloadError, setDownloadError] = useState('');
+
+  // Bar top-up
+  const [showBarTopup, setShowBarTopup] = useState(false);
+  const [topupStep, setTopupStep] = useState<'amount' | 'payment' | 'done'>('amount');
+  const [topupAmount, setTopupAmount] = useState(0);
+  const [topupCustom, setTopupCustom] = useState('');
+  const [topupMenuItems, setTopupMenuItems] = useState<{name:string;price:number;station:string;stationId:string;stationSections:string[];sections:string[]}[]>([]);
+  const [topupCart, setTopupCart] = useState<Record<string,number>>({});
+  const [topupPayMethod, setTopupPayMethod] = useState<string|null>(null);
+  const [topupTxnId, setTopupTxnId] = useState('');
+  const [topupProcessing, setTopupProcessing] = useState(false);
+  const [topupError, setTopupError] = useState('');
+  const [eventPayMethods, setEventPayMethods] = useState<Record<string,{active:boolean;values?:string[]}>>({});
+  const [eventExchangeRate, setEventExchangeRate] = useState(130);
 
   useEffect(() => {
     if (!code) return;
@@ -70,6 +88,50 @@ export default function TicketPage() {
   // Static QR for download (no rotation — valid for entry with manual code check)
   const staticQrData = ticket ? ticket.qrData || '' : '';
   const staticQrUrl = staticQrData ? `https://api.qrserver.com/v1/create-qr-code/?size=400x400&bgcolor=FFFFFF&color=000000&data=${encodeURIComponent(staticQrData)}` : '';
+
+  const openBarTopup = async () => {
+    if (!ticket?.eventId) return;
+    try {
+      const evSnap = await getDoc(doc(db, 'events', ticket.eventId));
+      if (evSnap.exists()) {
+        const d = evSnap.data();
+        let pm = d.paymentMethods;
+        if (!pm) {
+          const orgSnap = await getDoc(doc(db, 'organizers', d.organizerId));
+          if (orgSnap.exists()) pm = orgSnap.data().paymentMethods;
+        }
+        setEventPayMethods(pm || { cash: { active: true } });
+        setEventExchangeRate(Number(d.exchangeRate) || 130);
+      }
+      const [items, stations] = await Promise.all([getBarItems(ticket.eventId), getBarStations(ticket.eventId)]);
+      const stationMap = new Map(stations.map(s => [s.id!, s]));
+      const sectionName = ticket.sectionName || '';
+      setTopupMenuItems(items
+        .filter(x => stationMap.has(x.stationId))
+        .map(x => { const st = stationMap.get(x.stationId)!; return { name: x.name, price: x.price, station: x.stationName, stationId: x.stationId, stationSections: st.sections ?? [], sections: x.sections ?? [] }; })
+        .filter(i => {
+          if (i.stationSections.length > 0 && !i.stationSections.includes(sectionName)) return false;
+          if (i.sections.length > 0 && !i.sections.includes(sectionName)) return false;
+          return true;
+        }));
+    } catch (e) { console.error(e); }
+    setTopupStep('amount'); setTopupAmount(0); setTopupCustom(''); setTopupCart({});
+    setTopupPayMethod(null); setTopupTxnId(''); setTopupError('');
+    setShowBarTopup(true);
+  };
+
+  const completeTopup = async () => {
+    if (!ticket?.id || topupAmount <= 0 || !topupPayMethod) return;
+    setTopupProcessing(true); setTopupError('');
+    try {
+      const newBalance = (ticket.barTabBalance || 0) + topupAmount;
+      await updateDoc(doc(db, 'tickets', ticket.id), { barTabBalance: newBalance, updatedAt: serverTimestamp() });
+      setTicket(prev => prev ? { ...prev, barTabBalance: newBalance } : prev);
+      setTopupStep('done');
+    } catch (e: any) {
+      setTopupError(e?.message || 'Erè. Eseye ankò.');
+    } finally { setTopupProcessing(false); }
+  };
 
   const downloadTicket = async () => {
     if (!ticket || !event || !canvasRef.current) return;
@@ -430,6 +492,18 @@ ${acceptUrl}`
               🔄 {t('ticket_transfer_btn')}
             </button>
           )}
+          {isValid && (
+            <button
+              onClick={openBarTopup}
+              style={{
+                padding: '12px 20px', borderRadius: 10, background: 'transparent',
+                color: '#f97316', fontWeight: 700, fontSize: 13,
+                border: '1px solid #f97316', cursor: 'pointer',
+              }}
+            >
+              🍺 Bar Credit
+            </button>
+          )}
           {ticket?.status === 'refunded' && refundDone && (
             <span style={{ padding: '12px 20px', color: '#22c55e', fontSize: 13, fontWeight: 700 }}>
               ✅ {t('ticket_refund_sent')}
@@ -509,6 +583,139 @@ ${acceptUrl}`
           </div>
         </div>
       )}
+
+      {/* Bar Top-up Modal */}
+      {showBarTopup && (() => {
+        const hasMenu = topupMenuItems.length > 0;
+        const menuTotal = Object.entries(topupCart).reduce((s, [name, qty]) => s + (topupMenuItems.find(i => i.name === name)?.price ?? 0) * qty, 0);
+        const chargeAmount = topupStep === 'payment' ? topupAmount : (hasMenu ? menuTotal : topupAmount);
+        const availMethods = Object.entries(eventPayMethods).filter(([,v]) => v.active).map(([k]) => k);
+        const MOBILE = ['moncash','natcash'];
+        const PAY_LABELS: Record<string,string> = { moncash:'📱 MonCash', natcash:'📱 Natcash', stripe:'💳 Kart', cash:'💵 Cash' };
+        return (
+          <div style={{ position:'fixed', inset:0, zIndex:100, background:'rgba(0,0,0,0.85)', display:'flex', alignItems:'flex-end', justifyContent:'center', padding:16 }}
+            onClick={() => setShowBarTopup(false)}>
+            <div style={{ background:'#12121a', border:'1px solid #1e1e2e', borderRadius:20, width:'100%', maxWidth:480, maxHeight:'85vh', overflowY:'auto', padding:24, position:'relative' }}
+              onClick={e => e.stopPropagation()}>
+              <button onClick={() => setShowBarTopup(false)} style={{ position:'absolute', top:16, right:16, background:'none', border:'none', color:'#666', fontSize:20, cursor:'pointer', lineHeight:1 }}>✕</button>
+
+              {topupStep === 'done' ? (
+                <div style={{ textAlign:'center', paddingTop:16 }}>
+                  <div style={{ fontSize:48, marginBottom:12 }}>🍺✅</div>
+                  <p style={{ fontWeight:800, fontSize:18, marginBottom:8 }}>Bar Credit Ajoute!</p>
+                  <p style={{ color:'#888', fontSize:13, marginBottom:4 }}>+${topupAmount.toFixed(2)} ajoute sou tikè ou.</p>
+                  <p style={{ color:'#f97316', fontWeight:700, fontSize:15 }}>Balans: ${((ticket?.barTabBalance||0)).toFixed(2)}</p>
+                  <button onClick={() => setShowBarTopup(false)} style={{ marginTop:20, padding:'12px 32px', borderRadius:10, background:'#f97316', color:'#000', fontWeight:700, fontSize:14, border:'none', cursor:'pointer' }}>Fèmen</button>
+                </div>
+              ) : topupStep === 'payment' ? (
+                <>
+                  <h3 style={{ fontSize:18, fontWeight:800, marginBottom:4 }}>💳 Peman Bar Credit</h3>
+                  <p style={{ color:'#888', fontSize:12, marginBottom:20 }}>Total: <span style={{ color:'#f97316', fontWeight:700 }}>${topupAmount.toFixed(2)}</span> · {Math.round(topupAmount * eventExchangeRate).toLocaleString('fr-HT')} HTG</p>
+                  <div style={{ display:'flex', flexDirection:'column', gap:8, marginBottom:16 }}>
+                    {availMethods.filter(m => m !== 'stripe').map(m => (
+                      <button key={m} onClick={() => setTopupPayMethod(m)}
+                        style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 16px', borderRadius:12, border:`1px solid ${topupPayMethod===m?'#f97316':'#1e1e2e'}`, background:topupPayMethod===m?'rgba(249,115,22,0.1)':'transparent', color:'#fff', cursor:'pointer', textAlign:'left' }}>
+                        <span style={{ width:14, height:14, borderRadius:'50%', border:`2px solid ${topupPayMethod===m?'#f97316':'#555'}`, display:'inline-flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                          {topupPayMethod===m && <span style={{ width:7, height:7, borderRadius:'50%', background:'#f97316', display:'block' }} />}
+                        </span>
+                        <span style={{ fontWeight:700, fontSize:14 }}>{PAY_LABELS[m]||m}</span>
+                      </button>
+                    ))}
+                  </div>
+                  {topupPayMethod && MOBILE.includes(topupPayMethod) && (
+                    <div style={{ background:'rgba(255,255,255,0.04)', borderRadius:12, padding:16, marginBottom:16 }}>
+                      <p style={{ fontSize:12, color:'#888', marginBottom:8 }}>Voye ${topupAmount.toFixed(2)} nan nimewo sa:</p>
+                      <p style={{ fontWeight:800, fontSize:20, color:'#f97316', textAlign:'center', marginBottom:12 }}>
+                        {eventPayMethods[topupPayMethod]?.values?.[0] || '—'}
+                      </p>
+                      <label style={{ color:'#888', fontSize:10, fontWeight:700, textTransform:'uppercase', letterSpacing:1, display:'block', marginBottom:6 }}>ID Tranzaksyon</label>
+                      <input value={topupTxnId} onChange={e => setTopupTxnId(e.target.value)} placeholder="ex: TXN123456"
+                        style={{ width:'100%', padding:12, borderRadius:8, border:'1px solid #1e1e2e', background:'#0a0a0f', color:'#fff', fontSize:14, boxSizing:'border-box' }} />
+                    </div>
+                  )}
+                  {topupPayMethod === 'cash' && (
+                    <div style={{ background:'rgba(255,255,255,0.04)', borderRadius:12, padding:16, marginBottom:16 }}>
+                      <p style={{ color:'#888', fontSize:13 }}>💵 Peye cash bay òganizatè a nan evènman an.</p>
+                    </div>
+                  )}
+                  {topupError && <p style={{ color:'#ef4444', fontSize:12, marginBottom:8 }}>{topupError}</p>}
+                  <button onClick={completeTopup}
+                    disabled={!topupPayMethod || topupProcessing || (!!topupPayMethod && MOBILE.includes(topupPayMethod) && !topupTxnId.trim())}
+                    style={{ width:'100%', padding:'14px', borderRadius:12, background: (!topupPayMethod || topupProcessing)?'#333':'#f97316', color:(!topupPayMethod||topupProcessing)?'#666':'#000', fontWeight:800, fontSize:15, border:'none', cursor:topupPayMethod&&!topupProcessing?'pointer':'not-allowed' }}>
+                    {topupProcessing ? '...' : `✅ Konfime +$${topupAmount.toFixed(2)}`}
+                  </button>
+                  <button onClick={() => setTopupStep('amount')} style={{ width:'100%', marginTop:8, padding:'10px', borderRadius:12, background:'transparent', border:'1px solid #1e1e2e', color:'#888', fontWeight:700, fontSize:13, cursor:'pointer' }}>← Tounen</button>
+                </>
+              ) : (
+                <>
+                  <h3 style={{ fontSize:18, fontWeight:800, marginBottom:4 }}>🍺 Ajoute Bar Credit</h3>
+                  <p style={{ color:'#888', fontSize:12, marginBottom:20 }}>
+                    Balans aktyèl: <span style={{ color:'#f97316', fontWeight:700 }}>${(ticket?.barTabBalance||0).toFixed(2)}</span>
+                  </p>
+                  {hasMenu ? (
+                    <>
+                      {Array.from(new Set(topupMenuItems.map(i => i.station))).map(station => (
+                        <div key={station}>
+                          {Array.from(new Set(topupMenuItems.map(i=>i.station))).length > 1 && (
+                            <p style={{ color:'#555', fontSize:10, fontWeight:700, textTransform:'uppercase', letterSpacing:1, marginTop:16, marginBottom:8 }}>{station}</p>
+                          )}
+                          {topupMenuItems.filter(i => i.station === station).map(item => {
+                            const qty = topupCart[item.name] ?? 0;
+                            return (
+                              <div key={item.name} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'10px 0', borderBottom:'1px solid #1e1e2e' }}>
+                                <div>
+                                  <p style={{ fontWeight:600, fontSize:14, color:'#fff' }}>{item.name}</p>
+                                  <p style={{ color:'#f97316', fontSize:12, fontWeight:700 }}>${item.price.toFixed(2)}</p>
+                                </div>
+                                <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                                  {qty > 0 && (
+                                    <button onClick={() => setTopupCart(p => { const n={...p}; if((n[item.name]||0)<=1) delete n[item.name]; else n[item.name]--; return n; })}
+                                      style={{ width:32, height:32, borderRadius:'50%', border:'1px solid #333', background:'transparent', color:'#fff', fontSize:18, cursor:'pointer', lineHeight:1 }}>−</button>
+                                  )}
+                                  {qty > 0 && <span style={{ color:'#fff', fontWeight:700, fontSize:14, width:16, textAlign:'center' }}>{qty}</span>}
+                                  <button onClick={() => setTopupCart(p => ({ ...p, [item.name]:(p[item.name]||0)+1 }))}
+                                    style={{ width:32, height:32, borderRadius:'50%', border:'1px solid #333', background:'transparent', color:'#fff', fontSize:18, cursor:'pointer', lineHeight:1 }}>+</button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ))}
+                      <button onClick={() => { if(menuTotal>0){setTopupAmount(menuTotal);setTopupStep('payment');} }}
+                        disabled={menuTotal<=0}
+                        style={{ width:'100%', marginTop:20, padding:'14px', borderRadius:12, background:menuTotal>0?'#f97316':'#333', color:menuTotal>0?'#000':'#666', fontWeight:800, fontSize:15, border:'none', cursor:menuTotal>0?'pointer':'not-allowed' }}>
+                        {menuTotal>0 ? `Kontinye — $${menuTotal.toFixed(2)} →` : 'Chwazi atik yo'}
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <div style={{ display:'flex', gap:8, marginBottom:16 }}>
+                        {[20,50,100].map(amt => (
+                          <button key={amt} onClick={() => { setTopupAmount(amt); setTopupCustom(''); }}
+                            style={{ flex:1, padding:'12px 0', borderRadius:12, fontWeight:700, fontSize:14, border:`1px solid ${topupAmount===amt?'#f97316':'#1e1e2e'}`, background:topupAmount===amt?'rgba(249,115,22,0.15)':'transparent', color:topupAmount===amt?'#f97316':'#888', cursor:'pointer' }}>
+                            +${amt}
+                          </button>
+                        ))}
+                      </div>
+                      <div style={{ position:'relative', marginBottom:20 }}>
+                        <span style={{ position:'absolute', left:14, top:'50%', transform:'translateY(-50%)', color:'#888', fontSize:14 }}>$</span>
+                        <input type="number" min={1} placeholder="Lòt montan" value={topupCustom}
+                          onChange={e => { setTopupCustom(e.target.value); setTopupAmount(Math.max(0,parseInt(e.target.value)||0)); }}
+                          style={{ width:'100%', paddingLeft:28, paddingRight:14, paddingTop:12, paddingBottom:12, borderRadius:12, border:'1px solid #1e1e2e', background:'#0a0a0f', color:'#fff', fontSize:14, boxSizing:'border-box' }} />
+                      </div>
+                      <button onClick={() => { if(topupAmount>0) setTopupStep('payment'); }}
+                        disabled={topupAmount<=0}
+                        style={{ width:'100%', padding:'14px', borderRadius:12, background:topupAmount>0?'#f97316':'#333', color:topupAmount>0?'#000':'#666', fontWeight:800, fontSize:15, border:'none', cursor:topupAmount>0?'pointer':'not-allowed' }}>
+                        {topupAmount>0 ? `Kontinye — $${topupAmount.toFixed(2)} →` : 'Antre yon montan'}
+                      </button>
+                    </>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Transfer Modal */}
       {showTransfer && (
