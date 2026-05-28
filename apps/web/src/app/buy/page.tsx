@@ -46,7 +46,7 @@ interface EventData {
 }
 
 type Step = 'detail' | 'seats' | 'info' | 'payment' | 'done';
-type PayMethod = 'stripe' | 'moncash' | 'natcash' | 'cash';
+type PayMethod = 'stripe' | 'moncash' | 'natcash' | 'cash' | 'free';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -367,6 +367,32 @@ function BuyPageInner() {
     if (user.email) setEmail(prev => prev  || user.email);
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── Complete a free (zero-cost) ticket without payment ───────
+  const completeFreeOrder = async () => {
+    if (!event || !selSection) return;
+    setProcessing(true);
+    try {
+      const seats = selSection.type === 'reserved'
+        ? selSeats
+        : Array.from({ length: qty }, (_, i) => `GA-${i + 1}`);
+      const tkts = await purchaseTickets(
+        event.id, name.trim(), email.trim(), phone.trim(),
+        selSection.name, selSection.color, seats, 0,
+        undefined, undefined, 'free',
+        { organizerId: event.organizerId, sectionName: selSection.name, priceHTG: 0 },
+      );
+      setTicketCodes(tkts.map(tk => tk.ticketCode));
+      setPayMethod('free');
+      try { localStorage.removeItem(`anbyans-cart-${eventKey}`); } catch {}
+      setStep('done');
+    } catch (e) {
+      console.error(e);
+      setPurchaseError('Erè. Eseye ankò.');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
   // ── Skip info step for logged-in fans with complete profile ───
   const goToInfo = () => {
     const u = user as any;
@@ -377,6 +403,7 @@ function BuyPageInner() {
       if (user?.email) setEmail(user.email);
       setShowBarTab(true);
       if (event?.id) getBarItems(event.id).then(items => setBarMenuItems(items.map(x => ({ name: x.name, price: x.price, station: x.stationName })))).catch(() => {});
+      setStep('info');
     } else {
       setStep('info');
     }
@@ -679,11 +706,17 @@ function BuyPageInner() {
           const hasMenu = barMenuItems.length > 0;
           const stations = hasMenu ? Array.from(new Set(barMenuItems.map(i => i.station))) : [];
           const confirm = () => {
-            if (hasMenu) setBarTabAmount(cartTotal);
+            const effectiveBarTab = hasMenu ? cartTotal : barTabAmount;
+            if (hasMenu) setBarTabAmount(effectiveBarTab);
             setShowBarTab(false);
+            if (total + effectiveBarTab === 0) { completeFreeOrder(); return; }
             setStep('payment');
           };
-          const skip = () => { setBarTabAmount(0); setCustomTab(''); setBarCart({}); setShowBarTab(false); setStep('payment'); };
+          const skip = () => {
+            setBarTabAmount(0); setCustomTab(''); setBarCart({}); setShowBarTab(false);
+            if (total === 0) { completeFreeOrder(); return; }
+            setStep('payment');
+          };
           return (
             <div className="fixed inset-0 bg-black/80 z-50 flex items-end sm:items-center justify-center"
               onClick={skip}>
@@ -769,7 +802,7 @@ function BuyPageInner() {
                     </div>
                     <div className="flex gap-3">
                       <button onClick={skip} className="flex-1 py-3 rounded-xl border border-white/[0.1] text-gray-400 font-bold text-sm hover:border-white/30 transition-all">Skip</button>
-                      <button onClick={() => { setShowBarTab(false); setStep('payment'); }}
+                      <button onClick={confirm}
                         className="flex-1 py-3 rounded-xl bg-orange text-white font-bold text-sm hover:bg-orange/90 transition-all">
                         {barTabAmount > 0 ? `Add $${barTabAmount} →` : 'Continue →'}
                       </button>
@@ -791,117 +824,125 @@ function BuyPageInner() {
         <button onClick={() => setStep('info')} className="text-gray-400 hover:text-white text-sm mb-4">← {t('back')}</button>
         <h2 className="font-heading text-xl mb-6">{t('buy_payment_h')}</h2>
 
-        {/* Method selector */}
-        <div className="space-y-3 mb-6">
-          {availMethods.map(m => (
-            <button key={m} onClick={() => setPayMethod(m)}
-              className={`w-full flex items-center gap-4 p-4 rounded-xl border transition-all text-left ${
-                payMethod === m ? 'border-orange bg-orange/10' : 'border-white/[0.08] hover:border-orange/30'
-              }`}>
-              <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${payMethod === m ? 'border-orange' : 'border-gray-500'}`}>
-                {payMethod === m && <div className="w-2 h-2 rounded-full bg-orange" />}
-              </div>
-              <span className="font-bold text-sm">{PAY_LABELS[m] || m}</span>
+        {chargeTotal === 0 ? (
+          /* Free ticket — no payment needed */
+          <div className="text-center py-8">
+            <p className="text-5xl mb-4">🎟️</p>
+            <p className="text-gray-400 text-sm mb-6">Tikè sa a gratis. Pa gen peman obligatwa.</p>
+            {purchaseError && <p className="text-red-400 text-xs mb-3">{purchaseError}</p>}
+            <button onClick={completeFreeOrder} disabled={processing}
+              className="w-full py-3.5 rounded-xl font-heading text-base bg-orange text-white disabled:opacity-30 hover:bg-orange/90 transition-all flex items-center justify-center gap-2">
+              {processing
+                ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Chajman…</>
+                : '🎫 Pran Tikè Gratis la'}
             </button>
-          ))}
-        </div>
-
-        {/* MonCash / Natcash instructions */}
-        {(payMethod === 'moncash' || payMethod === 'natcash') && (
-          <div className="bg-white/[0.04] rounded-xl p-4 mb-4 text-sm">
-            <p className="font-bold mb-2">📱 {payMethod === 'moncash' ? 'MonCash' : 'Natcash'}</p>
-            <p className="text-gray-400 text-xs mb-3">
-              {t('buy_send_prefix')} {fmtPrice(total)} {t('buy_send_suffix')}
-            </p>
-            <div className="bg-black/40 rounded-lg p-3 text-center mb-3">
-              <p className="text-[10px] text-gray-500 mb-0.5">{payMethod === 'moncash' ? 'MonCash' : 'Natcash'} #</p>
-              <p className="font-heading text-xl text-orange">
-                {event.paymentMethods?.[payMethod]?.values?.[0] || '—'}
-              </p>
-            </div>
-            <label className="block text-[10px] font-bold text-gray-400 mb-1.5">
-              {t('buy_txn_id')}
-            </label>
-            <input value={txnId} onChange={e => setTxnId(e.target.value)}
-              placeholder="ex: TXN123456"
-              className="w-full px-4 py-3 rounded-xl bg-white/[0.06] border border-white/[0.1] text-white text-sm outline-none focus:border-orange" />
           </div>
-        )}
+        ) : (
+          /* Paid flow */
+          <>
+            {/* Method selector */}
+            <div className="space-y-3 mb-6">
+              {availMethods.map(m => (
+                <button key={m} onClick={() => setPayMethod(m)}
+                  className={`w-full flex items-center gap-4 p-4 rounded-xl border transition-all text-left ${
+                    payMethod === m ? 'border-orange bg-orange/10' : 'border-white/[0.08] hover:border-orange/30'
+                  }`}>
+                  <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${payMethod === m ? 'border-orange' : 'border-gray-500'}`}>
+                    {payMethod === m && <div className="w-2 h-2 rounded-full bg-orange" />}
+                  </div>
+                  <span className="font-bold text-sm">{PAY_LABELS[m] || m}</span>
+                </button>
+              ))}
+            </div>
 
-        {/* Cash / Zelle / CashApp */}
-        {payMethod === 'cash' && (
-          <div className="bg-white/[0.04] rounded-xl p-4 mb-4 text-sm">
-            <p className="font-bold mb-2">💵 Cash · Zelle · CashApp</p>
-            <p className="text-gray-400 text-xs">
-              {t('buy_cash_pending')}
-            </p>
-            {(event.paymentMethods?.cash?.values?.length ?? 0) > 0 && (
-              <div className="mt-3 bg-black/40 rounded-lg p-3">
-                {(event.paymentMethods?.cash?.values ?? []).map((v, i) => (
-                  <p key={i} className="text-xs text-orange font-bold">{v}</p>
-                ))}
+            {/* MonCash / Natcash instructions */}
+            {(payMethod === 'moncash' || payMethod === 'natcash') && (
+              <div className="bg-white/[0.04] rounded-xl p-4 mb-4 text-sm">
+                <p className="font-bold mb-2">📱 {payMethod === 'moncash' ? 'MonCash' : 'Natcash'}</p>
+                <p className="text-gray-400 text-xs mb-3">
+                  {t('buy_send_prefix')} {fmtPrice(total)} {t('buy_send_suffix')}
+                </p>
+                <div className="bg-black/40 rounded-lg p-3 text-center mb-3">
+                  <p className="text-[10px] text-gray-500 mb-0.5">{payMethod === 'moncash' ? 'MonCash' : 'Natcash'} #</p>
+                  <p className="font-heading text-xl text-orange">
+                    {event.paymentMethods?.[payMethod]?.values?.[0] || '—'}
+                  </p>
+                </div>
+                <label className="block text-[10px] font-bold text-gray-400 mb-1.5">
+                  {t('buy_txn_id')}
+                </label>
+                <input value={txnId} onChange={e => setTxnId(e.target.value)}
+                  placeholder="ex: TXN123456"
+                  className="w-full px-4 py-3 rounded-xl bg-white/[0.06] border border-white/[0.1] text-white text-sm outline-none focus:border-orange" />
               </div>
             )}
-          </div>
-        )}
 
-        {/* Stripe Elements */}
-        {payMethod === 'stripe' && (
-          <div className="bg-white/[0.04] rounded-xl p-4 mb-4 text-sm">
-            <p className="font-bold mb-3">💳 {t('vend_dash_credit_card')} / Debi</p>
-            {stripeError && (
-              <p className="text-red-400 text-xs mb-3">{stripeError}</p>
-            )}
-            {!stripeClientSecret && !stripeError && (
-              <div className="flex items-center justify-center py-6">
-                <div className="w-5 h-5 border-2 border-orange border-t-transparent rounded-full animate-spin" />
+            {/* Cash / Zelle / CashApp */}
+            {payMethod === 'cash' && (
+              <div className="bg-white/[0.04] rounded-xl p-4 mb-4 text-sm">
+                <p className="font-bold mb-2">💵 Cash · Zelle · CashApp</p>
+                <p className="text-gray-400 text-xs">{t('buy_cash_pending')}</p>
+                {(event.paymentMethods?.cash?.values?.length ?? 0) > 0 && (
+                  <div className="mt-3 bg-black/40 rounded-lg p-3">
+                    {(event.paymentMethods?.cash?.values ?? []).map((v, i) => (
+                      <p key={i} className="text-xs text-orange font-bold">{v}</p>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
-            {stripeClientSecret && (
-              <Elements
-                stripe={stripePromise}
-                options={{ clientSecret: stripeClientSecret, appearance: { theme: 'night' } }}>
-                <StripePaymentForm
-                  total={chargeTotal}
-                  onSuccess={completeStripePayment}
-                  onError={msg => setStripeError(msg)}
-                />
-              </Elements>
+
+            {/* Stripe Elements */}
+            {payMethod === 'stripe' && (
+              <div className="bg-white/[0.04] rounded-xl p-4 mb-4 text-sm">
+                <p className="font-bold mb-3">💳 {t('vend_dash_credit_card')} / Debi</p>
+                {stripeError && <p className="text-red-400 text-xs mb-3">{stripeError}</p>}
+                {!stripeClientSecret && !stripeError && (
+                  <div className="flex items-center justify-center py-6">
+                    <div className="w-5 h-5 border-2 border-orange border-t-transparent rounded-full animate-spin" />
+                  </div>
+                )}
+                {stripeClientSecret && (
+                  <Elements stripe={stripePromise} options={{ clientSecret: stripeClientSecret, appearance: { theme: 'night' } }}>
+                    <StripePaymentForm total={chargeTotal} onSuccess={completeStripePayment} onError={msg => setStripeError(msg)} />
+                  </Elements>
+                )}
+              </div>
             )}
-          </div>
-        )}
 
-        {/* Order total */}
-        <div className="bg-white/[0.04] rounded-xl p-4 mb-4">
-          <div className="flex justify-between text-sm mb-1">
-            <span className="text-gray-400">{selSection?.name} × {qty}</span>
-            <span className="font-bold text-green">${total.toFixed(2)}</span>
-          </div>
-          {barTabAmount > 0 && (
-            <div className="flex justify-between text-sm mb-1">
-              <span className="text-gray-400">🍺 Bar Tab</span>
-              <span className="font-bold text-orange">+${barTabAmount.toFixed(2)}</span>
+            {/* Order total */}
+            <div className="bg-white/[0.04] rounded-xl p-4 mb-4">
+              <div className="flex justify-between text-sm mb-1">
+                <span className="text-gray-400">{selSection?.name} × {qty}</span>
+                <span className="font-bold text-green">${total.toFixed(2)}</span>
+              </div>
+              {barTabAmount > 0 && (
+                <div className="flex justify-between text-sm mb-1">
+                  <span className="text-gray-400">🍺 Bar Tab</span>
+                  <span className="font-bold text-orange">+${barTabAmount.toFixed(2)}</span>
+                </div>
+              )}
+              <div className="flex justify-between text-sm border-t border-white/[0.06] pt-2 mt-1">
+                <span className="text-gray-400">{t('total')}</span>
+                <div className="text-right">
+                  <p className="font-bold text-green">${chargeTotal.toFixed(2)}</p>
+                  <p className="text-[11px] text-red-400">{htg(chargeTotal).toLocaleString('fr-HT')} HTG</p>
+                </div>
+              </div>
             </div>
-          )}
-          <div className="flex justify-between text-sm border-t border-white/[0.06] pt-2 mt-1">
-            <span className="text-gray-400">{t('total')}</span>
-            <div className="text-right">
-              <p className="font-bold text-green">${chargeTotal.toFixed(2)}</p>
-              <p className="text-[11px] text-red-400">{htg(chargeTotal).toLocaleString('fr-HT')} HTG</p>
-            </div>
-          </div>
-        </div>
 
-        {purchaseError && <p className="text-red-400 text-xs mb-3 text-center">{purchaseError}</p>}
-        {payMethod !== 'stripe' && (
-          <button
-            disabled={!payMethod || processing || ((payMethod === 'moncash' || payMethod === 'natcash') && !txnId.trim())}
-            onClick={completePurchase}
-            className="w-full py-3.5 rounded-xl font-heading text-base bg-orange text-white disabled:opacity-30 hover:bg-orange/90 transition-all flex items-center justify-center gap-2">
-            {processing
-              ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> {t('buy_processing_btn')}</>
-              : t('buy_confirm_payment')}
-          </button>
+            {purchaseError && <p className="text-red-400 text-xs mb-3 text-center">{purchaseError}</p>}
+            {payMethod !== 'stripe' && (
+              <button
+                disabled={!payMethod || processing || ((payMethod === 'moncash' || payMethod === 'natcash') && !txnId.trim())}
+                onClick={completePurchase}
+                className="w-full py-3.5 rounded-xl font-heading text-base bg-orange text-white disabled:opacity-30 hover:bg-orange/90 transition-all flex items-center justify-center gap-2">
+                {processing
+                  ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> {t('buy_processing_btn')}</>
+                  : t('buy_confirm_payment')}
+              </button>
+            )}
+          </>
         )}
       </div>
     </div>
@@ -913,12 +954,16 @@ function BuyPageInner() {
       <div className="max-w-md w-full text-center">
         <div className="text-6xl mb-4">🎉</div>
         <h2 className="font-heading text-2xl mb-2">
-          {payMethod === 'cash' || payMethod === 'moncash' || payMethod === 'natcash'
+          {payMethod === 'free'
+            ? 'Tikè Gratis Konfime!'
+            : payMethod === 'cash' || payMethod === 'moncash' || payMethod === 'natcash'
             ? t('buy_pending_ticket')
             : t('buy_confirmed_ticket')}
         </h2>
         <p className="text-gray-400 text-sm mb-8">
-          {payMethod === 'cash'
+          {payMethod === 'free'
+            ? 'Tikè gratis ou konfime. Jwi evènman an!'
+            : payMethod === 'cash'
             ? t('buy_cash_confirm_msg')
             : payMethod === 'moncash' || payMethod === 'natcash'
             ? t('buy_moncash_pending_msg')
