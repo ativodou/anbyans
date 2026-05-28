@@ -310,6 +310,7 @@ function EditEventInner() {
     if (!venue.trim()) e.venue = 'Obligatwa / Required';
     if (sections.length === 0) e.sections = 'Ajoute omwen yon seksyon';
     if (sections.some(s => !s.name.trim())) e.sections = 'Tout seksyon bezwen yon non';
+    if (sections.some(s => !s.capacity || s.capacity < 1)) e.sections = 'Chak seksyon bezwen omwen 1 tikè';
     setErrors(e);
     return Object.keys(e).length === 0;
   };
