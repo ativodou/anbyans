@@ -746,13 +746,14 @@ function BuyPageInner() {
           </div>
           <p className="text-[10px] text-gray-600 mt-1">{t('slug_fee_nonrefund')}</p>
         </div>
+        {purchaseError && <p className="text-red-400 text-xs mt-3 text-center">{purchaseError}</p>}
         <button onClick={() => {
           if (!validateInfo()) return;
           if (cartTotal === 0) { completeFreeOrder(); return; }
           if (event?.id) Promise.all([getBarItems(event.id), getBarStations(event.id)]).then(([items, stations]) => {
             const stationMap = new Map(stations.map(s => [s.id!, s]));
             setBarMenuItems(items
-              .filter(x => stationMap.has(x.stationId)) // drop orphaned items
+              .filter(x => stationMap.has(x.stationId))
               .map(x => {
                 const st = stationMap.get(x.stationId)!;
                 return { name: x.name, price: x.price, station: x.stationName, stationId: x.stationId, stationSections: st.sections ?? [], sections: x.sections ?? [] };
@@ -761,8 +762,11 @@ function BuyPageInner() {
           }).catch(() => setShowBarTab(true));
           else setShowBarTab(true);
         }}
-          className="w-full mt-4 py-3.5 rounded-xl font-heading text-base bg-orange text-white hover:bg-orange/90 transition-all">
-          {t('buy_continue')}
+          disabled={processing}
+          className="w-full mt-4 py-3.5 rounded-xl font-heading text-base bg-orange text-white hover:bg-orange/90 transition-all disabled:opacity-50 flex items-center justify-center gap-2">
+          {processing
+            ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Tann...</>
+            : t('buy_continue')}
         </button>
 
         {/* Bar tab modal */}
