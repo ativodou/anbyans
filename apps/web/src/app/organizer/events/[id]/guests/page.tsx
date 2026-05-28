@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
+import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
 import { getEvent, getGuestList, addGuest, removeGuest, type Invitation, type EventData } from '@/lib/db';
 
@@ -95,6 +96,9 @@ export default function GuestListPage() {
 
       {/* Header */}
       <div>
+        <Link href="/organizer/events" className="inline-flex items-center gap-1 text-[11px] text-gray-muted hover:text-white mb-3 transition-colors">
+          ← Retounen
+        </Link>
         <div className="flex items-center gap-2 mb-1">
           <h2 className="font-heading text-xl tracking-wide uppercase">Lis Envitasyon</h2>
           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isFree ? 'bg-purple-900/30 text-purple-300' : 'bg-orange-dim text-orange'}`}>

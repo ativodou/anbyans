@@ -286,6 +286,9 @@ export default function OrganizerEventsPage() {
           className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
           <div onClick={e => e.stopPropagation()}
             className="bg-dark-card border border-border rounded-2xl p-6 w-full max-w-md">
+            <div className="flex justify-end mb-2">
+              <button onClick={() => { setPosModal(null); setPosClientSecret(null); }} className="text-gray-muted hover:text-white text-xl leading-none">✕</button>
+            </div>
             <div className="text-center mb-6">
               <p className="text-4xl mb-3">🍽️</p>
               <h3 className="font-heading text-xl text-white mb-1">Activate POS</h3>

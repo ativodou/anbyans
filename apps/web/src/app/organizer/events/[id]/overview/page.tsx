@@ -75,6 +75,9 @@ export default function EventOverviewPage() {
     <div className="space-y-6 max-w-3xl mx-auto">
 
       {/* Header */}
+      <Link href="/organizer/events" className="inline-flex items-center gap-1 text-[11px] text-gray-muted hover:text-white mb-3 transition-colors">
+        ← Retounen
+      </Link>
       <div className="flex items-start justify-between gap-4">
         <div>
           <h2 className="font-heading text-xl tracking-wide uppercase">{event.name}</h2>
