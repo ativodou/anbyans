@@ -196,6 +196,7 @@ function CreateEventInner() {
 
   const [tab, setTab] = useState<'info' | 'venue' | 'payment'>('info');
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [draftStatus, setDraftStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const draftTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -349,7 +350,12 @@ function CreateEventInner() {
   };
 
   const save = async () => {
-    if (!validate()) { setTab('info'); return; }
+    setSaveError('');
+    if (!validate()) {
+      setTab('info');
+      setSaveError('Ranpli tout chan obligatwa yo anvan ou pibliye / Fill all required fields');
+      return;
+    }
     if (!user) return;
     setSaving(true);
     try {
@@ -410,8 +416,8 @@ function CreateEventInner() {
       }
       if (user) await clearEventDraft(user.uid).catch(() => {});
       router.push('/organizer/events');
-    } catch (e) {
-      console.error(e);
+    } catch (e: any) {
+      setSaveError(e?.code || e?.message || 'Erè enkoni');
       setSaving(false);
     }
   };
@@ -852,7 +858,9 @@ function CreateEventInner() {
       </div>
 
       {/* ── Fixed publish bar ── */}
-      <div className="fixed bottom-0 left-0 right-0 bg-black/90 backdrop-blur border-t border-border px-4 py-3 flex items-center gap-3">
+      <div className="fixed bottom-0 left-0 right-0 bg-black/90 backdrop-blur border-t border-border px-4 py-3 flex flex-col gap-2">
+        {saveError && <p className="text-xs text-red-400 text-center font-mono">{saveError}</p>}
+        <div className="flex items-center gap-3">
         <div className="flex-1 text-xs text-gray-500">
           {draftStatus === 'saving' && <span className="text-gray-600">Saving draft…</span>}
           {draftStatus === 'saved' && <span className="text-green-600">✓ Draft saved</span>}
@@ -866,6 +874,7 @@ function CreateEventInner() {
           {saving && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
           {t('create_publish')}
         </button>
+        </div>
       </div>
     </div>
   );
