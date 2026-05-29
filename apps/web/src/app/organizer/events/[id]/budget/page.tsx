@@ -296,9 +296,10 @@ export default function BudgetPage() {
 
   // ── Revenue from tickets ──
   const validTickets = tickets.filter(t => t.status === 'valid' || t.status === 'used');
-  const ticketRevenue = validTickets.reduce((s: number, t: any) => s + (t.price || 0), 0);
-  const barRevenue    = validTickets.reduce((s: number, t: any) => s + (t.barTabBalance || 0), 0);
-  const totalRevenue  = ticketRevenue + barRevenue;
+  const ticketRevenue   = validTickets.reduce((s: number, t: any) => s + (t.price || 0), 0);
+  const barGrossRevenue = validTickets.reduce((s: number, t: any) => s + (t.barTabBalance || 0), 0);
+  const barExpensesTotal = (event as any)?.barExpensesTotal || 0;
+  const barNet          = barGrossRevenue - barExpensesTotal;
 
   // ── Expenses ──
   const totalExpenses   = items.reduce((s, i) => s + i.amount, 0);
@@ -307,7 +308,7 @@ export default function BudgetPage() {
   const licRevenue      = licensing.reduce((s, l) => s + l.amount, 0);
   const merchRevenue    = merch.reduce((s, m) => s + m.amount, 0);
   const vendorRevenue   = vendorRents.reduce((s, v) => s + v.amount, 0);
-  const net = budgetTarget + ticketRevenue + barRevenue + sponsorRevenue + licRevenue + merchRevenue + vendorRevenue - totalExpenses - staffSalaryTotal;
+  const net = budgetTarget + ticketRevenue + barNet + sponsorRevenue + licRevenue + merchRevenue + vendorRevenue - totalExpenses - staffSalaryTotal;
 
   // ── Group by category ──
   const byCategory = BUDGET_CATEGORIES
@@ -403,9 +404,9 @@ export default function BudgetPage() {
           <p className="text-[10px] text-gray-muted mt-1">{validTickets.length} {t('budget_ticket_sub')}</p>
         </div>
         <div className={`${card} p-4`}>
-          <p className="text-[10px] text-gray-muted uppercase tracking-widest mb-1">{t('budget_bar_rev_label')}</p>
-          <p className="font-heading text-2xl text-green">${barRevenue.toLocaleString()}</p>
-          <p className="text-[10px] text-gray-muted mt-1">{t('budget_bar_sub')}</p>
+          <p className="text-[10px] text-gray-muted uppercase tracking-widest mb-1">🍺 Bar Net</p>
+          <p className={`font-heading text-2xl ${barNet >= 0 ? 'text-green' : 'text-red-400'}`}>${barNet.toLocaleString()}</p>
+          <p className="text-[10px] text-gray-muted mt-1">Revni − Depans Bar</p>
         </div>
         <div className={`${card} p-4`}>
           <p className="text-[10px] text-gray-muted uppercase tracking-widest mb-1">{isPrivateEvent ? '🎁 Kado' : t('budget_sponsor_rev_label')}</p>
@@ -444,7 +445,7 @@ export default function BudgetPage() {
       </div>
 
       {/* Revenue breakdown */}
-      {(ticketRevenue > 0 || barRevenue > 0) && (
+      {(ticketRevenue > 0 || barNet !== 0) && (
         <section>
           <h3 className="text-[10px] uppercase tracking-widest text-gray-muted font-bold mb-2">{t('budget_revenue_detail')}</h3>
           <div className={card}>
@@ -452,10 +453,13 @@ export default function BudgetPage() {
               <p className="text-sm">{t('budget_ticket_sales')}</p>
               <p className="font-bold text-green">${ticketRevenue.toLocaleString()}</p>
             </div>
-            {barRevenue > 0 && (
+            {barNet !== 0 && (
               <div className="flex justify-between items-center px-4 py-3 border-t border-border">
-                <p className="text-sm">{t('budget_bar_tab')}</p>
-                <p className="font-bold text-green">${barRevenue.toLocaleString()}</p>
+                <div>
+                  <p className="text-sm">🍺 Bar Net</p>
+                  {barExpensesTotal > 0 && <p className="text-[10px] text-gray-muted">Revni ${barGrossRevenue.toLocaleString()} − Depans ${barExpensesTotal.toLocaleString()}</p>}
+                </div>
+                <p className={`font-bold ${barNet >= 0 ? 'text-green' : 'text-red-400'}`}>${barNet.toLocaleString()}</p>
               </div>
             )}
           </div>
@@ -578,7 +582,7 @@ export default function BudgetPage() {
               [],
               ['', 'Bidjè Planifye', `$${budgetTarget}`, ''],
               ['', 'Revni Tikè', `$${ticketRevenue}`, ''],
-              ['', 'Revni Bar', `$${barRevenue}`, ''],
+              ['', 'Bar Net (Revni − Depans)', `$${barNet}`, ''],
               ...sponsors.map(sp => [isPrivateEvent ? 'Kado' : 'Sponsor', sp.name, `$${sp.amount}`, '']),
               ...(sponsors.length ? [['', isPrivateEvent ? 'Total Kado' : 'Total Sponsors', `$${sponsorRevenue}`, '']] : []),
               ...licensing.map(l => ['Licensing', l.name, `$${l.amount}`, '']),

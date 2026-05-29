@@ -226,6 +226,20 @@ service cloud.firestore {
       allow write: if isActiveAuth();
     }
 
+    // ── Bar expenses ───────────────────────────────────────────────
+    match /barExpenses/{docId} {
+      allow read: if isActiveAuth() && (
+        resource.data.organizerId == request.auth.uid || isAdmin()
+      );
+      allow create: if isActiveAuth() && (
+        request.resource.data.organizerId == request.auth.uid || isAdmin()
+      );
+      allow delete: if isActiveAuth() && (
+        resource.data.organizerId == request.auth.uid || isAdmin()
+      );
+      allow update: if isAdmin();
+    }
+
     // ── Vendor sales ───────────────────────────────────────────────
     match /vendorSales/{docId} {
       allow read: if isActiveAuth() && (

@@ -6,7 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useT } from '@/i18n';
 import { useOrganizerEvent } from '../OrganizerEventContext';
 import { db } from '@/lib/firebase';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, setDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import {
   getBarStations, saveBarStation, deleteBarStation,
@@ -44,6 +44,12 @@ export default function OrganizerBarPage() {
   const [stationError, setStationError] = useState('');
   const [generatingCode, setGeneratingCode] = useState(false);
 
+  // ── Bar expenses state ──
+  const [barExpenses, setBarExpenses] = useState<{ id: string; description: string; amount: number }[]>([]);
+  const [expDesc, setExpDesc] = useState('');
+  const [expAmt, setExpAmt] = useState('');
+  const [savingExp, setSavingExp] = useState(false);
+
   // ── Live state ──
   const [orders, setOrders] = useState<BarOrder[]>([]);
   const [liveStation, setLiveStation] = useState<string | null>(null);
@@ -56,13 +62,39 @@ export default function OrganizerBarPage() {
       getBarStations(eventId),
       getBarItems(eventId),
       getAssignedStaff(eventId),
-    ]).then(([st, it, staff]) => {
+      getDocs(query(collection(db, 'barExpenses'), where('eventId', '==', eventId))),
+    ]).then(([st, it, staff, expSnap]) => {
       setStations(st);
       setItems(it);
       setAssignedStaff(staff);
       if (st.length > 0 && !newItem.stationId) setNewItem(p => ({ ...p, stationId: st[0].id! }));
+      setBarExpenses(expSnap.docs.map(d => ({ id: d.id, ...d.data() } as { id: string; description: string; amount: number })));
     });
   }, [eventId]);
+
+  // ── Bar expense CRUD ──
+  const handleAddExpense = async () => {
+    if (!expDesc.trim() || !expAmt || !eventId || !organizerId) return;
+    setSavingExp(true);
+    try {
+      const id = `bexp_${Date.now()}`;
+      const data = { eventId, organizerId, description: expDesc.trim(), amount: Number(expAmt), createdAt: serverTimestamp() };
+      await setDoc(doc(db, 'barExpenses', id), data);
+      setBarExpenses(prev => [...prev, { id, description: data.description, amount: data.amount }]);
+      // Update barExpensesTotal on event doc so budget page can read it
+      const newTotal = barExpenses.reduce((s, e) => s + e.amount, 0) + Number(expAmt);
+      await updateDoc(doc(db, 'events', eventId), { barExpensesTotal: newTotal });
+      setExpDesc(''); setExpAmt('');
+    } finally { setSavingExp(false); }
+  };
+
+  const handleDeleteExpense = async (id: string, amount: number) => {
+    await deleteDoc(doc(db, 'barExpenses', id));
+    const remaining = barExpenses.filter(e => e.id !== id);
+    setBarExpenses(remaining);
+    const newTotal = remaining.reduce((s, e) => s + e.amount, 0);
+    await updateDoc(doc(db, 'events', eventId), { barExpensesTotal: newTotal });
+  };
 
   // ── Pre-order cutoff ──
   const [cutoffHours, setCutoffHours]     = useState<number>((selectedEvent as any)?.preOrderCutoffHours ?? 0);
@@ -184,6 +216,8 @@ export default function OrganizerBarPage() {
   // ── Stats computations ──
   const completedOrders = orders.filter(o => o.status === 'delivered');
   const totalRevenue = completedOrders.reduce((a, o) => a + o.total, 0);
+  const totalBarExpenses = barExpenses.reduce((s, e) => s + e.amount, 0);
+  const barNet = totalRevenue - totalBarExpenses;
   const byStation = stations.map(s => ({
     name: s.name,
     revenue: completedOrders.filter(o => o.stationId === s.id).reduce((a, o) => a + o.total, 0),
@@ -592,14 +626,51 @@ export default function OrganizerBarPage() {
           <div className="grid grid-cols-3 gap-3">
             {[
               { label: t('bar_stat_total_orders'), value: completedOrders.length },
-              { label: t('bar_stat_pending'), value: pendingOrders.length, color: 'text-orange' },
               { label: t('bar_stat_total_revenue'), value: `$${totalRevenue.toFixed(2)}`, color: 'text-green' },
+              { label: 'Bar Net', value: `$${barNet.toFixed(2)}`, color: barNet >= 0 ? 'text-green' : 'text-red-400' },
             ].map(s => (
               <div key={s.label} className={`${card} p-4 text-center`}>
                 <p className="text-[9px] uppercase tracking-widest text-gray-muted mb-1">{s.label}</p>
                 <p className={`font-heading text-2xl ${s.color ?? ''}`}>{s.value}</p>
               </div>
             ))}
+          </div>
+
+          {/* Bar Expenses */}
+          <div className={card}>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-muted px-4 pt-4 pb-3">🧾 Depans Bar</p>
+            <div className="px-4 pb-3 flex gap-2">
+              <input value={expDesc} onChange={e => setExpDesc(e.target.value)} placeholder="Stock, glàs, verè…"
+                className="flex-1 px-3 py-2 rounded-xl bg-white/[0.05] border border-border text-white text-sm outline-none focus:border-orange" />
+              <input value={expAmt} onChange={e => setExpAmt(e.target.value)} placeholder="$0" type="number" min="0"
+                className="w-24 px-3 py-2 rounded-xl bg-white/[0.05] border border-border text-white text-sm outline-none focus:border-orange" />
+              <button onClick={handleAddExpense} disabled={savingExp || !expDesc.trim() || !expAmt}
+                className="px-3 py-2 rounded-xl bg-orange text-black font-bold text-sm disabled:opacity-40 hover:bg-orange/90 transition-all">
+                {savingExp ? '…' : '+'}
+              </button>
+            </div>
+            {barExpenses.length > 0 && (
+              <div className="border-t border-border">
+                {barExpenses.map(e => (
+                  <div key={e.id} className="flex items-center justify-between px-4 py-2.5 border-b border-border last:border-0">
+                    <p className="text-sm">{e.description}</p>
+                    <div className="flex items-center gap-3">
+                      <p className="font-bold text-orange text-sm">${e.amount.toLocaleString()}</p>
+                      <button onClick={() => handleDeleteExpense(e.id, e.amount)} className="text-gray-muted hover:text-red-400 text-[11px]">✕</button>
+                    </div>
+                  </div>
+                ))}
+                <div className="flex justify-between items-center px-4 py-3 border-t border-border">
+                  <div>
+                    <p className="text-sm font-bold">Net Bar</p>
+                    <p className="text-[10px] text-gray-muted">Revni − Depans · alimante bidjè evènman an</p>
+                  </div>
+                  <p className={`font-heading text-xl font-bold ${barNet >= 0 ? 'text-green' : 'text-red-400'}`}>
+                    {barNet >= 0 ? '+' : '−'}${Math.abs(barNet).toFixed(2)}
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
 
           {byStation.some(s => s.count > 0) && (
