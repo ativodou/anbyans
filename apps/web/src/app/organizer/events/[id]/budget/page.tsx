@@ -68,7 +68,7 @@ export default function BudgetPage() {
   const [note, setNote]         = useState('');
 
   useEffect(() => {
-    if (!eventId || !user?.uid) return;
+    if (!eventId) return;
     (async () => {
       try {
         const [ev, budgetList, tSnap, cfg] = await Promise.all([
@@ -91,7 +91,7 @@ export default function BudgetPage() {
       } catch (e) { console.error(e); }
       finally { setLoading(false); }
     })();
-  }, [eventId, user?.uid]);
+  }, [eventId]);
 
   const handleAdd = async () => {
     if (!description.trim() || !amount || isNaN(Number(amount)) || !user?.uid) return;
@@ -115,13 +115,12 @@ export default function BudgetPage() {
   };
 
   const handleGateCard = async () => {
-    if (!event) { setGateError('Evènman pa chaje. Rafraîchi paj la.'); return; }
     setGateLoading(true); setGateError('');
     try {
       const res = await fetch('/api/payment/stripe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: budgetFee, currency: 'usd', eventName: `Budget — ${event.name}`, seats: 1 }),
+        body: JSON.stringify({ amount: budgetFee, currency: 'usd', eventName: `Budget — ${event?.name || eventId}`, seats: 1 }),
       });
       const data = await res.json();
       if (data.error) { setGateError(data.error); return; }
@@ -138,12 +137,12 @@ export default function BudgetPage() {
   };
 
   const handleCashRequest = async () => {
-    if (!event || !user) { setGateError('Evènman oswa itilizatè pa chaje. Rafraîchi paj la.'); return; }
+    if (!user) { setGateError('Itilizatè pa chaje. Rafraîchi paj la.'); return; }
     setCashBusy(true); setGateError('');
     try {
       await addBudgetCashRequest({
         eventId,
-        eventName: event.name,
+        eventName: event?.name || eventId,
         organizerId: user.uid,
         organizerName: `${(user as any).firstName || ''} ${(user as any).lastName || ''}`.trim() || user.email || '',
         amount: budgetFee,
