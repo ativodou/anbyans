@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { getInvitation, getEvent, type Invitation, type EventData } from '@/lib/db';
-import { db } from '@/lib/firebase';
+import { db, auth } from '@/lib/firebase';
+import { signInWithCustomToken, onAuthStateChanged, type User } from 'firebase/auth';
 import { collection, query, where, getDocs, addDoc } from 'firebase/firestore';
 
 interface GiftItem {
@@ -35,6 +36,8 @@ function fmtTime(s: string) {
   catch { return ''; }
 }
 
+type OtpStep = 'idle' | 'sending' | 'sent' | 'verifying' | 'verified';
+
 export default function InvitePage() {
   const { inviteId } = useParams() as { inviteId: string };
   const router = useRouter();
@@ -53,12 +56,25 @@ export default function InvitePage() {
   const [giftClaims, setGiftClaims] = useState<GiftClaim[]>([]);
   const [claimingId, setClaimingId] = useState<string | null>(null);
 
+  // OTP auth state
+  const [currentUser, setCurrentUser] = useState<User | null | undefined>(undefined); // undefined = not yet resolved
+  const [otpStep, setOtpStep]   = useState<OtpStep>('idle');
+  const [otpCode, setOtpCode]   = useState('');
+  const [otpError, setOtpError] = useState('');
+
+  // Track Firebase auth state
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (user) => setCurrentUser(user));
+    return unsub;
+  }, []);
+
+  // Load invitation + event
   useEffect(() => {
     if (!inviteId) return;
     (async () => {
       try {
         const inv = await getInvitation(inviteId);
-        if (!inv) { setInvalid(true); return; }
+        if (!inv) { setInvalid(true); setLoading(false); return; }
         setInvite(inv);
         if (inv.status === 'confirmed') { setDone(true); setTicketCodes(inv.ticketCode ? [inv.ticketCode] : []); }
         const ev = await getEvent(inv.eventId);
@@ -72,6 +88,60 @@ export default function InvitePage() {
       finally { setLoading(false); }
     })();
   }, [inviteId]);
+
+  // Auto-send OTP once invite is loaded and user is not yet authenticated
+  useEffect(() => {
+    if (currentUser === undefined) return; // auth not resolved yet
+    if (!invite || !invite.guestPhone) return;
+    const expectedUid = `guest_${inviteId}`;
+    if (currentUser && currentUser.uid === expectedUid) {
+      setOtpStep('verified');
+      return;
+    }
+    if (otpStep === 'idle') {
+      sendOtp();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [invite, currentUser]);
+
+  const sendOtp = async () => {
+    if (!invite?.guestPhone) return;
+    setOtpStep('sending');
+    setOtpError('');
+    try {
+      const res = await fetch('/api/whatsapp-otp/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: invite.guestPhone, inviteId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Erè');
+      setOtpStep('sent');
+    } catch (e: any) {
+      setOtpError(e.message || 'Erè pandan voye kòd la.');
+      setOtpStep('idle');
+    }
+  };
+
+  const verifyOtp = async () => {
+    if (otpCode.length < 6) { setOtpError('Antre kòd 6 chif la.'); return; }
+    setOtpStep('verifying');
+    setOtpError('');
+    try {
+      const res = await fetch('/api/whatsapp-otp/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ inviteId, otp: otpCode }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Erè verifikasyon');
+      await signInWithCustomToken(auth, data.customToken);
+      setOtpStep('verified');
+    } catch (e: any) {
+      setOtpError(e.message || 'Kòd pa kòrèk. Eseye ankò.');
+      setOtpStep('sent');
+    }
+  };
 
   const handleClaim = async (item: GiftItem) => {
     if (!invite || !event) return;
@@ -174,9 +244,81 @@ export default function InvitePage() {
     a.href = canvas.toDataURL('image/png'); a.click();
   };
 
-  if (loading) return (
+  // Show spinner while auth state or invite is resolving
+  if (loading || currentUser === undefined) return (
     <div className="min-h-screen bg-[#0a0a14] flex items-center justify-center">
       <div className="w-8 h-8 rounded-full border-2 border-orange border-t-transparent animate-spin" />
+    </div>
+  );
+
+  // Show OTP screen if invite has a phone and user is not yet verified
+  const needsOtp = invite?.guestPhone && otpStep !== 'verified';
+  if (needsOtp) return (
+    <div className="min-h-screen bg-[#0a0a14] flex flex-col items-center justify-center p-4">
+      <div className="w-full max-w-sm rounded-2xl overflow-hidden shadow-2xl"
+        style={{ background: 'linear-gradient(160deg,#12121f,#1a0a2e)', border: '1px solid rgba(249,115,22,0.3)' }}>
+        <div className="h-1 bg-orange" />
+        <div className="px-8 py-10 text-center">
+          <p className="text-4xl mb-4">📱</p>
+          <h2 className="font-heading text-xl text-white mb-2">Verifikasyon WhatsApp</h2>
+          <p className="text-gray-400 text-sm mb-6">
+            {otpStep === 'sending'
+              ? 'Nou ap voye kòd ou a…'
+              : 'Nou voye yon kòd sou WhatsApp ou. Antre li anba a.'}
+          </p>
+
+          {(otpStep === 'sent' || otpStep === 'verifying') && (
+            <>
+              <input
+                type="tel"
+                inputMode="numeric"
+                maxLength={6}
+                value={otpCode}
+                onChange={e => { setOtpCode(e.target.value.replace(/\D/g, '')); setOtpError(''); }}
+                placeholder="______"
+                className="w-full text-center font-mono text-3xl tracking-[0.4em] py-4 px-4 rounded-2xl bg-white/[0.06] border border-white/[0.12] text-white placeholder-white/20 outline-none focus:border-orange/60 mb-4"
+              />
+
+              {otpError && (
+                <p className="text-red-400 text-sm mb-4">{otpError}</p>
+              )}
+
+              <button
+                onClick={verifyOtp}
+                disabled={otpStep === 'verifying' || otpCode.length < 6}
+                className="w-full py-4 rounded-2xl bg-orange text-black font-heading font-bold text-base hover:bg-orange/90 active:scale-95 transition-all mb-4 disabled:opacity-50">
+                {otpStep === 'verifying' ? '⏳ Ap verifye…' : 'Verifye'}
+              </button>
+
+              <button
+                onClick={() => { setOtpCode(''); setOtpError(''); sendOtp(); }}
+                disabled={otpStep === 'verifying'}
+                className="text-[12px] text-gray-500 hover:text-orange transition-colors underline underline-offset-2">
+                Voye ankò
+              </button>
+            </>
+          )}
+
+          {otpStep === 'sending' && (
+            <div className="flex justify-center">
+              <div className="w-6 h-6 rounded-full border-2 border-orange border-t-transparent animate-spin" />
+            </div>
+          )}
+
+          {otpStep === 'idle' && otpError && (
+            <>
+              <p className="text-red-400 text-sm mb-4">{otpError}</p>
+              <button onClick={sendOtp}
+                className="w-full py-4 rounded-2xl bg-orange text-black font-heading font-bold text-base hover:bg-orange/90 transition-all">
+                Voye kòd la
+              </button>
+            </>
+          )}
+        </div>
+        <div className="border-t border-white/[0.05] py-3 text-center">
+          <p className="text-[10px] text-gray-600">anbyans.events</p>
+        </div>
+      </div>
     </div>
   );
 

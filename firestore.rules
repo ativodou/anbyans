@@ -354,6 +354,11 @@ service cloud.firestore {
       allow read: if true;
     }
 
+    // ── OTP codes (server-side only) ───────────────────────────────
+    match /otpCodes/{id} {
+      allow read, write: if false; // server-side only via Admin SDK
+    }
+
     // ── Gift claims (unauthenticated guests can claim gifts) ───────
     match /giftClaims/{claimId} {
       allow read: if true;
