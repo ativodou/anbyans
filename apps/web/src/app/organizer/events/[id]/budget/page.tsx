@@ -49,6 +49,9 @@ export default function BudgetPage() {
   const [budgetTarget, setBudgetTarget] = useState<number>(0);
   const [targetInput, setTargetInput]   = useState('');
   const [savingTarget, setSavingTarget] = useState(false);
+  const [sponsorRevenue, setSponsorRevenue] = useState<number>(0);
+  const [sponsorInput, setSponsorInput]     = useState('');
+  const [savingSponsor, setSavingSponsor]   = useState(false);
 
   // Payment gate
   const [budgetFee, setBudgetFee]       = useState(15);
@@ -84,6 +87,9 @@ export default function BudgetPage() {
         const target = (ev as any)?.budgetTarget || 0;
         setBudgetTarget(target);
         setTargetInput(target > 0 ? String(target) : '');
+        const sponsor = (ev as any)?.sponsorRevenue || 0;
+        setSponsorRevenue(sponsor);
+        setSponsorInput(sponsor > 0 ? String(sponsor) : '');
         if ((ev as any)?.budgetActivated) setActivated(true);
         getDocs(query(collection(db, 'budgetCashRequests'), where('eventId', '==', eventId), where('status', '==', 'pending')))
           .then(snap => { if (!snap.empty) setCashPending(true); })
@@ -167,6 +173,15 @@ export default function BudgetPage() {
     setSavingTarget(false);
   };
 
+  const handleSaveSponsor = async () => {
+    const val = Math.round(Number(sponsorInput) * 100) / 100;
+    if (isNaN(val) || val < 0) return;
+    setSavingSponsor(true);
+    await updateDoc(doc(db, 'events', eventId), { sponsorRevenue: val });
+    setSponsorRevenue(val);
+    setSavingSponsor(false);
+  };
+
   if (loading) return (
     <div className="flex justify-center py-20">
       <div className="w-8 h-8 rounded-full border-2 border-orange border-t-transparent animate-spin" />
@@ -181,7 +196,9 @@ export default function BudgetPage() {
 
   // ── Expenses ──
   const totalExpenses = items.reduce((s, i) => s + i.amount, 0);
-  const net = budgetTarget + ticketRevenue + barRevenue - totalExpenses;
+  const isPrivateEvent = (event as any)?.eventType === 'free_private' || (event as any)?.eventType === 'paid_private' || (event as any)?.isPrivate;
+  const effectiveSponsor = isPrivateEvent ? 0 : sponsorRevenue;
+  const net = budgetTarget + ticketRevenue + barRevenue + effectiveSponsor - totalExpenses;
 
   // ── Group by category ──
   const byCategory = BUDGET_CATEGORIES
@@ -221,6 +238,21 @@ export default function BudgetPage() {
         </div>
       </div>
 
+      {/* Sponsor revenue input — not for private events */}
+      {activated && (event as any)?.eventType !== 'free_private' && (event as any)?.eventType !== 'paid_private' && !(event as any)?.isPrivate && (
+        <div className={`${card} p-4`}>
+          <p className="text-[10px] uppercase tracking-widest text-gray-muted font-bold mb-2">🤝 Revni Sponsors</p>
+          <div className="flex gap-2">
+            <input value={sponsorInput} onChange={e => setSponsorInput(e.target.value)} placeholder="$0.00" type="number" min="0"
+              className="flex-1 px-3 py-2.5 rounded-xl bg-white/[0.05] border border-border text-white text-sm outline-none focus:border-orange" />
+            <button onClick={handleSaveSponsor} disabled={savingSponsor}
+              className="px-4 py-2.5 rounded-xl bg-white/[0.07] border border-border text-white font-bold text-sm disabled:opacity-40 hover:bg-white/10 transition-all">
+              {savingSponsor ? '…' : 'Anrejistre'}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Ledger summary — 5 cards */}
       <div className="grid grid-cols-2 gap-3">
         <div className={`${card} p-4`}>
@@ -238,6 +270,13 @@ export default function BudgetPage() {
           <p className="font-heading text-2xl text-green">${barRevenue.toLocaleString()}</p>
           <p className="text-[10px] text-gray-muted mt-1">Bar tab total</p>
         </div>
+        {(event as any)?.eventType !== 'free_private' && (event as any)?.eventType !== 'paid_private' && !(event as any)?.isPrivate && (
+          <div className={`${card} p-4`}>
+            <p className="text-[10px] text-gray-muted uppercase tracking-widest mb-1">🤝 Sponsors</p>
+            <p className="font-heading text-2xl text-green">${sponsorRevenue.toLocaleString()}</p>
+            <p className="text-[10px] text-gray-muted mt-1">Kontribisyon sponsor</p>
+          </div>
+        )}
         <div className={`${card} p-4`}>
           <p className="text-[10px] text-gray-muted uppercase tracking-widest mb-1">📋 Depans</p>
           <p className="font-heading text-2xl text-orange">${totalExpenses.toLocaleString()}</p>
@@ -248,7 +287,7 @@ export default function BudgetPage() {
           <p className={`font-heading text-3xl ${net >= 0 ? 'text-green' : 'text-red-400'}`}>
             {net >= 0 ? '+' : '−'}${Math.abs(net).toLocaleString()}
           </p>
-          <p className="text-[10px] text-gray-muted mt-1">Bidjè + Tikè + Bar − Depans · {net >= 0 ? '✓ Pozitif' : '⚠ Negatif'}</p>
+          <p className="text-[10px] text-gray-muted mt-1">{isPrivateEvent ? 'Bidjè + Tikè + Bar' : 'Bidjè + Tikè + Bar + Sponsors'} − Depans · {net >= 0 ? '✓ Pozitif' : '⚠ Negatif'}</p>
         </div>
       </div>
 
@@ -352,6 +391,7 @@ export default function BudgetPage() {
               ['', 'Bidjè Planifye', `$${budgetTarget}`, ''],
               ['', 'Revni Tikè', `$${ticketRevenue}`, ''],
               ['', 'Revni Bar', `$${barRevenue}`, ''],
+              ['', 'Revni Sponsors', `$${sponsorRevenue}`, ''],
               ['', 'Total Depans', `$${totalExpenses}`, ''],
               ['', 'NÈT', `${net >= 0 ? '+' : '-'}$${Math.abs(net)}`, ''],
             ];
