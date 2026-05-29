@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
+import { useT } from '@/i18n';
 import { getEvent, getGuestList, type EventData, type Invitation } from '@/lib/db';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, where } from 'firebase/firestore';
@@ -14,6 +15,7 @@ interface BarItem { name: string; qty: number; price: number; station: string; }
 export default function EventOverviewPage() {
   const { id: eventId } = useParams() as { id: string };
   const { user } = useAuth();
+  const { t } = useT();
 
   const [event, setEvent]     = useState<EventData | null>(null);
   const [tickets, setTickets] = useState<Ticket[]>([]);
@@ -76,18 +78,18 @@ export default function EventOverviewPage() {
 
       {/* Header */}
       <Link href="/organizer/events" className="inline-flex items-center gap-1 text-[11px] text-gray-muted hover:text-white mb-3 transition-colors">
-        ← Retounen
+        {t('overview_back')}
       </Link>
       <div className="flex items-start justify-between gap-4">
         <div>
           <h2 className="font-heading text-xl tracking-wide uppercase">{event.name}</h2>
           <p className="text-xs text-gray-muted mt-1">
-            {event.startDate || '—'} · {event.isPrivate ? (event.privateMode === 'free' ? '🎊 Gratis prive' : '🔒 Peye prive') : '🌐 Piblik'}
+            {event.startDate || '—'} · {event.isPrivate ? (event.privateMode === 'free' ? t('overview_private_free') : t('overview_private_paid')) : t('overview_public')}
           </p>
         </div>
         <Link href={`/organizer/events/${eventId}/edit`}
           className="px-3 py-1.5 rounded-lg bg-white/[0.04] border border-border text-[10px] font-bold text-gray-muted hover:text-white transition-all">
-          ✏️ Edite
+          {t('overview_edit_btn')}
         </Link>
       </div>
 

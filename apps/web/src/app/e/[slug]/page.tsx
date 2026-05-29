@@ -153,6 +153,7 @@ function StripeForm({ onSuccess, processing, setProcessing }: {
     }
   };
 
+  const { t } = useT();
   return (
     <div className="bg-white/[0.04] rounded-xl p-4 mb-4 text-sm">
       <p className="font-bold mb-3">💳 Kart Kredi / Debi</p>
@@ -163,8 +164,8 @@ function StripeForm({ onSuccess, processing, setProcessing }: {
       <button onClick={handleSubmit} disabled={processing || !stripe}
         className="w-full py-3 rounded-xl font-heading text-base bg-orange text-white disabled:opacity-30 hover:bg-orange/90 transition-all flex items-center justify-center gap-2">
         {processing
-          ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Tann...</>
-          : 'Peye ak Kart →'}
+          ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> {t('slug_stripe_wait')}</>
+          : t('slug_stripe_pay_btn')}
       </button>
     </div>
   );
@@ -600,8 +601,8 @@ function BuyPageInner() {
         {(event.eventType === 'free_open_unlimited' || event.hasTickets === false) ? (
           <div className="p-5 rounded-xl bg-white/[0.03] border border-border text-center mb-4">
             <p className="text-2xl mb-2">🚪</p>
-            <p className="font-heading text-lg mb-1">Bar sèlman — pa bezwen tikè</p>
-            <p className="text-sm text-gray-400">Antre lib. Bar POS disponib sou plas la.</p>
+            <p className="font-heading text-lg mb-1">{t('slug_bar_only_title')}</p>
+            <p className="text-sm text-gray-400">{t('slug_bar_only_desc')}</p>
           </div>
         ) : (
         <>
@@ -646,7 +647,7 @@ function BuyPageInner() {
                     {sec.price === 0 ? (
                       <>
                         <p className="font-heading text-sm text-green">GRATIS</p>
-                        <p className="text-[10px] text-gray-400">Tikè Obligatwa</p>
+                        <p className="text-[10px] text-gray-400">{t('buy_mandatory_ticket')}</p>
                       </>
                     ) : (
                       <>
@@ -741,7 +742,7 @@ function BuyPageInner() {
         <h2 className="font-heading text-xl mb-4">{t('buy_your_info_h')}</h2>
         {user && (
           <div className="flex items-center gap-2 mb-4 bg-green/10 border border-green/20 rounded-xl px-4 py-2.5 text-xs text-green font-bold">
-            ✓ Enfòmasyon ou ranpli otomatikman
+            {t('buy_auto_filled')}
           </div>
         )}
         <div className="space-y-4">
@@ -816,7 +817,7 @@ function BuyPageInner() {
           disabled={processing}
           className="w-full mt-4 py-3.5 rounded-xl font-heading text-base bg-orange text-white hover:bg-orange/90 transition-all disabled:opacity-50 flex items-center justify-center gap-2">
           {processing
-            ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Tann...</>
+            ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> {t('slug_stripe_wait')}</>
             : t('buy_continue')}
         </button>
 
@@ -858,8 +859,8 @@ function BuyPageInner() {
                 <div className="relative text-center px-6 pt-6 pb-4 flex-shrink-0">
                   <button onClick={() => setShowBarTab(false)} className="absolute top-4 right-4 text-gray-500 hover:text-white text-xl leading-none">✕</button>
                   <p className="text-3xl mb-2">🍺</p>
-                  <h3 className="font-heading text-xl text-white">Pre-order from the Bar</h3>
-                  <p className="text-gray-400 text-sm mt-1">Pay now, pick up at the event</p>
+                  <h3 className="font-heading text-xl text-white">{t('bar_modal_title')}</h3>
+                  <p className="text-gray-400 text-sm mt-1">{t('bar_modal_desc')}</p>
                 </div>
 
                 {hasMenu ? (
@@ -896,14 +897,14 @@ function BuyPageInner() {
                     <div className="px-6 pb-6 pt-3 flex-shrink-0 border-t border-white/[0.07]">
                       {cartTotal > 0 && (
                         <div className="flex justify-between text-sm font-bold mb-3">
-                          <span className="text-gray-400">Total pre-order</span>
+                          <span className="text-gray-400">{t('bar_modal_total_label')}</span>
                           <span className="text-orange text-lg">${cartTotal.toFixed(2)}</span>
                         </div>
                       )}
                       <div className="flex gap-3">
-                        <button onClick={skip} className="flex-1 py-3 rounded-xl border border-white/[0.1] text-gray-400 font-bold text-sm hover:border-white/30 transition-all">Skip</button>
+                        <button onClick={skip} className="flex-1 py-3 rounded-xl border border-white/[0.1] text-gray-400 font-bold text-sm hover:border-white/30 transition-all">{t('bar_modal_skip')}</button>
                         <button onClick={confirm} className="flex-1 py-3 rounded-xl bg-orange text-white font-bold text-sm hover:bg-orange/90 transition-all">
-                          {cartTotal > 0 ? `Add $${cartTotal.toFixed(2)} →` : 'Continue →'}
+                          {cartTotal > 0 ? `Add $${cartTotal.toFixed(2)} →` : t('bar_modal_continue')}
                         </button>
                       </div>
                     </div>
@@ -920,15 +921,15 @@ function BuyPageInner() {
                     </div>
                     <div className="relative mb-5">
                       <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
-                      <input type="number" min={1} placeholder="Custom amount" value={customTab}
+                      <input type="number" min={1} placeholder={t('bar_modal_custom_amount_ph')} value={customTab}
                         onChange={e => { setCustomTab(e.target.value); setBarTabAmount(Math.max(0, parseInt(e.target.value) || 0)); }}
                         className="w-full pl-8 pr-4 py-3 rounded-xl bg-white/[0.06] border border-white/[0.1] text-white text-sm outline-none focus:border-orange" />
                     </div>
                     <div className="flex gap-3">
-                      <button onClick={skip} className="flex-1 py-3 rounded-xl border border-white/[0.1] text-gray-400 font-bold text-sm hover:border-white/30 transition-all">Skip</button>
+                      <button onClick={skip} className="flex-1 py-3 rounded-xl border border-white/[0.1] text-gray-400 font-bold text-sm hover:border-white/30 transition-all">{t('bar_modal_skip')}</button>
                       <button onClick={confirm}
                         className="flex-1 py-3 rounded-xl bg-orange text-white font-bold text-sm hover:bg-orange/90 transition-all">
-                        {barTabAmount > 0 ? `Add $${barTabAmount} →` : 'Continue →'}
+                        {barTabAmount > 0 ? `Add $${barTabAmount} →` : t('bar_modal_continue')}
                       </button>
                     </div>
                   </div>
@@ -951,13 +952,13 @@ function BuyPageInner() {
         {chargeTotal === 0 ? (
           <div className="text-center py-8">
             <p className="text-5xl mb-4">🎟️</p>
-            <p className="text-gray-400 text-sm mb-6">Tikè sa a gratis. Pa gen peman obligatwa.</p>
+            <p className="text-gray-400 text-sm mb-6">{t('buy_free_ticket_info')}</p>
             {purchaseError && <p className="text-red-400 text-xs mb-3">{purchaseError}</p>}
             <button onClick={completeFreeOrder} disabled={processing}
               className="w-full py-3.5 rounded-xl font-heading text-base bg-orange text-white disabled:opacity-30 hover:bg-orange/90 transition-all flex items-center justify-center gap-2">
               {processing
-                ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Chajman…</>
-                : '🎫 Pran Tikè Gratis la'}
+                ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> {t('buy_free_loading')}</>
+                : t('buy_free_ticket_cta')}
             </button>
           </div>
         ) : (
@@ -1113,14 +1114,14 @@ function BuyPageInner() {
         <div className="text-6xl mb-4">🎉</div>
         <h2 className="font-heading text-2xl mb-2">
           {payMethod === 'free'
-            ? 'Tikè Gratis Konfime!'
+            ? t('buy_free_ticket_confirmed')
             : payMethod === 'cash' || payMethod === 'moncash' || payMethod === 'natcash'
             ? t('buy_pending_ticket')
             : t('buy_confirmed_ticket')}
         </h2>
         <p className="text-gray-400 text-sm mb-8">
           {payMethod === 'free'
-            ? 'Tikè gratis ou konfime. Jwi evènman an!'
+            ? t('buy_free_ticket_msg')
             : payMethod === 'cash'
             ? t('buy_cash_confirm_msg')
             : payMethod === 'moncash' || payMethod === 'natcash'

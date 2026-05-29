@@ -35,6 +35,7 @@ function SectionRow({ sec, onChange, onRemove, onAddZone, hasZone }: {
   sec: Section; onChange: (s: Section) => void; onRemove: () => void;
   onAddZone: () => void; hasZone: boolean;
 }) {
+  const { t } = useT();
   const [showTiers, setShowTiers] = useState(false);
   return (
     <div className="bg-white/[0.03] border border-border rounded-xl p-4 space-y-3">
@@ -51,13 +52,13 @@ function SectionRow({ sec, onChange, onRemove, onAddZone, hasZone }: {
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="col-span-2">
-          <label className="block text-[10px] font-bold text-gray-500 mb-1">NOM / NAME</label>
+          <label className="block text-[10px] font-bold text-gray-500 mb-1">{t('section_name_label')}</label>
           <input value={sec.name} onChange={e => onChange({ ...sec, name: e.target.value })}
             placeholder="VIP · GA · Lounge..."
             className="w-full px-3 py-2 rounded-lg bg-black/40 border border-border text-white text-sm outline-none focus:border-orange" />
         </div>
         <div>
-          <label className="block text-[10px] font-bold text-gray-500 mb-1">PRICE FAN (USD)</label>
+          <label className="block text-[10px] font-bold text-gray-500 mb-1">{t('section_price_label')}</label>
           <div className="relative">
             <span className="absolute left-3 top-2 text-gray-500 text-sm">$</span>
             <input type="number" min={0} value={sec.price}
@@ -66,22 +67,22 @@ function SectionRow({ sec, onChange, onRemove, onAddZone, hasZone }: {
           </div>
         </div>
         <div>
-          <label className="block text-[10px] font-bold text-gray-500 mb-1">KAPASITE / CAPACITY</label>
+          <label className="block text-[10px] font-bold text-gray-500 mb-1">{t('section_capacity_label')}</label>
           <input type="number" min={1} value={sec.capacity}
             onChange={e => onChange({ ...sec, capacity: Number(e.target.value) })}
             className="w-full px-3 py-2 rounded-lg bg-black/40 border border-border text-white text-sm outline-none focus:border-orange" />
           {sec.sold !== undefined && sec.sold > 0 && (
-            <p className="text-[10px] text-orange mt-1">⚠️ {sec.sold} tikè deja vann — pa bese kapasite a anba sa</p>
+            <p className="text-[10px] text-orange mt-1">⚠️ {sec.sold} {t('section_sold_warning')}</p>
           )}
         </div>
       </div>
       <div className="flex gap-2">
-        {(['ga', 'reserved'] as const).map(t => (
-          <button key={t} type="button" onClick={() => onChange({ ...sec, type: t })}
+        {(['ga', 'reserved'] as const).map(stype => (
+          <button key={stype} type="button" onClick={() => onChange({ ...sec, type: stype })}
             className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${
-              sec.type === t ? 'bg-orange text-white' : 'bg-white/[0.04] text-gray-400 hover:bg-white/[0.08]'
+              sec.type === stype ? 'bg-orange text-white' : 'bg-white/[0.04] text-gray-400 hover:bg-white/[0.08]'
             }`}>
-            {t === 'ga' ? '🎫 General Admission' : '💺 Reserved Seats'}
+            {stype === 'ga' ? t('section_ga_label') : t('section_reserved_label')}
           </button>
         ))}
       </div>
@@ -91,19 +92,19 @@ function SectionRow({ sec, onChange, onRemove, onAddZone, hasZone }: {
           background: hasZone ? sec.color + '22' : 'transparent',
           color: hasZone ? '#fff' : '#666', fontSize: 12, fontWeight: 700, cursor: 'pointer', width: '100%' }}>
         <div style={{ width: 10, height: 10, borderRadius: '50%', background: sec.color, flexShrink: 0 }} />
-        {hasZone ? '✓ Zone set on map' : '+ Draw zone on floor plan'}
+        {hasZone ? t('section_zone_set') : t('section_zone_draw')}
       </button>
       <div className="border-t border-border pt-3">
         <button type="button" onClick={() => setShowTiers(v => !v)}
           className="flex items-center gap-2 text-[11px] font-bold text-gray-400 hover:text-orange transition-colors w-full">
-          <span>🏪</span><span>VENDOR PRICING</span>
+          <span>🏪</span><span>{t('section_vendor_pricing')}</span>
           {sec.vendorPrice ? <span className="ml-1 text-[10px] text-orange bg-orange/10 rounded-full px-2">${sec.vendorPrice}</span> : null}
           <span className="ml-auto">{showTiers ? '▲' : '▼'}</span>
         </button>
         {showTiers && (
           <div className="mt-3 grid grid-cols-3 gap-2">
             <div>
-              <label className="block text-[9px] font-bold text-gray-600 mb-1">VENDOR $</label>
+              <label className="block text-[9px] font-bold text-gray-600 mb-1">{t('section_vendor_price_label')}</label>
               <div className="relative">
                 <span className="absolute left-2 top-2 text-gray-500 text-xs">$</span>
                 <input type="number" min={0} value={sec.vendorPrice || ''}
@@ -112,13 +113,13 @@ function SectionRow({ sec, onChange, onRemove, onAddZone, hasZone }: {
               </div>
             </div>
             <div>
-              <label className="block text-[9px] font-bold text-gray-600 mb-1">OPEN DATE</label>
+              <label className="block text-[9px] font-bold text-gray-600 mb-1">{t('section_open_date')}</label>
               <input type="date" value={sec.vendorOpenDate || ''}
                 onChange={e => onChange({ ...sec, vendorOpenDate: e.target.value || undefined })}
                 className="w-full px-2 py-1.5 rounded-lg bg-black/40 border border-border text-white text-xs outline-none focus:border-orange" />
             </div>
             <div>
-              <label className="block text-[9px] font-bold text-gray-600 mb-1">CLOSE DATE</label>
+              <label className="block text-[9px] font-bold text-gray-600 mb-1">{t('section_close_date')}</label>
               <input type="date" value={sec.vendorCloseDate || ''}
                 onChange={e => onChange({ ...sec, vendorCloseDate: e.target.value || undefined })}
                 className="w-full px-2 py-1.5 rounded-lg bg-black/40 border border-border text-white text-xs outline-none focus:border-orange" />
@@ -421,14 +422,14 @@ function EditEventInner() {
 
       {/* Tabs */}
       <div className="flex gap-1 mb-6 bg-white/[0.03] rounded-xl p-1">
-        {TABS.map(t => (
-          <button key={t.id} type="button" onClick={() => setTab(t.id)}
+        {TABS.map(tab_item => (
+          <button key={tab_item.id} type="button" onClick={() => setTab(tab_item.id)}
             className={`flex-1 py-2.5 rounded-lg text-xs font-bold transition-all ${
-              tab === t.id ? 'bg-orange text-white' : 'text-gray-400 hover:text-white'
+              tab === tab_item.id ? 'bg-orange text-white' : 'text-gray-400 hover:text-white'
             }`}>
-            <span className="opacity-50 mr-1">{t.num}</span>{t.label}
-            {errors.title && t.id === 'info' && <span className="ml-1 text-red-300">•</span>}
-            {errors.venue && t.id === 'venue' && <span className="ml-1 text-red-300">•</span>}
+            <span className="opacity-50 mr-1">{tab_item.num}</span>{tab_item.label}
+            {errors.title && tab_item.id === 'info' && <span className="ml-1 text-red-300">•</span>}
+            {errors.venue && tab_item.id === 'venue' && <span className="ml-1 text-red-300">•</span>}
           </button>
         ))}
       </div>
@@ -464,12 +465,12 @@ function EditEventInner() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-[11px] font-bold text-gray-400 mb-1.5">END {t('create_event_date').toUpperCase()}</label>
+                <label className="block text-[11px] font-bold text-gray-400 mb-1.5">{t('create_end_date_label').toUpperCase()}</label>
                 <input type="date" value={endDateStr} min={dateStr} onChange={e => setEndDateStr(e.target.value)}
                   className="w-full px-4 py-3 rounded-xl bg-white/[0.05] border border-border text-white text-sm outline-none focus:border-orange" />
               </div>
               <div>
-                <label className="block text-[11px] font-bold text-gray-400 mb-1.5">END {t('create_event_time').toUpperCase()}</label>
+                <label className="block text-[11px] font-bold text-gray-400 mb-1.5">{t('create_end_time_label').toUpperCase()}</label>
                 <input type="time" value={endTimeStr} onChange={e => setEndTimeStr(e.target.value)}
                   className="w-full px-4 py-3 rounded-xl bg-white/[0.05] border border-border text-white text-sm outline-none focus:border-orange" />
               </div>
@@ -480,7 +481,7 @@ function EditEventInner() {
                 <input value={coverImage} onChange={e => setCoverImage(e.target.value)} placeholder="https://..."
                   className="flex-1 px-4 py-3 rounded-xl bg-white/[0.05] border border-border text-white text-sm outline-none focus:border-orange" />
                 <label className="px-4 py-3 rounded-xl bg-white/[0.05] border border-border text-sm text-orange font-bold cursor-pointer hover:border-orange/50 transition-all whitespace-nowrap">
-                  📁 Browse
+                  {t('create_browse_btn')}
                   <input type="file" accept="image/*" className="hidden" onChange={e => {
                     const file = e.target.files?.[0];
                     if (!file) return;
@@ -499,17 +500,17 @@ function EditEventInner() {
             </div>
             {/* Event type selector */}
             <div>
-              <label className="block text-[11px] font-bold text-gray-400 mb-2">TIP EVÈNMAN *</label>
+              <label className="block text-[11px] font-bold text-gray-400 mb-2">{t('create_event_type_label')}</label>
               <div className="grid grid-cols-2 gap-2">
                 {([
-                  ['free_private',       '🎊', 'Gratis · Prive',   'Maryaj, fineray, selebrasyon prive. Pa gen tikè peye, pa gen bar.'],
-                  ['free_open_limited',  '🎟', 'Gratis · Limite',   'Tikè gratis, kapasite limite. Bar disponib.'],
-                  ['free_open_unlimited','🚪', 'Pòt Ouvè',          'Pa gen tikè. Tout moun antre, bar sèlman.'],
-                  ['paid_open',          '💳', 'Peye · Piblik',     'Tikè peye, evènman piblik. Bar disponib.'],
-                  ['paid_private',       '💳', 'Peye · Prive',      'Tikè peye + envitasyon. Bar disponib.'],
-                ] as const).map(([type, icon, label, desc], idx) => (
+                  ['free_private',       '🎊', t('create_event_type_free_private'),   t('create_event_type_free_private_desc')],
+                  ['free_open_limited',  '🎟', t('create_event_type_free_limited'),   t('create_event_type_free_limited_desc')],
+                  ['free_open_unlimited','🚪', t('create_event_type_open_door'),      t('create_event_type_open_door_desc')],
+                  ['paid_open',          '💳', t('create_event_type_paid_public'),    t('create_event_type_paid_public_desc')],
+                  ['paid_private',       '💳', t('create_event_type_paid_private'),   t('create_event_type_paid_private_desc')],
+                ] as [string, string, string, string][]).map(([type, icon, label, desc], idx) => (
                   <button key={type} type="button"
-                    onClick={() => setEventType(type)}
+                    onClick={() => setEventType(type as EventType)}
                     className={`p-3 rounded-xl border text-left transition-all ${idx === 4 ? 'col-span-2' : ''} ${
                       eventType === type ? 'border-orange bg-orange/10' : 'border-border bg-white/[0.02] hover:border-white/20'
                     }`}>
@@ -523,8 +524,8 @@ function EditEventInner() {
             {/* Bar toggle */}
             <div className="flex items-center justify-between p-4 rounded-xl bg-white/[0.03] border border-border">
               <div>
-                <p className="text-sm font-bold">🍺 Bar aktivé</p>
-                <p className="text-[10px] text-gray-500">POS bar disponib pou evènman sa a</p>
+                <p className="text-sm font-bold">{t('create_bar_enabled_title')}</p>
+                <p className="text-[10px] text-gray-500">{t('create_bar_enabled_desc')}</p>
               </div>
               <button type="button" onClick={() => setBarEnabled(v => !v)}
                 className={`w-12 h-6 rounded-full transition-all relative ${barEnabled ? 'bg-orange' : 'bg-white/[0.1]'}`}>
@@ -533,8 +534,8 @@ function EditEventInner() {
             </div>
             <div className="flex items-center justify-between p-4 rounded-xl bg-white/[0.03] border border-border">
               <div>
-                <p className="text-sm font-bold">Comp Ticket Limit</p>
-                <p className="text-[10px] text-gray-500">Max free tickets you can issue for this event. 0 = none allowed.</p>
+                <p className="text-sm font-bold">{t('create_comp_limit_title')}</p>
+                <p className="text-[10px] text-gray-500">{t('create_comp_limit_desc')}</p>
               </div>
               <input type="number" min={0} value={compLimit}
                 onChange={e => setCompLimit(Math.max(0, parseInt(e.target.value) || 0))}
@@ -543,8 +544,8 @@ function EditEventInner() {
 
             <div className="flex items-center justify-between p-4 rounded-xl bg-white/[0.03] border border-border">
               <div>
-                <p className="text-sm font-bold">💰 Bidjè / Budget</p>
-                <p className="text-[10px] text-gray-500">Montan kliyan ap peye ou, oswa bidjè total ou planifye. 0 = pa defini.</p>
+                <p className="text-sm font-bold">{t('create_budget_title')}</p>
+                <p className="text-[10px] text-gray-500">{t('create_budget_desc')}</p>
               </div>
               <input type="number" min={0} value={budgetTarget || ''}
                 onChange={e => setBudgetTarget(Math.max(0, parseFloat(e.target.value) || 0))}
@@ -664,7 +665,7 @@ function EditEventInner() {
                   </div>
                   <button type="button" onClick={() => { setFloorPlanImage(null); setMapZones([]); }}
                     style={{ marginTop:8, fontSize:11, color:'#666', background:'none', border:'none', cursor:'pointer', textDecoration:'underline' }}>
-                    Replace image
+                    {t('create_replace_image')}
                   </button>
                 </div>
               )}
@@ -672,12 +673,12 @@ function EditEventInner() {
 
             {!hasTickets ? (
               <div className="p-4 rounded-xl bg-white/[0.03] border border-border text-center">
-                <p className="text-sm font-bold mb-1">🚪 Pa gen tikè</p>
-                <p className="text-[11px] text-gray-500">Pa gen tikè pou tip evènman sa a. Bar POS pral jere tout transaksyon.</p>
+                <p className="text-sm font-bold mb-1">{t('create_no_tickets_title')}</p>
+                <p className="text-[11px] text-gray-500">{t('create_no_tickets_desc')}</p>
               </div>
             ) : (
             <div>
-              <label className="block text-[11px] font-bold text-gray-400 mb-2">SECTIONS *</label>
+              <label className="block text-[11px] font-bold text-gray-400 mb-2">{t('create_sections_label')}</label>
               {errors.sections && <p className="text-red-400 text-xs bg-red-400/10 rounded-lg px-3 py-2 mb-3">{errors.sections}</p>}
               <div className="flex items-center gap-2 text-xs text-gray-500 bg-white/[0.03] rounded-lg px-3 py-2 mb-3">
                 <span>💱</span><span>1 USD = {exchangeRate} HTG</span>
@@ -737,7 +738,7 @@ function EditEventInner() {
 
         {tab === 'payment' && (
           <>
-            <p className="text-[11px] text-gray-500">Modify payment methods for this event.</p>
+            <p className="text-[11px] text-gray-500">{t('create_payment_modify')}</p>
             <div>
               <label className="block text-[11px] font-bold text-gray-400 mb-1.5">💱 EXCHANGE RATE 1 USD =</label>
               <div className="flex items-center gap-3">

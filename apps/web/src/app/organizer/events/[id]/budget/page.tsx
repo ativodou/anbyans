@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
+import { useT } from '@/i18n';
 import {
   getEvent, getBudgetItems, addBudgetItem, deleteBudgetItem, getPlatformConfig, addBudgetCashRequest,
   BUDGET_CATEGORIES, type BudgetItem, type EventData,
@@ -39,6 +40,7 @@ function BudgetStripeForm({ onSuccess, onError }: { onSuccess: () => void; onErr
 export default function BudgetPage() {
   const { id: eventId } = useParams() as { id: string };
   const { user } = useAuth();
+  const { t } = useT();
 
   const [event, setEvent]     = useState<EventData | null>(null);
   const [items, setItems]     = useState<BudgetItem[]>([]);
@@ -222,18 +224,18 @@ export default function BudgetPage() {
       {/* Header */}
       <div>
         <Link href={`/organizer/events/${eventId}/overview`} className="inline-flex items-center gap-1 text-[11px] text-gray-muted hover:text-white mb-3 transition-colors">
-          ← Overview
+          {t('budget_back')}
         </Link>
-        <h2 className="font-heading text-xl tracking-wide uppercase">Bidjè</h2>
+        <h2 className="font-heading text-xl tracking-wide uppercase">{t('budget_title')}</h2>
         <p className="text-xs text-gray-muted mt-1">{event?.name}</p>
       </div>
 
       {/* Budget target input */}
       <div className={`${card} p-4`}>
         <div className="flex items-center justify-between mb-2">
-          <p className="text-[10px] uppercase tracking-widest text-gray-muted font-bold">Bidjè Kliyan / Bidjè Planifye</p>
-          {activated && <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-green-900/30 text-green">✓ Aktive</span>}
-          {!activated && cashPending && <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-yellow-900/30 text-yellow-400">⏳ Kach an atant</span>}
+          <p className="text-[10px] uppercase tracking-widest text-gray-muted font-bold">{t('budget_client_label')}</p>
+          {activated && <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-green-900/30 text-green">{t('budget_activated_badge')}</span>}
+          {!activated && cashPending && <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-yellow-900/30 text-yellow-400">{t('budget_cash_pending_badge')}</span>}
         </div>
         <div className="flex gap-2">
           <input value={targetInput} onChange={e => setTargetInput(e.target.value)} placeholder="$0.00" type="number" min="0"
@@ -241,7 +243,7 @@ export default function BudgetPage() {
             className="flex-1 px-3 py-2.5 rounded-xl bg-white/[0.05] border border-border text-white text-sm outline-none focus:border-orange disabled:opacity-40" />
           <button onClick={activated ? handleSaveTarget : () => setShowModal(true)} disabled={savingTarget || (!activated && cashPending)}
             className="px-4 py-2.5 rounded-xl bg-orange text-black font-bold text-sm disabled:opacity-40 hover:bg-orange/90 transition-all">
-            {savingTarget ? '…' : activated ? 'Anrejistre' : `💳 Aktive ($${budgetFee})`}
+            {savingTarget ? '…' : activated ? t('budget_save_btn') : `${t('budget_activate_btn')} ($${budgetFee})`}
           </button>
         </div>
       </div>
@@ -249,17 +251,17 @@ export default function BudgetPage() {
       {/* Sponsor list — not for private events */}
       {activated && !isPrivateEvent && (
         <section>
-          <h3 className="text-[10px] uppercase tracking-widest text-gray-muted font-bold mb-2">🤝 Sponsors</h3>
+          <h3 className="text-[10px] uppercase tracking-widest text-gray-muted font-bold mb-2">{t('budget_sponsors_title')}</h3>
           <div className={`${card} p-4 space-y-3`}>
             <div className="flex gap-2">
-              <input value={sponsorName} onChange={e => setSponsorName(e.target.value)} placeholder="Non sponsor *"
+              <input value={sponsorName} onChange={e => setSponsorName(e.target.value)} placeholder={t('budget_sponsor_name_ph')}
                 className="flex-1 px-3 py-2.5 rounded-xl bg-white/[0.05] border border-border text-white text-sm outline-none focus:border-orange" />
               <input value={sponsorAmt} onChange={e => setSponsorAmt(e.target.value)} placeholder="$0" type="number" min="0"
                 className="w-28 px-3 py-2.5 rounded-xl bg-white/[0.05] border border-border text-white text-sm outline-none focus:border-orange" />
             </div>
             <button onClick={handleAddSponsor} disabled={savingSponsor || !sponsorName.trim() || !sponsorAmt}
               className="w-full py-2.5 rounded-xl bg-orange text-black font-bold text-sm disabled:opacity-40 hover:bg-orange/90 transition-all">
-              {savingSponsor ? '…' : '+ Ajoute Sponsor'}
+              {savingSponsor ? '…' : t('budget_add_sponsor_btn')}
             </button>
             {sponsors.length > 0 && (
               <div className="space-y-1 pt-1">
@@ -271,7 +273,7 @@ export default function BudgetPage() {
                   </div>
                 ))}
                 <div className="flex justify-between items-center pt-2 border-t border-border">
-                  <p className="text-xs font-bold text-gray-muted">Total Sponsors</p>
+                  <p className="text-xs font-bold text-gray-muted">{t('budget_total_sponsors')}</p>
                   <p className="font-heading text-base text-green">${sponsorRevenue.toLocaleString()}</p>
                 </div>
               </div>
@@ -283,53 +285,53 @@ export default function BudgetPage() {
       {/* Ledger summary — 5 cards */}
       <div className="grid grid-cols-2 gap-3">
         <div className={`${card} p-4`}>
-          <p className="text-[10px] text-gray-muted uppercase tracking-widest mb-1">💼 Bidjè</p>
+          <p className="text-[10px] text-gray-muted uppercase tracking-widest mb-1">{t('budget_planned_label')}</p>
           <p className="font-heading text-2xl text-white">${budgetTarget.toLocaleString()}</p>
-          <p className="text-[10px] text-gray-muted mt-1">Montan planifye</p>
+          <p className="text-[10px] text-gray-muted mt-1">{t('budget_planned_sub')}</p>
         </div>
         <div className={`${card} p-4`}>
-          <p className="text-[10px] text-gray-muted uppercase tracking-widest mb-1">🎟 Revni Tikè</p>
+          <p className="text-[10px] text-gray-muted uppercase tracking-widest mb-1">{t('budget_ticket_rev_label')}</p>
           <p className="font-heading text-2xl text-green">${ticketRevenue.toLocaleString()}</p>
-          <p className="text-[10px] text-gray-muted mt-1">{validTickets.length} tikè valid</p>
+          <p className="text-[10px] text-gray-muted mt-1">{validTickets.length} {t('budget_ticket_sub')}</p>
         </div>
         <div className={`${card} p-4`}>
-          <p className="text-[10px] text-gray-muted uppercase tracking-widest mb-1">🍺 Revni Bar</p>
+          <p className="text-[10px] text-gray-muted uppercase tracking-widest mb-1">{t('budget_bar_rev_label')}</p>
           <p className="font-heading text-2xl text-green">${barRevenue.toLocaleString()}</p>
-          <p className="text-[10px] text-gray-muted mt-1">Bar tab total</p>
+          <p className="text-[10px] text-gray-muted mt-1">{t('budget_bar_sub')}</p>
         </div>
         {(event as any)?.eventType !== 'free_private' && (event as any)?.eventType !== 'paid_private' && !(event as any)?.isPrivate && (
           <div className={`${card} p-4`}>
-            <p className="text-[10px] text-gray-muted uppercase tracking-widest mb-1">🤝 Sponsors</p>
+            <p className="text-[10px] text-gray-muted uppercase tracking-widest mb-1">{t('budget_sponsor_rev_label')}</p>
             <p className="font-heading text-2xl text-green">${sponsorRevenue.toLocaleString()}</p>
-            <p className="text-[10px] text-gray-muted mt-1">Kontribisyon sponsor</p>
+            <p className="text-[10px] text-gray-muted mt-1">{t('budget_sponsor_sub')}</p>
           </div>
         )}
         <div className={`${card} p-4`}>
-          <p className="text-[10px] text-gray-muted uppercase tracking-widest mb-1">📋 Depans</p>
+          <p className="text-[10px] text-gray-muted uppercase tracking-widest mb-1">{t('budget_expenses_label')}</p>
           <p className="font-heading text-2xl text-orange">${totalExpenses.toLocaleString()}</p>
-          <p className="text-[10px] text-gray-muted mt-1">{items.length} liy</p>
+          <p className="text-[10px] text-gray-muted mt-1">{items.length} {t('budget_expenses_sub')}</p>
         </div>
         <div className={`col-span-2 ${card} p-4 ${net >= 0 ? 'border-green/30' : 'border-red-500/30'}`}>
-          <p className="text-[10px] text-gray-muted uppercase tracking-widest mb-1">📊 Nèt</p>
+          <p className="text-[10px] text-gray-muted uppercase tracking-widest mb-1">{t('budget_net_label')}</p>
           <p className={`font-heading text-3xl ${net >= 0 ? 'text-green' : 'text-red-400'}`}>
             {net >= 0 ? '+' : '−'}${Math.abs(net).toLocaleString()}
           </p>
-          <p className="text-[10px] text-gray-muted mt-1">{isPrivateEvent ? 'Bidjè + Tikè + Bar' : 'Bidjè + Tikè + Bar + Sponsors'} − Depans · {net >= 0 ? '✓ Pozitif' : '⚠ Negatif'}</p>
+          <p className="text-[10px] text-gray-muted mt-1">{isPrivateEvent ? t('budget_net_private') : t('budget_net_public')} − {t('budget_expenses_label').replace('📋 ', '')} · {net >= 0 ? t('budget_positive') : t('budget_negative')}</p>
         </div>
       </div>
 
       {/* Revenue breakdown */}
       {(ticketRevenue > 0 || barRevenue > 0) && (
         <section>
-          <h3 className="text-[10px] uppercase tracking-widest text-gray-muted font-bold mb-2">Detay Revni Tikè (otomatik)</h3>
+          <h3 className="text-[10px] uppercase tracking-widest text-gray-muted font-bold mb-2">{t('budget_revenue_detail')}</h3>
           <div className={card}>
             <div className="flex justify-between items-center px-4 py-3">
-              <p className="text-sm">🎟 Vant Tikè</p>
+              <p className="text-sm">{t('budget_ticket_sales')}</p>
               <p className="font-bold text-green">${ticketRevenue.toLocaleString()}</p>
             </div>
             {barRevenue > 0 && (
               <div className="flex justify-between items-center px-4 py-3 border-t border-border">
-                <p className="text-sm">🍺 Bar Tab</p>
+                <p className="text-sm">{t('budget_bar_tab')}</p>
                 <p className="font-bold text-green">${barRevenue.toLocaleString()}</p>
               </div>
             )}
@@ -339,7 +341,7 @@ export default function BudgetPage() {
 
       {/* Add expense */}
       <section>
-        <h3 className="text-[10px] uppercase tracking-widest text-gray-muted font-bold mb-2">Ajoute Depans</h3>
+        <h3 className="text-[10px] uppercase tracking-widest text-gray-muted font-bold mb-2">{t('budget_add_expense_title')}</h3>
         <div className={`${card} p-4 space-y-3`}>
           <div className="flex gap-3">
             <select value={category} onChange={e => setCategory(e.target.value as typeof category)}
@@ -349,14 +351,14 @@ export default function BudgetPage() {
             <input value={amount} onChange={e => setAmount(e.target.value)} placeholder="$0.00" type="number" min="0"
               className="w-28 px-3 py-2.5 rounded-xl bg-white/[0.05] border border-border text-white text-sm outline-none focus:border-orange" />
           </div>
-          <input value={description} onChange={e => setDescription(e.target.value)} placeholder="Deskripsyon *"
+          <input value={description} onChange={e => setDescription(e.target.value)} placeholder={t('budget_desc_ph')}
             className="w-full px-3 py-2.5 rounded-xl bg-white/[0.05] border border-border text-white text-sm outline-none focus:border-orange" />
-          <input value={note} onChange={e => setNote(e.target.value)} placeholder="Nòt (opsyonèl)"
+          <input value={note} onChange={e => setNote(e.target.value)} placeholder={t('budget_note_ph')}
             className="w-full px-3 py-2.5 rounded-xl bg-white/[0.05] border border-border text-white text-sm outline-none focus:border-orange" />
           {error && <p className="text-red-400 text-xs">{error}</p>}
           <button onClick={handleAdd} disabled={saving || !description.trim() || !amount}
             className="w-full py-2.5 rounded-xl bg-orange text-black font-bold text-sm disabled:opacity-40 hover:bg-orange/90 transition-all">
-            {saving ? '…' : '+ Ajoute Depans'}
+            {saving ? '…' : t('budget_add_expense_btn')}
           </button>
         </div>
       </section>
@@ -364,7 +366,7 @@ export default function BudgetPage() {
       {/* Expense list by category */}
       {byCategory.length > 0 ? (
         <section>
-          <h3 className="text-[10px] uppercase tracking-widest text-gray-muted font-bold mb-2">Lis Depans</h3>
+          <h3 className="text-[10px] uppercase tracking-widest text-gray-muted font-bold mb-2">{t('budget_expense_list')}</h3>
           <div className="space-y-3">
             {byCategory.map(({ cat, catItems }) => {
               const catTotal = catItems.reduce((s, i) => s + i.amount, 0);
@@ -391,7 +393,7 @@ export default function BudgetPage() {
 
             {/* Total */}
             <div className={`${card} flex justify-between items-center px-4 py-4`}>
-              <p className="text-sm font-bold">Total Depans</p>
+              <p className="text-sm font-bold">{t('budget_total_expenses')}</p>
               <p className="font-heading text-xl text-orange">${totalExpenses.toLocaleString()}</p>
             </div>
           </div>
@@ -399,7 +401,7 @@ export default function BudgetPage() {
       ) : (
         <div className={`${card} p-10 text-center`}>
           <p className="text-3xl mb-2">💰</p>
-          <p className="text-gray-muted text-sm">Pa gen depans ankò. Ajoute premye depans ou a.</p>
+          <p className="text-gray-muted text-sm">{t('budget_empty')}</p>
         </div>
       )}
 
@@ -469,31 +471,31 @@ export default function BudgetPage() {
           onClick={() => { if (!gateSecret) { setShowModal(false); setCashSent(false); } }}>
           <div className="bg-dark-card border border-border rounded-2xl p-6 w-full max-w-sm" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-heading text-base">Aktive Bidjè</h3>
+              <h3 className="font-heading text-base">{t('budget_title')}</h3>
               {!gateSecret && <button onClick={() => { setShowModal(false); setCashSent(false); }} className="text-gray-muted hover:text-white text-xl">✕</button>}
             </div>
-            <p className="text-sm text-gray-muted mb-4">Peman inisyal <span className="text-white font-bold">${budgetFee}</span> pou aktive fonksyon bidjè pou evènman sa a.</p>
+            <p className="text-sm text-gray-muted mb-4">{t('pos_activate_desc')} — <span className="text-white font-bold">${budgetFee}</span></p>
             {gateError && <p className="text-red-400 text-xs mb-3">{gateError}</p>}
 
             {cashSent ? (
               <div className="text-center py-4">
                 <p className="text-3xl mb-2">💵</p>
-                <p className="text-sm font-bold text-white mb-1">Demann kach voye!</p>
-                <p className="text-xs text-gray-muted">Admin ap revize epi aktive bidjè ou a.</p>
+                <p className="text-sm font-bold text-white mb-1">{t('pos_cash_sent_title')}</p>
+                <p className="text-xs text-gray-muted">{t('pos_cash_sent_desc')}</p>
                 <button onClick={() => { setShowModal(false); setCashSent(false); }}
                   className="mt-4 w-full py-2.5 rounded-xl bg-white/[0.06] text-white text-sm font-bold hover:bg-white/10 transition-all">
-                  Fèmen
+                  {t('close')}
                 </button>
               </div>
             ) : !gateSecret ? (
               <div className="space-y-2">
                 <button onClick={handleGateCard} disabled={gateLoading}
                   className="w-full py-3 rounded-xl bg-orange text-black font-bold text-sm disabled:opacity-40 hover:bg-orange/90 transition-all">
-                  {gateLoading ? '⏳…' : '💳 Peye ak Kat'}
+                  {gateLoading ? '⏳…' : t('pos_pay_card')}
                 </button>
                 <button onClick={handleCashRequest} disabled={cashBusy}
                   className="w-full py-3 rounded-xl bg-white/[0.06] border border-border text-white font-bold text-sm disabled:opacity-40 hover:bg-white/10 transition-all">
-                  {cashBusy ? '⏳…' : '💵 Peye ak Kach (admin apwouve)'}
+                  {cashBusy ? '⏳…' : t('pos_pay_cash')}
                 </button>
               </div>
             ) : (

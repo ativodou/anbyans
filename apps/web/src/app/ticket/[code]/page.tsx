@@ -393,7 +393,7 @@ ${acceptUrl}`
             color: isValid ? '#22c55e' : isUsed ? '#f97316' : isPending ? '#f59e0b' : '#ef4444',
             border: `1px solid ${isValid ? '#22c55e40' : isUsed ? '#f9731640' : isPending ? '#f59e0b40' : '#ef444440'}`,
           }}>
-            {isValid ? t('ticket_status_valid') : isUsed ? t('ticket_status_used') : isPending ? '⏳ An atant' : t('ticket_status_cancelled')}
+            {isValid ? t('ticket_status_valid') : isUsed ? t('ticket_status_used') : isPending ? t('ticket_pending_status') : t('ticket_status_cancelled')}
           </span>
         </div>
       </nav>
@@ -527,7 +527,7 @@ ${acceptUrl}`
                 border: '1px solid #f97316', cursor: 'pointer',
               }}
             >
-              🍺 Bar Credit
+              {t('ticket_bar_credit')}
             </button>
           )}
           {ticket?.status === 'refunded' && refundDone && (

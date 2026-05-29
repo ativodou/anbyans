@@ -177,7 +177,7 @@ export default function OrganizerEventsPage() {
                                                      t('status_ended')}
                       </span>
                       {e.isPrivate && (
-                        <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-orange/20 text-orange border border-orange/30">🔒 PRIVATE</span>
+                        <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-orange/20 text-orange border border-orange/30">🔒 {t('event_private_badge')}</span>
                       )}
                     </div>
                     <p className="text-xs text-gray-light">
@@ -221,7 +221,7 @@ export default function OrganizerEventsPage() {
                       <Link href={`/organizer/events/${e.id}/overview`}
                         onClick={ev => ev.stopPropagation()}
                         className="px-3 py-1.5 rounded-lg bg-cyan/10 border border-cyan/30 text-[10px] font-bold text-cyan hover:bg-cyan/20 transition-all">
-                        📊 Overview
+                        {t('pos_overview_btn')}
                       </Link>
                       <Link href={`/organizer/events/${e.id}/edit`}
                         onClick={ev => ev.stopPropagation()}
@@ -243,7 +243,7 @@ export default function OrganizerEventsPage() {
                           <Link href={`/organizer/events/${e.id}/guests`}
                             onClick={ev => ev.stopPropagation()}
                             className="px-3 py-1.5 rounded-lg bg-orange/10 border border-orange/30 text-[10px] font-bold text-orange hover:bg-orange hover:text-white transition-all">
-                            🎟 Envite
+                            {t('pos_invite_btn')}
                           </Link>
                           <button
                             onClick={ev => {
@@ -268,11 +268,11 @@ export default function OrganizerEventsPage() {
                         (e as any).posActivated
                           ? <Link href="/organizer/bar" onClick={ev => { ev.stopPropagation(); setSelectedEvent(e); }}
                               className="px-3 py-1.5 rounded-lg bg-purple/10 border border-purple/30 text-[10px] font-bold text-purple hover:bg-purple/20 transition-all">
-                              🍽️ POS Active → Menu
+                              {t('pos_active_menu')}
                             </Link>
                           : <button onClick={ev => { ev.stopPropagation(); setPosModal(e.id!); setPosClientSecret(null); setPosError(''); }}
                               className="px-3 py-1.5 rounded-lg bg-white/[0.04] border border-border text-[10px] font-bold text-gray-light hover:text-purple hover:border-purple/30 transition-all">
-                              🍽️ Activate POS — ${posFee}
+                              🍽️ {t('pos_activate_title')} — ${posFee}
                             </button>
                       )}
                       {e.status === 'published' && e.id && (
@@ -318,34 +318,34 @@ export default function OrganizerEventsPage() {
           <div onClick={e => e.stopPropagation()}
             className="bg-dark-card border border-border rounded-2xl p-6 w-full max-w-md">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-heading text-base">Aktive POS</h3>
+              <h3 className="font-heading text-base">{t('pos_activate_title')}</h3>
               {!posClientSecret && <button onClick={() => { setPosModal(null); setPosCashSent(false); }} className="text-gray-muted hover:text-white text-xl">✕</button>}
             </div>
             <div className="text-center mb-5">
               <p className="text-4xl mb-2">🍽️</p>
-              <p className="text-xs text-gray-muted">Peman inisyal <span className="text-white font-bold">${posFee}</span> — débloke bar & vant pou evènman sa a</p>
+              <p className="text-xs text-gray-muted">{t('pos_activate_desc')} — <span className="text-white font-bold">${posFee}</span></p>
             </div>
             {posError && <p className="text-red-400 text-xs mb-3 text-center">{posError}</p>}
 
             {posCashSent ? (
               <div className="text-center py-4">
                 <p className="text-3xl mb-2">💵</p>
-                <p className="text-sm font-bold text-white mb-1">Demann kach voye!</p>
-                <p className="text-xs text-gray-muted">Admin ap revize epi aktive POS ou a.</p>
+                <p className="text-sm font-bold text-white mb-1">{t('pos_cash_sent_title')}</p>
+                <p className="text-xs text-gray-muted">{t('pos_cash_sent_desc')}</p>
                 <button onClick={() => { setPosModal(null); setPosCashSent(false); }}
                   className="mt-4 w-full py-2.5 rounded-xl bg-white/[0.06] text-white text-sm font-bold hover:bg-white/10 transition-all">
-                  Fèmen
+                  {t('close')}
                 </button>
               </div>
             ) : !posClientSecret ? (
               <div className="space-y-2">
                 <button onClick={() => handlePosActivate(posModal)} disabled={posLoading}
                   className="w-full py-3 rounded-xl bg-orange text-black font-bold text-sm disabled:opacity-40 hover:bg-orange/90 transition-all">
-                  {posLoading ? '⏳…' : '💳 Peye ak Kat'}
+                  {posLoading ? '⏳…' : t('pos_pay_card')}
                 </button>
                 <button onClick={() => handlePosCashRequest(posModal)} disabled={posCashBusy || posCashPending[posModal]}
                   className="w-full py-3 rounded-xl bg-white/[0.06] border border-border text-white font-bold text-sm disabled:opacity-40 hover:bg-white/10 transition-all">
-                  {posCashBusy ? '⏳…' : posCashPending[posModal] ? '⏳ Demann kach an atant' : '💵 Peye ak Kach (admin apwouve)'}
+                  {posCashBusy ? '⏳…' : posCashPending[posModal] ? t('pos_cash_pending') : t('pos_pay_cash')}
                 </button>
               </div>
             ) : (
@@ -366,6 +366,7 @@ export default function OrganizerEventsPage() {
 function PosStripeForm({ onSuccess, onError }: { onSuccess: () => void; onError: (msg: string) => void }) {
   const stripe = useStripe();
   const elements = useElements();
+  const { t } = useT();
   const [confirming, setConfirming] = useState(false);
   async function handlePay() {
     if (!stripe || !elements) return;
@@ -380,7 +381,7 @@ function PosStripeForm({ onSuccess, onError }: { onSuccess: () => void; onError:
       <PaymentElement />
       <button onClick={handlePay} disabled={confirming || !stripe}
         className={`w-full mt-4 py-3 rounded-xl font-bold text-sm ${confirming ? 'bg-white/[0.04] text-gray-muted cursor-not-allowed' : 'bg-purple text-white hover:bg-purple/80'} transition-all`}>
-        {confirming ? '...' : 'Confirm Payment'}
+        {confirming ? '...' : t('pos_confirm_payment')}
       </button>
     </div>
   );
