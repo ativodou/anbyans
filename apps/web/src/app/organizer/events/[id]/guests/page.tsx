@@ -7,7 +7,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useT } from '@/i18n';
 import { getEvent, getGuestList, addGuest, removeGuest, getPlatformConfig, addCashActivationRequest, type Invitation, type EventData } from '@/lib/db';
 import { db } from '@/lib/firebase';
-import { doc, updateDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, updateDoc, collection, query, where, getDocs, addDoc } from 'firebase/firestore';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 
@@ -23,6 +23,24 @@ const STATUS_LABEL: Record<string, string> = {
   confirmed: 'Konfime ✓',
   declined:  'Refize',
 };
+
+interface GiftItem {
+  id: string;
+  name: string;
+  description?: string;
+  price?: number;
+  link?: string;
+  qty: number;
+}
+
+interface GiftClaim {
+  id: string;
+  eventId: string;
+  itemId: string;
+  guestName: string;
+  inviteId: string;
+  claimedAt: string;
+}
 
 function ActivateStripeForm({ onSuccess, onError }: { onSuccess: () => void; onError: (m: string) => void }) {
   const stripe = useStripe(); const elements = useElements();
@@ -46,6 +64,143 @@ function ActivateStripeForm({ onSuccess, onError }: { onSuccess: () => void; onE
   );
 }
 
+function GiftRegistryTab({ eventId }: { eventId: string }) {
+  const card = 'bg-dark-card border border-border rounded-card';
+  const [giftItems, setGiftItems] = useState<GiftItem[]>([]);
+  const [giftClaims, setGiftClaims] = useState<GiftClaim[]>([]);
+  const [loadingGifts, setLoadingGifts] = useState(true);
+  const [savingGift, setSavingGift] = useState(false);
+  const [giftError, setGiftError] = useState('');
+
+  const [gName, setGName] = useState('');
+  const [gDesc, setGDesc] = useState('');
+  const [gPrice, setGPrice] = useState('');
+  const [gLink, setGLink] = useState('');
+  const [gQty, setGQty] = useState('1');
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const [evSnap, claimsSnap] = await Promise.all([
+          getDocs(query(collection(db, 'events'), where('__name__', '==', eventId))),
+          getDocs(query(collection(db, 'giftClaims'), where('eventId', '==', eventId))),
+        ]);
+        if (!evSnap.empty) {
+          const data = evSnap.docs[0].data();
+          setGiftItems((data.giftItems || []) as GiftItem[]);
+        }
+        const claims: GiftClaim[] = claimsSnap.docs.map(d => ({ id: d.id, ...d.data() } as GiftClaim));
+        setGiftClaims(claims);
+      } catch (e) { console.error(e); }
+      finally { setLoadingGifts(false); }
+    })();
+  }, [eventId]);
+
+  const handleAddGift = async () => {
+    if (!gName.trim()) return;
+    setSavingGift(true); setGiftError('');
+    try {
+      const newItem: GiftItem = {
+        id: Math.random().toString(36).slice(2, 8),
+        name: gName.trim(),
+        description: gDesc.trim() || undefined,
+        price: gPrice ? parseFloat(gPrice) : undefined,
+        link: gLink.trim() || undefined,
+        qty: parseInt(gQty) || 1,
+      };
+      const updated = [...giftItems, newItem];
+      await updateDoc(doc(db, 'events', eventId), { giftItems: updated });
+      setGiftItems(updated);
+      setGName(''); setGDesc(''); setGPrice(''); setGLink(''); setGQty('1');
+    } catch (e: any) {
+      setGiftError(e?.message || 'Erè. Eseye ankò.');
+    } finally { setSavingGift(false); }
+  };
+
+  const handleDeleteGift = async (itemId: string) => {
+    if (!confirm('Efase kado sa?')) return;
+    const updated = giftItems.filter(i => i.id !== itemId);
+    await updateDoc(doc(db, 'events', eventId), { giftItems: updated });
+    setGiftItems(updated);
+  };
+
+  if (loadingGifts) return (
+    <div className="flex justify-center py-12">
+      <div className="w-6 h-6 rounded-full border-2 border-orange border-t-transparent animate-spin" />
+    </div>
+  );
+
+  return (
+    <div className="space-y-6">
+      {/* Add gift form */}
+      <div className={`${card} p-4 space-y-3`}>
+        <p className="text-sm font-bold">Ajoute yon Kado</p>
+        <input value={gName} onChange={e => setGName(e.target.value)} placeholder="Non kado (obligatwa)"
+          className="w-full px-3 py-2.5 rounded-xl bg-white/[0.05] border border-border text-sm text-white placeholder-gray-muted outline-none focus:border-orange" />
+        <input value={gDesc} onChange={e => setGDesc(e.target.value)} placeholder="Deskripsyon (opsyonèl)"
+          className="w-full px-3 py-2.5 rounded-xl bg-white/[0.05] border border-border text-sm text-white placeholder-gray-muted outline-none focus:border-orange" />
+        <div className="flex gap-3">
+          <input value={gPrice} onChange={e => setGPrice(e.target.value)} placeholder="Pri $ (opsyonèl)" type="number" min="0" step="0.01"
+            className="flex-1 px-3 py-2.5 rounded-xl bg-white/[0.05] border border-border text-sm text-white placeholder-gray-muted outline-none focus:border-orange" />
+          <input value={gQty} onChange={e => setGQty(e.target.value)} placeholder="Kantite" type="number" min="1"
+            className="w-24 px-3 py-2.5 rounded-xl bg-white/[0.05] border border-border text-sm text-white placeholder-gray-muted outline-none focus:border-orange" />
+        </div>
+        <input value={gLink} onChange={e => setGLink(e.target.value)} placeholder="Lyen Amazon/boutik (opsyonèl)"
+          className="w-full px-3 py-2.5 rounded-xl bg-white/[0.05] border border-border text-sm text-white placeholder-gray-muted outline-none focus:border-orange" />
+        {giftError && <p className="text-red-400 text-xs">{giftError}</p>}
+        <button onClick={handleAddGift} disabled={savingGift || !gName.trim()}
+          className="w-full py-2.5 rounded-xl bg-orange text-black font-bold text-sm disabled:opacity-40 hover:bg-orange/90 transition-all">
+          {savingGift ? '…' : '+ Ajoute Kado'}
+        </button>
+      </div>
+
+      {/* Gift list */}
+      {giftItems.length === 0 ? (
+        <div className={`${card} p-10 text-center`}>
+          <p className="text-3xl mb-2">🎁</p>
+          <p className="text-gray-muted text-sm">Pa gen kado nan lis la ankò.</p>
+        </div>
+      ) : (
+        <div className={card}>
+          {giftItems.map((item, i) => {
+            const itemClaims = giftClaims.filter(c => c.itemId === item.id);
+            const remaining = item.qty - itemClaims.length;
+            return (
+              <div key={item.id} className={`px-4 py-4 ${i > 0 ? 'border-t border-border' : ''}`}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-[13px]">{item.name}</p>
+                    {item.description && <p className="text-[11px] text-gray-muted mt-0.5">{item.description}</p>}
+                    <div className="flex items-center gap-3 mt-1 flex-wrap">
+                      {item.price != null && <span className="text-[12px] text-orange font-bold">${item.price}</span>}
+                      {item.link && (
+                        <a href={item.link} target="_blank" rel="noopener noreferrer"
+                          className="text-[11px] text-cyan hover:underline">🛒 Achte</a>
+                      )}
+                      <span className={`text-[11px] font-bold ${remaining > 0 ? 'text-green' : 'text-gray-muted'}`}>
+                        {remaining} / {item.qty} disponib
+                      </span>
+                    </div>
+                    {itemClaims.length > 0 && (
+                      <div className="mt-2 space-y-0.5">
+                        {itemClaims.map(c => (
+                          <p key={c.id} className="text-[10px] text-gray-muted">✓ {c.guestName}</p>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <button onClick={() => handleDeleteGift(item.id)}
+                    className="text-gray-muted hover:text-red-400 text-[11px] shrink-0 mt-0.5">✕</button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function GuestListPage() {
   const { id: eventId } = useParams() as { id: string };
   const { user } = useAuth();
@@ -57,6 +212,7 @@ export default function GuestListPage() {
   const [saving, setSaving]   = useState(false);
   const [error, setError]     = useState('');
   const [copied, setCopied]   = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'guests' | 'gifts'>('guests');
 
   // Activation gate
   const [privateFee, setPrivateFee]         = useState(25);
@@ -184,6 +340,10 @@ export default function GuestListPage() {
 
   const card = 'bg-dark-card border border-border rounded-card';
 
+  const isPrivateEvent = event?.isPrivate ||
+    (event as any)?.eventType === 'free_private' ||
+    (event as any)?.eventType === 'paid_private';
+
   if (loading) return (
     <div className="flex justify-center py-20">
       <div className="w-8 h-8 rounded-full border-2 border-orange border-t-transparent animate-spin" />
@@ -221,95 +381,121 @@ export default function GuestListPage() {
           <p className="text-xs text-gray-muted">{event.name} · {guests.length} envite · {confirmed} konfime</p>
         </div>
 
-        {/* Add guest form */}
-        <div className={`${card} p-4 space-y-3`}>
-          <p className="text-sm font-bold">{t('guests_add_title')}</p>
-          <input value={name} onChange={e => setName(e.target.value)} placeholder={t('guests_name_ph')}
-            className="w-full px-3 py-2.5 rounded-xl bg-white/[0.05] border border-border text-sm text-white placeholder-gray-muted outline-none focus:border-orange" />
-          <div className="flex gap-3">
-            <input value={email} onChange={e => setEmail(e.target.value)} placeholder={t('guests_email_ph')}
-              className="flex-1 px-3 py-2.5 rounded-xl bg-white/[0.05] border border-border text-sm text-white placeholder-gray-muted outline-none focus:border-orange" />
-            <input value={phone} onChange={e => setPhone(e.target.value)} placeholder={t('guests_phone_ph')}
-              className="flex-1 px-3 py-2.5 rounded-xl bg-white/[0.05] border border-border text-sm text-white placeholder-gray-muted outline-none focus:border-orange" />
-          </div>
-          {isFree && (
-            <div className="flex items-center justify-between p-3 rounded-xl bg-white/[0.03] border border-border">
-              <p className="text-xs text-gray-muted">{t('guests_plusones_label')}</p>
-              <div className="flex gap-1">
-                {([0,1,2] as const).map(n => (
-                  <button key={n} type="button" onClick={() => setPlusOnes(n)}
-                    className={`px-3 py-1 rounded-lg text-[11px] font-bold transition-all ${plusOnes === n ? 'bg-orange text-black' : 'bg-white/[0.05] text-gray-muted hover:text-white'}`}>
-                    {n === 0 ? t('guests_plusones_no') : `+${n}`}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-          {error && <p className="text-red-400 text-xs">{error}</p>}
-          <button onClick={handleAdd} disabled={saving || !name.trim()}
-            className="w-full py-2.5 rounded-xl bg-orange text-black font-bold text-sm disabled:opacity-40 hover:bg-orange/90 transition-all">
-            {saving ? '…' : t('guests_add_btn')}
-          </button>
-        </div>
-
-        {/* Guest list */}
-        {guests.length === 0 ? (
-          <div className={`${card} p-10 text-center`}>
-            <p className="text-3xl mb-2">🎟</p>
-            <p className="text-gray-muted text-sm">{t('guests_empty')}</p>
-          </div>
-        ) : (
-          <div className={card}>
-            {guests.map((g, i) => (
-              <div key={g.id} className={`flex items-center gap-3 px-4 py-3 ${i > 0 ? 'border-t border-border' : ''}`}>
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-[13px] truncate">{g.guestName}</p>
-                  <p className="text-[11px] text-gray-muted truncate">
-                    {[g.guestEmail, g.guestPhone].filter(Boolean).join(' · ') || '—'}
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-1 shrink-0">
-                  {(g.allowPlusOnes ?? 0) > 0 && (
-                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-white/[0.06] text-gray-muted">+{g.allowPlusOnes}</span>
-                  )}
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${STATUS_COLOR[g.status]}`}>
-                    {STATUS_LABEL[g.status]}{g.ticketCount && g.ticketCount > 1 ? ` ×${g.ticketCount}` : ''}
-                  </span>
-                </div>
-
-                {/* Send buttons — gated */}
-                <div className="flex items-center gap-1 shrink-0">
-                  {(g as any).sentAt && (
-                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-green-900/20 text-green">✓ Voye</span>
-                  )}
-                  {g.guestPhone && (
-                    <button onClick={() => gate(() => { window.open(`https://wa.me/${g.guestPhone!.replace(/\D/g,'')}?text=${encodeURIComponent(`Ou envite nan ${event?.name || 'evènman an'}! Klike sou lyen sa pou konfime prezans ou: ${inviteLink(g.id)}`)}`, '_blank'); markSent(g.id); })}
-                      className="text-[11px] text-green hover:underline">📱 WA</button>
-                  )}
-                  {g.guestEmail && (
-                    <button onClick={() => gate(() => { window.open(`mailto:${g.guestEmail}?subject=${encodeURIComponent(`Envitasyon — ${event?.name || 'Evènman'}`)}&body=${encodeURIComponent(`Bonjou ${g.guestName},\n\nOu envite nan ${event?.name || 'evènman an'}!\n\nKlike sou lyen sa pou konfime prezans ou:\n${inviteLink(g.id)}\n\nAnbyans`)}`, '_self'); markSent(g.id); })}
-                      className="text-[11px] text-cyan hover:underline">✉️ Imèl</button>
-                  )}
-                  <button onClick={() => gate(() => copyLink(g.id))}
-                    className="text-[11px] text-orange hover:underline">
-                    {copied === g.id ? '✓' : '🔗'}
-                  </button>
-                </div>
-
-                <button onClick={() => handleRemove(g.id)}
-                  className="text-gray-muted hover:text-red-400 text-[11px] shrink-0">✕</button>
-              </div>
-            ))}
+        {/* Tabs */}
+        {isPrivateEvent && (
+          <div className="flex gap-1 p-1 bg-white/[0.03] border border-border rounded-xl">
+            <button
+              onClick={() => setActiveTab('guests')}
+              className={`flex-1 py-2 rounded-lg text-[12px] font-bold transition-all ${activeTab === 'guests' ? 'bg-orange text-black' : 'text-gray-muted hover:text-white'}`}>
+              👥 Envite
+            </button>
+            <button
+              onClick={() => setActiveTab('gifts')}
+              className={`flex-1 py-2 rounded-lg text-[12px] font-bold transition-all ${activeTab === 'gifts' ? 'bg-orange text-black' : 'text-gray-muted hover:text-white'}`}>
+              🎁 Lis Kado
+            </button>
           </div>
         )}
 
-        {/* Info box */}
-        {guests.length > 0 && (
-          <div className="p-4 rounded-xl bg-white/[0.02] border border-border text-[11px] text-gray-muted">
-            <p className="font-bold text-gray-light mb-1">{t('guests_how_title')}</p>
-            <p>Klike sou <span className="text-green">📱 WA</span>, <span className="text-cyan">✉️ Imèl</span>, oswa <span className="text-orange">🔗</span> {t('guests_how_full')} {isFree ? t('guests_how_desc_free') : t('guests_how_desc_paid')}.</p>
-          </div>
+        {/* Gift tab */}
+        {activeTab === 'gifts' && isPrivateEvent && (
+          <GiftRegistryTab eventId={eventId} />
+        )}
+
+        {/* Guest tab content */}
+        {activeTab === 'guests' && (
+          <>
+            {/* Add guest form */}
+            <div className={`${card} p-4 space-y-3`}>
+              <p className="text-sm font-bold">{t('guests_add_title')}</p>
+              <input value={name} onChange={e => setName(e.target.value)} placeholder={t('guests_name_ph')}
+                className="w-full px-3 py-2.5 rounded-xl bg-white/[0.05] border border-border text-sm text-white placeholder-gray-muted outline-none focus:border-orange" />
+              <div className="flex gap-3">
+                <input value={email} onChange={e => setEmail(e.target.value)} placeholder={t('guests_email_ph')}
+                  className="flex-1 px-3 py-2.5 rounded-xl bg-white/[0.05] border border-border text-sm text-white placeholder-gray-muted outline-none focus:border-orange" />
+                <input value={phone} onChange={e => setPhone(e.target.value)} placeholder={t('guests_phone_ph')}
+                  className="flex-1 px-3 py-2.5 rounded-xl bg-white/[0.05] border border-border text-sm text-white placeholder-gray-muted outline-none focus:border-orange" />
+              </div>
+              {isFree && (
+                <div className="flex items-center justify-between p-3 rounded-xl bg-white/[0.03] border border-border">
+                  <p className="text-xs text-gray-muted">{t('guests_plusones_label')}</p>
+                  <div className="flex gap-1">
+                    {([0,1,2] as const).map(n => (
+                      <button key={n} type="button" onClick={() => setPlusOnes(n)}
+                        className={`px-3 py-1 rounded-lg text-[11px] font-bold transition-all ${plusOnes === n ? 'bg-orange text-black' : 'bg-white/[0.05] text-gray-muted hover:text-white'}`}>
+                        {n === 0 ? t('guests_plusones_no') : `+${n}`}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {error && <p className="text-red-400 text-xs">{error}</p>}
+              <button onClick={handleAdd} disabled={saving || !name.trim()}
+                className="w-full py-2.5 rounded-xl bg-orange text-black font-bold text-sm disabled:opacity-40 hover:bg-orange/90 transition-all">
+                {saving ? '…' : t('guests_add_btn')}
+              </button>
+            </div>
+
+            {/* Guest list */}
+            {guests.length === 0 ? (
+              <div className={`${card} p-10 text-center`}>
+                <p className="text-3xl mb-2">🎟</p>
+                <p className="text-gray-muted text-sm">{t('guests_empty')}</p>
+              </div>
+            ) : (
+              <div className={card}>
+                {guests.map((g, i) => (
+                  <div key={g.id} className={`flex items-center gap-3 px-4 py-3 ${i > 0 ? 'border-t border-border' : ''}`}>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-[13px] truncate">{g.guestName}</p>
+                      <p className="text-[11px] text-gray-muted truncate">
+                        {[g.guestEmail, g.guestPhone].filter(Boolean).join(' · ') || '—'}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-1 shrink-0">
+                      {(g.allowPlusOnes ?? 0) > 0 && (
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-white/[0.06] text-gray-muted">+{g.allowPlusOnes}</span>
+                      )}
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${STATUS_COLOR[g.status]}`}>
+                        {STATUS_LABEL[g.status]}{g.ticketCount && g.ticketCount > 1 ? ` ×${g.ticketCount}` : ''}
+                      </span>
+                    </div>
+
+                    {/* Send buttons — gated */}
+                    <div className="flex items-center gap-1 shrink-0">
+                      {(g as any).sentAt && (
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-green-900/20 text-green">✓ Voye</span>
+                      )}
+                      {g.guestPhone && (
+                        <button onClick={() => gate(() => { window.open(`https://wa.me/${g.guestPhone!.replace(/\D/g,'')}?text=${encodeURIComponent(`Ou envite nan ${event?.name || 'evènman an'}! Klike sou lyen sa pou konfime prezans ou: ${inviteLink(g.id)}`)}`, '_blank'); markSent(g.id); })}
+                          className="text-[11px] text-green hover:underline">📱 WA</button>
+                      )}
+                      {g.guestEmail && (
+                        <button onClick={() => gate(() => { window.open(`mailto:${g.guestEmail}?subject=${encodeURIComponent(`Envitasyon — ${event?.name || 'Evènman'}`)}&body=${encodeURIComponent(`Bonjou ${g.guestName},\n\nOu envite nan ${event?.name || 'evènman an'}!\n\nKlike sou lyen sa pou konfime prezans ou:\n${inviteLink(g.id)}\n\nAnbyans`)}`, '_self'); markSent(g.id); })}
+                          className="text-[11px] text-cyan hover:underline">✉️ Imèl</button>
+                      )}
+                      <button onClick={() => gate(() => copyLink(g.id))}
+                        className="text-[11px] text-orange hover:underline">
+                        {copied === g.id ? '✓' : '🔗'}
+                      </button>
+                    </div>
+
+                    <button onClick={() => handleRemove(g.id)}
+                      className="text-gray-muted hover:text-red-400 text-[11px] shrink-0">✕</button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Info box */}
+            {guests.length > 0 && (
+              <div className="p-4 rounded-xl bg-white/[0.02] border border-border text-[11px] text-gray-muted">
+                <p className="font-bold text-gray-light mb-1">{t('guests_how_title')}</p>
+                <p>Klike sou <span className="text-green">📱 WA</span>, <span className="text-cyan">✉️ Imèl</span>, oswa <span className="text-orange">🔗</span> {t('guests_how_full')} {isFree ? t('guests_how_desc_free') : t('guests_how_desc_paid')}.</p>
+              </div>
+            )}
+          </>
         )}
 
       </div>

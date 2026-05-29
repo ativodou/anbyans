@@ -323,5 +323,13 @@ service cloud.firestore {
     match /legal/{file} {
       allow read: if true;
     }
+
+    // ── Gift claims (unauthenticated guests can claim gifts) ───────
+    match /giftClaims/{claimId} {
+      allow read: if true;
+      allow create: if true;
+      allow delete: if isActiveAuth() && isAdmin();
+      allow update: if false;
+    }
   }
 }

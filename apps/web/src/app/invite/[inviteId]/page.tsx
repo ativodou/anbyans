@@ -3,6 +3,26 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { getInvitation, getEvent, type Invitation, type EventData } from '@/lib/db';
+import { db } from '@/lib/firebase';
+import { collection, query, where, getDocs, addDoc } from 'firebase/firestore';
+
+interface GiftItem {
+  id: string;
+  name: string;
+  description?: string;
+  price?: number;
+  link?: string;
+  qty: number;
+}
+
+interface GiftClaim {
+  id: string;
+  eventId: string;
+  itemId: string;
+  guestName: string;
+  inviteId: string;
+  claimedAt: string;
+}
 
 function fmt(s: string) {
   if (!s) return '';
@@ -29,6 +49,10 @@ export default function InvitePage() {
   const [ticketCodes, setTicketCodes] = useState<string[]>([]);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
+  const [giftItems, setGiftItems] = useState<GiftItem[]>([]);
+  const [giftClaims, setGiftClaims] = useState<GiftClaim[]>([]);
+  const [claimingId, setClaimingId] = useState<string | null>(null);
+
   useEffect(() => {
     if (!inviteId) return;
     (async () => {
@@ -39,10 +63,32 @@ export default function InvitePage() {
         if (inv.status === 'confirmed') { setDone(true); setTicketCodes(inv.ticketCode ? [inv.ticketCode] : []); }
         const ev = await getEvent(inv.eventId);
         setEvent(ev);
+        if (ev) {
+          setGiftItems((ev as any).giftItems || []);
+          const claimsSnap = await getDocs(query(collection(db, 'giftClaims'), where('eventId', '==', inv.eventId)));
+          setGiftClaims(claimsSnap.docs.map(d => ({ id: d.id, ...d.data() } as GiftClaim)));
+        }
       } catch { setInvalid(true); }
       finally { setLoading(false); }
     })();
   }, [inviteId]);
+
+  const handleClaim = async (item: GiftItem) => {
+    if (!invite || !event) return;
+    setClaimingId(item.id);
+    try {
+      const claimData = {
+        eventId: invite.eventId,
+        itemId: item.id,
+        guestName: invite.guestName,
+        inviteId,
+        claimedAt: new Date().toISOString(),
+      };
+      const ref = await addDoc(collection(db, 'giftClaims'), claimData);
+      setGiftClaims(prev => [...prev, { id: ref.id, ...claimData }]);
+    } catch (e) { console.error(e); }
+    finally { setClaimingId(null); }
+  };
 
   const handleAccept = async () => {
     if (!invite || !event) return;
@@ -208,7 +254,52 @@ export default function InvitePage() {
             ⬇ Telechaje kart envitasyon
           </button>
         </div>
-        <div className="border-t border-white/[0.05] py-3 text-center">
+        {/* Gift registry */}
+        {giftItems.length > 0 && (
+          <div className="border-t border-white/[0.05] px-6 pt-6 pb-2">
+            <p className="font-heading text-base text-white mb-1 text-center">🎁 Lis Kado</p>
+            <p className="text-[11px] text-gray-400 mb-4 text-center">Chwazi yon kado pou fè yo kontan!</p>
+            <div className="space-y-3">
+              {giftItems.map(item => {
+                const itemClaims = giftClaims.filter(c => c.itemId === item.id);
+                const remaining = item.qty - itemClaims.length;
+                const myClaimExists = giftClaims.some(c => c.itemId === item.id && c.inviteId === inviteId);
+                return (
+                  <div key={item.id} className="rounded-2xl bg-white/[0.04] border border-white/[0.08] p-4">
+                    <p className="font-bold text-[13px] text-white">{item.name}</p>
+                    {item.description && <p className="text-[11px] text-gray-400 mt-0.5">{item.description}</p>}
+                    <div className="flex items-center gap-3 mt-2 flex-wrap">
+                      {item.price != null && <span className="text-[12px] text-orange font-bold">${item.price}</span>}
+                      {item.link && (
+                        <a href={item.link} target="_blank" rel="noopener noreferrer"
+                          className="text-[11px] text-cyan hover:underline">🛒 Achte</a>
+                      )}
+                      <span className={`text-[11px] font-semibold ${remaining > 0 ? 'text-green-400' : 'text-gray-500'}`}>
+                        {remaining} / {item.qty} disponib
+                      </span>
+                    </div>
+                    <div className="mt-3">
+                      {myClaimExists ? (
+                        <span className="inline-block px-3 py-1.5 rounded-xl bg-green-900/40 text-green-400 text-[11px] font-bold">✓ Ou rezève sa</span>
+                      ) : remaining === 0 ? (
+                        <span className="inline-block px-3 py-1.5 rounded-xl bg-white/[0.06] text-gray-500 text-[11px] font-bold">✓ Deja pran</span>
+                      ) : (
+                        <button
+                          onClick={() => handleClaim(item)}
+                          disabled={claimingId === item.id}
+                          className="px-4 py-1.5 rounded-xl bg-orange/90 text-black font-bold text-[11px] hover:bg-orange transition-all disabled:opacity-50">
+                          {claimingId === item.id ? '⏳…' : '🎁 Rezerve'}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        <div className="border-t border-white/[0.05] py-3 text-center mt-4">
           <p className="text-[10px] text-gray-600">anbyans.events</p>
         </div>
       </div>
