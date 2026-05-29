@@ -49,9 +49,10 @@ export default function BudgetPage() {
   const [budgetTarget, setBudgetTarget] = useState<number>(0);
   const [targetInput, setTargetInput]   = useState('');
   const [savingTarget, setSavingTarget] = useState(false);
-  const [sponsorRevenue, setSponsorRevenue] = useState<number>(0);
-  const [sponsorInput, setSponsorInput]     = useState('');
-  const [savingSponsor, setSavingSponsor]   = useState(false);
+  const [sponsors, setSponsors] = useState<{ id: string; name: string; amount: number }[]>([]);
+  const [sponsorName, setSponsorName]   = useState('');
+  const [sponsorAmt, setSponsorAmt]     = useState('');
+  const [savingSponsor, setSavingSponsor] = useState(false);
 
   // Payment gate
   const [budgetFee, setBudgetFee]       = useState(15);
@@ -87,9 +88,7 @@ export default function BudgetPage() {
         const target = (ev as any)?.budgetTarget || 0;
         setBudgetTarget(target);
         setTargetInput(target > 0 ? String(target) : '');
-        const sponsor = (ev as any)?.sponsorRevenue || 0;
-        setSponsorRevenue(sponsor);
-        setSponsorInput(sponsor > 0 ? String(sponsor) : '');
+        setSponsors((ev as any)?.sponsors || []);
         if ((ev as any)?.budgetActivated) setActivated(true);
         getDocs(query(collection(db, 'budgetCashRequests'), where('eventId', '==', eventId), where('status', '==', 'pending')))
           .then(snap => { if (!snap.empty) setCashPending(true); })
@@ -173,13 +172,21 @@ export default function BudgetPage() {
     setSavingTarget(false);
   };
 
-  const handleSaveSponsor = async () => {
-    const val = Math.round(Number(sponsorInput) * 100) / 100;
-    if (isNaN(val) || val < 0) return;
+  const handleAddSponsor = async () => {
+    if (!sponsorName.trim() || !sponsorAmt || isNaN(Number(sponsorAmt))) return;
     setSavingSponsor(true);
-    await updateDoc(doc(db, 'events', eventId), { sponsorRevenue: val });
-    setSponsorRevenue(val);
+    const newSponsor = { id: Math.random().toString(36).substring(2, 8), name: sponsorName.trim(), amount: Math.round(Number(sponsorAmt) * 100) / 100 };
+    const updated = [...sponsors, newSponsor];
+    await updateDoc(doc(db, 'events', eventId), { sponsors: updated });
+    setSponsors(updated);
+    setSponsorName(''); setSponsorAmt('');
     setSavingSponsor(false);
+  };
+
+  const handleDeleteSponsor = async (id: string) => {
+    const updated = sponsors.filter(s => s.id !== id);
+    await updateDoc(doc(db, 'events', eventId), { sponsors: updated });
+    setSponsors(updated);
   };
 
   if (loading) return (
@@ -197,6 +204,7 @@ export default function BudgetPage() {
   // ── Expenses ──
   const totalExpenses = items.reduce((s, i) => s + i.amount, 0);
   const isPrivateEvent = (event as any)?.eventType === 'free_private' || (event as any)?.eventType === 'paid_private' || (event as any)?.isPrivate;
+  const sponsorRevenue = sponsors.reduce((s, sp) => s + sp.amount, 0);
   const effectiveSponsor = isPrivateEvent ? 0 : sponsorRevenue;
   const net = budgetTarget + ticketRevenue + barRevenue + effectiveSponsor - totalExpenses;
 
@@ -238,19 +246,38 @@ export default function BudgetPage() {
         </div>
       </div>
 
-      {/* Sponsor revenue input — not for private events */}
-      {activated && (event as any)?.eventType !== 'free_private' && (event as any)?.eventType !== 'paid_private' && !(event as any)?.isPrivate && (
-        <div className={`${card} p-4`}>
-          <p className="text-[10px] uppercase tracking-widest text-gray-muted font-bold mb-2">🤝 Revni Sponsors</p>
-          <div className="flex gap-2">
-            <input value={sponsorInput} onChange={e => setSponsorInput(e.target.value)} placeholder="$0.00" type="number" min="0"
-              className="flex-1 px-3 py-2.5 rounded-xl bg-white/[0.05] border border-border text-white text-sm outline-none focus:border-orange" />
-            <button onClick={handleSaveSponsor} disabled={savingSponsor}
-              className="px-4 py-2.5 rounded-xl bg-white/[0.07] border border-border text-white font-bold text-sm disabled:opacity-40 hover:bg-white/10 transition-all">
-              {savingSponsor ? '…' : 'Anrejistre'}
+      {/* Sponsor list — not for private events */}
+      {activated && !isPrivateEvent && (
+        <section>
+          <h3 className="text-[10px] uppercase tracking-widest text-gray-muted font-bold mb-2">🤝 Sponsors</h3>
+          <div className={`${card} p-4 space-y-3`}>
+            <div className="flex gap-2">
+              <input value={sponsorName} onChange={e => setSponsorName(e.target.value)} placeholder="Non sponsor *"
+                className="flex-1 px-3 py-2.5 rounded-xl bg-white/[0.05] border border-border text-white text-sm outline-none focus:border-orange" />
+              <input value={sponsorAmt} onChange={e => setSponsorAmt(e.target.value)} placeholder="$0" type="number" min="0"
+                className="w-28 px-3 py-2.5 rounded-xl bg-white/[0.05] border border-border text-white text-sm outline-none focus:border-orange" />
+            </div>
+            <button onClick={handleAddSponsor} disabled={savingSponsor || !sponsorName.trim() || !sponsorAmt}
+              className="w-full py-2.5 rounded-xl bg-orange text-black font-bold text-sm disabled:opacity-40 hover:bg-orange/90 transition-all">
+              {savingSponsor ? '…' : '+ Ajoute Sponsor'}
             </button>
+            {sponsors.length > 0 && (
+              <div className="space-y-1 pt-1">
+                {sponsors.map(sp => (
+                  <div key={sp.id} className="flex items-center gap-3 py-2 border-t border-border">
+                    <p className="flex-1 text-sm font-semibold">{sp.name}</p>
+                    <p className="font-bold text-sm text-green">${sp.amount.toLocaleString()}</p>
+                    <button onClick={() => handleDeleteSponsor(sp.id)} className="text-gray-muted hover:text-red-400 text-[11px]">✕</button>
+                  </div>
+                ))}
+                <div className="flex justify-between items-center pt-2 border-t border-border">
+                  <p className="text-xs font-bold text-gray-muted">Total Sponsors</p>
+                  <p className="font-heading text-base text-green">${sponsorRevenue.toLocaleString()}</p>
+                </div>
+              </div>
+            )}
           </div>
-        </div>
+        </section>
       )}
 
       {/* Ledger summary — 5 cards */}
@@ -391,7 +418,8 @@ export default function BudgetPage() {
               ['', 'Bidjè Planifye', `$${budgetTarget}`, ''],
               ['', 'Revni Tikè', `$${ticketRevenue}`, ''],
               ['', 'Revni Bar', `$${barRevenue}`, ''],
-              ['', 'Revni Sponsors', `$${sponsorRevenue}`, ''],
+              ...(!isPrivateEvent ? sponsors.map(sp => ['Sponsor', sp.name, `$${sp.amount}`, '']) : []),
+              ...(!isPrivateEvent ? [['', 'Total Sponsors', `$${sponsorRevenue}`, '']] : []),
               ['', 'Total Depans', `$${totalExpenses}`, ''],
               ['', 'NÈT', `${net >= 0 ? '+' : '-'}$${Math.abs(net)}`, ''],
             ];
