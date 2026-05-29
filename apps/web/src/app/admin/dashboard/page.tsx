@@ -74,7 +74,7 @@ export default function AdminDashboardPage() {
   const [settingsFee, setSettingsFee] = useState(9);
   const [settingsPosFee, setSettingsPosFee] = useState(50);
   const [settingsPrivateFee, setSettingsPrivateFee] = useState(25);
-  const [settingsBudgetFee, setSettingsBudgetFee]   = useState(15);
+  const [settingsBudgetFee, setSettingsBudgetFee]   = useState(100);
   const [settingsReserve, setSettingsReserve] = useState(20);
   const [settingsDelay, setSettingsDelay] = useState(7);
   const [settingsSaved,  setSettingsSaved]  = useState(false);

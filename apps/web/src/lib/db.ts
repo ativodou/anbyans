@@ -2109,13 +2109,13 @@ export async function getPlatformConfig(): Promise<{ platformFee: number; posFee
         platformFee:      d.platformFee      ?? 9,
         posFee:           d.posFee           ?? 50,
         privateFee:       d.privateFee       ?? 25,
-        budgetFee:        d.budgetFee        ?? 15,
+        budgetFee:        d.budgetFee        ?? 100,
         chargebackReserve: d.chargebackReserve ?? 20,
         payoutDelayDays:  d.payoutDelayDays  ?? 7,
       };
     }
   } catch {}
-  return { platformFee: 9, posFee: 50, privateFee: 25, budgetFee: 15, chargebackReserve: 20, payoutDelayDays: 7 };
+  return { platformFee: 9, posFee: 50, privateFee: 25, budgetFee: 100, chargebackReserve: 20, payoutDelayDays: 7 };
 }
 
 // ─── Event Create Draft ──────────────────────────────────────────────────────
