@@ -100,6 +100,8 @@ export interface EventData {
   seatsioChartKey?: string;
   posActivated?: boolean;
   posActivatedAt?: string;
+  privateActivated?: boolean;
+  privateActivatedAt?: string;
   createdAt: any;
   updatedAt: any;
 }
@@ -2098,7 +2100,7 @@ export async function getPlatformFeeRate(): Promise<number> {
   return 0.09;
 }
 
-export async function getPlatformConfig(): Promise<{ platformFee: number; posFee: number; chargebackReserve: number; payoutDelayDays: number }> {
+export async function getPlatformConfig(): Promise<{ platformFee: number; posFee: number; privateFee: number; chargebackReserve: number; payoutDelayDays: number }> {
   try {
     const snap = await getDoc(doc(db, 'config', 'platform'));
     if (snap.exists()) {
@@ -2106,12 +2108,13 @@ export async function getPlatformConfig(): Promise<{ platformFee: number; posFee
       return {
         platformFee:      d.platformFee      ?? 9,
         posFee:           d.posFee           ?? 50,
+        privateFee:       d.privateFee       ?? 25,
         chargebackReserve: d.chargebackReserve ?? 20,
         payoutDelayDays:  d.payoutDelayDays  ?? 7,
       };
     }
   } catch {}
-  return { platformFee: 9, posFee: 50, chargebackReserve: 20, payoutDelayDays: 7 };
+  return { platformFee: 9, posFee: 50, privateFee: 25, chargebackReserve: 20, payoutDelayDays: 7 };
 }
 
 // ─── Event Create Draft ──────────────────────────────────────────────────────

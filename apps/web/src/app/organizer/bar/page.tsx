@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
 import { useT } from '@/i18n';
 import { useOrganizerEvent } from '../OrganizerEventContext';
@@ -656,7 +657,9 @@ export default function OrganizerBarPage() {
             <div className="flex items-center gap-3">
               {preOrders.length > 0 && (
                 <>
-                  <button onClick={() => {
+                  {(selectedEvent as any)?.isPrivate && !(selectedEvent as any)?.privateActivated
+                    ? <span className="text-[10px] text-orange">🔒 <Link href={`/organizer/events/${(selectedEvent as any)?.id}/guests`} className="underline hover:text-white">Aktive pou enprime</Link></span>
+                    : <><button onClick={() => {
                     const eventName = selectedEvent ? (selectedEvent as any).name || 'Evènman' : 'Evènman';
                     const csv = ['Station,Item,Price,Qty,Total',
                       ...preOrders.map(o => `${o.station},${o.name},$${o.price},${o.qty},$${(o.price * o.qty).toFixed(2)}`)
@@ -690,7 +693,7 @@ export default function OrganizerBarPage() {
                     </body></html>`;
                     const w = window.open('', '_blank');
                     if (w) { w.document.write(html); w.document.close(); w.print(); }
-                  }} className="text-[10px] text-orange hover:underline">🖨 Print / PDF</button>
+                  }} className="text-[10px] text-orange hover:underline">🖨 Print / PDF</button></>}
                 </>
               )}
               <button onClick={() => { setPreOrdersLoaded(false); }} className="text-[10px] text-orange hover:underline">Refresh</button>
