@@ -76,16 +76,17 @@ export default function GuestListPage() {
     if (!eventId) return;
     (async () => {
       try {
-        const [ev, list, cfg, cashSnap] = await Promise.all([
+        const [ev, list, cfg] = await Promise.all([
           getEvent(eventId),
           getGuestList(eventId),
           getPlatformConfig(),
-          getDocs(query(collection(db, 'cashActivationRequests'), where('eventId', '==', eventId), where('status', '==', 'pending'))),
         ]);
         setEvent(ev);
         setGuests(list);
         setPrivateFee(cfg.privateFee);
-        if (!cashSnap.empty) setCashPending(true);
+        getDocs(query(collection(db, 'cashActivationRequests'), where('eventId', '==', eventId), where('status', '==', 'pending')))
+          .then(snap => { if (!snap.empty) setCashPending(true); })
+          .catch(() => {});
       } catch (e) { console.error(e); }
       finally { setLoading(false); }
     })();
