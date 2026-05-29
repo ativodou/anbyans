@@ -27,7 +27,9 @@ const content: Record<Lang, {
           'Bulk pricing tiers — reward group buyers automatically',
           'Promo codes and private invite-only events',
           'Pre-order food & drinks at checkout — one combined bill',
-          'Ticket transfer between attendees',
+          'Ticket transfer between attendees — with PIN reveal and resend/cancel controls',
+          'Each ticket has a unique PIN shown at purchase and after transfer',
+          'Post-purchase WhatsApp confirmation sent in one tap',
         ],
       },
       {
@@ -42,6 +44,7 @@ const content: Record<Lang, {
           'Organizer-built menu visible to bar staff and ticket counter',
           'Inventory management with low-stock alerts',
           'Payment method tracking: Cash, Card, MonCash, Natcash, Zelle, PayPal',
+          'Itemized receipt on checkout with one-tap WhatsApp share to customer',
         ],
       },
       {
@@ -59,12 +62,26 @@ const content: Record<Lang, {
         title: 'Door & Access Control',
         bullets: [
           'QR-code scanner for fast, accurate guest check-in',
+          'Rotating QR code refreshes every 30 seconds — screenshot fraud proof',
           'Works offline — tickets stored locally, no internet needed at the door',
           'Real-time cross-device sync — same ticket cannot be admitted on two scanners',
           'Auto-syncs to the cloud the moment connection returns',
           'Works on iOS Safari and Android Chrome — any phone, no app install',
           'Door staff portal with PIN — no organizer account needed',
           'Real-time attendance count',
+        ],
+      },
+      {
+        icon: '🏪',
+        title: 'Vendor Management',
+        bullets: [
+          'Vendors apply to sell at your event through their own dashboard',
+          'Organizer reviews applications and sets a stand fee per vendor',
+          'Vendor pays the stand fee online via Stripe before getting access',
+          'Bulk ticket buying blocked until stand fee is paid',
+          'Vendor ledger tab: see paid/unpaid stand fees and ticket revenue per vendor per event',
+          'Vendors set their payout method (MonCash, Natcash, Zelle, PayPal, Bank)',
+          'Revenue summary cards: total owed, collected, outstanding',
         ],
       },
       {
@@ -78,6 +95,17 @@ const content: Record<Lang, {
         ],
       },
       {
+        icon: '💳',
+        title: 'Payments & Payouts',
+        bullets: [
+          'Stripe Connect — organizer receives payouts directly to their bank',
+          'Platform cut automatically deducted on every transaction',
+          'Separate fee rates for ticket sales vs. stand fees — both admin-adjustable',
+          'MonCash and Natcash supported alongside card payments',
+          'All payment intents created server-side for security',
+        ],
+      },
+      {
         icon: '🏟️',
         title: 'Venue & Floor Planning',
         bullets: [
@@ -87,13 +115,15 @@ const content: Record<Lang, {
         ],
       },
       {
-        icon: '🌐',
-        title: 'Built for Haiti & the Diaspora',
+        icon: '🌍',
+        title: 'Haitian Event Discovery',
         bullets: [
+          'Homepage feed pulls live events from Haitian Times, Belfet, and Eventbrite',
+          'Native Anbyans events shown first, external sources fill the rest',
+          'Covers diaspora cities: NYC, Miami, Boston, Atlanta, and more',
           'Full support for Haitian Kreyòl, English, and French',
           'MonCash and Natcash payment integration',
           'Works on slow connections and older phones',
-          'Designed for events in Haiti and abroad',
         ],
       },
       {
@@ -129,7 +159,9 @@ const content: Record<Lang, {
           'Pri espesyal pou gwoup — otomatik',
           'Kòd promo ak evènman prive sou envitasyon',
           'Pré-kòmande manje ak bwason nan moman acha tikè — yon sèl fakti',
-          'Transfè tikè ant envite',
+          'Transfè tikè ant envite — ak PIN, voye ankò, ak anile',
+          'Chak tikè gen yon PIN inik montre nan acha ak apre transfè',
+          'Konfirmasyon WhatsApp voye ak yon sèl klik apre acha',
         ],
       },
       {
@@ -144,6 +176,7 @@ const content: Record<Lang, {
           'Meni òganizatè a vizib pou staff ba ak kayès la',
           'Jere envantè ak alèt stock ba',
           'Suiv metòd peman: Kach, Kat, MonCash, Natcash, Zelle, PayPal',
+          'Resi detaye apre kès — pataje pa WhatsApp ak yon klik',
         ],
       },
       {
@@ -161,12 +194,26 @@ const content: Record<Lang, {
         title: 'Kontwòl Aksè',
         bullets: [
           'Scann kòd QR pou antre envite vit ak presizyon',
+          'Kòd QR ap chanje chak 30 segond — pa ka pran foto pou fwòd',
           'Travay san entènèt — tikè sovgade lokal, pa bezwen koneksyon nan pòt la',
           'Senkronizasyon ant aparèy an tan reyèl — menm tikè pa ka antre de fwa',
           'Senkronize otomatikman sito koneksyon retounen',
           'Mache sou iOS Safari ak Android Chrome — nenpòt telefòn, san enstale app',
           'Pòtal pou gad pòt ak PIN — pa bezwen kont òganizatè',
           'Konte prezan an tan reyèl',
+        ],
+      },
+      {
+        icon: '🏪',
+        title: 'Jestyon Vandè',
+        bullets: [
+          'Vandè aplike pou vann nan evènman ou a nan pwòp tablo de bò yo',
+          'Òganizatè revize demann yo epi fikse yon frè stand pou chak vandè',
+          'Vandè peye frè stand lan anliy pa Stripe anvan yo jwenn aksè',
+          'Acha tikè an gwo bloke toutotan frè stand pa peye',
+          'Tab règleman: wè frè stand peye/pa peye ak revni tikè pa vandè',
+          'Vandè chwazi metòd peman yo (MonCash, Natcash, Zelle, PayPal, Bank)',
+          'Kat rezime: total dwe, kolekte, rete dwe',
         ],
       },
       {
@@ -180,6 +227,17 @@ const content: Record<Lang, {
         ],
       },
       {
+        icon: '💳',
+        title: 'Peman ak Vèsman',
+        bullets: [
+          'Stripe Connect — òganizatè resevwa vèsman dirèkteman nan kont yo',
+          'Frè platfòm otomatikman dedui nan chak tranzaksyon',
+          'To frè separe pou tikè ak frè stand — ajistab depi tablo admin',
+          'MonCash ak Natcash disponib akote peman pa kat',
+          'Tout peman kreye kote sèvè a pou sekirite maksimòm',
+        ],
+      },
+      {
         icon: '🏟️',
         title: 'Plan Sal ak Espas',
         bullets: [
@@ -189,13 +247,15 @@ const content: Record<Lang, {
         ],
       },
       {
-        icon: '🌐',
-        title: 'Fèt pou Ayiti ak Dyaspora a',
+        icon: '🌍',
+        title: 'Dekouvri Evènman Ayisyen',
         bullets: [
+          'Paj dakèy la montre evènman an tan reyèl soti Haitian Times, Belfet, ak Eventbrite',
+          'Evènman Anbyans parèt an premye, sous ekstèn ranpli rès la',
+          'Kouvri vil dyaspora: NYC, Miami, Boston, Atlanta, ak plis',
           'Konplètman an Kreyòl, Anglè, ak Fransè',
           'MonCash ak Natcash entegre',
           'Mache menm sou koneksyon lant ak vye telefòn',
-          'Fèt pou evènman ann Ayiti ak aletranje',
         ],
       },
       {
@@ -231,7 +291,9 @@ const content: Record<Lang, {
           'Tarifs groupés automatiques pour récompenser les achats en masse',
           'Codes promo et événements privés sur invitation',
           'Pré-commande bar & restauration à l\'achat — une seule facture',
-          'Transfert de billets entre participants',
+          'Transfert de billets entre participants — avec révélation du PIN, renvoi et annulation',
+          'Chaque billet a un PIN unique affiché à l\'achat et après transfert',
+          'Confirmation WhatsApp envoyée en un clic après l\'achat',
         ],
       },
       {
@@ -246,6 +308,7 @@ const content: Record<Lang, {
           'Menu configuré par l\'organisateur visible au bar et à la caisse',
           'Gestion des stocks avec alertes de rupture',
           'Suivi du mode de paiement : Espèces, Carte, MonCash, Natcash, Zelle, PayPal',
+          'Reçu détaillé à la caisse — partageable via WhatsApp en un clic',
         ],
       },
       {
@@ -263,12 +326,26 @@ const content: Record<Lang, {
         title: 'Contrôle d\'Accès',
         bullets: [
           'Scanner QR code pour un accueil rapide et précis',
+          'QR code rotatif — se renouvelle toutes les 30 secondes pour éviter les fraudes par capture d\'écran',
           'Fonctionne hors ligne — billets stockés localement, pas besoin d\'internet à l\'entrée',
           'Synchronisation en temps réel entre appareils — un même billet ne peut pas être admis deux fois',
           'Synchronisation automatique dès le retour de la connexion',
           'Compatible iOS Safari et Android Chrome — n\'importe quel téléphone, sans installation',
           'Portail pour le personnel à l\'entrée avec PIN — sans compte organisateur',
           'Comptage des présences en temps réel',
+        ],
+      },
+      {
+        icon: '🏪',
+        title: 'Gestion des Vendeurs',
+        bullets: [
+          'Les vendeurs postulent pour vendre à votre événement depuis leur tableau de bord',
+          'L\'organisateur examine les candidatures et fixe des frais de stand par vendeur',
+          'Le vendeur paie les frais de stand en ligne via Stripe avant d\'obtenir l\'accès',
+          'Achat groupé de billets bloqué jusqu\'au paiement des frais de stand',
+          'Onglet Grand Livre : frais de stand payés/impayés et revenus de billets par vendeur',
+          'Les vendeurs choisissent leur mode de versement (MonCash, Natcash, Zelle, PayPal, Banque)',
+          'Cartes de synthèse : total dû, encaissé, en attente',
         ],
       },
       {
@@ -282,6 +359,17 @@ const content: Record<Lang, {
         ],
       },
       {
+        icon: '💳',
+        title: 'Paiements & Versements',
+        bullets: [
+          'Stripe Connect — l\'organisateur reçoit ses versements directement sur son compte',
+          'Commission plateforme déduite automatiquement sur chaque transaction',
+          'Taux de commission séparés pour les billets et les frais de stand — ajustables depuis l\'admin',
+          'MonCash et Natcash disponibles aux côtés du paiement par carte',
+          'Toutes les intentions de paiement créées côté serveur pour une sécurité maximale',
+        ],
+      },
+      {
         icon: '🏟️',
         title: 'Plan de Salle',
         bullets: [
@@ -291,13 +379,15 @@ const content: Record<Lang, {
         ],
       },
       {
-        icon: '🌐',
-        title: 'Conçu pour Haïti et la Diaspora',
+        icon: '🌍',
+        title: 'Découverte d\'Événements Haïtiens',
         bullets: [
+          'Le fil d\'accueil affiche des événements en direct depuis Haitian Times, Belfet et Eventbrite',
+          'Les événements Anbyans apparaissent en premier, les sources externes complètent le reste',
+          'Couvre les villes de la diaspora : NYC, Miami, Boston, Atlanta, et plus',
           'Interface complète en Kreyòl, Anglais et Français',
           'Intégration MonCash et Natcash',
           'Fonctionne sur connexion lente et téléphones anciens',
-          'Adapté aux événements en Haïti et à l\'étranger',
         ],
       },
       {

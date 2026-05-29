@@ -23,6 +23,7 @@ export default function TransferAcceptPage() {
   } | null>(null);
   const [event, setEvent] = useState<EventData | null>(null);
   const [newPin, setNewPin] = useState('');
+  const [ticketCode, setTicketCode] = useState('');
 
   useEffect(() => {
     const load = async () => {
@@ -48,7 +49,9 @@ export default function TransferAcceptPage() {
   const handleAccept = async () => {
     setStatus('accepting');
     try {
-      await acceptTransfer(token);
+      const result = await acceptTransfer(token);
+      setNewPin(result.pin);
+      setTicketCode(result.ticketCode);
       setStatus('done');
     } catch (err) {
       setErrMsg(err instanceof Error ? err.message : t('error_unknown'));
@@ -82,14 +85,33 @@ export default function TransferAcceptPage() {
     <div style={{ minHeight: '100vh', background: '#0a0a0f', color: '#fff', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, gap: 16 }}>
       <div style={{ fontSize: 52 }}>🎉</div>
       <h1 style={{ fontSize: 24, fontWeight: 800, textAlign: 'center' }}>{t('transfer_done_title')}</h1>
-      <p style={{ color: '#888', fontSize: 14, textAlign: 'center', maxWidth: 320 }}>
-        {t('transfer_done_desc')}
-      </p>
+      <p style={{ color: '#888', fontSize: 14, textAlign: 'center', maxWidth: 320 }}>{t('transfer_done_desc')}</p>
+
+      {/* PIN + code — the recipient MUST see these */}
+      <div style={{ background: '#12121a', border: '1px solid #6366f1', borderRadius: 16, padding: 24, width: '100%', maxWidth: 340, textAlign: 'center' }}>
+        <p style={{ color: '#888', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 16 }}>📋 Enfòmasyon Tikè Ou</p>
+        <div style={{ marginBottom: 16 }}>
+          <p style={{ color: '#888', fontSize: 11, marginBottom: 4 }}>Kòd Tikè</p>
+          <p style={{ fontFamily: 'monospace', fontSize: 18, fontWeight: 800, color: '#fff', letterSpacing: 2 }}>{ticketCode}</p>
+        </div>
+        <div style={{ borderTop: '1px solid #1e1e2e', paddingTop: 16 }}>
+          <p style={{ color: '#888', fontSize: 11, marginBottom: 4 }}>🔐 PIN pou wè tikè ou</p>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 8 }}>
+            {newPin.split('').map((d, i) => (
+              <div key={i} style={{ width: 44, height: 52, borderRadius: 10, background: '#6366f115', border: '2px solid #6366f1', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, fontWeight: 800, color: '#6366f1' }}>
+                {d}
+              </div>
+            ))}
+          </div>
+          <p style={{ color: '#ef4444', fontSize: 11, marginTop: 12, fontWeight: 600 }}>⚠️ Kenbe PIN sa — ou pral bezwen l pou wè tikè ou.</p>
+        </div>
+      </div>
+
       <button
-        onClick={() => router.push('/tickets')}
-        style={{ padding: '14px 32px', borderRadius: 12, background: '#6366f1', color: '#fff', fontWeight: 700, fontSize: 15, border: 'none', cursor: 'pointer' }}
+        onClick={() => router.push(`/ticket/${ticketCode}`)}
+        style={{ padding: '14px 32px', borderRadius: 12, background: '#6366f1', color: '#fff', fontWeight: 700, fontSize: 15, border: 'none', cursor: 'pointer', width: '100%', maxWidth: 340 }}
       >
-        {t('transfer_view_ticket')}
+        🎫 {t('transfer_view_ticket')}
       </button>
     </div>
   );

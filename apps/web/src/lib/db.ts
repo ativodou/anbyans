@@ -286,12 +286,12 @@ export async function getTransferByToken(token: string): Promise<{
     ticketId: d.ticketId,
     transferToName: d.transferToName,
     transferToPhone: d.transferToPhone,
-    expiry: d.expiry?.toDate?.() ?? new Date(d.expiry),
+    expiry: d.expiry?.toDate ? d.expiry.toDate() : (d.expiry instanceof Date ? d.expiry : new Date(typeof d.expiry === 'string' || typeof d.expiry === 'number' ? d.expiry : Date.now() + 86400000)),
     status: d.status,
   };
 }
 
-export async function acceptTransfer(token: string): Promise<void> {
+export async function acceptTransfer(token: string): Promise<{ pin: string; ticketCode: string }> {
   const transfer = await getTransferByToken(token);
   if (!transfer) throw new Error('Transfè pa jwenn.');
   if (transfer.status !== 'pending') throw new Error('Transfè sa deja itilize.');
@@ -302,6 +302,7 @@ export async function acceptTransfer(token: string): Promise<void> {
   if (!ticketSnap.exists()) throw new Error('Tikè pa jwenn.');
 
   const newPin = Math.floor(1000 + Math.random() * 9000).toString();
+  const ticketCode = ticketSnap.data().ticketCode as string;
 
   await updateDoc(ticketRef, {
     buyerName: transfer.transferToName,
@@ -316,6 +317,7 @@ export async function acceptTransfer(token: string): Promise<void> {
   });
 
   await updateDoc(doc(db, 'transfers', token), { status: 'accepted' });
+  return { pin: newPin, ticketCode };
 }
 
 export async function cancelTransfer(eventId: string, ticketId: string, token: string): Promise<void> {
@@ -844,6 +846,9 @@ export interface VendorRequest {
   note?: string;
   requestedAt: any;
   resolvedAt?: any;
+  standFee?: number;          // Stand / booth fee set by organizer
+  standFeePaid?: boolean;     // True once vendor pays
+  standFeePaymentId?: string; // Stripe PaymentIntent ID
 }
 
 export async function requestVendorAccess(params: {
@@ -898,12 +903,15 @@ export async function getOrganizerVendorRequests(organizerId: string, status?: '
 
 export async function resolveVendorRequest(
   requestId: string,
-  status: 'approved' | 'denied'
+  status: 'approved' | 'denied',
+  standFee?: number
 ): Promise<void> {
-  await updateDoc(doc(db, 'vendorRequests', requestId), {
-    status,
-    resolvedAt: serverTimestamp(),
-  });
+  const update: Record<string, any> = { status, resolvedAt: serverTimestamp() };
+  if (status === 'approved' && standFee != null && standFee > 0) {
+    update.standFee = standFee;
+    update.standFeePaid = false;
+  }
+  await updateDoc(doc(db, 'vendorRequests', requestId), update);
 }
 
 // ─── Create / Invite Reseller ──────────────────────────────────────
@@ -2110,13 +2118,14 @@ export async function getPlatformFeeRate(): Promise<number> {
   return 0.09;
 }
 
-export async function getPlatformConfig(): Promise<{ platformFee: number; posFee: number; privateFee: number; budgetFee: number; chargebackReserve: number; payoutDelayDays: number }> {
+export async function getPlatformConfig(): Promise<{ platformFee: number; standFeeFee: number; posFee: number; privateFee: number; budgetFee: number; chargebackReserve: number; payoutDelayDays: number }> {
   try {
     const snap = await getDoc(doc(db, 'config', 'platform'));
     if (snap.exists()) {
       const d = snap.data();
       return {
         platformFee:      d.platformFee      ?? 9,
+        standFeeFee:      d.standFeeFee      ?? d.platformFee ?? 9,
         posFee:           d.posFee           ?? 50,
         privateFee:       d.privateFee       ?? 25,
         budgetFee:        d.budgetFee        ?? 100,
@@ -2125,7 +2134,7 @@ export async function getPlatformConfig(): Promise<{ platformFee: number; posFee
       };
     }
   } catch {}
-  return { platformFee: 9, posFee: 50, privateFee: 25, budgetFee: 100, chargebackReserve: 20, payoutDelayDays: 7 };
+  return { platformFee: 9, standFeeFee: 9, posFee: 50, privateFee: 25, budgetFee: 100, chargebackReserve: 20, payoutDelayDays: 7 };
 }
 
 // ─── Event Create Draft ──────────────────────────────────────────────────────

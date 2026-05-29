@@ -73,6 +73,7 @@ export default function AdminDashboardPage() {
   const [seedMsg, setSeedMsg] = useState('');
   const [loading, setLoading] = useState(true);
   const [settingsFee, setSettingsFee] = useState(9);
+  const [settingsStandFee, setSettingsStandFee] = useState(9);
   const [settingsPosFee, setSettingsPosFee] = useState(50);
   const [settingsPrivateFee, setSettingsPrivateFee] = useState(25);
   const [settingsBudgetFee, setSettingsBudgetFee]   = useState(100);
@@ -108,6 +109,7 @@ export default function AdminDashboardPage() {
       if (!cfgSnap.exists()) return;
       const cfg = cfgSnap.data();
       if (cfg.platformFee != null)       setSettingsFee(cfg.platformFee);
+      if (cfg.standFeeFee != null)       setSettingsStandFee(cfg.standFeeFee);
       if (cfg.posFee != null)            setSettingsPosFee(cfg.posFee);
       if (cfg.privateFee != null)        setSettingsPrivateFee(cfg.privateFee);
       if (cfg.budgetFee != null)         setSettingsBudgetFee(cfg.budgetFee);
@@ -244,6 +246,7 @@ export default function AdminDashboardPage() {
     try {
       await setDoc(doc(db, 'config', 'platform'), {
         platformFee: settingsFee,
+        standFeeFee: settingsStandFee,
         posFee: settingsPosFee,
         privateFee: settingsPrivateFee,
         budgetFee: settingsBudgetFee,
@@ -1015,8 +1018,12 @@ export default function AdminDashboardPage() {
                 <p className="text-[10px] uppercase tracking-widest text-orange font-bold mb-4">⚙️ {t('admin_platform_settings')}</p>
                 <div className="space-y-3">
                   <div>
-                    <label className="block text-[11px] font-semibold text-gray-light mb-1">{t('admin_platform_fee_lbl')}</label>
-                    <input value={settingsFee} onChange={e => setSettingsFee(Number(e.target.value))} type="number" className="w-32 px-3 py-2 rounded-lg bg-white/[0.04] border border-border text-white text-sm outline-none focus:border-orange" />
+                    <label className="block text-[11px] font-semibold text-gray-light mb-1">{t('admin_platform_fee_lbl')} — Tikè (%)</label>
+                    <input value={settingsFee} onChange={e => setSettingsFee(Number(e.target.value))} type="number" min="0" max="100" className="w-32 px-3 py-2 rounded-lg bg-white/[0.04] border border-border text-white text-sm outline-none focus:border-orange" />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-gray-light mb-1">Frè Platfòm — Stand Vandè (%)</label>
+                    <input value={settingsStandFee} onChange={e => setSettingsStandFee(Number(e.target.value))} type="number" min="0" max="100" className="w-32 px-3 py-2 rounded-lg bg-white/[0.04] border border-border text-white text-sm outline-none focus:border-orange" />
                   </div>
                   <div>
                     <label className="block text-[11px] font-semibold text-gray-light mb-1">POS Activation Fee ($)</label>

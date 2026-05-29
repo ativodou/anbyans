@@ -43,6 +43,7 @@ export default function StaffPosPage() {
   const [step, setStep]               = useState<Step>('identity');
   const [submitting, setSubmitting]   = useState(false);
   const [orderNum, setOrderNum]       = useState<number | null>(null);
+  const [lastOrder, setLastOrder]     = useState<{ items: CartItem[]; total: number; method: BarPaymentMethod } | null>(null);
 
   useEffect(() => {
     if (!code) return;
@@ -111,6 +112,7 @@ export default function StaffPosPage() {
         const ordered = cart.find(c => c.item.id === item.id);
         return ordered ? { ...item, sold: item.sold + ordered.qty } : item;
       }));
+      setLastOrder({ items: [...cart], total: cartTotal, method: payMethod });
       setOrderNum(num);
       setStep('done');
       setCart([]);
@@ -310,18 +312,59 @@ export default function StaffPosPage() {
 
         {/* ── DONE STEP ── */}
         {step === 'done' && (
-          <div className="text-center py-12 space-y-4">
-            <p className="text-6xl">✅</p>
-            <div>
+          <div className="py-8 space-y-4">
+            <div className="text-center">
+              <p className="text-5xl mb-3">✅</p>
               <p className="text-gray-500 text-sm">Nimewo Kòmand</p>
               <p className="font-heading text-5xl text-orange">#{orderNum}</p>
+              <p className="text-gray-400 text-sm mt-1">📍 {selectedStation?.name} · 👤 {activeStaff}</p>
             </div>
-            <p className="text-gray-400 text-sm">Kòmand voye bay {selectedStation?.name}</p>
+
+            {/* Receipt */}
+            {lastOrder && (
+              <div className="bg-white/[0.04] border border-white/[0.08] rounded-2xl p-4 space-y-2">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-3">🧾 Resi</p>
+                {lastOrder.items.map(c => (
+                  <div key={c.item.id} className="flex justify-between text-sm">
+                    <span className="text-gray-300">{c.qty}× {c.item.name}</span>
+                    <span className="font-bold">${(c.qty * c.item.price).toFixed(2)}</span>
+                  </div>
+                ))}
+                <div className="border-t border-white/[0.1] pt-2 flex justify-between font-bold">
+                  <span>Total</span>
+                  <span className="text-orange text-lg">${lastOrder.total.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-xs text-gray-500">
+                  <span>Peman</span>
+                  <span>{PAYMENT_METHODS.find(m => m.key === lastOrder.method)?.label ?? lastOrder.method}</span>
+                </div>
+              </div>
+            )}
+
+            {/* WhatsApp receipt share */}
+            {lastOrder && (() => {
+              const lines = [
+                `🧾 *Resi Bar — ${event?.name ?? 'Anbyans'}*`,
+                `Kòmand #${orderNum} · ${selectedStation?.name}`,
+                ``,
+                ...lastOrder.items.map(c => `${c.qty}× ${c.item.name}  $${(c.qty * c.item.price).toFixed(2)}`),
+                ``,
+                `Total: *$${lastOrder.total.toFixed(2)}*`,
+                `Peman: ${PAYMENT_METHODS.find(m => m.key === lastOrder.method)?.label ?? lastOrder.method}`,
+              ].join('\n');
+              return (
+                <a href={`https://wa.me/?text=${encodeURIComponent(lines)}`} target="_blank" rel="noreferrer"
+                  className="flex items-center justify-center gap-2 w-full py-3 rounded-2xl bg-green-600/20 border border-green-600/40 text-green-400 font-bold text-sm hover:bg-green-600/30 transition-all">
+                  📲 Pataje Resi sou WhatsApp
+                </a>
+              );
+            })()}
+
             <button onClick={() => setStep('pos')}
               className="w-full py-4 rounded-2xl bg-orange text-white font-bold text-base">
               Nouvo Kòmand
             </button>
-            <button onClick={() => { setStep('identity'); setStaffName(''); setCustomName(''); }}
+            <button onClick={() => { setStep('identity'); setStaffName(''); setCustomName(''); setLastOrder(null); }}
               className="w-full text-sm text-gray-500 hover:text-white transition-colors py-2">
               Chanje Staff / Estasyon
             </button>

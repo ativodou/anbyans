@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useT } from '@/i18n';
@@ -64,6 +64,8 @@ export default function TicketPage() {
       if (res.valid && res.ticket) {
         setTicket(res.ticket);
         setEvent(res.event || null);
+        // Restore pending transfer state if ticket is mid-transfer
+        if (res.ticket.status === 'pending_transfer') setTransferDone(true);
       } else {
         setError(res.error || 'Not found');
       }
@@ -83,11 +85,31 @@ export default function TicketPage() {
   }, [ticket, qrWindow]);
 
   const qrData = ticket ? `${ticket.qrData}:${qrWindow}` : '';
-  const qrUrl = qrData ? `https://api.qrserver.com/v1/create-qr-code/?size=250x250&bgcolor=FFFFFF&color=000000&data=${encodeURIComponent(qrData)}` : '';
-
-  // Static QR for download (no rotation — valid for entry with manual code check)
   const staticQrData = ticket ? ticket.qrData || '' : '';
-  const staticQrUrl = staticQrData ? `https://api.qrserver.com/v1/create-qr-code/?size=400x400&bgcolor=FFFFFF&color=000000&data=${encodeURIComponent(staticQrData)}` : '';
+
+  // Canvas-based QR refs (no external API dependency)
+  const rotatingQrRef = useRef<HTMLCanvasElement>(null);
+  const staticQrRef   = useRef<HTMLCanvasElement>(null);
+  const [rotatingQrUrl, setRotatingQrUrl] = useState('');
+  const [staticQrUrl,   setStaticQrUrl]   = useState('');
+
+  const renderQr = useCallback(async (data: string, size: number): Promise<string> => {
+    if (!data) return '';
+    try {
+      const QRCode = (await import('qrcode')).default;
+      return await QRCode.toDataURL(data, { width: size, margin: 1, color: { dark: '#000000', light: '#ffffff' } });
+    } catch { return ''; }
+  }, []);
+
+  useEffect(() => {
+    if (!qrData) return;
+    renderQr(qrData, 250).then(setRotatingQrUrl);
+  }, [qrData, renderQr]);
+
+  useEffect(() => {
+    if (!staticQrData) return;
+    renderQr(staticQrData, 400).then(setStaticQrUrl);
+  }, [staticQrData, renderQr]);
 
   const openBarTopup = async () => {
     if (!ticket?.eventId) return;
@@ -434,7 +456,7 @@ ${acceptUrl}`
               <div style={{ display: 'inline-block', padding: 12, background: '#fff', borderRadius: 12 }}>
                 <img
                   key={qrWindow}
-                  src={qrUrl}
+                  src={rotatingQrUrl}
                   alt="QR Code"
                   width={200}
                   height={200}
@@ -547,10 +569,34 @@ ${acceptUrl}`
               💸 {t('ticket_refund_btn')}
             </button>
           )}
-          {transferDone && (
-            <span style={{ padding: '12px 20px', color: '#f59e0b', fontSize: 13, fontWeight: 700 }}>
-              ⏳ {t('ticket_awaiting_accept')}
-            </span>
+          {transferDone && ticket?.transferToName && (
+            <div style={{ width: '100%', background: '#f59e0b15', border: '1px solid #f59e0b44', borderRadius: 10, padding: '12px 16px', textAlign: 'left' }}>
+              <p style={{ color: '#f59e0b', fontSize: 12, fontWeight: 700, marginBottom: 6 }}>⏳ {t('ticket_awaiting_accept')} — {ticket.transferToName}</p>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button onClick={async () => {
+                  if (!ticket?.id || !ticket.eventId || !ticket.transferToken) return;
+                  try {
+                    const newToken = await initiateTransfer(ticket.eventId, ticket.id, ticket.transferToName!, ticket.transferToPhone!);
+                    const acceptUrl = `${window.location.origin}/transfer/${newToken}`;
+                    const msg = encodeURIComponent(`🎫 ${ticket.buyerName} ap transfere yon tikè ba ou!\n\nKlike lyen sa pou aksepte (ekspire nan 24è):\n${acceptUrl}`);
+                    window.open(`https://wa.me/${(ticket.transferToPhone ?? '').replace(/\D/g,'')}?text=${msg}`, '_blank');
+                  } catch { /* silent — WhatsApp still opens if token write fails */ }
+                }} style={{ padding: '6px 12px', borderRadius: 8, border: '1px solid #f59e0b', background: 'transparent', color: '#f59e0b', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                  🔄 Voye ankò
+                </button>
+                <button onClick={async () => {
+                  if (!ticket?.id || !ticket.eventId || !ticket.transferToken) return;
+                  try {
+                    const { cancelTransfer } = await import('@/lib/db');
+                    await cancelTransfer(ticket.eventId, ticket.id, ticket.transferToken);
+                    setTransferDone(false);
+                    setTicket(t2 => t2 ? { ...t2, status: 'valid', transferToken: undefined, transferToName: undefined, transferToPhone: undefined } : t2);
+                  } catch { alert('Erè — eseye ankò.'); }
+                }} style={{ padding: '6px 12px', borderRadius: 8, border: '1px solid #ef4444', background: 'transparent', color: '#ef4444', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                  ✕ Anile Transfè
+                </button>
+              </div>
+            </div>
           )}
           <Link href="/events" style={{
             padding: '12px 20px', borderRadius: 10, background: '#06b6d4', color: '#000',

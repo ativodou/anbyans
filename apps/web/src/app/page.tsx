@@ -7,6 +7,7 @@ import { useT } from '@/i18n';
 import LangSwitcher from '@/components/LangSwitcher';
 import { getPublishedEvents } from '@/lib/db';
 import { fetchHaitianCityEvents, tmEventsToGallery } from '@/lib/ticketmaster';
+import { fetchAllHaitianEvents, haitianEventsToGallery } from '@/lib/haitianevents';
 import { useAuth } from '@/hooks/useAuth';
 
 const FALLBACK_GALLERY = [
@@ -29,7 +30,7 @@ const GENRES = [
 type GalleryItem = {
   title: string; venue: string; date: string; emoji: string;
   price: number; live: boolean; imageUrl?: string;
-  source: 'anbyans' | 'ticketmaster';
+  source: 'anbyans' | 'ticketmaster' | 'haitian-times' | 'eventbrite' | 'belfet';
 };
 
 const EventGallery = memo(function EventGallery({ items }: { items: GalleryItem[] }) {
@@ -46,7 +47,11 @@ const EventGallery = memo(function EventGallery({ items }: { items: GalleryItem[
                 ? <img src={ev.imageUrl} alt={ev.title} className="w-full h-full object-cover" />
                 : ev.emoji}
               {ev.live && <span className="absolute top-2 left-2 bg-red text-white text-[8px] font-bold px-1.5 py-0.5 rounded-md">● LIVE</span>}
-              {ev.source === 'ticketmaster' && <span className="absolute bottom-1 right-1 bg-black/60 text-[8px] text-gray-400 px-1 rounded">TM</span>}
+              {ev.source !== 'anbyans' && (
+                <span className="absolute bottom-1 right-1 bg-black/60 text-[8px] text-gray-400 px-1 rounded">
+                  {{ ticketmaster: 'TM', 'haitian-times': 'HT', eventbrite: 'EB', belfet: 'BF' }[ev.source] ?? ev.source}
+                </span>
+              )}
             </div>
             <div className="p-3">
               <p className="text-xs font-bold truncate group-hover:text-cyan transition-colors">{ev.title}</p>
@@ -103,12 +108,26 @@ export default function LandingPage() {
         }
       } catch (err) { console.error('Anbyans events error:', err); }
 
-      if (combined.length < 10) {
-        try {
-          const tmGallery = tmEventsToGallery(await fetchHaitianCityEvents(4));
-          combined.push(...tmGallery);
-        } catch (err) { console.error('TM error:', err); }
-      }
+      // Pull from all Haitian-centric sources in parallel
+      try {
+        const [haitianEvents, tmEvents] = await Promise.allSettled([
+          fetchAllHaitianEvents(),
+          fetchHaitianCityEvents(4),
+        ]);
+
+        if (haitianEvents.status === 'fulfilled' && haitianEvents.value.length > 0) {
+          const hGallery = haitianEventsToGallery(haitianEvents.value).map(ev => ({
+            ...ev,
+            live: false,
+            source: ev.source as GalleryItem['source'],
+          }));
+          combined.push(...hGallery);
+        }
+
+        if (combined.length < 10 && tmEvents.status === 'fulfilled') {
+          combined.push(...tmEventsToGallery(tmEvents.value));
+        }
+      } catch (err) { console.error('Event feed error:', err); }
       if (combined.length > 0 && !galleryLoaded.current) { galleryLoaded.current = true; setGallery(combined); }
     }
     loadEvents();

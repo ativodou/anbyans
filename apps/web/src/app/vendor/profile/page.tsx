@@ -4,7 +4,9 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useT } from '@/i18n';
-import { updateUserPhoto, getUserPhoto, getVendorByUid, updateUserProfile, deleteVendorData } from '@/lib/db';
+import { updateUserPhoto, getUserPhoto, getVendorByUid, updateUserProfile, deleteVendorData, updateVendorStatus } from '@/lib/db';
+import { db } from '@/lib/firebase';
+import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { deleteUserAccount } from '@/lib/auth';
 import { compressImage } from '@/lib/compressImage';
 
@@ -16,6 +18,11 @@ export default function VendorProfilePage() {
   const [photoURL,   setPhotoURL]   = useState<string | null>(null);
   const [vendorName, setVendorName] = useState('');
   const [vendorCity, setVendorCity] = useState('');
+  const [vendorId,   setVendorId]   = useState('');
+  const [payMethod,  setPayMethod]  = useState('MonCash');
+  const [payAccount, setPayAccount] = useState('');
+  const [bizSaving,  setBizSaving]  = useState(false);
+  const [bizSaved,   setBizSaved]   = useState(false);
   const [uploading,  setUploading]  = useState(false);
   const [saved,      setSaved]      = useState(false);
   const [error,      setError]      = useState('');
@@ -40,7 +47,13 @@ export default function VendorProfilePage() {
     if (!user?.uid) return;
     getUserPhoto(user.uid).then(url => setPhotoURL(url)).catch(() => {});
     getVendorByUid(user.uid).then(v => {
-      if (v) { setVendorName(v.name || ''); setVendorCity(v.city || ''); }
+      if (v) {
+        setVendorId(v.id || '');
+        setVendorName(v.name || '');
+        setVendorCity(v.city || '');
+        setPayMethod((v as any).payMethod || 'MonCash');
+        setPayAccount((v as any).payAccount || '');
+      }
     }).catch(() => {});
     const u = user as any;
     setFirstName(u?.firstName ?? '');
@@ -85,6 +98,16 @@ export default function VendorProfilePage() {
     } finally {
       setInfoSaving(false);
     }
+  }
+
+  async function handleSaveBiz() {
+    if (!vendorId) return;
+    setBizSaving(true);
+    try {
+      await updateDoc(doc(db, 'vendors', vendorId), { name: vendorName, city: vendorCity, payMethod, payAccount, updatedAt: serverTimestamp() });
+      setBizSaved(true);
+      setTimeout(() => setBizSaved(false), 2500);
+    } finally { setBizSaving(false); }
   }
 
   async function handleRemove() {
@@ -240,6 +263,55 @@ export default function VendorProfilePage() {
           <button onClick={handleSaveInfo} disabled={infoSaving}
             style={{ width: '100%', padding: '12px', borderRadius: 10, border: 'none', background: '#a855f7', color: '#fff', fontSize: 14, fontWeight: 700, cursor: infoSaving ? 'not-allowed' : 'pointer', opacity: infoSaving ? 0.6 : 1 }}>
             {infoSaving ? '...' : 'Anrejistre Chanjman yo'}
+          </button>
+        </div>
+
+        {/* Business info */}
+        <div style={{ background: '#12121a', border: '1px solid #1e1e2e', borderRadius: 16, padding: 24, marginTop: 16 }}>
+          <h2 style={{ fontSize: 14, fontWeight: 700, color: '#aaa', marginBottom: 16, textTransform: 'uppercase', letterSpacing: 1 }}>
+            🏪 Biznis & Peman
+          </h2>
+
+          <div style={{ marginBottom: 14 }}>
+            <label style={{ display: 'block', fontSize: 11, color: '#555', marginBottom: 5 }}>Non Biznis</label>
+            <input value={vendorName} onChange={e => setVendorName(e.target.value)}
+              style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: 10, background: '#0a0a0f', border: '1px solid #1a1a2a', color: '#fff', fontSize: 13, outline: 'none' }} />
+          </div>
+
+          <div style={{ marginBottom: 14 }}>
+            <label style={{ display: 'block', fontSize: 11, color: '#555', marginBottom: 5 }}>Vil</label>
+            <input value={vendorCity} onChange={e => setVendorCity(e.target.value)}
+              style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: 10, background: '#0a0a0f', border: '1px solid #1a1a2a', color: '#fff', fontSize: 13, outline: 'none' }} />
+          </div>
+
+          <div style={{ marginBottom: 14 }}>
+            <label style={{ display: 'block', fontSize: 11, color: '#555', marginBottom: 5 }}>Metòd Peman</label>
+            <select value={payMethod} onChange={e => setPayMethod(e.target.value)}
+              style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: 10, background: '#0a0a0f', border: '1px solid #1a1a2a', color: '#fff', fontSize: 13, outline: 'none' }}>
+              <option>MonCash</option>
+              <option>Natcash</option>
+              <option>Zelle</option>
+              <option>PayPal</option>
+              <option>Cash App</option>
+              <option>Bank</option>
+            </select>
+          </div>
+
+          <div style={{ marginBottom: 20 }}>
+            <label style={{ display: 'block', fontSize: 11, color: '#555', marginBottom: 5 }}>Nimewo / Kont Peman</label>
+            <input value={payAccount} onChange={e => setPayAccount(e.target.value)} placeholder="ex. +50934567890"
+              style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: 10, background: '#0a0a0f', border: '1px solid #1a1a2a', color: '#fff', fontSize: 13, outline: 'none' }} />
+          </div>
+
+          {bizSaved && (
+            <div style={{ background: '#0d2a1a', border: '1px solid #22c55e', borderRadius: 8, padding: '10px 14px', marginBottom: 14, color: '#22c55e', fontSize: 13 }}>
+              ✓ Anrejistre!
+            </div>
+          )}
+
+          <button onClick={handleSaveBiz} disabled={bizSaving || !vendorId}
+            style={{ width: '100%', padding: '12px', borderRadius: 10, border: 'none', background: '#a855f7', color: '#fff', fontSize: 14, fontWeight: 700, cursor: bizSaving || !vendorId ? 'not-allowed' : 'pointer', opacity: bizSaving || !vendorId ? 0.6 : 1 }}>
+            {bizSaving ? '...' : '💾 Anrejistre Biznis'}
           </button>
         </div>
 

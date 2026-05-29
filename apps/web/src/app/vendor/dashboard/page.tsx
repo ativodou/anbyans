@@ -7,7 +7,7 @@ import { useT } from '@/i18n';
 import LangSwitcher from '@/components/LangSwitcher';
 import { useAuth } from '@/hooks/useAuth';
 import { auth, db } from '@/lib/firebase';
-import { collection, query, where, getDocs, addDoc, serverTimestamp, doc, getDoc, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, getDocs, addDoc, serverTimestamp, doc, getDoc, onSnapshot, updateDoc } from 'firebase/firestore';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import {
@@ -54,6 +54,29 @@ function VendorStripeForm({ onSuccess, onError }: { onSuccess: (piId: string) =>
     </div>
   );
 }
+function StandFeeStripeForm({ onSuccess, onError }: { onSuccess: (piId: string) => void; onError: (msg: string) => void }) {
+  const stripe = useStripe();
+  const elements = useElements();
+  const [confirming, setConfirming] = useState(false);
+  async function handlePay() {
+    if (!stripe || !elements) return;
+    setConfirming(true);
+    const { error, paymentIntent } = await stripe.confirmPayment({ elements, redirect: 'if_required' });
+    if (error) { onError(error.message || 'Erè peman.'); setConfirming(false); return; }
+    if (paymentIntent?.status === 'succeeded') onSuccess(paymentIntent.id);
+    setConfirming(false);
+  }
+  return (
+    <div style={{ marginTop: 16 }}>
+      <PaymentElement />
+      <button onClick={handlePay} disabled={confirming || !stripe}
+        style={{ marginTop: 14, width: '100%', padding: 13, borderRadius: 10, border: 'none', background: confirming ? '#2a2a3a' : '#22c55e', color: '#fff', fontWeight: 700, fontSize: 14, cursor: confirming ? 'not-allowed' : 'pointer' }}>
+        {confirming ? '...' : '💳 Peye Frè Stand la'}
+      </button>
+    </div>
+  );
+}
+
 type VendorRequestStatus = 'pending' | 'approved' | 'denied';
 interface VendorRequest {
   id?: string;
@@ -68,6 +91,9 @@ interface VendorRequest {
   organizerId: string;
   status: VendorRequestStatus;
   createdAt?: any;
+  standFee?: number;
+  standFeePaid?: boolean;
+  standFeePaymentId?: string;
 }
 interface VendorSale {
   id?: string;
@@ -153,6 +179,11 @@ export default function VendorDashboardPage() {
   const [sellCodes, setSellCodes] = useState<string[]>([]);
   const [sellLoading, setSellLoading] = useState(false);
   const [sellError, setSellError] = useState('');
+
+  const [standFeeReqId, setStandFeeReqId] = useState<string | null>(null);
+  const [standFeeSecret, setStandFeeSecret] = useState<string | null>(null);
+  const [standFeeLoading, setStandFeeLoading] = useState(false);
+  const [standFeeError, setStandFeeError] = useState('');
 
   const [buyEventIdx, setBuyEventIdx] = useState(0);
   const [buySectionIdx, setBuySectionIdx] = useState(0);
@@ -351,6 +382,43 @@ export default function VendorDashboardPage() {
         .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)));
     } catch (e) { console.warn('refresh', e); }
   };
+
+  async function handlePayStandFee(req: VendorRequest) {
+    if (!req.id || !req.standFee) return;
+    setStandFeeLoading(true); setStandFeeError(''); setStandFeeReqId(req.id);
+    try {
+      const orgSnap = await getDoc(doc(db, 'organizers', req.organizerId || ''));
+      const orgStripeId = orgSnap.exists() ? (orgSnap.data().stripeAccountId || null) : null;
+      const res = await fetch('/api/payment/stand-fee', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          requestId: req.id,
+          amount: req.standFee,
+          connectedAccountId: orgStripeId,
+          eventName: req.eventName,
+          vendorName: req.vendorName,
+        }),
+      });
+      const data = await res.json();
+      if (data.error) { setStandFeeError(data.error); setStandFeeLoading(false); return; }
+      setStandFeeSecret(data.clientSecret);
+    } catch (e: any) {
+      setStandFeeError(e.message || 'Erè.');
+    } finally { setStandFeeLoading(false); }
+  }
+
+  async function handleStandFeePaid(paymentIntentId: string) {
+    if (!standFeeReqId) return;
+    try {
+      await updateDoc(doc(db, 'vendorRequests', standFeeReqId), {
+        standFeePaid: true,
+        standFeePaymentId: paymentIntentId,
+      });
+      setVendorRequests(prev => prev.map(r => r.id === standFeeReqId ? { ...r, standFeePaid: true } : r));
+      setStandFeeSecret(null); setStandFeeReqId(null);
+    } catch (e) { console.error(e); }
+  }
 
   async function handleConfirmSell() {
     if (!currentStock?.id || !vendor?.id) return;
@@ -570,6 +638,41 @@ export default function VendorDashboardPage() {
                         </div>
                       </div>
 
+                      {/* Stand Fee Banner */}
+                      {isApproved && req?.standFee && req.standFee > 0 && !req.standFeePaid && (
+                        <div style={{ background: '#f9731615', border: '1px solid #f9731633', borderRadius: 10, padding: '12px 14px', marginBottom: 10 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+                            <div>
+                              <p style={{ color: '#f97316', fontWeight: 700, fontSize: 13 }}>💳 Frè Stand: ${req.standFee}</p>
+                              <p style={{ color: '#888', fontSize: 11 }}>Peye frè booth ou anvan w achte tikè angwo.</p>
+                            </div>
+                            <button onClick={() => handlePayStandFee(req)} disabled={standFeeLoading && standFeeReqId === req.id}
+                              style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: '#f97316', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', flexShrink: 0 }}>
+                              {standFeeLoading && standFeeReqId === req.id ? '...' : `Peye $${req.standFee}`}
+                            </button>
+                          </div>
+                          {standFeeError && standFeeReqId === req.id && (
+                            <p style={{ color: '#ef4444', fontSize: 11, marginTop: 6 }}>{standFeeError}</p>
+                          )}
+                          {standFeeSecret && standFeeReqId === req.id && (
+                            <div style={{ marginTop: 12 }}>
+                              <Elements stripe={stripePromise} options={{ clientSecret: standFeeSecret, appearance: { theme: 'night' } }}>
+                                <StandFeeStripeForm
+                                  onSuccess={handleStandFeePaid}
+                                  onError={msg => setStandFeeError(msg)}
+                                />
+                              </Elements>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {isApproved && req?.standFee && req.standFee > 0 && req.standFeePaid && (
+                        <div style={{ background: '#22c55e15', border: '1px solid #22c55e33', borderRadius: 8, padding: '8px 12px', marginBottom: 10 }}>
+                          <p style={{ color: '#22c55e', fontSize: 12, fontWeight: 700 }}>✓ Frè stand peye — ${ req.standFee}</p>
+                        </div>
+                      )}
+
                       {/* Approved — show bulk pricing per section */}
                       {isApproved && hasBulk && myEv && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 10 }}>
@@ -619,19 +722,26 @@ export default function VendorDashboardPage() {
                                   </p>
                                 )}
 
-                                {isOpen && activePrice && sec.available > 0 && (
-                                  <button
-                                    onClick={() => {
-                                      const idx = approvedEvents.findIndex(ae => ae.id === ev.id);
-                                      setBuyEventIdx(idx);
-                                      setBuySectionIdx(si);
-                                      setBuyQty(10);
-                                      setTab('buy');
-                                    }}
-                                    style={{ width: '100%', padding: '9px 0', borderRadius: 8, border: 'none', background: '#a855f7', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
-                                    🛒 {t('vend_dash_buy_bulk_btn')} — ${activePrice}/{t('vend_dash_ticket_lbl')}
-                                  </button>
-                                )}
+                                {isOpen && activePrice && sec.available > 0 && (() => {
+                                  const standFeeBlocked = req?.standFee && req.standFee > 0 && !req.standFeePaid;
+                                  return standFeeBlocked ? (
+                                    <p style={{ fontSize: 11, color: '#f97316', textAlign: 'center', padding: '8px 0' }}>
+                                      ⚠️ Peye frè stand anvan pou achte tikè.
+                                    </p>
+                                  ) : (
+                                    <button
+                                      onClick={() => {
+                                        const idx = approvedEvents.findIndex(ae => ae.id === ev.id);
+                                        setBuyEventIdx(idx);
+                                        setBuySectionIdx(si);
+                                        setBuyQty(10);
+                                        setTab('buy');
+                                      }}
+                                      style={{ width: '100%', padding: '9px 0', borderRadius: 8, border: 'none', background: '#a855f7', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                                      🛒 {t('vend_dash_buy_bulk_btn')} — ${activePrice}/{t('vend_dash_ticket_lbl')}
+                                    </button>
+                                  );
+                                })()}
                               </div>
                             );
                           })}

@@ -9,7 +9,7 @@ export async function POST(req: NextRequest) {
   try {
     const Stripe = (await import('stripe')).default;
     const raw = process.env.STRIPE_SECRET_KEY ?? '';
-    const secretKey = raw.replace(/[^a-zA-Z0-9_]/g, '');
+    const secretKey = raw.trim();
     const stripe = new Stripe(secretKey);
 
     const { organizerId, email, returnUrl, refreshUrl } = await req.json();
@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
   try {
     const Stripe = (await import('stripe')).default;
     const raw = process.env.STRIPE_SECRET_KEY ?? '';
-    const secretKey = raw.replace(/[^a-zA-Z0-9_]/g, '');
+    const secretKey = raw.trim();
     const stripe = new Stripe(secretKey);
 
     const { searchParams } = new URL(req.url);

@@ -196,6 +196,7 @@ function BuyPageInner() {
   const [txnId, setTxnId]           = useState('');
   const [processing, setProcessing] = useState(false);
   const [ticketCodes, setTicketCodes] = useState<string[]>([]);
+  const [buyerPin, setBuyerPin] = useState('');
   const [errors, setErrors]           = useState<Record<string, string>>({});
   const [stripeClientSecret, setStripeClientSecret] = useState<string | null>(null);
   const [stripeError, setStripeError] = useState('');
@@ -404,6 +405,7 @@ function BuyPageInner() {
       );
       const codes = tkts.map(tk => tk.ticketCode);
       setTicketCodes(codes);
+      setBuyerPin(tkts[0]?.buyerPin ?? '');
       if (invite?.id && codes[0]) confirmGuest(invite.id, codes[0]).catch(() => {});
       setPayMethod('free');
       try { localStorage.removeItem(`anbyans-cart-${eventKey}`); } catch {}
@@ -458,6 +460,7 @@ function BuyPageInner() {
       );
       const stripeCodes = tkts.map(tk => tk.ticketCode);
       setTicketCodes(stripeCodes);
+      setBuyerPin(tkts[0]?.buyerPin ?? '');
       if (invite?.id && stripeCodes[0]) confirmGuest(invite.id, stripeCodes[0]).catch(() => {});
       if (barTabAmount > 0 && tkts[0]?.id) {
         const barPreorder = Object.entries(barCart).map(([name, qty]) => ({ name, qty, price: barMenuItems.find(i => i.name === name)?.price ?? 0 })).filter(x => x.qty > 0);
@@ -499,7 +502,9 @@ function BuyPageInner() {
         },
       );
 
-      setTicketCodes(tkts.map(tk => tk.ticketCode));
+      const codes = tkts.map(tk => tk.ticketCode);
+      setTicketCodes(codes);
+      setBuyerPin(tkts[0]?.buyerPin ?? '');
       if (barTabAmount > 0 && tkts[0]?.id) {
         const barPreorder = Object.entries(barCart).map(([name, qty]) => ({ name, qty, price: barMenuItems.find(i => i.name === name)?.price ?? 0 })).filter(x => x.qty > 0);
         try { await updateDoc(doc(db, 'tickets', tkts[0].id), { barTabBalance: barTabAmount, barTabSpent: 0, ...(barPreorder.length > 0 ? { barPreorder } : {}) }); } catch {}
@@ -1000,52 +1005,95 @@ function BuyPageInner() {
   );
 
   // ── Step: Done ────────────────────────────────────────────────
-  if (step === 'done') return (
-    <div className="min-h-screen bg-black text-white flex items-center justify-center px-4">
-      <div className="max-w-md w-full text-center">
-        <div className="text-6xl mb-4">🎉</div>
-        <h2 className="font-heading text-2xl mb-2">
-          {payMethod === 'free'
-            ? t('buy_free_ticket_confirmed')
-            : payMethod === 'cash' || payMethod === 'moncash' || payMethod === 'natcash'
-            ? t('buy_pending_ticket')
-            : t('buy_confirmed_ticket')}
-        </h2>
-        <p className="text-gray-400 text-sm mb-8">
-          {payMethod === 'free'
-            ? t('buy_free_ticket_msg')
-            : payMethod === 'cash'
-            ? t('buy_cash_confirm_msg')
-            : payMethod === 'moncash' || payMethod === 'natcash'
-            ? t('buy_moncash_pending_msg')
-            : t('buy_stripe_ready_msg')}
-        </p>
+  if (step === 'done') {
+    const isPending = payMethod === 'cash' || payMethod === 'moncash' || payMethod === 'natcash';
+    const ev = event as any;
+    const waMsg = encodeURIComponent(
+      [
+        `🎫 *ANBYANS — Tikè Ou Konfime!*`,
+        ``,
+        `🎭 ${ev?.name || ev?.title}`,
+        `📅 ${ev?.startDate}${ev?.startTime ? ` · 🕐 ${ev.startTime}` : ''}`,
+        ev?.venue?.name ? `📍 ${ev.venue.name}` : (ev?.venue ? `📍 ${ev.venue}` : ''),
+        ``,
+        ticketCodes.map((c, i) => `🔑 Tikè${ticketCodes.length > 1 ? ` ${i+1}` : ''}: *${c}*`).join('\n'),
+        buyerPin ? `🔐 PIN: *${buyerPin}*` : '',
+        ``,
+        `📱 Wè tikè ou: ${typeof window !== 'undefined' ? window.location.origin : 'https://anbyans.events'}/ticket/${ticketCodes[0]}`,
+        ``,
+        isPending ? `⏳ Tikè ou ap tann konfòmasyon peman an.` : `✅ Tikè ou valid — montre QR a nan antre a.`,
+        ``,
+        `Anbyans 🎶`,
+      ].filter(Boolean).join('\n')
+    );
+    const waPhone = phone.replace(/\D/g, '');
 
-        <div className="space-y-3 mb-8">
-          {ticketCodes.map((code, i) => (
-            <div key={code} className="bg-white/[0.06] rounded-xl p-4">
-              <p className="text-[10px] text-gray-500 mb-1">
-                {t('tickets')} {ticketCodes.length > 1 ? `#${i + 1}` : ''} · {selSection?.name}
-                {selSeats[i] ? ` · Plas ${selSeats[i]}` : ''}
-              </p>
-              <p className="font-heading text-2xl tracking-widest text-orange">{code}</p>
+    return (
+      <div className="min-h-screen bg-black text-white flex items-center justify-center px-4">
+        <div className="max-w-md w-full text-center">
+          <div className="text-6xl mb-4">🎉</div>
+          <h2 className="font-heading text-2xl mb-2">
+            {payMethod === 'free' ? t('buy_free_ticket_confirmed')
+              : isPending ? t('buy_pending_ticket')
+              : t('buy_confirmed_ticket')}
+          </h2>
+          <p className="text-gray-400 text-sm mb-6">
+            {payMethod === 'free' ? t('buy_free_ticket_msg')
+              : payMethod === 'cash' ? t('buy_cash_confirm_msg')
+              : payMethod === 'moncash' || payMethod === 'natcash' ? t('buy_moncash_pending_msg')
+              : t('buy_stripe_ready_msg')}
+          </p>
+
+          {/* Ticket codes + PIN */}
+          <div className="space-y-3 mb-4">
+            {ticketCodes.map((code, i) => (
+              <div key={code} className="bg-white/[0.06] rounded-xl p-4">
+                <p className="text-[10px] text-gray-500 mb-1">
+                  {t('tickets')} {ticketCodes.length > 1 ? `#${i + 1}` : ''} · {selSection?.name}
+                  {selSeats[i] ? ` · Plas ${selSeats[i]}` : ''}
+                </p>
+                <p className="font-heading text-2xl tracking-widest text-orange">{code}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* PIN display */}
+          {buyerPin && (
+            <div className="bg-white/[0.04] border border-white/[0.08] rounded-xl p-4 mb-6">
+              <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-3">🔐 PIN pou wè tikè ou</p>
+              <div className="flex justify-center gap-2 mb-2">
+                {buyerPin.split('').map((d, i) => (
+                  <div key={i} className="w-10 h-12 rounded-lg bg-orange/10 border border-orange/40 flex items-center justify-center text-xl font-bold text-orange">
+                    {d}
+                  </div>
+                ))}
+              </div>
+              <p className="text-[10px] text-gray-600 mt-2">Kenbe PIN sa — ou pral bezwen l pou wè tikè ou nenpòt ki lè.</p>
             </div>
-          ))}
-        </div>
+          )}
 
-        <div className="flex gap-3">
-          <Link href={`/ticket/${ticketCodes[0]}`}
-            className="flex-1 py-3 rounded-xl bg-orange text-white font-bold text-sm hover:bg-orange/90 transition-all">
-            {t('buy_view_ticket_btn')}
-          </Link>
-          <Link href="/events"
-            className="flex-1 py-3 rounded-xl bg-white/[0.08] text-white font-bold text-sm hover:bg-white/[0.12] transition-all">
-            {t('back')}
-          </Link>
+          {/* Send to WhatsApp */}
+          {waPhone && (
+            <a href={`https://wa.me/${waPhone}?text=${waMsg}`} target="_blank" rel="noreferrer"
+              className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-green-600 text-white font-bold text-sm hover:bg-green-500 transition-all mb-3">
+              📲 Voye tikè ba mwen sou WhatsApp
+            </a>
+          )}
+
+          <div className="flex gap-3">
+            <Link href={`/ticket/${ticketCodes[0]}`}
+              className="flex-1 py-3 rounded-xl bg-orange text-white font-bold text-sm hover:bg-orange/90 transition-all">
+              {t('buy_view_ticket_btn')}
+            </Link>
+            <Link href="/events"
+              className="flex-1 py-3 rounded-xl bg-white/[0.08] text-white font-bold text-sm hover:bg-white/[0.12] transition-all">
+              {t('back')}
+            </Link>
+          </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  }
 
   return null;
 }

@@ -44,10 +44,12 @@ export default function OrganizerVendorsPage() {
   const [loading, setLoading]     = useState(true);
   const [saving, setSaving]       = useState(false);
 
-  const [mainTab, setMainTab]             = useState<'my' | 'requests'>('my');
+  const [mainTab, setMainTab]             = useState<'my' | 'requests' | 'ledger'>('my');
+  const [ledgerEventId, setLedgerEventId] = useState<string>('all');
   const [vendorRequests, setVendorRequests] = useState<VendorRequest[]>([]);
   const [resolvingReq, setResolvingReq]     = useState<string | null>(null);
   const [justApproved, setJustApproved]     = useState<VendorRequest | null>(null);
+  const [standFeeInputs, setStandFeeInputs] = useState<Record<string, string>>({}); // reqId → fee amount string
   const [expandedReseller, setExpandedReseller] = useState<string | null>(null);
   const [showInvite, setShowInvite]       = useState(false);
   const [showPricing, setShowPricing]     = useState(false);
@@ -152,7 +154,8 @@ export default function OrganizerVendorsPage() {
     if (!req.id) return;
     setResolvingReq(req.id);
     try {
-      await resolveVendorRequest(req.id, status);
+      const standFee = status === 'approved' ? Number(standFeeInputs[req.id] || 0) : 0;
+      await resolveVendorRequest(req.id, status, standFee || undefined);
       setVendorRequests(prev => prev.filter(r => r.id !== req.id));
       if (status === 'approved') setJustApproved(req);
 
@@ -213,12 +216,13 @@ Konekte sou dachbod ou pou achte tikè bulk:
       {/* ── Main tabs ── */}
       <div className="flex gap-2 mb-5 border-b border-border">
         {([
-          ['my', `👥 ${t('org_my_resellers')}`, resellers.length],
-          ['requests', `🙋 ${t('org_requests')}`, vendorRequests.filter(r => r.status === 'pending').length],
+          ['my',       `👥 ${t('org_my_resellers')}`,  resellers.length],
+          ['requests', `🙋 ${t('org_requests')}`,       vendorRequests.filter(r => r.status === 'pending').length],
+          ['ledger',   `💰 Règleman`,                   null],
         ] as const).map(([id, label, count]) => (
-          <button key={id} onClick={() => setMainTab(id)}
+          <button key={id} onClick={() => setMainTab(id as any)}
             className={`px-4 py-2 text-xs font-bold border-b-2 transition-colors ${mainTab === id ? 'border-orange text-orange' : 'border-transparent text-gray-muted hover:text-white'}`}>
-            {label} <span className="ml-1 bg-border px-1.5 py-0.5 rounded-full text-[9px]">{count}</span>
+            {label}{count !== null && <span className="ml-1 bg-border px-1.5 py-0.5 rounded-full text-[9px]">{count}</span>}
           </button>
         ))}
       </div>
@@ -276,6 +280,17 @@ Konekte sou dachbod ou pou achte tikè bulk:
                       </div>
                     </div>
                     <div className="flex flex-col gap-2 flex-shrink-0">
+                      <div className="flex items-center gap-1">
+                        <span className="text-[10px] text-gray-muted whitespace-nowrap">Stand $</span>
+                        <input
+                          type="number"
+                          min="0"
+                          placeholder="0"
+                          value={standFeeInputs[req.id!] ?? ''}
+                          onChange={e => setStandFeeInputs(prev => ({ ...prev, [req.id!]: e.target.value }))}
+                          className="w-16 px-2 py-1 rounded-lg bg-dark border border-border text-white text-xs outline-none focus:border-orange"
+                        />
+                      </div>
                       <button
                         onClick={() => handleResolveRequest(req, 'approved')}
                         disabled={resolvingReq === req.id}
@@ -665,6 +680,135 @@ Konekte sou dachbod ou pou achte tikè bulk:
           </div>
         </>
       )}
+
+      {/* ── Ledger tab ── */}
+      {mainTab === 'ledger' && (() => {
+        // Build per-vendor rows: stand fee + ticket purchases per event
+        const approvedReqs = vendorRequests.filter(r => r.status === 'approved');
+
+        // Filter by event if selected
+        const filteredReqs = ledgerEventId === 'all'
+          ? approvedReqs
+          : approvedReqs.filter(r => r.eventId === ledgerEventId);
+
+        // Compute totals
+        const totalStandFees   = filteredReqs.reduce((a, r) => a + (r.standFee || 0), 0);
+        const totalStandPaid   = filteredReqs.filter(r => r.standFeePaid).reduce((a, r) => a + (r.standFee || 0), 0);
+        const totalStandUnpaid = totalStandFees - totalStandPaid;
+
+        const allPurchasesFiltered = resellers.flatMap(v =>
+          v.purchases.filter(p => ledgerEventId === 'all' || p.eventId === ledgerEventId)
+        );
+        const totalTicketRevenue = allPurchasesFiltered.reduce((a, p) => a + p.totalPaid, 0);
+        const grandTotal = totalStandPaid + totalTicketRevenue;
+
+        return (
+          <div>
+            {/* Event filter */}
+            <div className="flex items-center gap-2 mb-5 flex-wrap">
+              <span className="text-[11px] text-gray-muted font-semibold">Filtre pa evènman:</span>
+              {[{ id: 'all', name: 'Tout evènman' }, ...events].map(ev => (
+                <button key={(ev as any).id || 'all'} onClick={() => setLedgerEventId((ev as any).id || 'all')}
+                  className={`px-3 py-1.5 rounded-full text-[11px] font-bold transition-all ${ledgerEventId === ((ev as any).id || 'all') ? 'bg-orange text-white' : 'border border-border text-gray-muted hover:text-white'}`}>
+                  {ev.name}
+                </button>
+              ))}
+            </div>
+
+            {/* Summary cards */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+              {[
+                { label: 'Frè Stand Total',   val: `$${totalStandFees.toLocaleString()}`,   color: '' },
+                { label: '✓ Frè Stand Peye',  val: `$${totalStandPaid.toLocaleString()}`,   color: 'text-green' },
+                { label: '⚠️ Frè Stand Dwe',  val: `$${totalStandUnpaid.toLocaleString()}`, color: totalStandUnpaid > 0 ? 'text-orange' : 'text-gray-muted' },
+                { label: '💰 Tikè Angwo',     val: `$${totalTicketRevenue.toLocaleString()}`, color: 'text-green' },
+              ].map((s, i) => (
+                <div key={i} className="bg-dark-card border border-border rounded-card p-3.5">
+                  <p className="text-[9px] text-gray-muted uppercase tracking-widest mb-1">{s.label}</p>
+                  <p className={`font-heading text-2xl ${s.color}`}>{s.val}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Grand total banner */}
+            <div className="flex items-center justify-between bg-green/5 border border-green/30 rounded-xl px-5 py-3 mb-6">
+              <span className="text-xs font-bold text-green uppercase tracking-widest">💰 Total Resevwa (Frè Stand Peye + Tikè)</span>
+              <span className="font-heading text-2xl text-green">${grandTotal.toLocaleString()}</span>
+            </div>
+
+            {/* Per-vendor table */}
+            {filteredReqs.length === 0 ? (
+              <div className="text-center py-16">
+                <p className="text-4xl mb-3">📋</p>
+                <p className="text-sm text-gray-muted">Pa gen vandè apwouve pou filtre sa a.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead>
+                    <tr className="border-b border-border">
+                      {['Vandè', 'Evènman', 'Frè Stand', 'Statut', 'Tikè Achte', 'Montant Tikè', 'Total Resevwa'].map(h => (
+                        <th key={h} className="text-[9px] text-gray-muted uppercase tracking-widest pb-3 pr-4">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredReqs.map(req => {
+                      const vendor = resellers.find(v => v.id === req.vendorId);
+                      const purchases = (vendor?.purchases || []).filter(p =>
+                        p.eventId === req.eventId
+                      );
+                      const ticketTotal = purchases.reduce((a, p) => a + p.totalPaid, 0);
+                      const ticketQty   = purchases.reduce((a, p) => a + p.qty, 0);
+                      const standFee    = req.standFee || 0;
+                      const totalReceived = (req.standFeePaid ? standFee : 0) + ticketTotal;
+
+                      return (
+                        <tr key={req.id} className="border-b border-border hover:bg-white/[0.02] transition-colors">
+                          <td className="py-3 pr-4">
+                            <p className="text-xs font-bold">{req.vendorName}</p>
+                            <p className="text-[10px] text-gray-muted">{vendor?.phone || req.vendorPhone}</p>
+                          </td>
+                          <td className="py-3 pr-4">
+                            <p className="text-xs">{req.eventEmoji} {req.eventName}</p>
+                            {req.eventDate && <p className="text-[9px] text-gray-muted">📅 {req.eventDate}</p>}
+                          </td>
+                          <td className="py-3 pr-4">
+                            {standFee > 0 ? (
+                              <span className="text-xs font-bold">${standFee}</span>
+                            ) : (
+                              <span className="text-[10px] text-gray-muted">—</span>
+                            )}
+                          </td>
+                          <td className="py-3 pr-4">
+                            {standFee === 0 ? (
+                              <span className="text-[10px] text-gray-muted">Pa gen frè</span>
+                            ) : req.standFeePaid ? (
+                              <span className="px-2 py-0.5 rounded text-[9px] font-bold bg-green/10 text-green border border-green/30">✓ Peye</span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded text-[9px] font-bold bg-orange/10 text-orange border border-orange/30">⚠️ Poko Peye</span>
+                            )}
+                          </td>
+                          <td className="py-3 pr-4">
+                            <span className="text-xs font-bold">{ticketQty}</span>
+                            <span className="text-[9px] text-gray-muted ml-1">tikè</span>
+                          </td>
+                          <td className="py-3 pr-4">
+                            <span className="text-xs font-bold text-green">${ticketTotal.toLocaleString()}</span>
+                          </td>
+                          <td className="py-3">
+                            <span className="text-sm font-bold text-white">${totalReceived.toLocaleString()}</span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        );
+      })()}
     </div>
   );
 }
