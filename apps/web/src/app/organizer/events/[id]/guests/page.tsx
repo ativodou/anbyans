@@ -78,6 +78,15 @@ function GiftRegistryTab({ eventId }: { eventId: string }) {
   const [gLink, setGLink] = useState('');
   const [gQty, setGQty] = useState('1');
 
+  // Editing state
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [eName, setEName] = useState('');
+  const [eDesc, setEDesc] = useState('');
+  const [ePrice, setEPrice] = useState('');
+  const [eLink, setELink] = useState('');
+  const [eQty, setEQty] = useState('1');
+  const [savingEdit, setSavingEdit] = useState(false);
+
   useEffect(() => {
     (async () => {
       try {
@@ -124,6 +133,32 @@ function GiftRegistryTab({ eventId }: { eventId: string }) {
     setGiftItems(updated);
   };
 
+  const startEdit = (item: GiftItem) => {
+    setEditingId(item.id);
+    setEName(item.name);
+    setEDesc(item.description || '');
+    setEPrice(item.price != null ? String(item.price) : '');
+    setELink(item.link || '');
+    setEQty(String(item.qty));
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingId || !eName.trim()) return;
+    setSavingEdit(true);
+    const updated = giftItems.map(i => i.id === editingId ? {
+      ...i,
+      name: eName.trim(),
+      description: eDesc.trim() || undefined,
+      price: ePrice ? parseFloat(ePrice) : undefined,
+      link: eLink.trim() || undefined,
+      qty: parseInt(eQty) || 1,
+    } : i);
+    await updateDoc(doc(db, 'events', eventId), { giftItems: updated });
+    setGiftItems(updated);
+    setEditingId(null);
+    setSavingEdit(false);
+  };
+
   if (loadingGifts) return (
     <div className="flex justify-center py-12">
       <div className="w-6 h-6 rounded-full border-2 border-orange border-t-transparent animate-spin" />
@@ -165,33 +200,65 @@ function GiftRegistryTab({ eventId }: { eventId: string }) {
           {giftItems.map((item, i) => {
             const itemClaims = giftClaims.filter(c => c.itemId === item.id);
             const remaining = item.qty - itemClaims.length;
+            const isEditing = editingId === item.id;
             return (
               <div key={item.id} className={`px-4 py-4 ${i > 0 ? 'border-t border-border' : ''}`}>
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-[13px]">{item.name}</p>
-                    {item.description && <p className="text-[11px] text-gray-muted mt-0.5">{item.description}</p>}
-                    <div className="flex items-center gap-3 mt-1 flex-wrap">
-                      {item.price != null && <span className="text-[12px] text-orange font-bold">${item.price}</span>}
-                      {item.link && (
-                        <a href={item.link} target="_blank" rel="noopener noreferrer"
-                          className="text-[11px] text-cyan hover:underline">🛒 Achte</a>
-                      )}
-                      <span className={`text-[11px] font-bold ${remaining > 0 ? 'text-green' : 'text-gray-muted'}`}>
-                        {remaining} / {item.qty} disponib
-                      </span>
+                {isEditing ? (
+                  <div className="space-y-2">
+                    <input value={eName} onChange={e => setEName(e.target.value)} placeholder="Non kado"
+                      className="w-full px-3 py-2 rounded-lg bg-white/[0.05] border border-orange text-sm text-white outline-none" />
+                    <input value={eDesc} onChange={e => setEDesc(e.target.value)} placeholder="Deskripsyon"
+                      className="w-full px-3 py-2 rounded-lg bg-white/[0.05] border border-border text-sm text-white outline-none focus:border-orange" />
+                    <div className="flex gap-2">
+                      <input value={ePrice} onChange={e => setEPrice(e.target.value)} placeholder="Pri $" type="number" min="0"
+                        className="flex-1 px-3 py-2 rounded-lg bg-white/[0.05] border border-border text-sm text-white outline-none focus:border-orange" />
+                      <input value={eQty} onChange={e => setEQty(e.target.value)} placeholder="Qty" type="number" min="1"
+                        className="w-20 px-3 py-2 rounded-lg bg-white/[0.05] border border-border text-sm text-white outline-none focus:border-orange" />
                     </div>
-                    {itemClaims.length > 0 && (
-                      <div className="mt-2 space-y-0.5">
-                        {itemClaims.map(c => (
-                          <p key={c.id} className="text-[10px] text-gray-muted">✓ {c.guestName}</p>
-                        ))}
-                      </div>
-                    )}
+                    <input value={eLink} onChange={e => setELink(e.target.value)} placeholder="Lyen boutik"
+                      className="w-full px-3 py-2 rounded-lg bg-white/[0.05] border border-border text-sm text-white outline-none focus:border-orange" />
+                    <div className="flex gap-2">
+                      <button onClick={handleSaveEdit} disabled={savingEdit || !eName.trim()}
+                        className="flex-1 py-2 rounded-lg bg-orange text-black text-xs font-bold disabled:opacity-40">
+                        {savingEdit ? '…' : '✓ Anrejistre'}
+                      </button>
+                      <button onClick={() => setEditingId(null)}
+                        className="px-4 py-2 rounded-lg bg-white/[0.06] text-gray-muted text-xs font-bold hover:text-white">
+                        Anile
+                      </button>
+                    </div>
                   </div>
-                  <button onClick={() => handleDeleteGift(item.id)}
-                    className="text-gray-muted hover:text-red-400 text-[11px] shrink-0 mt-0.5">✕</button>
-                </div>
+                ) : (
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-[13px]">{item.name}</p>
+                      {item.description && <p className="text-[11px] text-gray-muted mt-0.5">{item.description}</p>}
+                      <div className="flex items-center gap-3 mt-1 flex-wrap">
+                        {item.price != null && <span className="text-[12px] text-orange font-bold">${item.price}</span>}
+                        {item.link && (
+                          <a href={item.link} target="_blank" rel="noopener noreferrer"
+                            className="text-[11px] text-cyan hover:underline">🛒 Achte</a>
+                        )}
+                        <span className={`text-[11px] font-bold ${remaining > 0 ? 'text-green' : 'text-gray-muted'}`}>
+                          {remaining} / {item.qty} disponib
+                        </span>
+                      </div>
+                      {itemClaims.length > 0 && (
+                        <div className="mt-2 space-y-0.5">
+                          {itemClaims.map(c => (
+                            <p key={c.id} className="text-[10px] text-gray-muted">✓ {c.guestName}</p>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex gap-2 shrink-0">
+                      <button onClick={() => startEdit(item)}
+                        className="text-gray-muted hover:text-orange text-[11px]">✎</button>
+                      <button onClick={() => handleDeleteGift(item.id)}
+                        className="text-gray-muted hover:text-red-400 text-[11px]">✕</button>
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })}

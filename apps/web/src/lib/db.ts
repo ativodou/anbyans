@@ -102,6 +102,12 @@ export interface EventData {
   posActivatedAt?: string;
   privateActivated?: boolean;
   privateActivatedAt?: string;
+  eventType?: string;
+  hasTickets?: boolean;
+  barEnabled?: boolean;
+  barCode?: string;
+  budgetActivated?: boolean;
+  giftItems?: Array<{ id: string; name: string; description?: string; price?: number; link?: string; qty: number }>;
   createdAt: any;
   updatedAt: any;
 }

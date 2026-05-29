@@ -552,6 +552,20 @@ function EditEventInner() {
                 placeholder="$0"
                 className="w-28 px-3 py-2 rounded-lg bg-white/[0.06] border border-border text-white text-sm text-center outline-none focus:border-orange" />
             </div>
+            {/* Gift registry link — private events only */}
+            {isPrivate && (
+              <div className="flex items-center justify-between p-4 rounded-xl bg-white/[0.03] border border-border">
+                <div>
+                  <p className="text-sm font-bold">🎁 Lis Kado</p>
+                  <p className="text-[10px] text-gray-500">Jere rejis kado pou envitasyon prive yo.</p>
+                </div>
+                <a href={`/organizer/events/${eventId}/guests`}
+                  className="px-4 py-2 rounded-lg bg-white/[0.06] border border-border text-xs font-bold text-gray-light hover:text-white hover:border-white/20 transition-all">
+                  Jere →
+                </a>
+              </div>
+            )}
+
             <button type="button" onClick={() => setTab('venue')}
               className="w-full py-3 rounded-xl bg-orange text-white font-heading text-sm hover:bg-orange/90 transition-all">
               {t('create_continue')}

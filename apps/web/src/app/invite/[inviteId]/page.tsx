@@ -147,6 +147,24 @@ export default function InvitePage() {
     ctx.fillText(fmt(event.startDate||'') + (event.startDate ? '  ·  '+fmtTime(event.startDate) : ''), W/2, 570);
     const venueStr = typeof event.venue === 'object' ? (event.venue as any)?.name||'' : String(event.venue||'');
     ctx.fillStyle = '#aaa'; ctx.font = '18px sans-serif'; ctx.fillText(venueStr, W/2, 620);
+    // Gift registry
+    const gifts: any[] = event.giftItems || [];
+    if (gifts.length > 0) {
+      ctx.strokeStyle = '#333'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(80, 660); ctx.lineTo(W-80, 660); ctx.stroke();
+      ctx.fillStyle = '#f97316'; ctx.font = 'bold 18px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText('🎁  Lis Kado', W/2, 695);
+      ctx.fillStyle = '#ccc'; ctx.font = '15px sans-serif';
+      const shown = gifts.slice(0, 5);
+      shown.forEach((g, i) => {
+        const label = g.name + (g.price ? `  —  $${g.price}` : '');
+        ctx.fillText(label.length > 55 ? label.slice(0,53)+'…' : label, W/2, 725 + i * 32);
+      });
+      if (gifts.length > 5) {
+        ctx.fillStyle = '#888'; ctx.font = '13px sans-serif';
+        ctx.fillText(`+ ${gifts.length - 5} lòt...`, W/2, 725 + 5 * 32);
+      }
+    }
     ctx.fillStyle = '#666'; ctx.font = '14px sans-serif';
     ctx.fillText('Prezante lyen envitasyon ou a nan antre', W/2, H-80);
     ctx.fillStyle = '#f97316'; ctx.font = 'bold 14px sans-serif';
@@ -177,6 +195,7 @@ export default function InvitePage() {
   // ── Done / confirmed ──────────────────────────────────────────
   if (done) return (
     <div className="min-h-screen bg-[#0a0a14] flex flex-col items-center justify-center p-4 text-center">
+      <canvas ref={canvasRef} className="hidden" />
       <div className="w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl"
         style={{ background: 'linear-gradient(160deg,#12121f,#1a0a2e)', border: '1px solid rgba(34,197,94,0.4)' }}>
         <div className="h-1 bg-green-500" />
@@ -191,9 +210,57 @@ export default function InvitePage() {
               <div key={code} className="px-4 py-2 rounded-xl bg-white/[0.05] border border-border font-mono text-sm text-orange">{code}</div>
             ))}
           </div>
-          <p className="text-[11px] text-gray-500">Montre kòd sa nan antre evènman an.</p>
+          <p className="text-[11px] text-gray-500 mb-6">Montre kòd sa nan antre evènman an.</p>
+          <button onClick={downloadCard}
+            className="w-full py-3 rounded-2xl border border-orange/40 text-orange text-sm font-bold hover:bg-orange/10 transition-all">
+            ⬇ Telechaje kart envitasyon
+          </button>
         </div>
-        <div className="border-t border-white/[0.05] py-3 text-center">
+
+        {/* Gift registry on confirmed screen */}
+        {giftItems.length > 0 && (
+          <div className="border-t border-white/[0.05] px-6 pt-6 pb-2">
+            <p className="font-heading text-base text-white mb-1 text-center">🎁 Lis Kado</p>
+            <p className="text-[11px] text-gray-400 mb-4 text-center">Chwazi yon kado pou fè yo kontan!</p>
+            <div className="space-y-3">
+              {giftItems.map(item => {
+                const itemClaims = giftClaims.filter(c => c.itemId === item.id);
+                const remaining = item.qty - itemClaims.length;
+                const myClaimExists = giftClaims.some(c => c.itemId === item.id && c.inviteId === inviteId);
+                return (
+                  <div key={item.id} className="rounded-2xl bg-white/[0.04] border border-white/[0.08] p-4">
+                    <p className="font-bold text-[13px] text-white">{item.name}</p>
+                    {item.description && <p className="text-[11px] text-gray-400 mt-0.5">{item.description}</p>}
+                    <div className="flex items-center gap-3 mt-2 flex-wrap">
+                      {item.price != null && <span className="text-[12px] text-orange font-bold">${item.price}</span>}
+                      {item.link && (
+                        <a href={item.link} target="_blank" rel="noopener noreferrer"
+                          className="text-[11px] text-cyan hover:underline">🛒 Achte</a>
+                      )}
+                      <span className={`text-[11px] font-semibold ${remaining > 0 ? 'text-green-400' : 'text-gray-500'}`}>
+                        {remaining} / {item.qty} disponib
+                      </span>
+                    </div>
+                    <div className="mt-3">
+                      {myClaimExists ? (
+                        <span className="inline-block px-3 py-1.5 rounded-xl bg-green-900/40 text-green-400 text-[11px] font-bold">✓ Ou rezève sa</span>
+                      ) : remaining === 0 ? (
+                        <span className="inline-block px-3 py-1.5 rounded-xl bg-white/[0.06] text-gray-500 text-[11px] font-bold">✓ Deja pran</span>
+                      ) : (
+                        <button onClick={() => handleClaim(item)} disabled={claimingId === item.id}
+                          className="px-4 py-1.5 rounded-xl bg-orange/90 text-black font-bold text-[11px] hover:bg-orange transition-all disabled:opacity-50">
+                          {claimingId === item.id ? '⏳…' : '🎁 Rezerve'}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        <div className="border-t border-white/[0.05] py-3 text-center mt-4">
           <p className="text-[10px] text-gray-600">anbyans.events</p>
         </div>
       </div>
