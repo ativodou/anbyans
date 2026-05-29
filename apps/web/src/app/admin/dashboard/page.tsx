@@ -292,6 +292,11 @@ export default function AdminDashboardPage() {
     setBudgetCashRequests(prev => prev.map(x => x.id === r.id ? { ...x, status: 'approved' } : x));
   }
 
+  async function forceActivateBudget(eventId: string) {
+    await updateDoc(doc(db, 'events', eventId), { budgetActivated: true, budgetActivatedAt: new Date().toISOString() });
+    alert(`✅ budgetActivated = true sou evènman ${eventId}`);
+  }
+
   async function denyBudgetCashRequest(r: any) {
     await updateDoc(doc(db, 'budgetCashRequests', r.id), { status: 'denied', resolvedAt: serverTimestamp() });
     setBudgetCashRequests(prev => prev.map(x => x.id === r.id ? { ...x, status: 'denied' } : x));
@@ -613,20 +618,27 @@ export default function AdminDashboardPage() {
                       </div>
                     </div>
                     {/* Budget cash requests for this organizer */}
-                    {budgetCashRequests.filter(r => r.organizerId === o.id && r.status === 'pending').map(r => (
+                    {budgetCashRequests.filter(r => r.organizerId === o.id).map(r => (
                       <div key={r.id} className="mt-3 pt-3 border-t border-border">
                         <p className="text-[11px] font-bold text-yellow-400 mb-0.5">💰 Peman Kach — Bidjè</p>
-                        <p className="text-[11px] text-gray-muted mb-2">{r.eventName} · ${r.amount}</p>
-                        <div className="flex gap-1.5">
-                          <button onClick={() => approveBudgetCashRequest(r)}
-                            className="flex-1 py-1.5 rounded-lg text-[10px] font-bold bg-green-dim text-green border border-green/30">
-                            ✅ Apwouve
+                        <p className="text-[11px] text-gray-muted mb-2">{r.eventName} · ${r.amount} · <span className={r.status === 'approved' ? 'text-green' : r.status === 'denied' ? 'text-red-400' : 'text-yellow-400'}>{r.status}</span></p>
+                        {r.status === 'pending' ? (
+                          <div className="flex gap-1.5">
+                            <button onClick={() => approveBudgetCashRequest(r)}
+                              className="flex-1 py-1.5 rounded-lg text-[10px] font-bold bg-green-dim text-green border border-green/30">
+                              ✅ Apwouve
+                            </button>
+                            <button onClick={() => denyBudgetCashRequest(r)}
+                              className="flex-1 py-1.5 rounded-lg text-[10px] font-bold bg-red/10 text-red border border-red/30">
+                              🚫 Refize
+                            </button>
+                          </div>
+                        ) : (
+                          <button onClick={() => forceActivateBudget(r.eventId)}
+                            className="w-full py-1.5 rounded-lg text-[10px] font-bold bg-white/[0.05] text-gray-light border border-border hover:border-white/20">
+                            ⚡ Force Aktive Bidjè
                           </button>
-                          <button onClick={() => denyBudgetCashRequest(r)}
-                            className="flex-1 py-1.5 rounded-lg text-[10px] font-bold bg-red/10 text-red border border-red/30">
-                            🚫 Refize
-                          </button>
-                        </div>
+                        )}
                       </div>
                     ))}
 
