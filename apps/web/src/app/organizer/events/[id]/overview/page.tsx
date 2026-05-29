@@ -113,9 +113,11 @@ export default function EventOverviewPage() {
         )}
         {event.isPrivate && (
           <div className={statCard}>
-            <p className="text-[10px] text-gray-muted uppercase tracking-widest">Envite</p>
-            <p className="font-heading text-3xl text-orange">{confirmedGuests}<span className="text-lg text-gray-muted">/{guests.length}</span></p>
-            <p className="text-[10px] text-gray-muted">{totalGuestTickets} tikè total</p>
+            <p className="text-[10px] text-gray-muted uppercase tracking-widest">RSVP</p>
+            <p className="font-heading text-3xl text-green">{confirmedGuests}<span className="text-lg text-gray-muted">/{guests.length}</span></p>
+            {guests.length - confirmedGuests > 0
+              ? <p className="text-[10px] text-orange">{guests.length - confirmedGuests} an atant</p>
+              : <p className="text-[10px] text-gray-muted">{totalGuestTickets} tikè total</p>}
           </div>
         )}
         {barTotal > 0 && (
