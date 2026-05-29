@@ -696,7 +696,7 @@ function EditEventInner() {
               </button>
               <button type="button" onClick={() => skipPayment ? save() : setTab('payment')}
                 className="flex-1 py-3 rounded-xl bg-orange text-white font-heading text-sm hover:bg-orange/90 transition-all">
-                {skipPayment ? t('create_save') : t('create_continue')}
+                {skipPayment ? t('create_publish') : t('create_continue')}
               </button>
             </div>
           </>
