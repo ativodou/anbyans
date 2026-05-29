@@ -154,12 +154,18 @@ export default function GuestListPage() {
 
   const inviteLink = (inviteId: string) => `${window.location.origin}/invite/${inviteId}`;
 
+  const markSent = (inviteId: string) => {
+    updateDoc(doc(db, 'invitations', inviteId), { sentAt: new Date().toISOString() }).catch(() => {});
+    setGuests(prev => prev.map(g => g.id === inviteId ? { ...g, sentAt: new Date().toISOString() } as any : g));
+  };
+
   const copyLink = (inviteId: string) => {
     const url = inviteLink(inviteId);
     if (navigator.clipboard) { navigator.clipboard.writeText(url).catch(() => fallbackCopy(url)); }
     else { fallbackCopy(url); }
     setCopied(inviteId);
     setTimeout(() => setCopied(null), 2000);
+    markSent(inviteId);
   };
   const fallbackCopy = (text: string) => {
     const ta = document.createElement('textarea'); ta.value = text;
@@ -270,12 +276,15 @@ export default function GuestListPage() {
 
                 {/* Send buttons — gated */}
                 <div className="flex items-center gap-1 shrink-0">
+                  {(g as any).sentAt && (
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-green-900/20 text-green">✓ Voye</span>
+                  )}
                   {g.guestPhone && (
-                    <button onClick={() => gate(() => window.open(`https://wa.me/${g.guestPhone!.replace(/\D/g,'')}?text=${encodeURIComponent(`Ou envite nan ${event?.name || 'evènman an'}! Klike sou lyen sa pou konfime prezans ou: ${inviteLink(g.id)}`)}`, '_blank'))}
+                    <button onClick={() => gate(() => { window.open(`https://wa.me/${g.guestPhone!.replace(/\D/g,'')}?text=${encodeURIComponent(`Ou envite nan ${event?.name || 'evènman an'}! Klike sou lyen sa pou konfime prezans ou: ${inviteLink(g.id)}`)}`, '_blank'); markSent(g.id); })}
                       className="text-[11px] text-green hover:underline">📱 WA</button>
                   )}
                   {g.guestEmail && (
-                    <button onClick={() => gate(() => window.open(`mailto:${g.guestEmail}?subject=${encodeURIComponent(`Envitasyon — ${event?.name || 'Evènman'}`)}&body=${encodeURIComponent(`Bonjou ${g.guestName},\n\nOu envite nan ${event?.name || 'evènman an'}!\n\nKlike sou lyen sa pou konfime prezans ou:\n${inviteLink(g.id)}\n\nAnbyans`)}`, '_self'))}
+                    <button onClick={() => gate(() => { window.open(`mailto:${g.guestEmail}?subject=${encodeURIComponent(`Envitasyon — ${event?.name || 'Evènman'}`)}&body=${encodeURIComponent(`Bonjou ${g.guestName},\n\nOu envite nan ${event?.name || 'evènman an'}!\n\nKlike sou lyen sa pou konfime prezans ou:\n${inviteLink(g.id)}\n\nAnbyans`)}`, '_self'); markSent(g.id); })}
                       className="text-[11px] text-cyan hover:underline">✉️ Imèl</button>
                   )}
                   <button onClick={() => gate(() => copyLink(g.id))}
