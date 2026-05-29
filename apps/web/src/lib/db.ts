@@ -2282,7 +2282,8 @@ export async function getBudgetItems(eventId: string): Promise<BudgetItem[]> {
 
 export async function addBudgetItem(item: Omit<BudgetItem, 'id' | 'createdAt'>): Promise<BudgetItem> {
   const ref = doc(collection(db, 'budgetItems'));
-  const data = { ...item, createdAt: serverTimestamp() };
+  const { note, ...rest } = item;
+  const data = { ...rest, createdAt: serverTimestamp(), ...(note ? { note } : {}) };
   await setDoc(ref, data);
   return { id: ref.id, ...data, createdAt: null };
 }
