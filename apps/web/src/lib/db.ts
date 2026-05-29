@@ -868,12 +868,16 @@ export async function requestVendorAccess(params: {
   if (!existing.empty) {
     return { id: existing.docs[0].id, ...existing.docs[0].data() } as VendorRequest;
   }
+  // Check if vendor is trusted → auto-approve
+  const vendorSnap = await getDoc(doc(db, 'vendors', params.vendorId));
+  const isTrusted = vendorSnap.exists() && vendorSnap.data()?.trusted === true;
+  const status = isTrusted ? 'approved' : 'pending';
   const ref = await addDoc(collection(db, 'vendorRequests'), {
     ...params,
-    status: 'pending',
+    status,
     requestedAt: serverTimestamp(),
   });
-  return { id: ref.id, ...params, status: 'pending', requestedAt: null };
+  return { id: ref.id, ...params, status, requestedAt: null };
 }
 
 export async function getVendorRequests(vendorId: string): Promise<VendorRequest[]> {

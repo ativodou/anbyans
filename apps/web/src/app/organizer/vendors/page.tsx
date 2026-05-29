@@ -52,6 +52,10 @@ export default function OrganizerVendorsPage() {
   const [showInvite, setShowInvite]       = useState(false);
   const [showPricing, setShowPricing]     = useState(false);
   const [filterStatus, setFilterStatus]   = useState<string>('all');
+  // Tier editing state: key = `${eventId}__${sectionName}`
+  const [tierEdits, setTierEdits] = useState<Record<string, BulkTier[]>>({});
+  const [tierNew, setTierNew]     = useState<Record<string, { minQty: string; maxQty: string; priceEach: string }>>({});
+  const tierKey = (eventId: string, sec: string) => `${eventId}__${sec}`;
 
   // Sync pricing panel to selected event from context (but don't force the list filter)
   useEffect(() => {
@@ -346,40 +350,91 @@ Konekte sou dachbod ou pou achte tikè bulk:
                                 · {sec.capacity - sec.sold} {t('resellers_available')}
                               </span>
                             </div>
-                            {tiers.length === 0 ? (
-                              <p className="text-[11px] text-gray-muted mb-3">Pa gen pri angwo konfigire pou seksyon sa a.</p>
-                            ) : (
-                              <div className="overflow-x-auto mb-3">
-                                <table className="w-full text-left">
-                                  <thead>
-                                    <tr className="border-b border-border">
-                                      {[t('resellers_qty'), t('resellers_price_per'), t('vend_buy_discount'), t('resellers_example')].map(h => (
-                                        <th key={h} className={`text-[9px] text-gray-muted uppercase tracking-widest pb-2 ${h !== t('resellers_qty') ? 'text-right' : ''}`}>{h}</th>
-                                      ))}
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    {tiers.map((tier, i) => {
-                                      const discount = Math.round(((sec.price - tier.priceEach) / sec.price) * 100);
-                                      return (
-                                        <tr key={i} className="border-b border-border last:border-0">
-                                          <td className="py-2.5 text-xs font-bold">{fmtTier(tier)} {t('tickets')}</td>
-                                          <td className="py-2.5 text-xs text-right"><span className="font-heading text-lg">${tier.priceEach}</span><span className="text-[10px] text-gray-muted ml-1">{t('buy_each')}</span></td>
-                                          <td className="py-2.5 text-xs text-right"><span className="text-green font-bold">-{discount}%</span></td>
-                                          <td className="py-2.5 text-xs text-right text-gray-light">{tier.minQty} × ${tier.priceEach} = <strong className="text-white">${tier.minQty * tier.priceEach}</strong></td>
-                                        </tr>
-                                      );
-                                    })}
-                                  </tbody>
-                                </table>
-                              </div>
-                            )}
-                            <button onClick={() => {
-                              const newTier: BulkTier = { minQty: 10, maxQty: 25, priceEach: Math.round(sec.price * 0.8) };
-                              handleSaveTiers(pricingEvent.id!, sec.name, [...tiers, newTier]);
-                            }} className="text-[10px] text-orange hover:underline">
-                              ✏️ {t('resellers_edit_price')}
-                            </button>
+                            {(() => {
+                              const k = tierKey(pricingEvent.id!, sec.name);
+                              const localTiers = tierEdits[k] ?? tiers;
+                              const newRow = tierNew[k] ?? { minQty: '', maxQty: '', priceEach: '' };
+                              const updateLocal = (updated: BulkTier[]) => setTierEdits(e => ({ ...e, [k]: updated }));
+                              return (
+                                <>
+                                  {localTiers.length === 0 ? (
+                                    <p className="text-[11px] text-gray-muted mb-3">Pa gen pri angwo konfigire. Ajoute yon tye anba a.</p>
+                                  ) : (
+                                    <div className="overflow-x-auto mb-3">
+                                      <table className="w-full text-left">
+                                        <thead>
+                                          <tr className="border-b border-border">
+                                            {['Min Qty', 'Max Qty', 'Pri / Tikè', 'Rabè', ''].map(h => (
+                                              <th key={h} className="text-[9px] text-gray-muted uppercase tracking-widest pb-2">{h}</th>
+                                            ))}
+                                          </tr>
+                                        </thead>
+                                        <tbody>
+                                          {localTiers.map((tier, i) => {
+                                            const discount = sec.price > 0 ? Math.round(((sec.price - tier.priceEach) / sec.price) * 100) : 0;
+                                            return (
+                                              <tr key={i} className="border-b border-border last:border-0">
+                                                <td className="py-2">
+                                                  <input type="number" min={1} value={tier.minQty}
+                                                    onChange={e => { const t2 = [...localTiers]; t2[i] = { ...t2[i], minQty: Number(e.target.value) }; updateLocal(t2); }}
+                                                    className="w-16 px-2 py-1 rounded bg-white/[0.05] border border-border text-white text-xs outline-none focus:border-orange" />
+                                                </td>
+                                                <td className="py-2">
+                                                  <input type="number" min={1} value={tier.maxQty ?? ''} placeholder="∞"
+                                                    onChange={e => { const t2 = [...localTiers]; t2[i] = { ...t2[i], maxQty: e.target.value ? Number(e.target.value) : null }; updateLocal(t2); }}
+                                                    className="w-16 px-2 py-1 rounded bg-white/[0.05] border border-border text-white text-xs outline-none focus:border-orange" />
+                                                </td>
+                                                <td className="py-2">
+                                                  <div className="flex items-center gap-1">
+                                                    <span className="text-gray-muted text-xs">$</span>
+                                                    <input type="number" min={0} value={tier.priceEach}
+                                                      onChange={e => { const t2 = [...localTiers]; t2[i] = { ...t2[i], priceEach: Number(e.target.value) }; updateLocal(t2); }}
+                                                      className="w-20 px-2 py-1 rounded bg-white/[0.05] border border-border text-white text-xs outline-none focus:border-orange" />
+                                                  </div>
+                                                </td>
+                                                <td className="py-2 text-xs"><span className="text-green font-bold">-{discount}%</span></td>
+                                                <td className="py-2">
+                                                  <button onClick={() => updateLocal(localTiers.filter((_, j) => j !== i))}
+                                                    className="text-gray-muted hover:text-red-400 text-[11px] px-1">✕</button>
+                                                </td>
+                                              </tr>
+                                            );
+                                          })}
+                                        </tbody>
+                                      </table>
+                                    </div>
+                                  )}
+                                  {/* Add new tier row */}
+                                  <div className="flex items-center gap-2 mb-3 flex-wrap">
+                                    <span className="text-[10px] text-gray-muted">Ajoute:</span>
+                                    <input type="number" min={1} placeholder="Min" value={newRow.minQty}
+                                      onChange={e => setTierNew(n => ({ ...n, [k]: { ...newRow, minQty: e.target.value } }))}
+                                      className="w-16 px-2 py-1 rounded bg-white/[0.05] border border-border text-white text-xs outline-none focus:border-orange" />
+                                    <span className="text-gray-muted text-xs">—</span>
+                                    <input type="number" min={1} placeholder="Max (vid=∞)" value={newRow.maxQty}
+                                      onChange={e => setTierNew(n => ({ ...n, [k]: { ...newRow, maxQty: e.target.value } }))}
+                                      className="w-24 px-2 py-1 rounded bg-white/[0.05] border border-border text-white text-xs outline-none focus:border-orange" />
+                                    <span className="text-gray-muted text-xs">$</span>
+                                    <input type="number" min={0} placeholder="Pri" value={newRow.priceEach}
+                                      onChange={e => setTierNew(n => ({ ...n, [k]: { ...newRow, priceEach: e.target.value } }))}
+                                      className="w-20 px-2 py-1 rounded bg-white/[0.05] border border-border text-white text-xs outline-none focus:border-orange" />
+                                    <button onClick={() => {
+                                      if (!newRow.minQty || !newRow.priceEach) return;
+                                      const added: BulkTier = { minQty: Number(newRow.minQty), maxQty: newRow.maxQty ? Number(newRow.maxQty) : null, priceEach: Number(newRow.priceEach) };
+                                      updateLocal([...localTiers, added]);
+                                      setTierNew(n => ({ ...n, [k]: { minQty: '', maxQty: '', priceEach: '' } }));
+                                    }} className="px-3 py-1 rounded bg-orange/20 text-orange text-[10px] font-bold hover:bg-orange hover:text-white transition-all">
+                                      + Ajoute
+                                    </button>
+                                  </div>
+                                  <button onClick={() => handleSaveTiers(pricingEvent.id!, sec.name, localTiers)}
+                                    disabled={saving}
+                                    className="px-4 py-1.5 rounded-lg bg-orange text-white text-[10px] font-bold hover:bg-orange/80 disabled:opacity-50 transition-all">
+                                    {saving ? '…' : '💾 Sove Pri Angwo'}
+                                  </button>
+                                </>
+                              );
+                            })()}
                           </div>
                         );
                       })}
@@ -596,7 +651,7 @@ Konekte sou dachbod ou pou achte tikè bulk:
                                     ? 'border-cyan/50 text-cyan bg-cyan/10 hover:bg-red/10 hover:text-red hover:border-red/50'
                                     : 'border-border text-gray-muted hover:border-cyan/50 hover:text-cyan hover:bg-cyan/10'
                                 }`}>
-                                {(v as any).trusted ? '✓ Trusted · Retire' : '+ Mete Trusted (💳 kat)'}
+                                {(v as any).trusted ? '✓ Trusted · Retire' : '+ Mete Trusted (auto-apwouve)'}
                               </button>
                             </div>
                           </div>

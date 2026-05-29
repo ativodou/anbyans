@@ -21,7 +21,7 @@ export default function VendorLoginPage() {
     setError('');
     const cleanPhone = phone.replace(/\D/g, '');
     if (cleanPhone.length < 8) { setError(t('vend_login_phone_invalid')); return; }
-    if (pin.length !== 4) { setError(t('vend_login_pin_invalid')); return; }
+    if (pin.length < 4 || pin.length > 6) { setError(t('vend_login_pin_invalid')); return; }
     setLoading(true);
     try {
       const email = `${cleanPhone}@vendor.anbyans.events`;
@@ -72,9 +72,9 @@ export default function VendorLoginPage() {
               <input
                 type="password"
                 value={pin}
-                onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                placeholder="••••"
-                maxLength={4}
+                onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                placeholder="••••••"
+                maxLength={6}
                 className="w-full px-3.5 py-2.5 rounded-[10px] bg-white/[0.04] border border-border text-white text-[13px] outline-none focus:border-orange placeholder:text-gray-muted tracking-widest text-center text-lg"
               />
             </div>
