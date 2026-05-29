@@ -95,7 +95,7 @@ export default function BudgetPage() {
 
   // ── Expenses ──
   const totalExpenses = items.reduce((s, i) => s + i.amount, 0);
-  const net = budgetTarget + totalRevenue - totalExpenses;
+  const net = budgetTarget + ticketRevenue + barRevenue - totalExpenses;
 
   // ── Group by category ──
   const byCategory = BUDGET_CATEGORIES
@@ -129,7 +129,7 @@ export default function BudgetPage() {
         </div>
       </div>
 
-      {/* Ledger summary — 4 cards */}
+      {/* Ledger summary — 5 cards */}
       <div className="grid grid-cols-2 gap-3">
         <div className={`${card} p-4`}>
           <p className="text-[10px] text-gray-muted uppercase tracking-widest mb-1">💼 Bidjè</p>
@@ -138,20 +138,25 @@ export default function BudgetPage() {
         </div>
         <div className={`${card} p-4`}>
           <p className="text-[10px] text-gray-muted uppercase tracking-widest mb-1">🎟 Revni Tikè</p>
-          <p className="font-heading text-2xl text-green">${totalRevenue.toLocaleString()}</p>
+          <p className="font-heading text-2xl text-green">${ticketRevenue.toLocaleString()}</p>
           <p className="text-[10px] text-gray-muted mt-1">{validTickets.length} tikè valid</p>
+        </div>
+        <div className={`${card} p-4`}>
+          <p className="text-[10px] text-gray-muted uppercase tracking-widest mb-1">🍺 Revni Bar</p>
+          <p className="font-heading text-2xl text-green">${barRevenue.toLocaleString()}</p>
+          <p className="text-[10px] text-gray-muted mt-1">Bar tab total</p>
         </div>
         <div className={`${card} p-4`}>
           <p className="text-[10px] text-gray-muted uppercase tracking-widest mb-1">📋 Depans</p>
           <p className="font-heading text-2xl text-orange">${totalExpenses.toLocaleString()}</p>
           <p className="text-[10px] text-gray-muted mt-1">{items.length} liy</p>
         </div>
-        <div className={`${card} p-4 ${net >= 0 ? 'border-green/30' : 'border-red-500/30'}`}>
+        <div className={`col-span-2 ${card} p-4 ${net >= 0 ? 'border-green/30' : 'border-red-500/30'}`}>
           <p className="text-[10px] text-gray-muted uppercase tracking-widest mb-1">📊 Nèt</p>
-          <p className={`font-heading text-2xl ${net >= 0 ? 'text-green' : 'text-red-400'}`}>
+          <p className={`font-heading text-3xl ${net >= 0 ? 'text-green' : 'text-red-400'}`}>
             {net >= 0 ? '+' : '−'}${Math.abs(net).toLocaleString()}
           </p>
-          <p className="text-[10px] text-gray-muted mt-1">{net >= 0 ? '✓ Pozitif' : '⚠ Negatif'}</p>
+          <p className="text-[10px] text-gray-muted mt-1">Bidjè + Tikè + Bar − Depans · {net >= 0 ? '✓ Pozitif' : '⚠ Negatif'}</p>
         </div>
       </div>
 
