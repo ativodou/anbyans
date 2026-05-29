@@ -267,7 +267,8 @@ service cloud.firestore {
 
     // ── Budget cash requests ───────────────────────────────────────
     match /budgetCashRequests/{reqId} {
-      allow read: if isActiveAuth() && (
+      allow list: if isActiveAuth() && isAdmin();
+      allow get: if isActiveAuth() && (
         resource.data.organizerId == request.auth.uid || isAdmin()
       );
       allow create: if isActiveAuth() && (
@@ -279,7 +280,8 @@ service cloud.firestore {
 
     // ── Cash activation requests ──────────────────────────────────
     match /cashActivationRequests/{reqId} {
-      allow read: if isActiveAuth() && (
+      allow list: if isActiveAuth() && isAdmin();
+      allow get: if isActiveAuth() && (
         resource.data.organizerId == request.auth.uid || isAdmin()
       );
       allow create: if isActiveAuth() && (
