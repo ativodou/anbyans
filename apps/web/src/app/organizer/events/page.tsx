@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useT } from '@/i18n';
-import { type EventData, markEventEnded, markEventPublished, markEventLive, getPlatformConfig } from '@/lib/db';
+import { type EventData, markEventEnded, markEventPublished, markEventLive, getPlatformConfig, addPosCashRequest } from '@/lib/db';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, doc, updateDoc, query, where, onSnapshot } from 'firebase/firestore';
 import FloorPlanViewer from '@/components/FloorPlanViewer';
@@ -29,10 +29,23 @@ export default function OrganizerEventsPage() {
   const [posClientSecret, setPosClientSecret] = useState<string | null>(null);
   const [posLoading, setPosLoading] = useState(false);
   const [posError, setPosError] = useState('');
+  const [posCashBusy, setPosCashBusy] = useState(false);
+  const [posCashSent, setPosCashSent] = useState(false);
+  const [posCashPending, setPosCashPending] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     getPlatformConfig().then(cfg => setPosFee(cfg.posFee));
   }, []);
+
+  useEffect(() => {
+    if (!user?.uid) return;
+    getDocs(query(collection(db, 'posCashRequests'), where('organizerId', '==', user.uid), where('status', '==', 'pending')))
+      .then(snap => {
+        const map: Record<string, boolean> = {};
+        snap.docs.forEach(d => { map[(d.data() as any).eventId] = true; });
+        setPosCashPending(map);
+      }).catch(() => {});
+  }, [user?.uid]);
 
   useEffect(() => {
     if (authLoading || !user?.uid) return;
@@ -67,6 +80,24 @@ export default function OrganizerEventsPage() {
     } catch (e: any) {
       setPosError(e.message || 'Erè.');
     } finally { setPosLoading(false); }
+  }
+
+  async function handlePosCashRequest(eventId: string) {
+    if (!user) return;
+    setPosCashBusy(true); setPosError('');
+    const ev = events.find(e => e.id === eventId);
+    try {
+      await addPosCashRequest({
+        eventId,
+        eventName: ev?.name || eventId,
+        organizerId: user.uid,
+        organizerName: `${(user as any).firstName || ''} ${(user as any).lastName || ''}`.trim() || user.email || '',
+        amount: posFee,
+      });
+      setPosCashSent(true);
+      setPosCashPending(prev => ({ ...prev, [eventId]: true }));
+    } catch { setPosError('Erè. Eseye ankò.'); }
+    finally { setPosCashBusy(false); }
   }
 
   async function handlePosPaymentSuccess(eventId: string) {
@@ -282,26 +313,42 @@ export default function OrganizerEventsPage() {
 
       {/* ── POS Activation Modal ── */}
       {posModal && (
-        <div onClick={() => { setPosModal(null); setPosClientSecret(null); }}
+        <div onClick={() => { if (!posClientSecret) { setPosModal(null); setPosCashSent(false); } }}
           className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
           <div onClick={e => e.stopPropagation()}
             className="bg-dark-card border border-border rounded-2xl p-6 w-full max-w-md">
-            <div className="flex justify-end mb-2">
-              <button onClick={() => { setPosModal(null); setPosClientSecret(null); }} className="text-gray-muted hover:text-white text-xl leading-none">✕</button>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-heading text-base">Aktive POS</h3>
+              {!posClientSecret && <button onClick={() => { setPosModal(null); setPosCashSent(false); }} className="text-gray-muted hover:text-white text-xl">✕</button>}
             </div>
-            <div className="text-center mb-6">
-              <p className="text-4xl mb-3">🍽️</p>
-              <h3 className="font-heading text-xl text-white mb-1">Activate POS</h3>
-              <p className="text-xs text-gray-muted">One-time fee of <span className="text-white font-bold">${posFee}</span> — unlocks bar & sales tracking for this event</p>
+            <div className="text-center mb-5">
+              <p className="text-4xl mb-2">🍽️</p>
+              <p className="text-xs text-gray-muted">Peman inisyal <span className="text-white font-bold">${posFee}</span> — débloke bar & vant pou evènman sa a</p>
             </div>
             {posError && <p className="text-red-400 text-xs mb-3 text-center">{posError}</p>}
-            {!posClientSecret && (
-              <button onClick={() => handlePosActivate(posModal)} disabled={posLoading}
-                className={`w-full py-3 rounded-xl font-bold text-sm ${posLoading ? 'bg-white/[0.04] text-gray-muted cursor-not-allowed' : 'bg-purple text-white hover:bg-purple/80'} transition-all`}>
-                {posLoading ? '...' : `💳 Pay $${posFee} & Activate`}
-              </button>
-            )}
-            {posClientSecret && (
+
+            {posCashSent ? (
+              <div className="text-center py-4">
+                <p className="text-3xl mb-2">💵</p>
+                <p className="text-sm font-bold text-white mb-1">Demann kach voye!</p>
+                <p className="text-xs text-gray-muted">Admin ap revize epi aktive POS ou a.</p>
+                <button onClick={() => { setPosModal(null); setPosCashSent(false); }}
+                  className="mt-4 w-full py-2.5 rounded-xl bg-white/[0.06] text-white text-sm font-bold hover:bg-white/10 transition-all">
+                  Fèmen
+                </button>
+              </div>
+            ) : !posClientSecret ? (
+              <div className="space-y-2">
+                <button onClick={() => handlePosActivate(posModal)} disabled={posLoading}
+                  className="w-full py-3 rounded-xl bg-orange text-black font-bold text-sm disabled:opacity-40 hover:bg-orange/90 transition-all">
+                  {posLoading ? '⏳…' : '💳 Peye ak Kat'}
+                </button>
+                <button onClick={() => handlePosCashRequest(posModal)} disabled={posCashBusy || posCashPending[posModal]}
+                  className="w-full py-3 rounded-xl bg-white/[0.06] border border-border text-white font-bold text-sm disabled:opacity-40 hover:bg-white/10 transition-all">
+                  {posCashBusy ? '⏳…' : posCashPending[posModal] ? '⏳ Demann kach an atant' : '💵 Peye ak Kach (admin apwouve)'}
+                </button>
+              </div>
+            ) : (
               <Elements stripe={stripePromise} options={{ clientSecret: posClientSecret, appearance: { theme: 'night' } }}>
                 <PosStripeForm
                   onSuccess={() => handlePosPaymentSuccess(posModal)}
@@ -309,10 +356,6 @@ export default function OrganizerEventsPage() {
                 />
               </Elements>
             )}
-            <button onClick={() => { setPosModal(null); setPosClientSecret(null); }}
-              className="w-full mt-3 text-xs text-gray-muted hover:text-white transition-colors bg-transparent border-none cursor-pointer py-2">
-              Cancel
-            </button>
           </div>
         </div>
       )}

@@ -60,6 +60,7 @@ export default function AdminDashboardPage() {
   const [refunds, setRefunds] = useState<any[]>([]);
   const [cashRequests, setCashRequests] = useState<any[]>([]);
   const [budgetCashRequests, setBudgetCashRequests] = useState<any[]>([]);
+  const [posCashRequests, setPosCashRequests] = useState<any[]>([]);
   const [allTickets, setAllTickets] = useState<any[]>([]);
   const [venues, setVenues] = useState<VenueData[]>([]);
   const [venueSearch, setVenueSearch] = useState('');
@@ -115,16 +116,18 @@ export default function AdminDashboardPage() {
     }).catch(e => console.warn('config load', e));
 
     try {
-      const [evSnap, usersSnap, refSnap, venSnap, cashSnap, budgetCashSnap] = await Promise.all([
+      const [evSnap, usersSnap, refSnap, venSnap, cashSnap, budgetCashSnap, posCashSnap] = await Promise.all([
         getDocs(collection(db, 'events')),
         getDocs(collection(db, 'users')),
         getDocs(collection(db, 'refundRequests')),
         getVenues(),
         getDocs(collection(db, 'cashActivationRequests')),
         getDocs(collection(db, 'budgetCashRequests')),
+        getDocs(collection(db, 'posCashRequests')),
       ]);
       setCashRequests(cashSnap.docs.map(d => ({ id: d.id, ...d.data() })));
       setBudgetCashRequests(budgetCashSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+      setPosCashRequests(posCashSnap.docs.map(d => ({ id: d.id, ...d.data() })));
       setVenues(venSnap as VenueData[]);
 
       const evList = evSnap.docs.map(d => ({ id: d.id, ...d.data() } as EventData));
@@ -292,6 +295,18 @@ export default function AdminDashboardPage() {
     setBudgetCashRequests(prev => prev.map(x => x.id === r.id ? { ...x, status: 'approved' } : x));
   }
 
+  async function approvePosCashRequest(r: any) {
+    const barCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+    await updateDoc(doc(db, 'posCashRequests', r.id), { status: 'approved', resolvedAt: serverTimestamp() });
+    await updateDoc(doc(db, 'events', r.eventId), { posActivated: true, posActivatedAt: new Date().toISOString(), barCode });
+    setPosCashRequests(prev => prev.map(x => x.id === r.id ? { ...x, status: 'approved' } : x));
+  }
+
+  async function denyPosCashRequest(r: any) {
+    await updateDoc(doc(db, 'posCashRequests', r.id), { status: 'denied', resolvedAt: serverTimestamp() });
+    setPosCashRequests(prev => prev.map(x => x.id === r.id ? { ...x, status: 'denied' } : x));
+  }
+
   async function forceActivateBudget(eventId: string) {
     await updateDoc(doc(db, 'events', eventId), { budgetActivated: true, budgetActivatedAt: new Date().toISOString() });
     alert(`✅ budgetActivated = true sou evènman ${eventId}`);
@@ -326,7 +341,7 @@ export default function AdminDashboardPage() {
   // ── Overview metrics ──
   const liveEvents = events.filter(e => e.status === 'published' || e.status === 'live').length;
   const pendingRefunds = refunds.filter(r => r.status === 'pending').length;
-  const pendingCash = cashRequests.filter(r => r.status === 'pending').length + budgetCashRequests.filter(r => r.status === 'pending').length;
+  const pendingCash = cashRequests.filter(r => r.status === 'pending').length + budgetCashRequests.filter(r => r.status === 'pending').length + posCashRequests.filter(r => r.status === 'pending').length;
   const totalUsers = users.length + organizers.length;
 
   if (authLoading || !user || user.role !== 'admin') return (
@@ -639,6 +654,24 @@ export default function AdminDashboardPage() {
                             ⚡ Force Aktive Bidjè
                           </button>
                         )}
+                      </div>
+                    ))}
+
+                    {/* POS cash requests for this organizer */}
+                    {posCashRequests.filter(r => r.organizerId === o.id && r.status === 'pending').map(r => (
+                      <div key={r.id} className="mt-3 pt-3 border-t border-border">
+                        <p className="text-[11px] font-bold text-yellow-400 mb-0.5">🍽️ Peman Kach — Aktive POS</p>
+                        <p className="text-[11px] text-gray-muted mb-2">{r.eventName} · ${r.amount}</p>
+                        <div className="flex gap-1.5">
+                          <button onClick={() => approvePosCashRequest(r)}
+                            className="flex-1 py-1.5 rounded-lg text-[10px] font-bold bg-green-dim text-green border border-green/30">
+                            ✅ Apwouve
+                          </button>
+                          <button onClick={() => denyPosCashRequest(r)}
+                            className="flex-1 py-1.5 rounded-lg text-[10px] font-bold bg-red/10 text-red border border-red/30">
+                            🚫 Refize
+                          </button>
+                        </div>
                       </div>
                     ))}
 

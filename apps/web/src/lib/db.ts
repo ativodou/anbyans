@@ -2311,6 +2311,18 @@ export async function addBudgetCashRequest(data: {
   return ref.id;
 }
 
+export async function addPosCashRequest(data: {
+  eventId: string;
+  eventName: string;
+  organizerId: string;
+  organizerName: string;
+  amount: number;
+}): Promise<string> {
+  const ref = doc(collection(db, 'posCashRequests'));
+  await setDoc(ref, { ...data, status: 'pending', createdAt: serverTimestamp() });
+  return ref.id;
+}
+
 export async function addCashActivationRequest(data: {
   eventId: string;
   eventName: string;
