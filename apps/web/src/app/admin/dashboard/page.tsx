@@ -545,48 +545,72 @@ export default function AdminDashboardPage() {
                   !orgSearch ||
                   `${o.firstName} ${o.lastName} ${o.businessName} ${o.email}`.toLowerCase().includes(orgSearch.toLowerCase())
                 ).map(o => (
-                  <div key={o.id} className={`bg-dark-card border rounded-xl p-4 flex items-center gap-4 ${o.suspended ? 'border-red/30 bg-red/5' : 'border-border'}`}>
-                    <div className="w-10 h-10 rounded-full bg-orange/20 flex items-center justify-center text-sm font-black text-orange flex-shrink-0">
-                      {o.firstName?.[0]}{o.lastName?.[0]}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold">{o.businessName || `${o.firstName} ${o.lastName}`}</p>
-                      <p className="text-[11px] text-gray-muted">{o.email}</p>
-                      <p className="text-[11px] text-gray-light mt-0.5">{o.totalEvents} {t('admin_events_count')} · ${(o.totalRevenue||0).toLocaleString()} {t('admin_total_revenue_lbl')}</p>
-                    </div>
-                    <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-                      {(o as any).organizerStatus === 'pending' && (
-                        <span className="text-[9px] bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded font-bold">EN ATANT</span>
-                      )}
-                      {o.suspended && (
-                        <span className="text-[9px] bg-red/20 text-red px-2 py-0.5 rounded font-bold">{t('admin_suspended').toUpperCase()}</span>
-                      )}
-                      <div className="flex gap-1.5">
+                  <div key={o.id} className={`bg-dark-card border rounded-xl p-4 ${o.suspended ? 'border-red/30 bg-red/5' : 'border-border'}`}>
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-full bg-orange/20 flex items-center justify-center text-sm font-black text-orange flex-shrink-0">
+                        {o.firstName?.[0]}{o.lastName?.[0]}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold">{o.businessName || `${o.firstName} ${o.lastName}`}</p>
+                        <p className="text-[11px] text-gray-muted">{o.email}</p>
+                        <p className="text-[11px] text-gray-light mt-0.5">{o.totalEvents} {t('admin_events_count')} · ${(o.totalRevenue||0).toLocaleString()} {t('admin_total_revenue_lbl')}</p>
+                      </div>
+                      <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
                         {(o as any).organizerStatus === 'pending' && (
-                          <>
-                            <button onClick={() => setOrganizerStatus(o.id, 'approved')}
-                              className="px-3 py-1.5 rounded-lg text-[10px] font-bold bg-green-600/20 text-green-400 border border-green-500/30 hover:bg-green-600 hover:text-white transition-all">
-                              ✅ Aprouve
-                            </button>
-                            <button onClick={() => setOrganizerStatus(o.id, 'rejected')}
-                              className="px-3 py-1.5 rounded-lg text-[10px] font-bold bg-red/10 text-red border border-red/30 hover:bg-red hover:text-white transition-all">
-                              🚫 Refize
-                            </button>
-                          </>
+                          <span className="text-[9px] bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded font-bold">EN ATANT</span>
                         )}
-                        {(o as any).organizerStatus !== 'pending' && (
-                          <button onClick={() => toggleSuspendUser(o.id, !!o.suspended)}
-                            className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${o.suspended ? 'bg-green-dim text-green border border-green/30' : 'bg-red/10 text-red border border-red/30'}`}>
-                            {o.suspended ? t('admin_reactivate') : t('admin_suspend')}
+                        {o.suspended && (
+                          <span className="text-[9px] bg-red/20 text-red px-2 py-0.5 rounded font-bold">{t('admin_suspended').toUpperCase()}</span>
+                        )}
+                        {cashRequests.some(r => r.organizerId === o.id && r.status === 'pending') && (
+                          <span className="text-[9px] bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded font-bold">💵 KACH AN ATANT</span>
+                        )}
+                        <div className="flex gap-1.5">
+                          {(o as any).organizerStatus === 'pending' && (
+                            <>
+                              <button onClick={() => setOrganizerStatus(o.id, 'approved')}
+                                className="px-3 py-1.5 rounded-lg text-[10px] font-bold bg-green-600/20 text-green-400 border border-green-500/30 hover:bg-green-600 hover:text-white transition-all">
+                                ✅ Aprouve
+                              </button>
+                              <button onClick={() => setOrganizerStatus(o.id, 'rejected')}
+                                className="px-3 py-1.5 rounded-lg text-[10px] font-bold bg-red/10 text-red border border-red/30 hover:bg-red hover:text-white transition-all">
+                                🚫 Refize
+                              </button>
+                            </>
+                          )}
+                          {(o as any).organizerStatus !== 'pending' && (
+                            <button onClick={() => toggleSuspendUser(o.id, !!o.suspended)}
+                              className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${o.suspended ? 'bg-green-dim text-green border border-green/30' : 'bg-red/10 text-red border border-red/30'}`}>
+                              {o.suspended ? t('admin_reactivate') : t('admin_suspend')}
+                            </button>
+                          )}
+                          <button onClick={() => adminDeleteUser(o.id, 'organizer', o.email)}
+                            disabled={deletingUser === o.id}
+                            className="px-3 py-1.5 rounded-lg text-[10px] font-bold bg-red/20 text-red border border-red/40 hover:bg-red hover:text-white transition-all disabled:opacity-40">
+                            {deletingUser === o.id ? '…' : '🗑'}
                           </button>
-                        )}
-                        <button onClick={() => adminDeleteUser(o.id, 'organizer', o.email)}
-                          disabled={deletingUser === o.id}
-                          className="px-3 py-1.5 rounded-lg text-[10px] font-bold bg-red/20 text-red border border-red/40 hover:bg-red hover:text-white transition-all disabled:opacity-40">
-                          {deletingUser === o.id ? '…' : '🗑'}
-                        </button>
+                        </div>
                       </div>
                     </div>
+                    {/* Cash activation requests for this organizer */}
+                    {cashRequests.filter(r => r.organizerId === o.id && r.status === 'pending').map(r => (
+                      <div key={r.id} className="mt-3 pt-3 border-t border-border flex items-center gap-3">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[11px] font-bold text-yellow-400">💵 Peman Kach — Aktivasyon Prive</p>
+                          <p className="text-[11px] text-gray-muted truncate">{r.eventName} · ${r.amount}</p>
+                        </div>
+                        <div className="flex gap-1.5 shrink-0">
+                          <button onClick={() => approveCashRequest(r)}
+                            className="px-3 py-1.5 rounded-lg text-[10px] font-bold bg-green-dim text-green border border-green/30">
+                            ✅ Apwouve
+                          </button>
+                          <button onClick={() => denyCashRequest(r)}
+                            className="px-3 py-1.5 rounded-lg text-[10px] font-bold bg-red/10 text-red border border-red/30">
+                            🚫 Refize
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 ))}
               </div>
@@ -672,45 +696,7 @@ export default function AdminDashboardPage() {
                   </div>
                 );
               })}
-              {refunds.length === 0 && <p className="text-gray-muted text-center py-10">{t('admin_no_refunds')}</p>}
-
-              {/* Cash activation requests */}
-              <p className="text-[10px] uppercase tracking-widest font-bold mt-6 mb-2 text-yellow-400">💵 PEMAN KAK — AKTIVASYON PRIVE</p>
-              {['pending', 'approved', 'denied'].map(status => {
-                const list = cashRequests.filter(r => r.status === status);
-                if (list.length === 0) return null;
-                const colors: Record<string, string> = { pending: '#f59e0b', approved: '#22c55e', denied: '#ef4444' };
-                const labels: Record<string, string> = { pending: '⏳ AN ATANT', approved: '✅ APWOUVE', denied: '🚫 REFIZE' };
-                return (
-                  <div key={status}>
-                    <p className="text-[10px] uppercase tracking-widest font-bold mb-2" style={{ color: colors[status] }}>{labels[status]} ({list.length})</p>
-                    {list.map(r => (
-                      <div key={r.id} className="bg-dark-card border border-border rounded-xl p-4 mb-2">
-                        <div className="flex items-start gap-3">
-                          <div className="flex-1">
-                            <p className="text-sm font-bold">{r.organizerName}</p>
-                            <p className="text-[11px] text-gray-muted">{r.eventName}</p>
-                          </div>
-                          <p className="text-lg font-black text-yellow-400">${r.amount}</p>
-                        </div>
-                        {status === 'pending' && (
-                          <div className="flex gap-2 mt-3">
-                            <button onClick={() => approveCashRequest(r)}
-                              className="flex-1 py-2 rounded-lg text-xs font-bold bg-green-dim text-green border border-green/30">
-                              ✅ Apwouve & Aktive
-                            </button>
-                            <button onClick={() => denyCashRequest(r)}
-                              className="flex-1 py-2 rounded-lg text-xs font-bold bg-red/10 text-red border border-red/30">
-                              🚫 Refize
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                );
-              })}
-              {cashRequests.length === 0 && <p className="text-gray-muted text-center py-6 text-xs">Pa gen demann kach.</p>}
+              {refunds.length === 0 && <p className="text-gray-muted text-center py-20">{t('admin_no_refunds')}</p>}
             </div>
           )}
 
