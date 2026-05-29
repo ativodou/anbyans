@@ -59,6 +59,7 @@ export default function AdminDashboardPage() {
   const [users, setUsers] = useState<UserData[]>([]);
   const [refunds, setRefunds] = useState<any[]>([]);
   const [cashRequests, setCashRequests] = useState<any[]>([]);
+  const [budgetCashRequests, setBudgetCashRequests] = useState<any[]>([]);
   const [allTickets, setAllTickets] = useState<any[]>([]);
   const [venues, setVenues] = useState<VenueData[]>([]);
   const [venueSearch, setVenueSearch] = useState('');
@@ -73,6 +74,7 @@ export default function AdminDashboardPage() {
   const [settingsFee, setSettingsFee] = useState(9);
   const [settingsPosFee, setSettingsPosFee] = useState(50);
   const [settingsPrivateFee, setSettingsPrivateFee] = useState(25);
+  const [settingsBudgetFee, setSettingsBudgetFee]   = useState(15);
   const [settingsReserve, setSettingsReserve] = useState(20);
   const [settingsDelay, setSettingsDelay] = useState(7);
   const [settingsSaved,  setSettingsSaved]  = useState(false);
@@ -107,19 +109,22 @@ export default function AdminDashboardPage() {
       if (cfg.platformFee != null)       setSettingsFee(cfg.platformFee);
       if (cfg.posFee != null)            setSettingsPosFee(cfg.posFee);
       if (cfg.privateFee != null)        setSettingsPrivateFee(cfg.privateFee);
+      if (cfg.budgetFee != null)         setSettingsBudgetFee(cfg.budgetFee);
       if (cfg.chargebackReserve != null) setSettingsReserve(cfg.chargebackReserve);
       if (cfg.payoutDelayDays != null)   setSettingsDelay(cfg.payoutDelayDays);
     }).catch(e => console.warn('config load', e));
 
     try {
-      const [evSnap, usersSnap, refSnap, venSnap, cashSnap] = await Promise.all([
+      const [evSnap, usersSnap, refSnap, venSnap, cashSnap, budgetCashSnap] = await Promise.all([
         getDocs(collection(db, 'events')),
         getDocs(collection(db, 'users')),
         getDocs(collection(db, 'refundRequests')),
         getVenues(),
         getDocs(collection(db, 'cashActivationRequests')),
+        getDocs(collection(db, 'budgetCashRequests')),
       ]);
       setCashRequests(cashSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+      setBudgetCashRequests(budgetCashSnap.docs.map(d => ({ id: d.id, ...d.data() })));
       setVenues(venSnap as VenueData[]);
 
       const evList = evSnap.docs.map(d => ({ id: d.id, ...d.data() } as EventData));
@@ -238,6 +243,7 @@ export default function AdminDashboardPage() {
         platformFee: settingsFee,
         posFee: settingsPosFee,
         privateFee: settingsPrivateFee,
+        budgetFee: settingsBudgetFee,
         chargebackReserve: settingsReserve,
         payoutDelayDays: settingsDelay,
       }, { merge: true });
@@ -280,6 +286,17 @@ export default function AdminDashboardPage() {
     setRefunds(prev => prev.map(x => x.id === r.id ? { ...x, status: 'denied', denialNote: note } : x));
   }
 
+  async function approveBudgetCashRequest(r: any) {
+    await updateDoc(doc(db, 'budgetCashRequests', r.id), { status: 'approved', resolvedAt: serverTimestamp() });
+    await updateDoc(doc(db, 'events', r.eventId), { budgetActivated: true, budgetActivatedAt: new Date().toISOString() });
+    setBudgetCashRequests(prev => prev.map(x => x.id === r.id ? { ...x, status: 'approved' } : x));
+  }
+
+  async function denyBudgetCashRequest(r: any) {
+    await updateDoc(doc(db, 'budgetCashRequests', r.id), { status: 'denied', resolvedAt: serverTimestamp() });
+    setBudgetCashRequests(prev => prev.map(x => x.id === r.id ? { ...x, status: 'denied' } : x));
+  }
+
   async function approveCashRequest(r: any) {
     await updateDoc(doc(db, 'cashActivationRequests', r.id), { status: 'approved', resolvedAt: serverTimestamp() });
     await updateDoc(doc(db, 'events', r.eventId), { privateActivated: true, privateActivatedAt: new Date().toISOString() });
@@ -304,7 +321,7 @@ export default function AdminDashboardPage() {
   // ── Overview metrics ──
   const liveEvents = events.filter(e => e.status === 'published' || e.status === 'live').length;
   const pendingRefunds = refunds.filter(r => r.status === 'pending').length;
-  const pendingCash = cashRequests.filter(r => r.status === 'pending').length;
+  const pendingCash = cashRequests.filter(r => r.status === 'pending').length + budgetCashRequests.filter(r => r.status === 'pending').length;
   const totalUsers = users.length + organizers.length;
 
   if (authLoading || !user || user.role !== 'admin') return (
@@ -565,6 +582,9 @@ export default function AdminDashboardPage() {
                         {cashRequests.some(r => r.organizerId === o.id && r.status === 'pending') && (
                           <span className="text-[9px] bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded font-bold">💵 KACH AN ATANT</span>
                         )}
+                        {budgetCashRequests.some(r => r.organizerId === o.id && r.status === 'pending') && (
+                          <span className="text-[9px] bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded font-bold">💰 BIDJÈ AN ATANT</span>
+                        )}
                         <div className="flex gap-1.5">
                           {(o as any).organizerStatus === 'pending' && (
                             <>
@@ -592,6 +612,26 @@ export default function AdminDashboardPage() {
                         </div>
                       </div>
                     </div>
+                    {/* Budget cash requests for this organizer */}
+                    {budgetCashRequests.filter(r => r.organizerId === o.id && r.status === 'pending').map(r => (
+                      <div key={r.id} className="mt-3 pt-3 border-t border-border flex items-center gap-3">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[11px] font-bold text-yellow-400">💰 Peman Kach — Bidjè</p>
+                          <p className="text-[11px] text-gray-muted truncate">{r.eventName} · ${r.amount}</p>
+                        </div>
+                        <div className="flex gap-1.5 shrink-0">
+                          <button onClick={() => approveBudgetCashRequest(r)}
+                            className="px-3 py-1.5 rounded-lg text-[10px] font-bold bg-green-dim text-green border border-green/30">
+                            ✅ Apwouve
+                          </button>
+                          <button onClick={() => denyBudgetCashRequest(r)}
+                            className="px-3 py-1.5 rounded-lg text-[10px] font-bold bg-red/10 text-red border border-red/30">
+                            🚫 Refize
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+
                     {/* Cash activation requests for this organizer */}
                     {cashRequests.filter(r => r.organizerId === o.id && r.status === 'pending').map(r => (
                       <div key={r.id} className="mt-3 pt-3 border-t border-border flex items-center gap-3">
@@ -944,6 +984,10 @@ export default function AdminDashboardPage() {
                   <div>
                     <label className="block text-[11px] font-semibold text-gray-light mb-1">Private Event Activation Fee ($)</label>
                     <input value={settingsPrivateFee} onChange={e => setSettingsPrivateFee(Number(e.target.value))} type="number" className="w-32 px-3 py-2 rounded-lg bg-white/[0.04] border border-border text-white text-sm outline-none focus:border-orange" />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-gray-light mb-1">Budget Feature Fee ($)</label>
+                    <input value={settingsBudgetFee} onChange={e => setSettingsBudgetFee(Number(e.target.value))} type="number" className="w-32 px-3 py-2 rounded-lg bg-white/[0.04] border border-border text-white text-sm outline-none focus:border-orange" />
                   </div>
                   <div>
                     <label className="block text-[11px] font-semibold text-gray-light mb-1">{t('admin_chargeback_reserve')}</label>

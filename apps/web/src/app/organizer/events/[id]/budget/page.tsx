@@ -5,11 +5,36 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
 import {
-  getEvent, getBudgetItems, addBudgetItem, deleteBudgetItem,
+  getEvent, getBudgetItems, addBudgetItem, deleteBudgetItem, getPlatformConfig, addBudgetCashRequest,
   BUDGET_CATEGORIES, type BudgetItem, type EventData,
 } from '@/lib/db';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, where, doc, updateDoc } from 'firebase/firestore';
+import { loadStripe } from '@stripe/stripe-js';
+import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
+
+const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
+
+function BudgetStripeForm({ onSuccess, onError }: { onSuccess: () => void; onError: (m: string) => void }) {
+  const stripe = useStripe(); const elements = useElements();
+  const [busy, setBusy] = useState(false);
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault(); if (!stripe || !elements) return;
+    setBusy(true);
+    const { error } = await stripe.confirmPayment({ elements, redirect: 'if_required' });
+    if (error) { onError(error.message || 'Erè peman'); setBusy(false); }
+    else onSuccess();
+  };
+  return (
+    <form onSubmit={submit} className="space-y-4">
+      <PaymentElement />
+      <button type="submit" disabled={busy || !stripe}
+        className="w-full py-3 rounded-xl bg-orange text-black font-bold text-sm disabled:opacity-40">
+        {busy ? '⏳…' : '💳 Peye & Aktive'}
+      </button>
+    </form>
+  );
+}
 
 export default function BudgetPage() {
   const { id: eventId } = useParams() as { id: string };
@@ -25,6 +50,17 @@ export default function BudgetPage() {
   const [targetInput, setTargetInput]   = useState('');
   const [savingTarget, setSavingTarget] = useState(false);
 
+  // Payment gate
+  const [budgetFee, setBudgetFee]       = useState(15);
+  const [showModal, setShowModal]       = useState(false);
+  const [gateSecret, setGateSecret]     = useState<string | null>(null);
+  const [gateError, setGateError]       = useState('');
+  const [gateLoading, setGateLoading]   = useState(false);
+  const [cashBusy, setCashBusy]         = useState(false);
+  const [cashSent, setCashSent]         = useState(false);
+  const [cashPending, setCashPending]   = useState(false);
+  const [activated, setActivated]       = useState(false);
+
   // Form
   const [category, setCategory] = useState<typeof BUDGET_CATEGORIES[number]>(BUDGET_CATEGORIES[0]);
   const [description, setDescription] = useState('');
@@ -35,17 +71,23 @@ export default function BudgetPage() {
     if (!eventId || !user?.uid) return;
     (async () => {
       try {
-        const [ev, budgetList, tSnap] = await Promise.all([
+        const [ev, budgetList, tSnap, cfg] = await Promise.all([
           getEvent(eventId),
           getBudgetItems(eventId),
           getDocs(query(collection(db, 'tickets'), where('eventId', '==', eventId))),
+          getPlatformConfig(),
         ]);
         setEvent(ev);
         setItems(budgetList);
         setTickets(tSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+        setBudgetFee(cfg.budgetFee);
         const target = (ev as any)?.budgetTarget || 0;
         setBudgetTarget(target);
         setTargetInput(target > 0 ? String(target) : '');
+        if ((ev as any)?.budgetActivated) setActivated(true);
+        getDocs(query(collection(db, 'budgetCashRequests'), where('eventId', '==', eventId), where('status', '==', 'pending')))
+          .then(snap => { if (!snap.empty) setCashPending(true); })
+          .catch(() => {});
       } catch (e) { console.error(e); }
       finally { setLoading(false); }
     })();
@@ -70,6 +112,45 @@ export default function BudgetPage() {
   const handleDelete = async (itemId: string) => {
     await deleteBudgetItem(itemId);
     setItems(prev => prev.filter(i => i.id !== itemId));
+  };
+
+  const handleGateCard = async () => {
+    if (!event) return;
+    setGateLoading(true); setGateError('');
+    try {
+      const res = await fetch('/api/payment/stripe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount: budgetFee, currency: 'usd', eventName: `Budget — ${event.name}`, seats: 1 }),
+      });
+      const { clientSecret } = await res.json();
+      setGateSecret(clientSecret);
+    } catch { setGateError('Erè. Eseye ankò.'); }
+    finally { setGateLoading(false); }
+  };
+
+  const handleGateSuccess = async () => {
+    await updateDoc(doc(db, 'events', eventId), { budgetActivated: true, budgetActivatedAt: new Date().toISOString() });
+    setActivated(true);
+    setGateSecret(null);
+    setShowModal(false);
+  };
+
+  const handleCashRequest = async () => {
+    if (!event || !user) return;
+    setCashBusy(true); setGateError('');
+    try {
+      await addBudgetCashRequest({
+        eventId,
+        eventName: event.name,
+        organizerId: user.uid,
+        organizerName: `${(user as any).firstName || ''} ${(user as any).lastName || ''}`.trim() || user.email || '',
+        amount: budgetFee,
+      });
+      setCashSent(true);
+      setCashPending(true);
+    } catch { setGateError('Erè. Eseye ankò.'); }
+    finally { setCashBusy(false); }
   };
 
   const handleSaveTarget = async () => {
@@ -118,13 +199,18 @@ export default function BudgetPage() {
 
       {/* Budget target input */}
       <div className={`${card} p-4`}>
-        <p className="text-[10px] uppercase tracking-widest text-gray-muted font-bold mb-2">Bidjè Kliyan / Bidjè Planifye</p>
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-[10px] uppercase tracking-widest text-gray-muted font-bold">Bidjè Kliyan / Bidjè Planifye</p>
+          {activated && <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-green-900/30 text-green">✓ Aktive</span>}
+          {!activated && cashPending && <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-yellow-900/30 text-yellow-400">⏳ Kach an atant</span>}
+        </div>
         <div className="flex gap-2">
           <input value={targetInput} onChange={e => setTargetInput(e.target.value)} placeholder="$0.00" type="number" min="0"
-            className="flex-1 px-3 py-2.5 rounded-xl bg-white/[0.05] border border-border text-white text-sm outline-none focus:border-orange" />
-          <button onClick={handleSaveTarget} disabled={savingTarget}
+            disabled={!activated && cashPending}
+            className="flex-1 px-3 py-2.5 rounded-xl bg-white/[0.05] border border-border text-white text-sm outline-none focus:border-orange disabled:opacity-40" />
+          <button onClick={activated ? handleSaveTarget : () => setShowModal(true)} disabled={savingTarget || (!activated && cashPending)}
             className="px-4 py-2.5 rounded-xl bg-orange text-black font-bold text-sm disabled:opacity-40 hover:bg-orange/90 transition-all">
-            {savingTarget ? '…' : 'Anrejistre'}
+            {savingTarget ? '…' : activated ? 'Anrejistre' : `💳 Aktive ($${budgetFee})`}
           </button>
         </div>
       </div>
@@ -246,5 +332,47 @@ export default function BudgetPage() {
       )}
 
     </div>
+
+      {/* Payment gate modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
+          onClick={() => { if (!gateSecret) { setShowModal(false); setCashSent(false); } }}>
+          <div className="bg-dark-card border border-border rounded-2xl p-6 w-full max-w-sm" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-heading text-base">Aktive Bidjè</h3>
+              {!gateSecret && <button onClick={() => { setShowModal(false); setCashSent(false); }} className="text-gray-muted hover:text-white text-xl">✕</button>}
+            </div>
+            <p className="text-sm text-gray-muted mb-4">Peman inisyal <span className="text-white font-bold">${budgetFee}</span> pou aktive fonksyon bidjè pou evènman sa a.</p>
+            {gateError && <p className="text-red-400 text-xs mb-3">{gateError}</p>}
+
+            {cashSent ? (
+              <div className="text-center py-4">
+                <p className="text-3xl mb-2">💵</p>
+                <p className="text-sm font-bold text-white mb-1">Demann kach voye!</p>
+                <p className="text-xs text-gray-muted">Admin ap revize epi aktive bidjè ou a.</p>
+                <button onClick={() => { setShowModal(false); setCashSent(false); }}
+                  className="mt-4 w-full py-2.5 rounded-xl bg-white/[0.06] text-white text-sm font-bold hover:bg-white/10 transition-all">
+                  Fèmen
+                </button>
+              </div>
+            ) : !gateSecret ? (
+              <div className="space-y-2">
+                <button onClick={handleGateCard} disabled={gateLoading}
+                  className="w-full py-3 rounded-xl bg-orange text-black font-bold text-sm disabled:opacity-40 hover:bg-orange/90 transition-all">
+                  {gateLoading ? '⏳…' : '💳 Peye ak Kat'}
+                </button>
+                <button onClick={handleCashRequest} disabled={cashBusy}
+                  className="w-full py-3 rounded-xl bg-white/[0.06] border border-border text-white font-bold text-sm disabled:opacity-40 hover:bg-white/10 transition-all">
+                  {cashBusy ? '⏳…' : '💵 Peye ak Kach (admin apwouve)'}
+                </button>
+              </div>
+            ) : (
+              <Elements stripe={stripePromise} options={{ clientSecret: gateSecret, appearance: { theme: 'night' } }}>
+                <BudgetStripeForm onSuccess={handleGateSuccess} onError={setGateError} />
+              </Elements>
+            )}
+          </div>
+        </div>
+      )}
   );
 }

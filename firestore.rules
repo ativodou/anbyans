@@ -265,6 +265,18 @@ service cloud.firestore {
       allow update: if isAdmin();
     }
 
+    // ── Budget cash requests ───────────────────────────────────────
+    match /budgetCashRequests/{reqId} {
+      allow read: if isActiveAuth() && (
+        resource.data.organizerId == request.auth.uid || isAdmin()
+      );
+      allow create: if isActiveAuth() && (
+        request.resource.data.organizerId == request.auth.uid
+      );
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
     // ── Cash activation requests ──────────────────────────────────
     match /cashActivationRequests/{reqId} {
       allow read: if isActiveAuth() && (

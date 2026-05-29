@@ -2100,7 +2100,7 @@ export async function getPlatformFeeRate(): Promise<number> {
   return 0.09;
 }
 
-export async function getPlatformConfig(): Promise<{ platformFee: number; posFee: number; privateFee: number; chargebackReserve: number; payoutDelayDays: number }> {
+export async function getPlatformConfig(): Promise<{ platformFee: number; posFee: number; privateFee: number; budgetFee: number; chargebackReserve: number; payoutDelayDays: number }> {
   try {
     const snap = await getDoc(doc(db, 'config', 'platform'));
     if (snap.exists()) {
@@ -2109,12 +2109,13 @@ export async function getPlatformConfig(): Promise<{ platformFee: number; posFee
         platformFee:      d.platformFee      ?? 9,
         posFee:           d.posFee           ?? 50,
         privateFee:       d.privateFee       ?? 25,
+        budgetFee:        d.budgetFee        ?? 15,
         chargebackReserve: d.chargebackReserve ?? 20,
         payoutDelayDays:  d.payoutDelayDays  ?? 7,
       };
     }
   } catch {}
-  return { platformFee: 9, posFee: 50, privateFee: 25, chargebackReserve: 20, payoutDelayDays: 7 };
+  return { platformFee: 9, posFee: 50, privateFee: 25, budgetFee: 15, chargebackReserve: 20, payoutDelayDays: 7 };
 }
 
 // ─── Event Create Draft ──────────────────────────────────────────────────────
@@ -2297,6 +2298,18 @@ export async function resetFanData(email: string): Promise<void> {
 }
 
 // ─── Cash activation requests ─────────────────────────────────────────────────
+
+export async function addBudgetCashRequest(data: {
+  eventId: string;
+  eventName: string;
+  organizerId: string;
+  organizerName: string;
+  amount: number;
+}): Promise<string> {
+  const ref = doc(collection(db, 'budgetCashRequests'));
+  await setDoc(ref, { ...data, status: 'pending', createdAt: serverTimestamp() });
+  return ref.id;
+}
 
 export async function addCashActivationRequest(data: {
   eventId: string;
