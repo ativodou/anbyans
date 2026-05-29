@@ -16,6 +16,47 @@ import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
 
+function RevenueList({ title, items, total, name, amt, saving, onName, onAmt, onAdd, onDelete, namePh, totalLabel, card }: {
+  title: string; items: { id: string; name: string; amount: number }[]; total: number;
+  name: string; amt: string; saving: boolean;
+  onName: (v: string) => void; onAmt: (v: string) => void;
+  onAdd: () => void; onDelete: (id: string) => void;
+  namePh: string; totalLabel: string; card: string;
+}) {
+  return (
+    <section>
+      <h3 className="text-[10px] uppercase tracking-widest text-gray-muted font-bold mb-2">{title}</h3>
+      <div className={`${card} p-4 space-y-3`}>
+        <div className="flex gap-2">
+          <input value={name} onChange={e => onName(e.target.value)} placeholder={namePh}
+            className="flex-1 px-3 py-2.5 rounded-xl bg-white/[0.05] border border-border text-white text-sm outline-none focus:border-orange" />
+          <input value={amt} onChange={e => onAmt(e.target.value)} placeholder="$0" type="number" min="0"
+            className="w-28 px-3 py-2.5 rounded-xl bg-white/[0.05] border border-border text-white text-sm outline-none focus:border-orange" />
+        </div>
+        <button onClick={onAdd} disabled={saving || !name.trim() || !amt}
+          className="w-full py-2.5 rounded-xl bg-orange text-black font-bold text-sm disabled:opacity-40 hover:bg-orange/90 transition-all">
+          {saving ? '…' : `+ Ajoute`}
+        </button>
+        {items.length > 0 && (
+          <div className="space-y-1 pt-1">
+            {items.map(item => (
+              <div key={item.id} className="flex items-center gap-3 py-2 border-t border-border">
+                <p className="flex-1 text-sm font-semibold">{item.name}</p>
+                <p className="font-bold text-sm text-green">${item.amount.toLocaleString()}</p>
+                <button onClick={() => onDelete(item.id)} className="text-gray-muted hover:text-red-400 text-[11px]">✕</button>
+              </div>
+            ))}
+            <div className="flex justify-between items-center pt-2 border-t border-border">
+              <p className="text-xs font-bold text-gray-muted">{totalLabel}</p>
+              <p className="font-heading text-base text-green">${total.toLocaleString()}</p>
+            </div>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
 function BudgetStripeForm({ onSuccess, onError }: { onSuccess: () => void; onError: (m: string) => void }) {
   const stripe = useStripe(); const elements = useElements();
   const [busy, setBusy] = useState(false);
@@ -51,10 +92,25 @@ export default function BudgetPage() {
   const [budgetTarget, setBudgetTarget] = useState<number>(0);
   const [targetInput, setTargetInput]   = useState('');
   const [savingTarget, setSavingTarget] = useState(false);
-  const [sponsors, setSponsors] = useState<{ id: string; name: string; amount: number }[]>([]);
+  const [sponsors, setSponsors]         = useState<{ id: string; name: string; amount: number }[]>([]);
   const [sponsorName, setSponsorName]   = useState('');
   const [sponsorAmt, setSponsorAmt]     = useState('');
   const [savingSponsor, setSavingSponsor] = useState(false);
+
+  const [licensing, setLicensing]       = useState<{ id: string; name: string; amount: number }[]>([]);
+  const [licName, setLicName]           = useState('');
+  const [licAmt, setLicAmt]             = useState('');
+  const [savingLic, setSavingLic]       = useState(false);
+
+  const [merch, setMerch]               = useState<{ id: string; name: string; amount: number }[]>([]);
+  const [merchName, setMerchName]       = useState('');
+  const [merchAmt, setMerchAmt]         = useState('');
+  const [savingMerch, setSavingMerch]   = useState(false);
+
+  const [vendorRents, setVendorRents]   = useState<{ id: string; name: string; amount: number }[]>([]);
+  const [vendorName, setVendorName]     = useState('');
+  const [vendorAmt, setVendorAmt]       = useState('');
+  const [savingVendor, setSavingVendor] = useState(false);
 
   // Payment gate
   const [budgetFee, setBudgetFee]       = useState(15);
@@ -91,6 +147,9 @@ export default function BudgetPage() {
         setBudgetTarget(target);
         setTargetInput(target > 0 ? String(target) : '');
         setSponsors((ev as any)?.sponsors || []);
+        setLicensing((ev as any)?.licensing || []);
+        setMerch((ev as any)?.merch || []);
+        setVendorRents((ev as any)?.vendorRents || []);
         if ((ev as any)?.budgetActivated) setActivated(true);
         getDocs(query(collection(db, 'budgetCashRequests'), where('eventId', '==', eventId), where('status', '==', 'pending')))
           .then(snap => { if (!snap.empty) setCashPending(true); })
@@ -191,6 +250,33 @@ export default function BudgetPage() {
     setSponsors(updated);
   };
 
+  // Generic add/delete factory for list-based revenue streams
+  function makeHandlers<T extends { id: string; name: string; amount: number }>(
+    list: T[], setList: React.Dispatch<React.SetStateAction<T[]>>,
+    field: string, setName: (v: string) => void, setAmt: (v: string) => void,
+    setSaving: (v: boolean) => void,
+  ) {
+    const add = async (name: string, amt: string) => {
+      if (!name.trim() || !amt || isNaN(Number(amt))) return;
+      setSaving(true);
+      const item = { id: Math.random().toString(36).substring(2, 8), name: name.trim(), amount: Math.round(Number(amt) * 100) / 100 } as T;
+      const updated = [...list, item];
+      await updateDoc(doc(db, 'events', eventId), { [field]: updated });
+      setList(updated); setName(''); setAmt('');
+      setSaving(false);
+    };
+    const remove = async (id: string) => {
+      const updated = list.filter(i => i.id !== id);
+      await updateDoc(doc(db, 'events', eventId), { [field]: updated });
+      setList(updated);
+    };
+    return { add, remove };
+  }
+
+  const licHandlers    = makeHandlers(licensing,   setLicensing,  'licensing',   setLicName,    setLicAmt,    setSavingLic);
+  const merchHandlers  = makeHandlers(merch,        setMerch,      'merch',       setMerchName,  setMerchAmt,  setSavingMerch);
+  const vendorHandlers = makeHandlers(vendorRents,  setVendorRents,'vendorRents', setVendorName, setVendorAmt, setSavingVendor);
+
   if (loading) return (
     <div className="flex justify-center py-20">
       <div className="w-8 h-8 rounded-full border-2 border-orange border-t-transparent animate-spin" />
@@ -204,11 +290,14 @@ export default function BudgetPage() {
   const totalRevenue  = ticketRevenue + barRevenue;
 
   // ── Expenses ──
-  const totalExpenses = items.reduce((s, i) => s + i.amount, 0);
-  const isPrivateEvent = (event as any)?.eventType === 'free_private' || (event as any)?.eventType === 'paid_private' || (event as any)?.isPrivate;
-  const sponsorRevenue = sponsors.reduce((s, sp) => s + sp.amount, 0);
+  const totalExpenses   = items.reduce((s, i) => s + i.amount, 0);
+  const isPrivateEvent  = (event as any)?.eventType === 'free_private' || (event as any)?.eventType === 'paid_private' || (event as any)?.isPrivate;
+  const sponsorRevenue  = sponsors.reduce((s, sp) => s + sp.amount, 0);
+  const licRevenue      = licensing.reduce((s, l) => s + l.amount, 0);
+  const merchRevenue    = merch.reduce((s, m) => s + m.amount, 0);
+  const vendorRevenue   = vendorRents.reduce((s, v) => s + v.amount, 0);
   const effectiveSponsor = isPrivateEvent ? 0 : sponsorRevenue;
-  const net = budgetTarget + ticketRevenue + barRevenue + effectiveSponsor - totalExpenses;
+  const net = budgetTarget + ticketRevenue + barRevenue + effectiveSponsor + licRevenue + merchRevenue + vendorRevenue - totalExpenses;
 
   // ── Group by category ──
   const byCategory = BUDGET_CATEGORIES
@@ -250,36 +339,41 @@ export default function BudgetPage() {
 
       {/* Sponsor list — not for private events */}
       {activated && !isPrivateEvent && (
-        <section>
-          <h3 className="text-[10px] uppercase tracking-widest text-gray-muted font-bold mb-2">{t('budget_sponsors_title')}</h3>
-          <div className={`${card} p-4 space-y-3`}>
-            <div className="flex gap-2">
-              <input value={sponsorName} onChange={e => setSponsorName(e.target.value)} placeholder={t('budget_sponsor_name_ph')}
-                className="flex-1 px-3 py-2.5 rounded-xl bg-white/[0.05] border border-border text-white text-sm outline-none focus:border-orange" />
-              <input value={sponsorAmt} onChange={e => setSponsorAmt(e.target.value)} placeholder="$0" type="number" min="0"
-                className="w-28 px-3 py-2.5 rounded-xl bg-white/[0.05] border border-border text-white text-sm outline-none focus:border-orange" />
-            </div>
-            <button onClick={handleAddSponsor} disabled={savingSponsor || !sponsorName.trim() || !sponsorAmt}
-              className="w-full py-2.5 rounded-xl bg-orange text-black font-bold text-sm disabled:opacity-40 hover:bg-orange/90 transition-all">
-              {savingSponsor ? '…' : t('budget_add_sponsor_btn')}
-            </button>
-            {sponsors.length > 0 && (
-              <div className="space-y-1 pt-1">
-                {sponsors.map(sp => (
-                  <div key={sp.id} className="flex items-center gap-3 py-2 border-t border-border">
-                    <p className="flex-1 text-sm font-semibold">{sp.name}</p>
-                    <p className="font-bold text-sm text-green">${sp.amount.toLocaleString()}</p>
-                    <button onClick={() => handleDeleteSponsor(sp.id)} className="text-gray-muted hover:text-red-400 text-[11px]">✕</button>
-                  </div>
-                ))}
-                <div className="flex justify-between items-center pt-2 border-t border-border">
-                  <p className="text-xs font-bold text-gray-muted">{t('budget_total_sponsors')}</p>
-                  <p className="font-heading text-base text-green">${sponsorRevenue.toLocaleString()}</p>
-                </div>
-              </div>
-            )}
-          </div>
-        </section>
+        <RevenueList title={t('budget_sponsors_title')} items={sponsors} total={sponsorRevenue}
+          name={sponsorName} amt={sponsorAmt} saving={savingSponsor}
+          onName={setSponsorName} onAmt={setSponsorAmt}
+          onAdd={handleAddSponsor} onDelete={handleDeleteSponsor}
+          namePh={t('budget_sponsor_name_ph')} totalLabel={t('budget_total_sponsors')} card={card} />
+      )}
+
+      {/* Licensing */}
+      {activated && (
+        <RevenueList title="📜 Licensing" items={licensing} total={licRevenue}
+          name={licName} amt={licAmt} saving={savingLic}
+          onName={setLicName} onAmt={setLicAmt}
+          onAdd={() => licHandlers.add(licName, licAmt)}
+          onDelete={licHandlers.remove}
+          namePh="Dwa mizik, mak, media…" totalLabel="Total Licensing" card={card} />
+      )}
+
+      {/* Merchandising */}
+      {activated && (
+        <RevenueList title="👕 Machandiz" items={merch} total={merchRevenue}
+          name={merchName} amt={merchAmt} saving={savingMerch}
+          onName={setMerchName} onAmt={setMerchAmt}
+          onAdd={() => merchHandlers.add(merchName, merchAmt)}
+          onDelete={merchHandlers.remove}
+          namePh="T-shirt, chapo, afich…" totalLabel="Total Machandiz" card={card} />
+      )}
+
+      {/* Vendor space rental — not for private events */}
+      {activated && !isPrivateEvent && (
+        <RevenueList title="🏪 Lokasyon Stand" items={vendorRents} total={vendorRevenue}
+          name={vendorName} amt={vendorAmt} saving={savingVendor}
+          onName={setVendorName} onAmt={setVendorAmt}
+          onAdd={() => vendorHandlers.add(vendorName, vendorAmt)}
+          onDelete={vendorHandlers.remove}
+          namePh="Non vandè / stand…" totalLabel="Total Lokasyon" card={card} />
       )}
 
       {/* Ledger summary — 5 cards */}
@@ -299,11 +393,28 @@ export default function BudgetPage() {
           <p className="font-heading text-2xl text-green">${barRevenue.toLocaleString()}</p>
           <p className="text-[10px] text-gray-muted mt-1">{t('budget_bar_sub')}</p>
         </div>
-        {(event as any)?.eventType !== 'free_private' && (event as any)?.eventType !== 'paid_private' && !(event as any)?.isPrivate && (
+        {!isPrivateEvent && (
           <div className={`${card} p-4`}>
             <p className="text-[10px] text-gray-muted uppercase tracking-widest mb-1">{t('budget_sponsor_rev_label')}</p>
             <p className="font-heading text-2xl text-green">${sponsorRevenue.toLocaleString()}</p>
             <p className="text-[10px] text-gray-muted mt-1">{t('budget_sponsor_sub')}</p>
+          </div>
+        )}
+        <div className={`${card} p-4`}>
+          <p className="text-[10px] text-gray-muted uppercase tracking-widest mb-1">📜 Licensing</p>
+          <p className="font-heading text-2xl text-green">${licRevenue.toLocaleString()}</p>
+          <p className="text-[10px] text-gray-muted mt-1">Dwa & kontra</p>
+        </div>
+        <div className={`${card} p-4`}>
+          <p className="text-[10px] text-gray-muted uppercase tracking-widest mb-1">👕 Machandiz</p>
+          <p className="font-heading text-2xl text-green">${merchRevenue.toLocaleString()}</p>
+          <p className="text-[10px] text-gray-muted mt-1">Vant machandiz</p>
+        </div>
+        {!isPrivateEvent && (
+          <div className={`${card} p-4`}>
+            <p className="text-[10px] text-gray-muted uppercase tracking-widest mb-1">🏪 Lokasyon Stand</p>
+            <p className="font-heading text-2xl text-green">${vendorRevenue.toLocaleString()}</p>
+            <p className="text-[10px] text-gray-muted mt-1">Frè vandè</p>
           </div>
         )}
         <div className={`${card} p-4`}>
@@ -447,6 +558,12 @@ export default function BudgetPage() {
               ['', 'Revni Bar', `$${barRevenue}`, ''],
               ...(!isPrivateEvent ? sponsors.map(sp => ['Sponsor', sp.name, `$${sp.amount}`, '']) : []),
               ...(!isPrivateEvent ? [['', 'Total Sponsors', `$${sponsorRevenue}`, '']] : []),
+              ...licensing.map(l => ['Licensing', l.name, `$${l.amount}`, '']),
+              ...(licensing.length ? [['', 'Total Licensing', `$${licRevenue}`, '']] : []),
+              ...merch.map(m => ['Machandiz', m.name, `$${m.amount}`, '']),
+              ...(merch.length ? [['', 'Total Machandiz', `$${merchRevenue}`, '']] : []),
+              ...(!isPrivateEvent ? vendorRents.map(v => ['Lokasyon Stand', v.name, `$${v.amount}`, '']) : []),
+              ...(!isPrivateEvent && vendorRents.length ? [['', 'Total Lokasyon', `$${vendorRevenue}`, '']] : []),
               ['', 'Total Depans', `$${totalExpenses}`, ''],
               ['', 'NÈT', `${net >= 0 ? '+' : '-'}$${Math.abs(net)}`, ''],
             ];
