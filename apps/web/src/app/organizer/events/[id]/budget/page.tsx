@@ -403,6 +403,31 @@ export default function BudgetPage() {
         </div>
       )}
 
+      {/* Suggested pricing */}
+      {activated && totalExpenses > 0 && (
+        <section>
+          <h3 className="text-[10px] uppercase tracking-widest text-gray-muted font-bold mb-2">💡 Pri Sijere</h3>
+          <div className={card}>
+            {[
+              { label: 'Prix Vandè',       pct: 10,  color: 'text-gray-light' },
+              { label: 'Prix Early Bird',  pct: 50,  color: 'text-orange' },
+              { label: 'Prix Normal',      pct: 100, color: 'text-green' },
+            ].map(({ label, pct, color }, i) => {
+              const suggested = Math.ceil(totalExpenses * (1 + pct / 100));
+              return (
+                <div key={pct} className={`flex items-center justify-between px-4 py-3 ${i > 0 ? 'border-t border-border' : ''}`}>
+                  <div>
+                    <p className="text-sm font-semibold">{label}</p>
+                    <p className="text-[10px] text-gray-muted">Depans + {pct}%</p>
+                  </div>
+                  <p className={`font-heading text-xl font-bold ${color}`}>${suggested.toLocaleString()}</p>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
       {/* Print / Download */}
       {activated && (
         <div className="flex gap-2 pb-4">
