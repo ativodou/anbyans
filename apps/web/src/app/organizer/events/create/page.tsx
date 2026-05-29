@@ -161,6 +161,7 @@ function CreateEventInner() {
   const [isPrivate, setIsPrivate]     = useState(false);
   const [privateMode, setPrivateMode] = useState<'paid' | 'free'>('paid');
   const [compLimit, setCompLimit]     = useState(0);
+  const [budgetTarget, setBudgetTarget] = useState(0);
 
   // Step 2 — Venue + Sections
   const [venueQuery, setVenueQuery]             = useState('');
@@ -234,6 +235,7 @@ function CreateEventInner() {
       if (d.endTimeStr)     setEndTimeStr(d.endTimeStr);
       if (d.isPrivate != null) setIsPrivate(d.isPrivate);
       if (d.compLimit != null) setCompLimit(d.compLimit);
+      if (d.budgetTarget != null) setBudgetTarget(d.budgetTarget);
       if (d.venueQuery)     setVenueQuery(d.venueQuery);
       if (d.venue)          setVenue(d.venue);
       if (d.venueAddress)   setVenueAddress(d.venueAddress);
@@ -389,6 +391,7 @@ function CreateEventInner() {
         privateMode:    isPrivate ? privateMode : null,
         privateToken:   isPrivate ? uid6() + uid6() : null,
         compLimit:      compLimit > 0 ? compLimit : 0,
+        budgetTarget:   budgetTarget > 0 ? budgetTarget : 0,
         compIssued:     0,
         sections:       sections.map(s => Object.fromEntries(Object.entries({ ...s, sold: 0 }).filter(([, v]) => v !== undefined))),
         floorPlan:      floorPlanImage ? { image: floorPlanImage, zones: mapZones } : null,
@@ -586,6 +589,18 @@ function CreateEventInner() {
               <input type="number" min={0} value={compLimit}
                 onChange={e => setCompLimit(Math.max(0, parseInt(e.target.value) || 0))}
                 className="w-20 px-3 py-2 rounded-lg bg-white/[0.06] border border-border text-white text-sm text-center outline-none focus:border-orange" />
+            </div>
+
+            {/* Budget target */}
+            <div className="flex items-center justify-between p-4 rounded-xl bg-white/[0.03] border border-border">
+              <div>
+                <p className="text-sm font-bold">💰 Bidjè / Budget</p>
+                <p className="text-[10px] text-gray-500">Montan kliyan ap peye ou, oswa bidjè total ou planifye. 0 = pa defini.</p>
+              </div>
+              <input type="number" min={0} value={budgetTarget || ''}
+                onChange={e => setBudgetTarget(Math.max(0, parseFloat(e.target.value) || 0))}
+                placeholder="$0"
+                className="w-28 px-3 py-2 rounded-lg bg-white/[0.06] border border-border text-white text-sm text-center outline-none focus:border-orange" />
             </div>
 
             <button type="button" onClick={() => setTab('venue')}
