@@ -300,8 +300,6 @@ function OrganizerLayoutInner({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="flex items-center gap-3">
-          {/* ── Event Selector ── */}
-          <EventSelector />
           <LangSwitcher />
 
           {/* ── Profile ── */}
