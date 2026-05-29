@@ -152,7 +152,8 @@ function EditEventInner() {
   const [endTimeStr, setEndTimeStr] = useState('23:00');
   const [isPrivate, setIsPrivate]   = useState(false);
   const [privateMode, setPrivateMode] = useState<'paid' | 'free'>('paid');
-  const [compLimit, setCompLimit]   = useState(0);
+  const [compLimit, setCompLimit]     = useState(0);
+  const [budgetTarget, setBudgetTarget] = useState(0);
 
   // Step 2
   const [venueQuery, setVenueQuery]             = useState('');
@@ -215,6 +216,7 @@ function EditEventInner() {
         setIsPrivate(d.isPrivate || false);
         setPrivateMode((d.privateMode as 'paid' | 'free') || 'paid');
         setCompLimit((d.compLimit as number) || 0);
+        setBudgetTarget((d.budgetTarget as number) || 0);
         setVenue(venueStr);
         setVenueQuery(venueStr);
         setCity(cityStr);
@@ -346,6 +348,7 @@ function EditEventInner() {
         isPrivate,
         privateMode: isPrivate ? privateMode : null,
         compLimit,
+        budgetTarget: budgetTarget > 0 ? budgetTarget : 0,
         sections:      sections.map(s => Object.fromEntries(Object.entries(s).filter(([, v]) => v !== undefined))),
         floorPlan:     floorPlanImage ? { image: floorPlanImage, zones: mapZones } : null,
         paymentMethods,
@@ -507,6 +510,17 @@ function EditEventInner() {
               <input type="number" min={0} value={compLimit}
                 onChange={e => setCompLimit(Math.max(0, parseInt(e.target.value) || 0))}
                 className="w-20 px-3 py-2 rounded-lg bg-white/[0.06] border border-border text-white text-sm text-center outline-none focus:border-orange" />
+            </div>
+
+            <div className="flex items-center justify-between p-4 rounded-xl bg-white/[0.03] border border-border">
+              <div>
+                <p className="text-sm font-bold">💰 Bidjè / Budget</p>
+                <p className="text-[10px] text-gray-500">Montan kliyan ap peye ou, oswa bidjè total ou planifye. 0 = pa defini.</p>
+              </div>
+              <input type="number" min={0} value={budgetTarget || ''}
+                onChange={e => setBudgetTarget(Math.max(0, parseFloat(e.target.value) || 0))}
+                placeholder="$0"
+                className="w-28 px-3 py-2 rounded-lg bg-white/[0.06] border border-border text-white text-sm text-center outline-none focus:border-orange" />
             </div>
             <button type="button" onClick={() => setTab('venue')}
               className="w-full py-3 rounded-xl bg-orange text-white font-heading text-sm hover:bg-orange/90 transition-all">
