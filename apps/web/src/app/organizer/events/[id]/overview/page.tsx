@@ -226,6 +226,7 @@ export default function EventOverviewPage() {
           <Link href="/organizer/pending-tickets"           className="px-4 py-2 rounded-xl bg-white/[0.04] border border-border text-[11px] font-bold text-gray-light hover:text-white hover:border-white/20 transition-all">⏳ Ann Atant</Link>
           <Link href="/organizer/bar"                       className="px-4 py-2 rounded-xl bg-white/[0.04] border border-border text-[11px] font-bold text-gray-light hover:text-white hover:border-white/20 transition-all">🍺 Bar POS</Link>
           {event.isPrivate && <Link href={`/organizer/events/${eventId}/guests`} className="px-4 py-2 rounded-xl bg-orange/10 border border-orange/30 text-[11px] font-bold text-orange hover:bg-orange/20 transition-all">🎟 Envite</Link>}
+          <Link href={`/organizer/events/${eventId}/budget`} className="px-4 py-2 rounded-xl bg-white/[0.04] border border-border text-[11px] font-bold text-gray-light hover:text-white hover:border-white/20 transition-all">💰 Bidjè</Link>
         </div>
       </section>
 
