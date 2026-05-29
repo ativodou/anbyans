@@ -186,6 +186,7 @@ export default function BudgetPage() {
   const card = 'bg-dark-card border border-border rounded-card';
 
   return (
+    <>
     <div className="space-y-6 max-w-2xl mx-auto">
 
       {/* Header */}
@@ -331,6 +332,37 @@ export default function BudgetPage() {
         </div>
       )}
 
+      {/* Print / Download */}
+      {activated && (
+        <div className="flex gap-2 pb-4">
+          <button onClick={() => window.print()}
+            className="flex-1 py-2.5 rounded-xl bg-white/[0.04] border border-border text-[11px] font-bold text-gray-light hover:text-white hover:border-white/20 transition-all">
+            🖨️ Enprime Bidjè
+          </button>
+          <button onClick={() => {
+            const rows = [
+              ['Kategori', 'Deskripsyon', 'Montan', 'Nòt'],
+              ...items.map(i => [i.category, i.description, `$${i.amount}`, i.note || '']),
+              [],
+              ['', 'Bidjè Planifye', `$${budgetTarget}`, ''],
+              ['', 'Revni Tikè', `$${ticketRevenue}`, ''],
+              ['', 'Revni Bar', `$${barRevenue}`, ''],
+              ['', 'Total Depans', `$${totalExpenses}`, ''],
+              ['', 'NÈT', `${net >= 0 ? '+' : '-'}$${Math.abs(net)}`, ''],
+            ];
+            const csv = rows.map(r => r.map(c => `"${c}"`).join(',')).join('\n');
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a'); a.href = url;
+            a.download = `bidje-${event?.name?.replace(/\s+/g,'-') || eventId}.csv`;
+            a.click(); URL.revokeObjectURL(url);
+          }}
+            className="flex-1 py-2.5 rounded-xl bg-white/[0.04] border border-border text-[11px] font-bold text-gray-light hover:text-white hover:border-white/20 transition-all">
+            ⬇️ Telechaje CSV
+          </button>
+        </div>
+      )}
+
     </div>
 
       {/* Payment gate modal */}
@@ -374,5 +406,6 @@ export default function BudgetPage() {
           </div>
         </div>
       )}
+    </>
   );
 }
