@@ -374,11 +374,14 @@ function EditEventInner() {
     }
   };
 
-  const TABS = [
-    { id: 'info',    label: t('create_tab_details'), num: '1' },
-    { id: 'venue',   label: t('create_tab_seat_map'), num: '2' },
-    { id: 'payment', label: t('settings_tab_payments'), num: '3' },
-  ] as const;
+  const allFree = sections.length > 0 && sections.every(s => s.price === 0);
+  const skipPayment = allFree || (isPrivate && privateMode === 'free');
+
+  const TABS: { id: 'info' | 'venue' | 'payment'; label: string; num: string }[] = [
+    { id: 'info',  label: t('create_tab_details'),    num: '1' },
+    { id: 'venue', label: t('create_tab_seat_map'),   num: '2' },
+    ...(!skipPayment ? [{ id: 'payment' as const, label: t('settings_tab_payments'), num: '3' }] : []),
+  ];
 
   if (loadingEvent) return (
     <div className="flex items-center justify-center py-32">
@@ -691,9 +694,9 @@ function EditEventInner() {
                 className="flex-1 py-3 rounded-xl border border-border text-gray-400 text-sm font-bold hover:text-white transition-all">
                 ← {t('create_back')}
               </button>
-              <button type="button" onClick={() => setTab('payment')}
+              <button type="button" onClick={() => skipPayment ? save() : setTab('payment')}
                 className="flex-1 py-3 rounded-xl bg-orange text-white font-heading text-sm hover:bg-orange/90 transition-all">
-                {t('create_continue')}
+                {skipPayment ? t('create_save') : t('create_continue')}
               </button>
             </div>
           </>
