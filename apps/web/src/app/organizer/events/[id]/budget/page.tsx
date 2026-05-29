@@ -129,6 +129,9 @@ export default function BudgetPage() {
   const [amount, setAmount]     = useState('');
   const [note, setNote]         = useState('');
 
+  const [staffSalaryTotal, setStaffSalaryTotal] = useState(0);
+  const [staffCount, setStaffCount] = useState(0);
+
   useEffect(() => {
     if (!eventId) return;
     (async () => {
@@ -151,6 +154,14 @@ export default function BudgetPage() {
         setMerch((ev as any)?.merch || []);
         setVendorRents((ev as any)?.vendorRents || []);
         if ((ev as any)?.budgetActivated) setActivated(true);
+        // Load staff assignments for this event to compute salary total
+        getDocs(query(collection(db, 'staffAssignments'), where('eventId', '==', eventId)))
+          .then(snap => {
+            const assignments = snap.docs.map(d => d.data());
+            const total = assignments.reduce((s, a) => s + (a.agreedPay || 0), 0);
+            setStaffSalaryTotal(total);
+            setStaffCount(assignments.filter(a => a.agreedPay > 0).length);
+          }).catch(() => {});
         getDocs(query(collection(db, 'budgetCashRequests'), where('eventId', '==', eventId), where('status', '==', 'pending')))
           .then(snap => { if (!snap.empty) setCashPending(true); })
           .catch(() => {});
@@ -296,7 +307,7 @@ export default function BudgetPage() {
   const licRevenue      = licensing.reduce((s, l) => s + l.amount, 0);
   const merchRevenue    = merch.reduce((s, m) => s + m.amount, 0);
   const vendorRevenue   = vendorRents.reduce((s, v) => s + v.amount, 0);
-  const net = budgetTarget + ticketRevenue + barRevenue + sponsorRevenue + licRevenue + merchRevenue + vendorRevenue - totalExpenses;
+  const net = budgetTarget + ticketRevenue + barRevenue + sponsorRevenue + licRevenue + merchRevenue + vendorRevenue - totalExpenses - staffSalaryTotal;
 
   // ── Group by category ──
   const byCategory = BUDGET_CATEGORIES
@@ -420,15 +431,15 @@ export default function BudgetPage() {
         )}
         <div className={`${card} p-4`}>
           <p className="text-[10px] text-gray-muted uppercase tracking-widest mb-1">{t('budget_expenses_label')}</p>
-          <p className="font-heading text-2xl text-orange">${totalExpenses.toLocaleString()}</p>
-          <p className="text-[10px] text-gray-muted mt-1">{items.length} {t('budget_expenses_sub')}</p>
+          <p className="font-heading text-2xl text-orange">${(totalExpenses + staffSalaryTotal).toLocaleString()}</p>
+          <p className="text-[10px] text-gray-muted mt-1">{items.length} {t('budget_expenses_sub')}{staffSalaryTotal > 0 ? ` + 👥 Salè` : ''}</p>
         </div>
         <div className={`col-span-2 ${card} p-4 ${net >= 0 ? 'border-green/30' : 'border-red-500/30'}`}>
           <p className="text-[10px] text-gray-muted uppercase tracking-widest mb-1">{t('budget_net_label')}</p>
           <p className={`font-heading text-3xl ${net >= 0 ? 'text-green' : 'text-red-400'}`}>
             {net >= 0 ? '+' : '−'}${Math.abs(net).toLocaleString()}
           </p>
-          <p className="text-[10px] text-gray-muted mt-1">{isPrivateEvent ? 'Bidjè + Tikè + Bar + Kado + Lic + Merch' : 'Bidjè + Tikè + Bar + Sponsors + Lic + Merch + Stand'} − Depans · {net >= 0 ? t('budget_positive') : t('budget_negative')}</p>
+          <p className="text-[10px] text-gray-muted mt-1">{isPrivateEvent ? 'Bidjè + Tikè + Bar + Kado + Lic + Merch' : 'Bidjè + Tikè + Bar + Sponsors + Lic + Merch + Stand'} − Depans − Salè · {net >= 0 ? t('budget_positive') : t('budget_negative')}</p>
         </div>
       </div>
 
@@ -503,10 +514,21 @@ export default function BudgetPage() {
               );
             })}
 
+            {/* Staff salary line */}
+            {staffSalaryTotal > 0 && (
+              <div className="flex justify-between items-center px-4 py-3 border-t border-border">
+                <div>
+                  <p className="text-sm font-semibold">👥 Salè Ekip</p>
+                  <p className="text-[10px] text-gray-muted">{staffCount} moun · pri pa evènman</p>
+                </div>
+                <p className="font-bold text-orange">${staffSalaryTotal.toLocaleString()}</p>
+              </div>
+            )}
+
             {/* Total */}
             <div className={`${card} flex justify-between items-center px-4 py-4`}>
               <p className="text-sm font-bold">{t('budget_total_expenses')}</p>
-              <p className="font-heading text-xl text-orange">${totalExpenses.toLocaleString()}</p>
+              <p className="font-heading text-xl text-orange">${(totalExpenses + staffSalaryTotal).toLocaleString()}</p>
             </div>
           </div>
         </section>
@@ -518,7 +540,7 @@ export default function BudgetPage() {
       )}
 
       {/* Suggested pricing */}
-      {activated && totalExpenses > 0 && (
+      {activated && (totalExpenses + staffSalaryTotal) > 0 && (
         <section>
           <h3 className="text-[10px] uppercase tracking-widest text-gray-muted font-bold mb-2">💡 Pri Sijere</h3>
           <div className={card}>
@@ -527,7 +549,7 @@ export default function BudgetPage() {
               { label: 'Prix Early Bird',  pct: 50,  color: 'text-orange' },
               { label: 'Prix Normal',      pct: 100, color: 'text-green' },
             ].map(({ label, pct, color }, i) => {
-              const suggested = Math.ceil(totalExpenses * (1 + pct / 100));
+              const suggested = Math.ceil((totalExpenses + staffSalaryTotal) * (1 + pct / 100));
               return (
                 <div key={pct} className={`flex items-center justify-between px-4 py-3 ${i > 0 ? 'border-t border-border' : ''}`}>
                   <div>
