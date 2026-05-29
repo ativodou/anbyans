@@ -44,6 +44,9 @@ interface EventData {
   status: 'live' | 'upcoming' | 'ended';
   isPrivate?: boolean;
   privateMode?: 'paid' | 'free' | null;
+  eventType?: string;
+  barEnabled?: boolean;
+  hasTickets?: boolean;
 }
 
 type Step = 'detail' | 'seats' | 'info' | 'payment' | 'done';
@@ -299,6 +302,9 @@ function BuyPageInner() {
             status: data.status === 'published' ? 'upcoming' : (data.status || 'upcoming'),
             isPrivate: data.isPrivate || false,
             privateMode: data.privateMode || null,
+            eventType: data.eventType || null,
+            barEnabled: data.barEnabled !== undefined ? data.barEnabled : true,
+            hasTickets: data.hasTickets !== undefined ? data.hasTickets : true,
           } as EventData);
           // Verify invite for private events
           if (data.isPrivate) {
@@ -733,7 +739,7 @@ function BuyPageInner() {
         <button onClick={() => {
           if (!validateInfo()) return;
           // No bar tab for fully free private events
-          if (event?.isPrivate && event.privateMode === 'free') { completeFreeOrder(); return; }
+          if (!event?.barEnabled || event?.eventType === 'free_private') { completeFreeOrder(); return; }
           setShowBarTab(true);
           if (event?.id) getBarItems(event.id).then(items => setBarMenuItems(items.map(x => ({ name: x.name, price: x.price, station: x.stationName })))).catch(() => {});
         }}

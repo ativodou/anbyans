@@ -150,9 +150,17 @@ function EditEventInner() {
   const [timeStr, setTimeStr]       = useState('20:00');
   const [endDateStr, setEndDateStr] = useState('');
   const [endTimeStr, setEndTimeStr] = useState('23:00');
-  const [isPrivate, setIsPrivate]   = useState(false);
-  const [privateMode, setPrivateMode] = useState<'paid' | 'free'>('paid');
-  const [compLimit, setCompLimit]     = useState(0);
+  type EventType = 'free_private'|'free_open_limited'|'free_open_unlimited'|'paid_open'|'paid_private';
+  function deriveEventType(d: any): EventType {
+    if (d.eventType) return d.eventType as EventType;
+    if (d.isPrivate && d.privateMode === 'paid') return 'paid_private';
+    if (d.isPrivate) return 'free_private';
+    if (d.sections?.every((s: any) => !s.price)) return 'free_open_limited';
+    return 'paid_open';
+  }
+  const [eventType, setEventType]   = useState<EventType>('paid_open');
+  const [barEnabled, setBarEnabled] = useState(true);
+  const [compLimit, setCompLimit]   = useState(0);
   const [budgetTarget, setBudgetTarget] = useState(0);
 
   // Step 2
@@ -213,8 +221,8 @@ function EditEventInner() {
         setTimeStr(d.startTime || '20:00');
         setEndDateStr(d.endDate || '');
         setEndTimeStr(d.endTime || '23:00');
-        setIsPrivate(d.isPrivate || false);
-        setPrivateMode((d.privateMode as 'paid' | 'free') || 'paid');
+        setEventType(deriveEventType(d));
+        setBarEnabled(d.barEnabled !== undefined ? d.barEnabled : d.eventType !== 'free_private');
         setCompLimit((d.compLimit as number) || 0);
         setBudgetTarget((d.budgetTarget as number) || 0);
         setVenue(venueStr);
@@ -257,6 +265,11 @@ function EditEventInner() {
   useEffect(() => {
     if (!slugEdited && title) setSlug(toSlug(title));
   }, [title, slugEdited]);
+
+  const isPrivate = eventType === 'free_private' || eventType === 'paid_private';
+  const hasTickets = eventType !== 'free_open_unlimited';
+  const isPaid = eventType === 'paid_open' || eventType === 'paid_private';
+  const skipPayment = !isPaid;
 
   const htg = (usd: number) => Math.round(usd * exchangeRate);
 
@@ -313,9 +326,11 @@ function EditEventInner() {
     if (!title.trim()) e.title = 'Obligatwa / Required';
     if (!dateStr)      e.date  = 'Obligatwa / Required';
     if (!venue.trim()) e.venue = 'Obligatwa / Required';
-    if (sections.length === 0) e.sections = 'Ajoute omwen yon seksyon';
-    if (sections.some(s => !s.name.trim())) e.sections = 'Tout seksyon bezwen yon non';
-    if (sections.some(s => !s.capacity || s.capacity < 1)) e.sections = 'Chak seksyon bezwen omwen 1 tikè';
+    if (hasTickets) {
+      if (sections.length === 0) e.sections = 'Ajoute omwen yon seksyon';
+      if (sections.some(s => !s.name.trim())) e.sections = 'Tout seksyon bezwen yon non';
+      if (sections.some(s => !s.capacity || s.capacity < 1)) e.sections = 'Chak seksyon bezwen omwen 1 tikè';
+    }
     setErrors(e);
     return e;
   };
@@ -330,8 +345,9 @@ function EditEventInner() {
     if (!user) return;
     setSaving(true);
     try {
-      const minPrice = Math.min(...sections.map(s => s.price));
-      const maxPrice = Math.max(...sections.map(s => s.price));
+      const effectiveSections = hasTickets ? sections : [];
+      const minPrice = hasTickets && effectiveSections.length > 0 ? Math.min(...effectiveSections.map(s => s.price)) : 0;
+      const maxPrice = hasTickets && effectiveSections.length > 0 ? Math.max(...effectiveSections.map(s => s.price)) : 0;
       await updateDoc(doc(db, 'events', eventId), {
         name:          title.trim(),
         title:         title.trim(),
@@ -345,11 +361,14 @@ function EditEventInner() {
         venue:         venue.trim(),
         venuePlaceId:  venuePlaceId || null,
         city:          city.trim() || null,
+        eventType,
         isPrivate,
-        privateMode: isPrivate ? privateMode : null,
+        hasTickets,
+        barEnabled,
+        privateMode:  isPrivate ? (isPaid ? 'paid' : 'free') : null,
         compLimit,
         budgetTarget: budgetTarget > 0 ? budgetTarget : 0,
-        sections:      sections.map(s => Object.fromEntries(Object.entries(s).filter(([, v]) => v !== undefined))),
+        sections:     effectiveSections.map(s => Object.fromEntries(Object.entries(s).filter(([, v]) => v !== undefined))),
         floorPlan:     floorPlanImage ? { image: floorPlanImage, zones: mapZones } : null,
         paymentMethods,
         exchangeRate,
@@ -373,9 +392,6 @@ function EditEventInner() {
       setSaving(false);
     }
   };
-
-  const allFree = sections.length > 0 && sections.every(s => s.price === 0);
-  const skipPayment = allFree || (isPrivate && privateMode === 'free');
 
   const TABS: { id: 'info' | 'venue' | 'payment'; label: string; num: string }[] = [
     { id: 'info',  label: t('create_tab_details'),    num: '1' },
@@ -481,30 +497,40 @@ function EditEventInner() {
               <textarea value={description} onChange={e => setDescription(e.target.value)} rows={3}
                 className="w-full px-4 py-3 rounded-xl bg-white/[0.05] border border-border text-white text-sm outline-none focus:border-orange resize-none" />
             </div>
+            {/* Event type selector */}
+            <div>
+              <label className="block text-[11px] font-bold text-gray-400 mb-2">TIP EVÈNMAN *</label>
+              <div className="grid grid-cols-2 gap-2">
+                {([
+                  ['free_private',       '🎊', 'Gratis · Prive',   'Maryaj, fineray, selebrasyon prive. Pa gen tikè peye, pa gen bar.'],
+                  ['free_open_limited',  '🎟', 'Gratis · Limite',   'Tikè gratis, kapasite limite. Bar disponib.'],
+                  ['free_open_unlimited','🚪', 'Pòt Ouvè',          'Pa gen tikè. Tout moun antre, bar sèlman.'],
+                  ['paid_open',          '💳', 'Peye · Piblik',     'Tikè peye, evènman piblik. Bar disponib.'],
+                  ['paid_private',       '💳', 'Peye · Prive',      'Tikè peye + envitasyon. Bar disponib.'],
+                ] as const).map(([type, icon, label, desc], idx) => (
+                  <button key={type} type="button"
+                    onClick={() => setEventType(type)}
+                    className={`p-3 rounded-xl border text-left transition-all ${idx === 4 ? 'col-span-2' : ''} ${
+                      eventType === type ? 'border-orange bg-orange/10' : 'border-border bg-white/[0.02] hover:border-white/20'
+                    }`}>
+                    <p className="text-sm font-bold">{icon} {label}</p>
+                    <p className="text-[10px] text-gray-500 mt-0.5">{desc}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Bar toggle */}
             <div className="flex items-center justify-between p-4 rounded-xl bg-white/[0.03] border border-border">
               <div>
-                <p className="text-sm font-bold">{t('create_event_private')}</p>
-                <p className="text-[10px] text-gray-500">{t('create_private_hint')}</p>
+                <p className="text-sm font-bold">🍺 Bar aktivé</p>
+                <p className="text-[10px] text-gray-500">POS bar disponib pou evènman sa a</p>
               </div>
-              <button type="button" onClick={() => setIsPrivate(v => !v)}
-                className={`w-12 h-6 rounded-full transition-all relative ${isPrivate ? 'bg-orange' : 'bg-white/[0.1]'}`}>
-                <div className={`w-5 h-5 bg-white rounded-full absolute top-0.5 transition-all ${isPrivate ? 'left-6' : 'left-0.5'}`} />
+              <button type="button" onClick={() => setBarEnabled(v => !v)}
+                className={`w-12 h-6 rounded-full transition-all relative ${barEnabled ? 'bg-orange' : 'bg-white/[0.1]'}`}>
+                <div className={`w-5 h-5 bg-white rounded-full absolute top-0.5 transition-all ${barEnabled ? 'left-6' : 'left-0.5'}`} />
               </button>
             </div>
-            {isPrivate && (
-              <div className="p-4 rounded-xl bg-white/[0.03] border border-border space-y-3">
-                <p className="text-sm font-bold">Tip evènman prive</p>
-                <div className="flex gap-3">
-                  {([['paid', '💳', 'Peye', 'Tikè peye, envitasyon obligatwa'], ['free', '🎊', 'Gratis', 'Maryaj, ba-mitsvah, selebrasyon…']] as const).map(([mode, icon, label, desc]) => (
-                    <button key={mode} type="button" onClick={() => setPrivateMode(mode)}
-                      className={`flex-1 p-3 rounded-xl border text-left transition-all ${privateMode === mode ? 'border-orange bg-orange/10' : 'border-border bg-white/[0.02] hover:border-white/20'}`}>
-                      <p className="text-sm font-bold">{icon} {label}</p>
-                      <p className="text-[10px] text-gray-muted mt-0.5">{desc}</p>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
             <div className="flex items-center justify-between p-4 rounded-xl bg-white/[0.03] border border-border">
               <div>
                 <p className="text-sm font-bold">Comp Ticket Limit</p>
@@ -644,6 +670,12 @@ function EditEventInner() {
               )}
             </div>
 
+            {!hasTickets ? (
+              <div className="p-4 rounded-xl bg-white/[0.03] border border-border text-center">
+                <p className="text-sm font-bold mb-1">🚪 Pa gen tikè</p>
+                <p className="text-[11px] text-gray-500">Pa gen tikè pou tip evènman sa a. Bar POS pral jere tout transaksyon.</p>
+              </div>
+            ) : (
             <div>
               <label className="block text-[11px] font-bold text-gray-400 mb-2">SECTIONS *</label>
               {errors.sections && <p className="text-red-400 text-xs bg-red-400/10 rounded-lg px-3 py-2 mb-3">{errors.sections}</p>}
@@ -688,6 +720,7 @@ function EditEventInner() {
                 </div>
               )}
             </div>
+            )}
 
             <div className="flex gap-3">
               <button type="button" onClick={() => setTab('info')}

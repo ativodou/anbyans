@@ -158,8 +158,9 @@ function CreateEventInner() {
   const [timeStr, setTimeStr]         = useState('20:00');
   const [endDateStr, setEndDateStr]   = useState('');
   const [endTimeStr, setEndTimeStr]   = useState('23:00');
-  const [isPrivate, setIsPrivate]     = useState(false);
-  const [privateMode, setPrivateMode] = useState<'paid' | 'free'>('paid');
+  type EventType = 'free_private'|'free_open_limited'|'free_open_unlimited'|'paid_open'|'paid_private';
+  const [eventType, setEventType]     = useState<EventType>('paid_open');
+  const [barEnabled, setBarEnabled]   = useState(true);
   const [compLimit, setCompLimit]     = useState(0);
   const [budgetTarget, setBudgetTarget] = useState(0);
 
@@ -233,7 +234,8 @@ function CreateEventInner() {
       if (d.timeStr)        setTimeStr(d.timeStr);
       if (d.endDateStr)     setEndDateStr(d.endDateStr);
       if (d.endTimeStr)     setEndTimeStr(d.endTimeStr);
-      if (d.isPrivate != null) setIsPrivate(d.isPrivate);
+      if (d.eventType) setEventType(d.eventType as EventType);
+      if (d.barEnabled != null) setBarEnabled(d.barEnabled);
       if (d.compLimit != null) setCompLimit(d.compLimit);
       if (d.budgetTarget != null) setBudgetTarget(d.budgetTarget);
       if (d.venueQuery)     setVenueQuery(d.venueQuery);
@@ -260,7 +262,7 @@ function CreateEventInner() {
       saveEventDraft(user.uid, {
         title, slug, description, coverImage,
         dateStr, timeStr, endDateStr, endTimeStr,
-        isPrivate, compLimit,
+        eventType, barEnabled, compLimit,
         venueQuery, venue, venueAddress, city, venuePlaceId, venueSelected,
         sections, mapZones,
         paymentMethods, exchangeRate,
@@ -270,7 +272,7 @@ function CreateEventInner() {
   }, [
     title, slug, description, coverImage,
     dateStr, timeStr, endDateStr, endTimeStr,
-    isPrivate, compLimit,
+    eventType, barEnabled, compLimit,
     venueQuery, venue, venueAddress, city, venuePlaceId, venueSelected,
     sections, mapZones,
     paymentMethods, exchangeRate,
@@ -280,6 +282,20 @@ function CreateEventInner() {
   useEffect(() => {
     if (!slugEdited && title) setSlug(toSlug(title));
   }, [title, slugEdited]);
+
+  // Auto-set barEnabled when eventType changes (only after first render)
+  const firstRender = useRef(true);
+  useEffect(() => {
+    if (firstRender.current) { firstRender.current = false; return; }
+    setBarEnabled(eventType !== 'free_private');
+    if (eventType === 'free_open_unlimited') setSections([]);
+    else setSections(s => s.length === 0 ? [{ id: uid6(), name: 'General Admission', price: 0, capacity: 200, color: '#f97316', type: 'ga' }] : s);
+  }, [eventType]);
+
+  const isPrivate = eventType === 'free_private' || eventType === 'paid_private';
+  const hasTickets = eventType !== 'free_open_unlimited';
+  const isPaid = eventType === 'paid_open' || eventType === 'paid_private';
+  const skipPayment = !isPaid;
 
   const htg = (usd: number) => Math.round(usd * exchangeRate);
 
@@ -346,9 +362,11 @@ function CreateEventInner() {
     if (!slug.trim())     e.slug     = 'Obligatwa / Required';
     if (!dateStr)         e.date     = 'Obligatwa / Required';
     if (!venue.trim())    e.venue    = 'Obligatwa / Required';
-    if (sections.length === 0) e.sections = 'Ajoute omwen yon seksyon / Add at least one section';
-    if (sections.some(s => !s.name.trim())) e.sections = 'Tout seksyon bezwen yon non';
-    if (sections.some(s => !s.capacity || s.capacity < 1)) e.sections = 'Chak seksyon bezwen omwen 1 tikè / Each section needs a capacity';
+    if (hasTickets) {
+      if (sections.length === 0) e.sections = 'Ajoute omwen yon seksyon / Add at least one section';
+      if (sections.some(s => !s.name.trim())) e.sections = 'Tout seksyon bezwen yon non';
+      if (sections.some(s => !s.capacity || s.capacity < 1)) e.sections = 'Chak seksyon bezwen omwen 1 tikè / Each section needs a capacity';
+    }
     setErrors(e);
     return e;
   };
@@ -365,8 +383,9 @@ function CreateEventInner() {
     if (!user) return;
     setSaving(true);
     try {
-      const minPrice = Math.min(...sections.map(s => s.price));
-      const maxPrice = Math.max(...sections.map(s => s.price));
+      const effectiveSections = hasTickets ? sections : [];
+      const minPrice = hasTickets && effectiveSections.length > 0 ? Math.min(...effectiveSections.map(s => s.price)) : 0;
+      const maxPrice = hasTickets && effectiveSections.length > 0 ? Math.max(...effectiveSections.map(s => s.price)) : 0;
       const eventRef = await addDoc(collection(db, 'events'), {
         name:           title.trim(),
         title:          title.trim(),
@@ -387,13 +406,16 @@ function CreateEventInner() {
         },
         venuePlaceId:   venuePlaceId || null,
         city:           city.trim() || null,
+        eventType,
         isPrivate,
-        privateMode:    isPrivate ? privateMode : null,
+        hasTickets,
+        barEnabled,
+        privateMode:    isPrivate ? (isPaid ? 'paid' : 'free') : null,
         privateToken:   isPrivate ? uid6() + uid6() : null,
         compLimit:      compLimit > 0 ? compLimit : 0,
         budgetTarget:   budgetTarget > 0 ? budgetTarget : 0,
         compIssued:     0,
-        sections:       sections.map(s => Object.fromEntries(Object.entries({ ...s, sold: 0 }).filter(([, v]) => v !== undefined))),
+        sections:       effectiveSections.map(s => Object.fromEntries(Object.entries({ ...s, sold: 0 }).filter(([, v]) => v !== undefined))),
         floorPlan:      floorPlanImage ? { image: floorPlanImage, zones: mapZones } : null,
         paymentMethods,
         exchangeRate,
@@ -429,9 +451,6 @@ function CreateEventInner() {
       setSaving(false);
     }
   };
-
-  const allFree = sections.length > 0 && sections.every(s => !s.price || s.price === 0);
-  const skipPayment = allFree || (isPrivate && privateMode === 'free');
 
   const TABS: { id: 'info' | 'venue' | 'payment'; label: string; num: string }[] = [
     { id: 'info',    label: t('create_tab_details'), num: '1' },
@@ -547,38 +566,40 @@ function CreateEventInner() {
                 className="w-full px-4 py-3 rounded-xl bg-white/[0.05] border border-border text-white text-sm outline-none focus:border-orange resize-none" />
             </div>
 
-            {/* Private toggle */}
-            <div className="flex items-center justify-between p-4 rounded-xl bg-white/[0.03] border border-border">
-              <div>
-                <div className="flex items-center gap-2 mb-0.5">
-                  <p className="text-sm font-bold">{t('create_event_private')}</p>
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isPrivate ? 'bg-orange/20 text-orange' : 'bg-green-500/20 text-green-400'}`}>
-                    {isPrivate ? '🔒 Prive' : '🌐 Piblik'}
-                  </span>
-                </div>
-                <p className="text-[10px] text-gray-500">{isPrivate ? t('create_private_hint') : 'Tout moun ka wè epi achte tikè'}</p>
+            {/* Event type selector */}
+            <div>
+              <label className="block text-[11px] font-bold text-gray-400 mb-2">TIP EVÈNMAN *</label>
+              <div className="grid grid-cols-2 gap-2">
+                {([
+                  ['free_private',       '🎊', 'Gratis · Prive',   'Maryaj, fineray, selebrasyon prive. Pa gen tikè peye, pa gen bar.'],
+                  ['free_open_limited',  '🎟', 'Gratis · Limite',   'Tikè gratis, kapasite limite. Bar disponib.'],
+                  ['free_open_unlimited','🚪', 'Pòt Ouvè',          'Pa gen tikè. Tout moun antre, bar sèlman.'],
+                  ['paid_open',          '💳', 'Peye · Piblik',     'Tikè peye, evènman piblik. Bar disponib.'],
+                  ['paid_private',       '💳', 'Peye · Prive',      'Tikè peye + envitasyon. Bar disponib.'],
+                ] as const).map(([type, icon, label, desc], idx) => (
+                  <button key={type} type="button"
+                    onClick={() => setEventType(type)}
+                    className={`p-3 rounded-xl border text-left transition-all ${idx === 4 ? 'col-span-2' : ''} ${
+                      eventType === type ? 'border-orange bg-orange/10' : 'border-border bg-white/[0.02] hover:border-white/20'
+                    }`}>
+                    <p className="text-sm font-bold">{icon} {label}</p>
+                    <p className="text-[10px] text-gray-500 mt-0.5">{desc}</p>
+                  </button>
+                ))}
               </div>
-              <button type="button" onClick={() => setIsPrivate(v => !v)}
-                className={`w-12 h-6 rounded-full transition-all relative ${isPrivate ? 'bg-orange' : 'bg-white/[0.1]'}`}>
-                <div className={`w-5 h-5 bg-white rounded-full absolute top-0.5 transition-all ${isPrivate ? 'left-6' : 'left-0.5'}`} />
-              </button>
             </div>
 
-            {/* Private mode selector */}
-            {isPrivate && (
-              <div className="p-4 rounded-xl bg-white/[0.03] border border-border space-y-3">
-                <p className="text-sm font-bold">Tip evènman prive</p>
-                <div className="flex gap-3">
-                  {([['paid', '💳', 'Peye', 'Tikè peye, envitasyon obligatwa'], ['free', '🎊', 'Gratis', 'Maryaj, ba-mitsvah, selebrasyon…']] as const).map(([mode, icon, label, desc]) => (
-                    <button key={mode} type="button" onClick={() => setPrivateMode(mode)}
-                      className={`flex-1 p-3 rounded-xl border text-left transition-all ${privateMode === mode ? 'border-orange bg-orange/10' : 'border-border bg-white/[0.02] hover:border-white/20'}`}>
-                      <p className="text-sm font-bold">{icon} {label}</p>
-                      <p className="text-[10px] text-gray-muted mt-0.5">{desc}</p>
-                    </button>
-                  ))}
-                </div>
+            {/* Bar toggle */}
+            <div className="flex items-center justify-between p-4 rounded-xl bg-white/[0.03] border border-border">
+              <div>
+                <p className="text-sm font-bold">🍺 Bar aktivé</p>
+                <p className="text-[10px] text-gray-500">POS bar disponib pou evènman sa a</p>
               </div>
-            )}
+              <button type="button" onClick={() => setBarEnabled(v => !v)}
+                className={`w-12 h-6 rounded-full transition-all relative ${barEnabled ? 'bg-orange' : 'bg-white/[0.1]'}`}>
+                <div className={`w-5 h-5 bg-white rounded-full absolute top-0.5 transition-all ${barEnabled ? 'left-6' : 'left-0.5'}`} />
+              </button>
+            </div>
 
             {/* Comp ticket limit */}
             <div className="flex items-center justify-between p-4 rounded-xl bg-white/[0.03] border border-border">
@@ -762,6 +783,12 @@ function CreateEventInner() {
             </div>
 
             {/* ─ Sections ─ */}
+            {!hasTickets ? (
+              <div className="p-4 rounded-xl bg-white/[0.03] border border-border text-center">
+                <p className="text-sm font-bold mb-1">🚪 Pa gen tikè</p>
+                <p className="text-[11px] text-gray-500">Pa gen tikè pou tip evènman sa a. Bar POS pral jere tout transaksyon.</p>
+              </div>
+            ) : (
             <div>
               <label className="block text-[11px] font-bold text-gray-400 mb-2">
                 SECTIONS *
@@ -829,6 +856,7 @@ function CreateEventInner() {
                 </div>
               )}
             </div>
+            )}
 
             <div className="flex gap-3">
               <button type="button" onClick={() => setTab('info')}

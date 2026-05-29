@@ -50,6 +50,9 @@ interface EventData {
   status: 'live' | 'upcoming' | 'ended';
   isPrivate?: boolean;
   privateMode?: 'paid' | 'free' | null;
+  eventType?: string;
+  barEnabled?: boolean;
+  hasTickets?: boolean;
 }
 
 type Step = 'detail' | 'seats' | 'info' | 'payment' | 'done';
@@ -296,6 +299,10 @@ function BuyPageInner() {
             exchangeRate,
             status: data.status === 'published' ? 'upcoming' : (data.status || 'upcoming'),
             isPrivate: data.isPrivate || false,
+            privateMode: data.privateMode || null,
+            eventType: data.eventType || null,
+            barEnabled: data.barEnabled !== undefined ? data.barEnabled : true,
+            hasTickets: data.hasTickets !== undefined ? data.hasTickets : true,
           } as EventData);
         }
         // Verify invite for private events
@@ -590,6 +597,14 @@ function BuyPageInner() {
           </div>
         )}
 
+        {(event.eventType === 'free_open_unlimited' || event.hasTickets === false) ? (
+          <div className="p-5 rounded-xl bg-white/[0.03] border border-border text-center mb-4">
+            <p className="text-2xl mb-2">🚪</p>
+            <p className="font-heading text-lg mb-1">Bar sèlman — pa bezwen tikè</p>
+            <p className="text-sm text-gray-400">Antre lib. Bar POS disponib sou plas la.</p>
+          </div>
+        ) : (
+        <>
         <h2 className="font-heading text-lg mb-3">{t('slug_choose_tickets')}</h2>
 
         <div className="space-y-3">
@@ -674,6 +689,8 @@ function BuyPageInner() {
             );
           })}
         </div>
+        </>
+        )}
       </div>
 
       {/* Sticky cart bar */}
@@ -783,7 +800,7 @@ function BuyPageInner() {
           if (!validateInfo()) return;
           if (cartTotal === 0) { completeFreeOrder(); return; }
           // No bar tab for fully free private events
-          if (event?.isPrivate && event.privateMode === 'free') { setStep('payment'); return; }
+          if (!event?.barEnabled || event?.eventType === 'free_private') { setStep('payment'); return; }
           if (event?.id) Promise.all([getBarItems(event.id), getBarStations(event.id)]).then(([items, stations]) => {
             const stationMap = new Map(stations.map(s => [s.id!, s]));
             setBarMenuItems(items
