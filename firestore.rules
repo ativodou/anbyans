@@ -253,7 +253,8 @@ service cloud.firestore {
 
     // ── Budget items ──────────────────────────────────────────────
     match /budgetItems/{itemId} {
-      allow read: if isActiveAuth() && (
+      allow list: if isActiveAuth();
+      allow get: if isActiveAuth() && (
         resource.data.organizerId == request.auth.uid || isAdmin()
       );
       allow create: if isActiveAuth() && (

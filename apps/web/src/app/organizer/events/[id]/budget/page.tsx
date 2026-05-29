@@ -130,7 +130,12 @@ export default function BudgetPage() {
   };
 
   const handleGateSuccess = async () => {
-    await updateDoc(doc(db, 'events', eventId), { budgetActivated: true, budgetActivatedAt: new Date().toISOString() });
+    try {
+      await updateDoc(doc(db, 'events', eventId), { budgetActivated: true, budgetActivatedAt: new Date().toISOString() });
+    } catch (e: any) {
+      setGateError(e?.message || 'Peman reyisi men erè pou aktive. Kontakte admin.');
+      return;
+    }
     setActivated(true);
     setGateSecret(null);
     setShowModal(false);
