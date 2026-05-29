@@ -115,7 +115,7 @@ export default function BudgetPage() {
   };
 
   const handleGateCard = async () => {
-    if (!event) return;
+    if (!event) { setGateError('Evènman pa chaje. Rafraîchi paj la.'); return; }
     setGateLoading(true); setGateError('');
     try {
       const res = await fetch('/api/payment/stripe', {
@@ -123,9 +123,10 @@ export default function BudgetPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ amount: budgetFee, currency: 'usd', eventName: `Budget — ${event.name}`, seats: 1 }),
       });
-      const { clientSecret } = await res.json();
-      setGateSecret(clientSecret);
-    } catch { setGateError('Erè. Eseye ankò.'); }
+      const data = await res.json();
+      if (data.error) { setGateError(data.error); return; }
+      setGateSecret(data.clientSecret);
+    } catch (e: any) { setGateError(e?.message || 'Erè. Eseye ankò.'); }
     finally { setGateLoading(false); }
   };
 
@@ -137,7 +138,7 @@ export default function BudgetPage() {
   };
 
   const handleCashRequest = async () => {
-    if (!event || !user) return;
+    if (!event || !user) { setGateError('Evènman oswa itilizatè pa chaje. Rafraîchi paj la.'); return; }
     setCashBusy(true); setGateError('');
     try {
       await addBudgetCashRequest({
