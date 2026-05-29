@@ -614,18 +614,16 @@ export default function AdminDashboardPage() {
                     </div>
                     {/* Budget cash requests for this organizer */}
                     {budgetCashRequests.filter(r => r.organizerId === o.id && r.status === 'pending').map(r => (
-                      <div key={r.id} className="mt-3 pt-3 border-t border-border flex items-center gap-3">
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[11px] font-bold text-yellow-400">💰 Peman Kach — Bidjè</p>
-                          <p className="text-[11px] text-gray-muted truncate">{r.eventName} · ${r.amount}</p>
-                        </div>
-                        <div className="flex gap-1.5 shrink-0">
+                      <div key={r.id} className="mt-3 pt-3 border-t border-border">
+                        <p className="text-[11px] font-bold text-yellow-400 mb-0.5">💰 Peman Kach — Bidjè</p>
+                        <p className="text-[11px] text-gray-muted mb-2">{r.eventName} · ${r.amount}</p>
+                        <div className="flex gap-1.5">
                           <button onClick={() => approveBudgetCashRequest(r)}
-                            className="px-3 py-1.5 rounded-lg text-[10px] font-bold bg-green-dim text-green border border-green/30">
+                            className="flex-1 py-1.5 rounded-lg text-[10px] font-bold bg-green-dim text-green border border-green/30">
                             ✅ Apwouve
                           </button>
                           <button onClick={() => denyBudgetCashRequest(r)}
-                            className="px-3 py-1.5 rounded-lg text-[10px] font-bold bg-red/10 text-red border border-red/30">
+                            className="flex-1 py-1.5 rounded-lg text-[10px] font-bold bg-red/10 text-red border border-red/30">
                             🚫 Refize
                           </button>
                         </div>
@@ -634,18 +632,16 @@ export default function AdminDashboardPage() {
 
                     {/* Cash activation requests for this organizer */}
                     {cashRequests.filter(r => r.organizerId === o.id && r.status === 'pending').map(r => (
-                      <div key={r.id} className="mt-3 pt-3 border-t border-border flex items-center gap-3">
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[11px] font-bold text-yellow-400">💵 Peman Kach — Aktivasyon Prive</p>
-                          <p className="text-[11px] text-gray-muted truncate">{r.eventName} · ${r.amount}</p>
-                        </div>
-                        <div className="flex gap-1.5 shrink-0">
+                      <div key={r.id} className="mt-3 pt-3 border-t border-border">
+                        <p className="text-[11px] font-bold text-yellow-400 mb-0.5">💵 Peman Kach — Aktivasyon Prive</p>
+                        <p className="text-[11px] text-gray-muted mb-2">{r.eventName} · ${r.amount}</p>
+                        <div className="flex gap-1.5">
                           <button onClick={() => approveCashRequest(r)}
-                            className="px-3 py-1.5 rounded-lg text-[10px] font-bold bg-green-dim text-green border border-green/30">
+                            className="flex-1 py-1.5 rounded-lg text-[10px] font-bold bg-green-dim text-green border border-green/30">
                             ✅ Apwouve
                           </button>
                           <button onClick={() => denyCashRequest(r)}
-                            className="px-3 py-1.5 rounded-lg text-[10px] font-bold bg-red/10 text-red border border-red/30">
+                            className="flex-1 py-1.5 rounded-lg text-[10px] font-bold bg-red/10 text-red border border-red/30">
                             🚫 Refize
                           </button>
                         </div>
