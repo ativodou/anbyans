@@ -296,8 +296,7 @@ export default function BudgetPage() {
   const licRevenue      = licensing.reduce((s, l) => s + l.amount, 0);
   const merchRevenue    = merch.reduce((s, m) => s + m.amount, 0);
   const vendorRevenue   = vendorRents.reduce((s, v) => s + v.amount, 0);
-  const effectiveSponsor = isPrivateEvent ? 0 : sponsorRevenue;
-  const net = budgetTarget + ticketRevenue + barRevenue + effectiveSponsor + licRevenue + merchRevenue + vendorRevenue - totalExpenses;
+  const net = budgetTarget + ticketRevenue + barRevenue + sponsorRevenue + licRevenue + merchRevenue + vendorRevenue - totalExpenses;
 
   // ── Group by category ──
   const byCategory = BUDGET_CATEGORIES
@@ -337,13 +336,17 @@ export default function BudgetPage() {
         </div>
       </div>
 
-      {/* Sponsor list — not for private events */}
-      {activated && !isPrivateEvent && (
-        <RevenueList title={t('budget_sponsors_title')} items={sponsors} total={sponsorRevenue}
+      {/* Sponsors (public) / Gifts / Kado (private) */}
+      {activated && (
+        <RevenueList
+          title={isPrivateEvent ? '🎁 Kado' : t('budget_sponsors_title')}
+          items={sponsors} total={sponsorRevenue}
           name={sponsorName} amt={sponsorAmt} saving={savingSponsor}
           onName={setSponsorName} onAmt={setSponsorAmt}
           onAdd={handleAddSponsor} onDelete={handleDeleteSponsor}
-          namePh={t('budget_sponsor_name_ph')} totalLabel={t('budget_total_sponsors')} card={card} />
+          namePh={isPrivateEvent ? 'Non donatè / fanmi…' : t('budget_sponsor_name_ph')}
+          totalLabel={isPrivateEvent ? 'Total Kado' : t('budget_total_sponsors')}
+          card={card} />
       )}
 
       {/* Licensing */}
@@ -393,13 +396,11 @@ export default function BudgetPage() {
           <p className="font-heading text-2xl text-green">${barRevenue.toLocaleString()}</p>
           <p className="text-[10px] text-gray-muted mt-1">{t('budget_bar_sub')}</p>
         </div>
-        {!isPrivateEvent && (
-          <div className={`${card} p-4`}>
-            <p className="text-[10px] text-gray-muted uppercase tracking-widest mb-1">{t('budget_sponsor_rev_label')}</p>
-            <p className="font-heading text-2xl text-green">${sponsorRevenue.toLocaleString()}</p>
-            <p className="text-[10px] text-gray-muted mt-1">{t('budget_sponsor_sub')}</p>
-          </div>
-        )}
+        <div className={`${card} p-4`}>
+          <p className="text-[10px] text-gray-muted uppercase tracking-widest mb-1">{isPrivateEvent ? '🎁 Kado' : t('budget_sponsor_rev_label')}</p>
+          <p className="font-heading text-2xl text-green">${sponsorRevenue.toLocaleString()}</p>
+          <p className="text-[10px] text-gray-muted mt-1">{isPrivateEvent ? 'Kado & don' : t('budget_sponsor_sub')}</p>
+        </div>
         <div className={`${card} p-4`}>
           <p className="text-[10px] text-gray-muted uppercase tracking-widest mb-1">📜 Licensing</p>
           <p className="font-heading text-2xl text-green">${licRevenue.toLocaleString()}</p>
@@ -427,7 +428,7 @@ export default function BudgetPage() {
           <p className={`font-heading text-3xl ${net >= 0 ? 'text-green' : 'text-red-400'}`}>
             {net >= 0 ? '+' : '−'}${Math.abs(net).toLocaleString()}
           </p>
-          <p className="text-[10px] text-gray-muted mt-1">{isPrivateEvent ? t('budget_net_private') : t('budget_net_public')} − {t('budget_expenses_label').replace('📋 ', '')} · {net >= 0 ? t('budget_positive') : t('budget_negative')}</p>
+          <p className="text-[10px] text-gray-muted mt-1">{isPrivateEvent ? 'Bidjè + Tikè + Bar + Kado + Lic + Merch' : 'Bidjè + Tikè + Bar + Sponsors + Lic + Merch + Stand'} − Depans · {net >= 0 ? t('budget_positive') : t('budget_negative')}</p>
         </div>
       </div>
 
@@ -556,8 +557,8 @@ export default function BudgetPage() {
               ['', 'Bidjè Planifye', `$${budgetTarget}`, ''],
               ['', 'Revni Tikè', `$${ticketRevenue}`, ''],
               ['', 'Revni Bar', `$${barRevenue}`, ''],
-              ...(!isPrivateEvent ? sponsors.map(sp => ['Sponsor', sp.name, `$${sp.amount}`, '']) : []),
-              ...(!isPrivateEvent ? [['', 'Total Sponsors', `$${sponsorRevenue}`, '']] : []),
+              ...sponsors.map(sp => [isPrivateEvent ? 'Kado' : 'Sponsor', sp.name, `$${sp.amount}`, '']),
+              ...(sponsors.length ? [['', isPrivateEvent ? 'Total Kado' : 'Total Sponsors', `$${sponsorRevenue}`, '']] : []),
               ...licensing.map(l => ['Licensing', l.name, `$${l.amount}`, '']),
               ...(licensing.length ? [['', 'Total Licensing', `$${licRevenue}`, '']] : []),
               ...merch.map(m => ['Machandiz', m.name, `$${m.amount}`, '']),
