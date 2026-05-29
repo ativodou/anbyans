@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
 import { getEvent, getGuestList, addGuest, removeGuest, getPlatformConfig, addCashActivationRequest, type Invitation, type EventData } from '@/lib/db';
 import { db } from '@/lib/firebase';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 
@@ -64,6 +64,7 @@ export default function GuestListPage() {
   const [pendingAction, setPendingAction]   = useState<(() => void) | null>(null);
   const [cashSent, setCashSent]             = useState(false);
   const [cashBusy, setCashBusy]             = useState(false);
+  const [cashPending, setCashPending]       = useState(false);
 
   // Form
   const [name, setName]         = useState('');
@@ -75,10 +76,16 @@ export default function GuestListPage() {
     if (!eventId) return;
     (async () => {
       try {
-        const [ev, list, cfg] = await Promise.all([getEvent(eventId), getGuestList(eventId), getPlatformConfig()]);
+        const [ev, list, cfg, cashSnap] = await Promise.all([
+          getEvent(eventId),
+          getGuestList(eventId),
+          getPlatformConfig(),
+          getDocs(query(collection(db, 'cashActivationRequests'), where('eventId', '==', eventId), where('status', '==', 'pending'))),
+        ]);
         setEvent(ev);
         setGuests(list);
         setPrivateFee(cfg.privateFee);
+        if (!cashSnap.empty) setCashPending(true);
       } catch (e) { console.error(e); }
       finally { setLoading(false); }
     })();
@@ -87,6 +94,7 @@ export default function GuestListPage() {
   // Gate: if not activated, show payment modal instead of running the action
   const gate = (action: () => void) => {
     if (event?.privateActivated) { action(); return; }
+    if (cashPending) return; // already waiting for admin approval
     setPendingAction(() => action);
     setShowModal(true);
   };
@@ -118,6 +126,7 @@ export default function GuestListPage() {
         amount: privateFee,
       });
       setCashSent(true);
+      setCashPending(true);
     } catch { setActivateError('Erè. Eseye ankò.'); }
     finally { setCashBusy(false); }
   };
@@ -197,6 +206,7 @@ export default function GuestListPage() {
               {isFree ? '🎊 Gratis' : '💳 Peye'}
             </span>
             {event.privateActivated && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-green-900/30 text-green">✓ Aktive</span>}
+          {!event.privateActivated && cashPending && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-yellow-900/30 text-yellow-400">⏳ Kach an atant</span>}
           </div>
           <p className="text-xs text-gray-muted">{event.name} · {guests.length} envite · {confirmed} konfime</p>
         </div>
