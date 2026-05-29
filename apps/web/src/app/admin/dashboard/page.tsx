@@ -58,6 +58,7 @@ export default function AdminDashboardPage() {
   const [organizers, setOrganizers] = useState<OrganizerData[]>([]);
   const [users, setUsers] = useState<UserData[]>([]);
   const [refunds, setRefunds] = useState<any[]>([]);
+  const [cashRequests, setCashRequests] = useState<any[]>([]);
   const [allTickets, setAllTickets] = useState<any[]>([]);
   const [venues, setVenues] = useState<VenueData[]>([]);
   const [venueSearch, setVenueSearch] = useState('');
@@ -71,6 +72,7 @@ export default function AdminDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [settingsFee, setSettingsFee] = useState(9);
   const [settingsPosFee, setSettingsPosFee] = useState(50);
+  const [settingsPrivateFee, setSettingsPrivateFee] = useState(25);
   const [settingsReserve, setSettingsReserve] = useState(20);
   const [settingsDelay, setSettingsDelay] = useState(7);
   const [settingsSaved,  setSettingsSaved]  = useState(false);
@@ -104,17 +106,20 @@ export default function AdminDashboardPage() {
       const cfg = cfgSnap.data();
       if (cfg.platformFee != null)       setSettingsFee(cfg.platformFee);
       if (cfg.posFee != null)            setSettingsPosFee(cfg.posFee);
+      if (cfg.privateFee != null)        setSettingsPrivateFee(cfg.privateFee);
       if (cfg.chargebackReserve != null) setSettingsReserve(cfg.chargebackReserve);
       if (cfg.payoutDelayDays != null)   setSettingsDelay(cfg.payoutDelayDays);
     }).catch(e => console.warn('config load', e));
 
     try {
-      const [evSnap, usersSnap, refSnap, venSnap] = await Promise.all([
+      const [evSnap, usersSnap, refSnap, venSnap, cashSnap] = await Promise.all([
         getDocs(collection(db, 'events')),
         getDocs(collection(db, 'users')),
         getDocs(collection(db, 'refundRequests')),
         getVenues(),
+        getDocs(collection(db, 'cashActivationRequests')),
       ]);
+      setCashRequests(cashSnap.docs.map(d => ({ id: d.id, ...d.data() })));
       setVenues(venSnap as VenueData[]);
 
       const evList = evSnap.docs.map(d => ({ id: d.id, ...d.data() } as EventData));
@@ -232,6 +237,7 @@ export default function AdminDashboardPage() {
       await setDoc(doc(db, 'config', 'platform'), {
         platformFee: settingsFee,
         posFee: settingsPosFee,
+        privateFee: settingsPrivateFee,
         chargebackReserve: settingsReserve,
         payoutDelayDays: settingsDelay,
       }, { merge: true });
@@ -274,6 +280,17 @@ export default function AdminDashboardPage() {
     setRefunds(prev => prev.map(x => x.id === r.id ? { ...x, status: 'denied', denialNote: note } : x));
   }
 
+  async function approveCashRequest(r: any) {
+    await updateDoc(doc(db, 'cashActivationRequests', r.id), { status: 'approved', resolvedAt: serverTimestamp() });
+    await updateDoc(doc(db, 'events', r.eventId), { privateActivated: true, privateActivatedAt: new Date().toISOString() });
+    setCashRequests(prev => prev.map(x => x.id === r.id ? { ...x, status: 'approved' } : x));
+  }
+
+  async function denyCashRequest(r: any) {
+    await updateDoc(doc(db, 'cashActivationRequests', r.id), { status: 'denied', resolvedAt: serverTimestamp() });
+    setCashRequests(prev => prev.map(x => x.id === r.id ? { ...x, status: 'denied' } : x));
+  }
+
   // ── Finance metrics ──
   const validTickets = allTickets.filter(t => t.status !== 'cancelled' && t.status !== 'refunded');
   const grossRevenue = validTickets.reduce((s, t) => s + (t.price || 0), 0);
@@ -287,6 +304,7 @@ export default function AdminDashboardPage() {
   // ── Overview metrics ──
   const liveEvents = events.filter(e => e.status === 'published' || e.status === 'live').length;
   const pendingRefunds = refunds.filter(r => r.status === 'pending').length;
+  const pendingCash = cashRequests.filter(r => r.status === 'pending').length;
   const totalUsers = users.length + organizers.length;
 
   if (authLoading || !user || user.role !== 'admin') return (
@@ -310,8 +328,8 @@ export default function AdminDashboardPage() {
               className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-[12.5px] mb-0.5 transition-all ${tab === id ? 'bg-orange-dim text-orange font-semibold' : 'text-gray-light hover:bg-dark-hover hover:text-white'}`}>
               <span className="text-base w-5 text-center">{NAV_ICONS[id]}</span>
               {t(`admin_tab_${id}` as any) || id}
-              {id === 'refunds' && pendingRefunds > 0 && (
-                <span className="ml-auto bg-red text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">{pendingRefunds}</span>
+              {id === 'refunds' && (pendingRefunds + pendingCash) > 0 && (
+                <span className="ml-auto bg-red text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">{pendingRefunds + pendingCash}</span>
               )}
             </button>
           ))}
@@ -654,7 +672,45 @@ export default function AdminDashboardPage() {
                   </div>
                 );
               })}
-              {refunds.length === 0 && <p className="text-gray-muted text-center py-20">{t('admin_no_refunds')}</p>}
+              {refunds.length === 0 && <p className="text-gray-muted text-center py-10">{t('admin_no_refunds')}</p>}
+
+              {/* Cash activation requests */}
+              <p className="text-[10px] uppercase tracking-widest font-bold mt-6 mb-2 text-yellow-400">💵 PEMAN KAK — AKTIVASYON PRIVE</p>
+              {['pending', 'approved', 'denied'].map(status => {
+                const list = cashRequests.filter(r => r.status === status);
+                if (list.length === 0) return null;
+                const colors: Record<string, string> = { pending: '#f59e0b', approved: '#22c55e', denied: '#ef4444' };
+                const labels: Record<string, string> = { pending: '⏳ AN ATANT', approved: '✅ APWOUVE', denied: '🚫 REFIZE' };
+                return (
+                  <div key={status}>
+                    <p className="text-[10px] uppercase tracking-widest font-bold mb-2" style={{ color: colors[status] }}>{labels[status]} ({list.length})</p>
+                    {list.map(r => (
+                      <div key={r.id} className="bg-dark-card border border-border rounded-xl p-4 mb-2">
+                        <div className="flex items-start gap-3">
+                          <div className="flex-1">
+                            <p className="text-sm font-bold">{r.organizerName}</p>
+                            <p className="text-[11px] text-gray-muted">{r.eventName}</p>
+                          </div>
+                          <p className="text-lg font-black text-yellow-400">${r.amount}</p>
+                        </div>
+                        {status === 'pending' && (
+                          <div className="flex gap-2 mt-3">
+                            <button onClick={() => approveCashRequest(r)}
+                              className="flex-1 py-2 rounded-lg text-xs font-bold bg-green-dim text-green border border-green/30">
+                              ✅ Apwouve & Aktive
+                            </button>
+                            <button onClick={() => denyCashRequest(r)}
+                              className="flex-1 py-2 rounded-lg text-xs font-bold bg-red/10 text-red border border-red/30">
+                              🚫 Refize
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                );
+              })}
+              {cashRequests.length === 0 && <p className="text-gray-muted text-center py-6 text-xs">Pa gen demann kach.</p>}
             </div>
           )}
 
@@ -898,6 +954,10 @@ export default function AdminDashboardPage() {
                   <div>
                     <label className="block text-[11px] font-semibold text-gray-light mb-1">POS Activation Fee ($)</label>
                     <input value={settingsPosFee} onChange={e => setSettingsPosFee(Number(e.target.value))} type="number" className="w-32 px-3 py-2 rounded-lg bg-white/[0.04] border border-border text-white text-sm outline-none focus:border-orange" />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-gray-light mb-1">Private Event Activation Fee ($)</label>
+                    <input value={settingsPrivateFee} onChange={e => setSettingsPrivateFee(Number(e.target.value))} type="number" className="w-32 px-3 py-2 rounded-lg bg-white/[0.04] border border-border text-white text-sm outline-none focus:border-orange" />
                   </div>
                   <div>
                     <label className="block text-[11px] font-semibold text-gray-light mb-1">{t('admin_chargeback_reserve')}</label>

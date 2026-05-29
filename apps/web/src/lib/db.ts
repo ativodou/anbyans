@@ -2254,8 +2254,59 @@ export async function deleteFanData(uid: string, email: string): Promise<void> {
   await deleteDoc(doc(db, 'users', uid)).catch(() => {});
 }
 
+// ─── Budget tracker ───────────────────────────────────────────────────────────
+
+export const BUDGET_CATEGORIES = [
+  'Sal / Venue', 'Artis / Animasyon', 'Dekorasyon', 'Sekirite',
+  'Manje', 'Bwason', 'Son / Limyè', 'Maketing', 'Transpò', 'Lòt',
+] as const;
+
+export type BudgetCategory = typeof BUDGET_CATEGORIES[number];
+
+export interface BudgetItem {
+  id: string;
+  eventId: string;
+  organizerId: string;
+  category: BudgetCategory;
+  description: string;
+  amount: number;
+  note?: string;
+  createdAt: Timestamp | null;
+}
+
+export async function getBudgetItems(eventId: string): Promise<BudgetItem[]> {
+  const snap = await getDocs(query(collection(db, 'budgetItems'), where('eventId', '==', eventId)));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as BudgetItem))
+    .sort((a, b) => ((b.createdAt as any)?.toMillis?.() ?? 0) - ((a.createdAt as any)?.toMillis?.() ?? 0));
+}
+
+export async function addBudgetItem(item: Omit<BudgetItem, 'id' | 'createdAt'>): Promise<BudgetItem> {
+  const ref = doc(collection(db, 'budgetItems'));
+  const data = { ...item, createdAt: serverTimestamp() };
+  await setDoc(ref, data);
+  return { id: ref.id, ...data, createdAt: null };
+}
+
+export async function deleteBudgetItem(itemId: string): Promise<void> {
+  await deleteDoc(doc(db, 'budgetItems', itemId));
+}
+
 export async function resetFanData(email: string): Promise<void> {
   await deleteDocs(query(collection(db, 'tickets'), where('buyerEmail', '==', email)));
+}
+
+// ─── Cash activation requests ─────────────────────────────────────────────────
+
+export async function addCashActivationRequest(data: {
+  eventId: string;
+  eventName: string;
+  organizerId: string;
+  organizerName: string;
+  amount: number;
+}): Promise<string> {
+  const ref = doc(collection(db, 'cashActivationRequests'));
+  await setDoc(ref, { ...data, status: 'pending', createdAt: serverTimestamp() });
+  return ref.id;
 }
 
 // ─── Guest list / Invitations ─────────────────────────────────────────────────

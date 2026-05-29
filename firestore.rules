@@ -251,6 +251,32 @@ service cloud.firestore {
       allow write: if true;
     }
 
+    // ── Budget items ──────────────────────────────────────────────
+    match /budgetItems/{itemId} {
+      allow read: if isActiveAuth() && (
+        resource.data.organizerId == request.auth.uid || isAdmin()
+      );
+      allow create: if isActiveAuth() && (
+        request.resource.data.organizerId == request.auth.uid || isAdmin()
+      );
+      allow delete: if isActiveAuth() && (
+        resource.data.organizerId == request.auth.uid || isAdmin()
+      );
+      allow update: if isAdmin();
+    }
+
+    // ── Cash activation requests ──────────────────────────────────
+    match /cashActivationRequests/{reqId} {
+      allow read: if isActiveAuth() && (
+        resource.data.organizerId == request.auth.uid || isAdmin()
+      );
+      allow create: if isActiveAuth() && (
+        request.resource.data.organizerId == request.auth.uid
+      );
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
     // ── Invitations (guest list) ───────────────────────────────────
     // Doc ID acts as a secret token — public read so fans can verify
     // their invite link without needing Firebase auth.

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
-import { getEvent, getGuestList, addGuest, removeGuest, getPlatformConfig, type Invitation, type EventData } from '@/lib/db';
+import { getEvent, getGuestList, addGuest, removeGuest, getPlatformConfig, addCashActivationRequest, type Invitation, type EventData } from '@/lib/db';
 import { db } from '@/lib/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import { loadStripe } from '@stripe/stripe-js';
@@ -62,6 +62,8 @@ export default function GuestListPage() {
   const [activateSecret, setActivateSecret] = useState<string | null>(null);
   const [activateError, setActivateError]   = useState('');
   const [pendingAction, setPendingAction]   = useState<(() => void) | null>(null);
+  const [cashSent, setCashSent]             = useState(false);
+  const [cashBusy, setCashBusy]             = useState(false);
 
   // Form
   const [name, setName]         = useState('');
@@ -102,6 +104,22 @@ export default function GuestListPage() {
       setActivateSecret(clientSecret);
     } catch { setActivateError('Erè. Eseye ankò.'); }
     finally { setActivating(false); }
+  };
+
+  const handleCashRequest = async () => {
+    if (!event || !user) return;
+    setCashBusy(true); setActivateError('');
+    try {
+      await addCashActivationRequest({
+        eventId,
+        eventName: event.name,
+        organizerId: user.uid,
+        organizerName: `${(user as any).firstName || ''} ${(user as any).lastName || ''}`.trim() || user.email || '',
+        amount: privateFee,
+      });
+      setCashSent(true);
+    } catch { setActivateError('Erè. Eseye ankò.'); }
+    finally { setCashBusy(false); }
   };
 
   const handleActivateSuccess = async () => {
@@ -284,11 +302,28 @@ export default function GuestListPage() {
             </div>
             <p className="text-sm text-gray-muted mb-4">Peman inisyal <span className="text-white font-bold">${privateFee}</span> pou voye envitasyon ak enprime lis bar.</p>
             {activateError && <p className="text-red-400 text-xs mb-3">{activateError}</p>}
-            {!activateSecret ? (
-              <button onClick={handleActivate} disabled={activating}
-                className="w-full py-3 rounded-xl bg-orange text-black font-bold text-sm disabled:opacity-40 hover:bg-orange/90 transition-all">
-                {activating ? '⏳…' : `💳 Peye $${privateFee} & Aktive`}
-              </button>
+
+            {cashSent ? (
+              <div className="text-center py-4">
+                <p className="text-3xl mb-2">💵</p>
+                <p className="text-sm font-bold text-white mb-1">Demann kach voye!</p>
+                <p className="text-xs text-gray-muted">Admin ap revize epi aktive evènman ou a. Ou pral resevwa yon notifikasyon.</p>
+                <button onClick={() => { setShowModal(false); setCashSent(false); setPendingAction(null); }}
+                  className="mt-4 w-full py-2.5 rounded-xl bg-white/[0.06] text-white text-sm font-bold hover:bg-white/10 transition-all">
+                  Fèmen
+                </button>
+              </div>
+            ) : !activateSecret ? (
+              <div className="space-y-2">
+                <button onClick={handleActivate} disabled={activating}
+                  className="w-full py-3 rounded-xl bg-orange text-black font-bold text-sm disabled:opacity-40 hover:bg-orange/90 transition-all">
+                  {activating ? '⏳…' : '💳 Peye ak Kat'}
+                </button>
+                <button onClick={handleCashRequest} disabled={cashBusy}
+                  className="w-full py-3 rounded-xl bg-white/[0.06] border border-border text-white font-bold text-sm disabled:opacity-40 hover:bg-white/10 transition-all">
+                  {cashBusy ? '⏳…' : '💵 Peye ak Kach (admin apwouve)'}
+                </button>
+              </div>
             ) : (
               <Elements stripe={stripePromise} options={{ clientSecret: activateSecret, appearance: { theme: 'night' } }}>
                 <ActivateStripeForm onSuccess={handleActivateSuccess} onError={setActivateError} />
