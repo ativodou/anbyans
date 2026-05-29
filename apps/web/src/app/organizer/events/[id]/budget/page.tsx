@@ -9,7 +9,7 @@ import {
   BUDGET_CATEGORIES, type BudgetItem, type EventData,
 } from '@/lib/db';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import { collection, getDocs, query, where, doc, updateDoc } from 'firebase/firestore';
 
 export default function BudgetPage() {
   const { id: eventId } = useParams() as { id: string };
@@ -19,8 +19,11 @@ export default function BudgetPage() {
   const [items, setItems]     = useState<BudgetItem[]>([]);
   const [tickets, setTickets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving]   = useState(false);
-  const [error, setError]     = useState('');
+  const [saving, setSaving]         = useState(false);
+  const [error, setError]           = useState('');
+  const [budgetTarget, setBudgetTarget] = useState<number>(0);
+  const [targetInput, setTargetInput]   = useState('');
+  const [savingTarget, setSavingTarget] = useState(false);
 
   // Form
   const [category, setCategory] = useState<typeof BUDGET_CATEGORIES[number]>(BUDGET_CATEGORIES[0]);
@@ -40,6 +43,9 @@ export default function BudgetPage() {
         setEvent(ev);
         setItems(budgetList);
         setTickets(tSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+        const target = (ev as any)?.budgetTarget || 0;
+        setBudgetTarget(target);
+        setTargetInput(target > 0 ? String(target) : '');
       } catch (e) { console.error(e); }
       finally { setLoading(false); }
     })();
@@ -66,6 +72,15 @@ export default function BudgetPage() {
     setItems(prev => prev.filter(i => i.id !== itemId));
   };
 
+  const handleSaveTarget = async () => {
+    const val = Math.round(Number(targetInput) * 100) / 100;
+    if (isNaN(val) || val < 0) return;
+    setSavingTarget(true);
+    await updateDoc(doc(db, 'events', eventId), { budgetTarget: val });
+    setBudgetTarget(val);
+    setSavingTarget(false);
+  };
+
   if (loading) return (
     <div className="flex justify-center py-20">
       <div className="w-8 h-8 rounded-full border-2 border-orange border-t-transparent animate-spin" />
@@ -80,7 +95,7 @@ export default function BudgetPage() {
 
   // ── Expenses ──
   const totalExpenses = items.reduce((s, i) => s + i.amount, 0);
-  const net = totalRevenue - totalExpenses;
+  const net = budgetTarget + totalRevenue - totalExpenses;
 
   // ── Group by category ──
   const byCategory = BUDGET_CATEGORIES
@@ -101,20 +116,38 @@ export default function BudgetPage() {
         <p className="text-xs text-gray-muted mt-1">{event?.name}</p>
       </div>
 
-      {/* Summary cards */}
-      <div className="grid grid-cols-3 gap-3">
+      {/* Budget target input */}
+      <div className={`${card} p-4`}>
+        <p className="text-[10px] uppercase tracking-widest text-gray-muted font-bold mb-2">Bidjè Kliyan / Bidjè Planifye</p>
+        <div className="flex gap-2">
+          <input value={targetInput} onChange={e => setTargetInput(e.target.value)} placeholder="$0.00" type="number" min="0"
+            className="flex-1 px-3 py-2.5 rounded-xl bg-white/[0.05] border border-border text-white text-sm outline-none focus:border-orange" />
+          <button onClick={handleSaveTarget} disabled={savingTarget}
+            className="px-4 py-2.5 rounded-xl bg-orange text-black font-bold text-sm disabled:opacity-40 hover:bg-orange/90 transition-all">
+            {savingTarget ? '…' : 'Anrejistre'}
+          </button>
+        </div>
+      </div>
+
+      {/* Ledger summary — 4 cards */}
+      <div className="grid grid-cols-2 gap-3">
         <div className={`${card} p-4`}>
-          <p className="text-[10px] text-gray-muted uppercase tracking-widest mb-1">Revni</p>
-          <p className="font-heading text-2xl text-green">${totalRevenue.toLocaleString()}</p>
-          <p className="text-[10px] text-gray-muted mt-1">{validTickets.length} tikè</p>
+          <p className="text-[10px] text-gray-muted uppercase tracking-widest mb-1">💼 Bidjè</p>
+          <p className="font-heading text-2xl text-white">${budgetTarget.toLocaleString()}</p>
+          <p className="text-[10px] text-gray-muted mt-1">Montan planifye</p>
         </div>
         <div className={`${card} p-4`}>
-          <p className="text-[10px] text-gray-muted uppercase tracking-widest mb-1">Depans</p>
+          <p className="text-[10px] text-gray-muted uppercase tracking-widest mb-1">🎟 Revni Tikè</p>
+          <p className="font-heading text-2xl text-green">${totalRevenue.toLocaleString()}</p>
+          <p className="text-[10px] text-gray-muted mt-1">{validTickets.length} tikè valid</p>
+        </div>
+        <div className={`${card} p-4`}>
+          <p className="text-[10px] text-gray-muted uppercase tracking-widest mb-1">📋 Depans</p>
           <p className="font-heading text-2xl text-orange">${totalExpenses.toLocaleString()}</p>
           <p className="text-[10px] text-gray-muted mt-1">{items.length} liy</p>
         </div>
         <div className={`${card} p-4 ${net >= 0 ? 'border-green/30' : 'border-red-500/30'}`}>
-          <p className="text-[10px] text-gray-muted uppercase tracking-widest mb-1">Nèt</p>
+          <p className="text-[10px] text-gray-muted uppercase tracking-widest mb-1">📊 Nèt</p>
           <p className={`font-heading text-2xl ${net >= 0 ? 'text-green' : 'text-red-400'}`}>
             {net >= 0 ? '+' : '−'}${Math.abs(net).toLocaleString()}
           </p>
@@ -123,21 +156,23 @@ export default function BudgetPage() {
       </div>
 
       {/* Revenue breakdown */}
-      <section>
-        <h3 className="text-[10px] uppercase tracking-widest text-gray-muted font-bold mb-2">Detay Revni (otomatik)</h3>
-        <div className={card}>
-          <div className="flex justify-between items-center px-4 py-3">
-            <p className="text-sm">🎟 Vant Tikè</p>
-            <p className="font-bold text-green">${ticketRevenue.toLocaleString()}</p>
-          </div>
-          {barRevenue > 0 && (
-            <div className="flex justify-between items-center px-4 py-3 border-t border-border">
-              <p className="text-sm">🍺 Bar Tab</p>
-              <p className="font-bold text-green">${barRevenue.toLocaleString()}</p>
+      {(ticketRevenue > 0 || barRevenue > 0) && (
+        <section>
+          <h3 className="text-[10px] uppercase tracking-widest text-gray-muted font-bold mb-2">Detay Revni Tikè (otomatik)</h3>
+          <div className={card}>
+            <div className="flex justify-between items-center px-4 py-3">
+              <p className="text-sm">🎟 Vant Tikè</p>
+              <p className="font-bold text-green">${ticketRevenue.toLocaleString()}</p>
             </div>
-          )}
-        </div>
-      </section>
+            {barRevenue > 0 && (
+              <div className="flex justify-between items-center px-4 py-3 border-t border-border">
+                <p className="text-sm">🍺 Bar Tab</p>
+                <p className="font-bold text-green">${barRevenue.toLocaleString()}</p>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
 
       {/* Add expense */}
       <section>
