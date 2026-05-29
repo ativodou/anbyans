@@ -1287,6 +1287,7 @@ revenue_total:        { ht:'Revni Total', en:'Total Revenue', fr:'Revenu Total' 
   pos_pay_cash:              { ht: '💵 Peye ak Kach (admin apwouve)', en: '💵 Pay by Cash (admin approves)', fr: '💵 Payer en espèces (admin approuve)' },
   pos_cash_pending:          { ht: '⏳ Demann kach an atant', en: '⏳ Cash request pending', fr: '⏳ Demande d\'espèces en attente' },
   pos_active_menu:           { ht: '🍽️ POS Aktif → Meni', en: '🍽️ POS Active → Menu', fr: '🍽️ POS Actif → Menu' },
+  pos_close_btn:             { ht: 'Fèmen', en: 'Close', fr: 'Fermer' },
   pos_confirm_payment:       { ht: 'Konfime Peman', en: 'Confirm Payment', fr: 'Confirmer le paiement' },
   pos_overview_btn:          { ht: '📊 Apèsi', en: '📊 Overview', fr: '📊 Aperçu' },
   pos_invite_btn:            { ht: '🎟 Envite', en: '🎟 Invite', fr: '🎟 Inviter' },
