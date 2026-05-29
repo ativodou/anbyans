@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useT } from '@/i18n';
-import { getOrganizerEvents, type EventData } from '@/lib/db';
+import { getOrganizerEvents, createStaffInvite, type EventData } from '@/lib/db';
 import { db } from '@/lib/firebase';
 import {
   collection, getDocs, query, where,
@@ -33,7 +33,11 @@ interface StaffMember {
   role: StaffRole;
   pin: string;
   organizerId: string;
+  organizerName?: string;
   settings?: any;
+  uid?: string;
+  inviteToken?: string;
+  inviteStatus?: 'pending' | 'joined';
   createdAt?: any;
 }
 
@@ -44,6 +48,9 @@ interface StaffAssignment {
   organizerId: string;
   active: boolean;
   role: StaffRole;
+  agreedPay?: number;
+  clockedIn?: any;
+  clockedOut?: any;
   assignedAt?: any;
 }
 
@@ -259,7 +266,7 @@ function RoleSettingsEditor({ role, settings, onChange }: { role: StaffRole; set
 function PoolMemberCard({
   s, RL,
   isExpanded, onToggleExpand,
-  onRegenPin, onDelete, onAssign,
+  onRegenPin, onDelete, onAssign, onInvite,
   onSaveSettings,
 }: {
   s: StaffMember;
@@ -269,6 +276,7 @@ function PoolMemberCard({
   onRegenPin: (m: StaffMember) => void;
   onDelete: (id: string) => void;
   onAssign: (m: StaffMember) => void;
+  onInvite: (m: StaffMember) => void;
   onSaveSettings: (m: StaffMember, settings: any) => void;
 }) {
   const { t } = useT();
@@ -286,9 +294,18 @@ function PoolMemberCard({
             <span className="text-[9px] text-gray-muted">PIN: <span className="font-mono font-bold text-orange tracking-widest">{s.pin}</span></span>
             <button onClick={e => { e.stopPropagation(); onRegenPin(s); }}
               className="text-[9px] text-gray-muted hover:text-orange transition-colors" title="Regen PIN">↻</button>
+            {s.inviteStatus === 'joined' ? (
+              <span className="text-[9px] bg-green/10 text-green border border-green/30 px-1.5 py-0.5 rounded font-bold">✓ Manm</span>
+            ) : null}
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {s.inviteStatus !== 'joined' ? (
+            <button onClick={e => { e.stopPropagation(); onInvite(s); }}
+              className="px-2.5 py-1.5 rounded-lg text-[9px] font-bold border border-border text-gray-light hover:text-green hover:border-green transition-all">
+              📲 Envite
+            </button>
+          ) : null}
           <button onClick={e => { e.stopPropagation(); onAssign(s); }}
             className="px-2.5 py-1.5 rounded-lg text-[9px] font-bold border border-border text-gray-light hover:text-orange hover:border-orange transition-all">
             📋 {t('staff_assign_btn')}
@@ -342,7 +359,7 @@ function OrganizerStaffPageInner() {
 
   // Assignment form
   const [showAssignForm, setShowAssignForm] = useState(false);
-  const [assignForm, setAssignForm]     = useState({ staffId: '', eventId: eventParam || selectedEvent?.id || '', role: 'scanner' as StaffRole });
+  const [assignForm, setAssignForm]     = useState({ staffId: '', eventId: eventParam || selectedEvent?.id || '', role: 'scanner' as StaffRole, agreedPay: '' });
   const [toast, setToast] = useState('');
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 2500); };
 
@@ -409,6 +426,26 @@ function OrganizerStaffPageInner() {
     setPool(prev => prev.map(s => s.id === member.id ? { ...s, pin } : s));
   };
 
+  const handleInvite = async (member: StaffMember) => {
+    if (!user?.uid) return;
+    const organizerName = (user as any).businessName || (user as any).firstName || 'Òganizatè';
+    try {
+      const token = await createStaffInvite(member.id, organizerName);
+      setPool(prev => prev.map(s => s.id === member.id ? { ...s, inviteToken: token, inviteStatus: 'pending' } : s));
+      const link = `https://anbyans.events/staff/join/${token}`;
+      const msg = `👋 ${organizerName} ou envite nan ekip li sou Anbyans. Klike pou rejwenn: ${link}`;
+      const phone = member.phone.replace(/\D/g, '');
+      if (phone) {
+        window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
+      } else {
+        await navigator.clipboard?.writeText(link);
+        showToast('Lyen kopye!');
+      }
+    } catch {
+      showToast('Erè. Eseye ankò.');
+    }
+  };
+
   // ── Assignment CRUD ──
   const handleAssign = async () => {
     if (!assignForm.staffId || !assignForm.eventId || !user?.uid) return;
@@ -417,9 +454,19 @@ function OrganizerStaffPageInner() {
     try {
       const id = `sa_${Date.now()}`;
       const member = pool.find(p => p.id === assignForm.staffId);
-      const assignment = { staffId: assignForm.staffId, eventId: assignForm.eventId, organizerId: user.uid, role: assignForm.role || member?.role || 'scanner', active: false, assignedAt: serverTimestamp() };
+      const agreedPayNum = assignForm.agreedPay ? parseFloat(assignForm.agreedPay) : undefined;
+      const assignment: Record<string, unknown> = {
+        staffId: assignForm.staffId,
+        eventId: assignForm.eventId,
+        organizerId: user.uid,
+        role: assignForm.role || member?.role || 'scanner',
+        active: false,
+        assignedAt: serverTimestamp(),
+        ...(member?.uid && { uid: member.uid }),
+        ...(agreedPayNum != null && !isNaN(agreedPayNum) && { agreedPay: agreedPayNum }),
+      };
       await setDoc(doc(db, 'staffAssignments', id), assignment);
-      setAssignments(prev => [...prev, { id, ...assignment }]);
+      setAssignments(prev => [...prev, { id, ...assignment } as StaffAssignment]);
       setShowAssignForm(false);
     } finally { setSaving(false); }
   };
@@ -630,6 +677,7 @@ function OrganizerStaffPageInner() {
                   onRegenPin={handleRegenPin}
                   onDelete={handleDeleteFromPool}
                   onAssign={m => { setAssignForm(f => ({ ...f, staffId: m.id, role: m.role })); setShowAssignForm(true); setTab('assignments'); }}
+                  onInvite={handleInvite}
                   onSaveSettings={handleSaveSettings}
                 />
               ))}
@@ -655,7 +703,7 @@ function OrganizerStaffPageInner() {
             <div className="bg-dark-card border border-orange-border rounded-card p-5 mb-5">
               <p className="text-[10px] uppercase tracking-widest text-orange font-bold mb-4">{t('staff_assign_to_event')}</p>
               <p className="text-[10px] text-gray-muted mb-3">💡 {t('staff_assign_inactive_hint')}</p>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-4">
                 <div>
                   <label className="block text-[11px] font-semibold text-gray-light mb-1.5">{t('staff_person')} *</label>
                   <select value={assignForm.staffId} onChange={e => {
@@ -688,6 +736,17 @@ function OrganizerStaffPageInner() {
                     className="w-full px-3.5 py-2.5 rounded-[10px] bg-white/[0.04] border border-border text-white text-[13px] outline-none focus:border-orange">
                     {ROLES.map(r => <option key={r.key} value={r.key} className="bg-dark-card">{r.icon} {RL(r)}</option>)}
                   </select>
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-gray-light mb-1.5">💰 Salè ($)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={assignForm.agreedPay}
+                    onChange={e => setAssignForm(f => ({ ...f, agreedPay: e.target.value }))}
+                    placeholder="0"
+                    className="w-full px-3.5 py-2.5 rounded-[10px] bg-white/[0.04] border border-border text-white text-[13px] outline-none focus:border-orange placeholder:text-gray-muted"
+                  />
                 </div>
               </div>
               <div className="flex gap-2">
@@ -727,8 +786,14 @@ function OrganizerStaffPageInner() {
                               {a.active ? t('active').toUpperCase() : t('inactive').toUpperCase()}
                             </span>
                           </div>
-                          <div className="flex items-center gap-2 mt-1">
+                          <div className="flex items-center gap-2 mt-1 flex-wrap">
                             <span className="text-[10px] text-gray-muted">PIN: <span className="font-mono font-bold text-orange tracking-widest">{member?.pin || '——'}</span></span>
+                            {a.agreedPay != null && (
+                              <span className="text-[9px] text-green font-bold">💰 ${a.agreedPay}</span>
+                            )}
+                            {a.clockedIn && !a.clockedOut && (
+                              <span className="text-[9px] bg-green/10 text-green border border-green/30 px-1.5 py-0.5 rounded font-bold">🟢 Nan travay</span>
+                            )}
                           </div>
                         </div>
                         <div className="flex gap-1.5 flex-wrap justify-end">

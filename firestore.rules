@@ -167,20 +167,36 @@ service cloud.firestore {
     // ── Staff pool ─────────────────────────────────────────────────
     match /staffPool/{docId} {
       allow read: if isActiveAuth() && (
-        resource.data.organizerId == request.auth.uid || isAdmin()
+        resource.data.organizerId == request.auth.uid ||
+        resource.data.uid == request.auth.uid ||
+        isAdmin()
       );
       allow create: if isActiveAuth() && (isApprovedOrganizer() || isAdmin());
-      allow update, delete: if isActiveAuth() && (
+      allow update: if isActiveAuth() && (
+        resource.data.organizerId == request.auth.uid ||
+        // Staff can accept invite (set their own uid on the doc)
+        resource.data.inviteToken != null ||
+        isAdmin()
+      );
+      allow delete: if isActiveAuth() && (
         resource.data.organizerId == request.auth.uid || isAdmin()
       );
     }
 
     match /staffAssignments/{docId} {
       allow read: if isActiveAuth() && (
-        resource.data.organizerId == request.auth.uid || isAdmin()
+        resource.data.organizerId == request.auth.uid ||
+        resource.data.uid == request.auth.uid ||
+        isAdmin()
       );
       allow create: if isActiveAuth() && (isApprovedOrganizer() || isAdmin());
-      allow update, delete: if isActiveAuth() && (
+      allow update: if isActiveAuth() && (
+        resource.data.organizerId == request.auth.uid ||
+        // Staff can update for clock in/out
+        resource.data.uid == request.auth.uid ||
+        isAdmin()
+      );
+      allow delete: if isActiveAuth() && (
         resource.data.organizerId == request.auth.uid || isAdmin()
       );
     }

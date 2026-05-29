@@ -2438,3 +2438,125 @@ export async function confirmGuest(inviteId: string, ticketCode: string): Promis
     confirmedAt: serverTimestamp(),
   });
 }
+
+// ═══════════════════════════════════════════════════════════════════
+// STAFF AUTH SYSTEM
+// ═══════════════════════════════════════════════════════════════════
+
+export interface StaffPoolDoc {
+  id?: string;
+  name: string;
+  phone: string;
+  role: string;
+  pin: string;
+  organizerId: string;
+  organizerName?: string;
+  settings?: Record<string, unknown>;
+  uid?: string;
+  inviteToken?: string;
+  inviteStatus?: 'pending' | 'joined';
+  createdAt?: any;
+}
+
+export interface StaffAssignmentDoc {
+  id?: string;
+  staffId: string;
+  eventId: string;
+  organizerId: string;
+  role: string;
+  active: boolean;
+  agreedPay?: number;
+  clockedIn?: any;
+  clockedOut?: any;
+  assignedAt?: any;
+  uid?: string;
+}
+
+// ─── Create invite token for a pool member ────────────────────────
+export async function createStaffInvite(poolId: string, organizerName: string): Promise<string> {
+  const random = Math.random().toString(36).slice(2, 10);
+  const token = `${poolId}${random}`;
+  await updateDoc(doc(db, 'staffPool', poolId), {
+    inviteToken: token,
+    inviteStatus: 'pending',
+    organizerName,
+  });
+  return token;
+}
+
+// ─── Accept invite: links uid to pool entry ───────────────────────
+export async function acceptStaffInvite(token: string, uid: string, displayName: string): Promise<void> {
+  const q = query(collection(db, 'staffPool'), where('inviteToken', '==', token));
+  const snap = await getDocs(q);
+  if (snap.empty) throw new Error('Invite token pa jwenn.');
+  const poolDoc = snap.docs[0];
+  const poolData = poolDoc.data() as StaffPoolDoc;
+
+  await updateDoc(poolDoc.ref, {
+    uid,
+    inviteStatus: 'joined',
+  });
+
+  // Create / update user doc in users collection with role 'staff'
+  const userRef = doc(db, 'users', uid);
+  const userSnap = await getDoc(userRef);
+  if (!userSnap.exists()) {
+    const [firstName, ...rest] = displayName.split(' ');
+    await setDoc(userRef, {
+      uid,
+      email: '',
+      firstName: firstName || displayName,
+      lastName: rest.join(' ') || '',
+      phone: poolData.phone || '',
+      role: 'staff',
+      organizerId: poolData.organizerId,
+      staffPoolId: poolDoc.id,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+  } else {
+    await updateDoc(userRef, {
+      role: 'staff',
+      organizerId: poolData.organizerId,
+      staffPoolId: poolDoc.id,
+      updatedAt: serverTimestamp(),
+    });
+  }
+
+  // Backfill uid on all assignments for this pool member
+  const assignSnap = await getDocs(
+    query(collection(db, 'staffAssignments'), where('staffId', '==', poolDoc.id))
+  );
+  await Promise.all(assignSnap.docs.map(d => updateDoc(d.ref, { uid })));
+}
+
+// ─── Get staff pool entry by invite token ─────────────────────────
+export async function getStaffPoolByToken(token: string): Promise<StaffPoolDoc | null> {
+  const q = query(collection(db, 'staffPool'), where('inviteToken', '==', token));
+  const snap = await getDocs(q);
+  if (snap.empty) return null;
+  return { id: snap.docs[0].id, ...snap.docs[0].data() } as StaffPoolDoc;
+}
+
+// ─── Get staff assignments for a uid ─────────────────────────────
+export async function getStaffAssignments(uid: string): Promise<StaffAssignmentDoc[]> {
+  const snap = await getDocs(
+    query(collection(db, 'staffAssignments'), where('uid', '==', uid))
+  );
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as StaffAssignmentDoc));
+}
+
+// ─── Clock in ─────────────────────────────────────────────────────
+export async function clockIn(assignmentId: string): Promise<void> {
+  await updateDoc(doc(db, 'staffAssignments', assignmentId), {
+    clockedIn: serverTimestamp(),
+    clockedOut: null,
+  });
+}
+
+// ─── Clock out ────────────────────────────────────────────────────
+export async function clockOut(assignmentId: string): Promise<void> {
+  await updateDoc(doc(db, 'staffAssignments', assignmentId), {
+    clockedOut: serverTimestamp(),
+  });
+}
