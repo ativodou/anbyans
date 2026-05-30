@@ -141,6 +141,7 @@ function OrganizerLayoutInner({ children }: { children: React.ReactNode }) {
     { href: '/organizer/analytics',        icon: '📈', label: t('org_nav_analytics') },
     { href: '/organizer/staff',            icon: '👥', label: t('org_nav_staff') },
     { href: '/organizer/pending-tickets',  icon: '⏳', label: t('org_nav_pending'),  badge: pendingCount },
+    { href: '/organizer/lookup',           icon: '🔍', label: 'Retreve Tikè' },
     { href: '/organizer/issue-tickets',    icon: '🎟️', label: 'Issue Tickets' },
     { href: '/organizer/bar',              icon: '🍹', label: 'Bar POS' },
     { href: '/organizer/settings',         icon: '⚙️', label: t('org_nav_settings') },
@@ -376,8 +377,8 @@ function OrganizerLayoutInner({ children }: { children: React.ReactNode }) {
         {[
           { href: '/organizer/dashboard',       icon: '📊', label: t('org_nav_dashboard') },
           { href: '/organizer/events',          icon: '📅', label: t('org_nav_events') },
+          { href: '/organizer/lookup',          icon: '🔍', label: 'Tikè' },
           { href: '/organizer/pending-tickets', icon: '⏳', label: t('org_nav_pending'), badge: pendingCount },
-          { href: '/organizer/bar',             icon: '🍹', label: 'Bar' },
           { href: '/organizer/settings',        icon: '⚙️', label: t('org_nav_settings') },
         ].map(tab => {
           const active = isActive(tab.href);
