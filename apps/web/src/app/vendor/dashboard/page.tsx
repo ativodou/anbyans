@@ -189,6 +189,7 @@ export default function VendorDashboardPage() {
   const [salesSearch, setSalesSearch] = useState('');
   const [expandedSale, setExpandedSale] = useState<string | null>(null);
   const [copiedSale, setCopiedSale] = useState('');
+  const [expandedInv, setExpandedInv] = useState<string | null>(null);
   const [sellError, setSellError] = useState('');
 
   const [standFeeReqId, setStandFeeReqId] = useState<string | null>(null);
@@ -1147,6 +1148,29 @@ export default function VendorDashboardPage() {
                         <div style={{ height: '100%', width: `${pct}%`, background: '#a855f7', borderRadius: 3 }} />
                       </div>
                       <p style={{ color: '#555', fontSize: 10, textAlign: 'right', marginTop: 4 }}>{pct}% {t('vend_dash_sold_pct')}</p>
+
+                      {/* Unsold codes toggle */}
+                      {rem > 0 && s.ticketCodes && (
+                        <>
+                          <button
+                            onClick={() => setExpandedInv(expandedInv === s.id ? null : (s.id || String(i)))}
+                            style={{ width: '100%', marginTop: 10, padding: '6px 0', borderRadius: 6, border: '1px solid #1e1e2e', background: 'none', color: '#a855f7', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                            {expandedInv === (s.id || String(i)) ? '▲ Kache kòd yo' : `▼ Wè ${rem} kòd ki rete yo`}
+                          </button>
+                          {expandedInv === (s.id || String(i)) && (
+                            <div style={{ background: '#0a0a0f', borderRadius: 8, padding: 12, marginTop: 8 }}>
+                              <p style={{ color: '#555', fontSize: 9, textTransform: 'uppercase', letterSpacing: 1, fontWeight: 700, marginBottom: 8 }}>Kòd ki pa vann yo</p>
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                                {s.ticketCodes.slice(s.sold).map(code => (
+                                  <span key={code} style={{ fontFamily: 'monospace', fontSize: 11, fontWeight: 700, color: '#a855f7', background: '#a855f715', border: '1px solid #a855f730', padding: '3px 8px', borderRadius: 4 }}>
+                                    {code}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      )}
                     </div>
                   );
                 })}
