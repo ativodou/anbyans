@@ -20,6 +20,7 @@ interface Ticket {
   ticketCode: string;
   purchasedAt: any;
   vendorName?: string;
+  buyerPin?: string;
 }
 
 export default function AdminEventDetailPage() {

@@ -43,12 +43,12 @@ export default function OrganizerLookupPage() {
       const seen = new Set<string>();
       const allResults: TicketResult[] = [];
 
-      function add(d: any) {
+      const add = (d: any) => {
         if (!seen.has(d.id)) {
           seen.add(d.id);
           allResults.push({ id: d.id, ...d.data() } as TicketResult);
         }
-      }
+      };
 
       const promises: Promise<void>[] = [];
 

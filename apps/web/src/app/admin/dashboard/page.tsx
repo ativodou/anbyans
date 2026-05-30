@@ -13,7 +13,7 @@ import {
 } from 'firebase/firestore';
 import { updateEvent, getVenues, createVenue, updateVenue, deleteVenue, seedKnownVenues, getUserPhoto, type EventData, type VenueData } from '@/lib/db';
 
-type Tab = 'overview' | 'events' | 'organizers' | 'users' | 'refunds' | 'finance' | 'venues' | 'settings';
+type Tab = 'overview' | 'events' | 'organizers' | 'users' | 'vendors' | 'refunds' | 'finance' | 'venues' | 'settings';
 
 interface OrganizerData {
   id: string;
@@ -41,8 +41,8 @@ interface UserData {
   country?: string;
 }
 
-const NAV_IDS = ['overview','events','organizers','users','refunds','finance','venues','settings'] as const;
-const NAV_ICONS: Record<string, string> = { overview:'📊', events:'📅', organizers:'🎪', users:'👥', refunds:'💸', finance:'💰', venues:'🏟️', settings:'⚙️' };
+const NAV_IDS = ['overview','events','organizers','users','vendors','refunds','finance','venues','settings'] as const;
+const NAV_ICONS: Record<string, string> = { overview:'📊', events:'📅', organizers:'🎪', users:'👥', vendors:'🏪', refunds:'💸', finance:'💰', venues:'🏟️', settings:'⚙️' };
 
 export default function AdminDashboardPage() {
   const { t } = useT();
@@ -62,6 +62,9 @@ export default function AdminDashboardPage() {
   const [budgetCashRequests, setBudgetCashRequests] = useState<any[]>([]);
   const [posCashRequests, setPosCashRequests] = useState<any[]>([]);
   const [allTickets, setAllTickets] = useState<any[]>([]);
+  const [vendors, setVendors] = useState<any[]>([]);
+  const [vendorSearch, setVendorSearch] = useState('');
+  const [vendorFilter, setVendorFilter] = useState<'all' | 'pending' | 'active' | 'suspended'>('all');
   const [venues, setVenues] = useState<VenueData[]>([]);
   const [venueSearch, setVenueSearch] = useState('');
   const [venueModal, setVenueModal] = useState<'create' | 'edit' | null>(null);
@@ -159,6 +162,10 @@ export default function AdminDashboardPage() {
         snap.docs.forEach(d => tickets.push({ id: d.id, ...d.data() }));
       }));
       setAllTickets(tickets);
+
+      // Load vendors
+      const vendorSnap = await getDocs(collection(db, 'vendors'));
+      setVendors(vendorSnap.docs.map(d => ({ id: d.id, ...d.data() })));
     } catch (e) { console.error(e); }
     setLoading(false);
   }
@@ -192,6 +199,11 @@ export default function AdminDashboardPage() {
     } finally {
       setDeletingUser(null);
     }
+  }
+
+  async function setVendorStatus(id: string, status: 'active' | 'suspended' | 'rejected') {
+    await updateDoc(doc(db, 'vendors', id), { status });
+    setVendors(prev => prev.map(v => v.id === id ? { ...v, status } : v));
   }
 
   async function toggleEventStatus(eventId: string, current: string) {
@@ -370,6 +382,9 @@ export default function AdminDashboardPage() {
               {t(`admin_tab_${id}` as any) || id}
               {id === 'refunds' && (pendingRefunds + pendingCash) > 0 && (
                 <span className="ml-auto bg-red text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">{pendingRefunds + pendingCash}</span>
+              )}
+              {id === 'vendors' && vendors.filter(v => v.status === 'pending').length > 0 && (
+                <span className="ml-auto bg-yellow-500 text-black text-[9px] font-bold px-1.5 py-0.5 rounded-full">{vendors.filter(v => v.status === 'pending').length}</span>
               )}
             </button>
           ))}
@@ -738,6 +753,90 @@ export default function AdminDashboardPage() {
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* ═══ VENDORS ═══ */}
+          {tab === 'vendors' && (
+            <div>
+              {/* Filter + search row */}
+              <div className="flex flex-wrap gap-2 mb-4">
+                {(['all', 'pending', 'active', 'suspended'] as const).map(f => (
+                  <button key={f} onClick={() => setVendorFilter(f)}
+                    className={`px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all ${vendorFilter === f ? 'bg-orange text-black border-orange' : 'bg-white/[0.04] text-gray-muted border-border hover:text-white'}`}>
+                    {f === 'all' ? `Tout (${vendors.length})` : f === 'pending' ? `⏳ En atant (${vendors.filter(v => v.status === 'pending').length})` : f === 'active' ? `✅ Aktif (${vendors.filter(v => v.status === 'active').length})` : `🚫 Sispann (${vendors.filter(v => v.status === 'suspended').length})`}
+                  </button>
+                ))}
+              </div>
+              <input value={vendorSearch} onChange={e => setVendorSearch(e.target.value)}
+                placeholder="Chèche pa non, telefòn, oswa email…"
+                className="w-full px-4 py-3 rounded-xl bg-dark-card border border-border text-white text-sm outline-none focus:border-orange mb-4 placeholder:text-gray-muted" />
+
+              <div className="space-y-2">
+                {vendors
+                  .filter(v => vendorFilter === 'all' || v.status === vendorFilter)
+                  .filter(v => !vendorSearch || `${v.name || ''} ${v.phone || ''} ${v.email || ''}`.toLowerCase().includes(vendorSearch.toLowerCase()))
+                  .sort((a, b) => {
+                    // pending first
+                    if (a.status === 'pending' && b.status !== 'pending') return -1;
+                    if (b.status === 'pending' && a.status !== 'pending') return 1;
+                    return 0;
+                  })
+                  .map(v => {
+                    const statusColor = v.status === 'active' ? 'text-green bg-green-dim border-green/30' : v.status === 'suspended' ? 'text-red bg-red/10 border-red/30' : v.status === 'rejected' ? 'text-gray-muted bg-white/[0.05] border-border' : 'text-yellow-400 bg-yellow-500/10 border-yellow-500/30';
+                    const statusLabel = v.status === 'active' ? '✅ AKTIF' : v.status === 'suspended' ? '🚫 SISPANN' : v.status === 'rejected' ? '❌ REFIZE' : '⏳ EN ATANT';
+                    return (
+                      <div key={v.id} className={`bg-dark-card border rounded-xl p-4 ${v.status === 'pending' ? 'border-yellow-500/40' : v.status === 'suspended' ? 'border-red/30 bg-red/5' : 'border-border'}`}>
+                        <div className="flex items-center gap-4">
+                          <div className="w-10 h-10 rounded-full bg-purple-500/20 flex items-center justify-center text-sm font-black text-purple-400 flex-shrink-0">
+                            {(v.name || v.phone || '?')[0].toUpperCase()}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-bold">{v.name || '(Pa gen non)'}</p>
+                            <p className="text-[11px] text-gray-muted">{v.phone || v.email || '—'}</p>
+                            {v.organizerId && <p className="text-[10px] text-gray-muted">Org: {v.organizerId}</p>}
+                            {v.totalSold != null && <p className="text-[10px] text-orange font-bold mt-0.5">{v.totalSold} tikè vann</p>}
+                          </div>
+                          <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                            <span className={`text-[9px] px-2 py-0.5 rounded font-bold border ${statusColor}`}>{statusLabel}</span>
+                            <div className="flex gap-1.5">
+                              {v.status === 'pending' && (
+                                <>
+                                  <button onClick={() => setVendorStatus(v.id, 'active')}
+                                    className="px-3 py-1.5 rounded-lg text-[10px] font-bold bg-green-600/20 text-green-400 border border-green-500/30 hover:bg-green-600 hover:text-white transition-all">
+                                    ✅ Aprouve
+                                  </button>
+                                  <button onClick={() => setVendorStatus(v.id, 'rejected')}
+                                    className="px-3 py-1.5 rounded-lg text-[10px] font-bold bg-red/10 text-red border border-red/30 hover:bg-red hover:text-white transition-all">
+                                    🚫 Refize
+                                  </button>
+                                </>
+                              )}
+                              {v.status === 'active' && (
+                                <button onClick={() => setVendorStatus(v.id, 'suspended')}
+                                  className="px-3 py-1.5 rounded-lg text-[10px] font-bold bg-red/10 text-red border border-red/30 hover:bg-red hover:text-white transition-all">
+                                  Sispann
+                                </button>
+                              )}
+                              {(v.status === 'suspended' || v.status === 'rejected') && (
+                                <button onClick={() => setVendorStatus(v.id, 'active')}
+                                  className="px-3 py-1.5 rounded-lg text-[10px] font-bold bg-green-dim text-green border border-green/30 hover:bg-green-600 hover:text-white transition-all">
+                                  Reaktive
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+              {vendors.length === 0 && !loading && (
+                <div className="text-center py-20">
+                  <p className="text-4xl mb-3">🏪</p>
+                  <p className="text-gray-muted text-sm">Pa gen vandè pou kounye a.</p>
+                </div>
+              )}
             </div>
           )}
 

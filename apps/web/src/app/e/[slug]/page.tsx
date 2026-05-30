@@ -7,10 +7,8 @@ import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
 import { useParams, useSearchParams } from 'next/navigation';
 import { collection, query, where, getDocs, doc, getDoc, addDoc, serverTimestamp } from 'firebase/firestore';
-import { db, auth } from '@/lib/firebase';
-import { signInAnonymously } from 'firebase/auth';
+import { db } from '@/lib/firebase';
 import { getEventByPrivateToken, getPlatformFeeRate, getBarItems, getBarStations, getInvitation, confirmGuest, type Invitation } from '@/lib/db';
-import { saveTicketLocally } from '@/lib/localTickets';
 import { useT } from '@/i18n';
 import { useAuth } from '@/hooks/useAuth';
 import Link from 'next/link';
@@ -52,19 +50,12 @@ interface EventData {
   status: 'live' | 'upcoming' | 'ended';
   isPrivate?: boolean;
   privateMode?: 'paid' | 'free' | null;
-  eventType?: string;
-  barEnabled?: boolean;
-  hasTickets?: boolean;
 }
 
 type Step = 'detail' | 'seats' | 'info' | 'payment' | 'done';
 type PayMethod = 'stripe' | 'moncash' | 'natcash' | 'cash' | 'free';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function genPin() {
-  return String(Math.floor(1000 + Math.random() * 9000));
-}
 
 function genCode() {
   return Math.random().toString(36).substring(2, 10).toUpperCase();
@@ -150,13 +141,6 @@ function StripeForm({ onSuccess, processing, setProcessing }: {
     const { error: confirmError, paymentIntent } = await stripe.confirmPayment({
       elements,
       redirect: 'if_required',
-      confirmParams: {
-        payment_method_data: {
-          billing_details: {
-            address: { country: 'HT' },
-          },
-        },
-      },
     });
     if (confirmError) {
       setError(confirmError.message || 'Payment failed');
@@ -166,19 +150,18 @@ function StripeForm({ onSuccess, processing, setProcessing }: {
     }
   };
 
-  const { t } = useT();
   return (
     <div className="bg-white/[0.04] rounded-xl p-4 mb-4 text-sm">
       <p className="font-bold mb-3">💳 Kart Kredi / Debi</p>
       <div className="bg-white rounded-xl p-3 mb-3">
-        <PaymentElement options={{ layout: 'tabs', wallets: { applePay: 'never', googlePay: 'never' } }} />
+        <PaymentElement />
       </div>
       {error && <p className="text-red-400 text-xs mb-2">{error}</p>}
       <button onClick={handleSubmit} disabled={processing || !stripe}
         className="w-full py-3 rounded-xl font-heading text-base bg-orange text-white disabled:opacity-30 hover:bg-orange/90 transition-all flex items-center justify-center gap-2">
         {processing
-          ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> {t('slug_stripe_wait')}</>
-          : t('slug_stripe_pay_btn')}
+          ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Tann...</>
+          : 'Peye ak Kart →'}
       </button>
     </div>
   );
@@ -218,7 +201,6 @@ function BuyPageInner() {
   const [txnId, setTxnId]             = useState('');
   const [processing, setProcessing]   = useState(false);
   const [ticketCodes, setTicketCodes] = useState<string[]>([]);
-  const [buyerPin, setBuyerPin] = useState<string>('');
   const [expandedSection, setExpandedSection] = useState('');
   const [organizerStripeId, setOrganizerStripeId] = useState<string | null>(null);
   const [feeRate, setFeeRate] = useState(0.09);
@@ -314,10 +296,6 @@ function BuyPageInner() {
             exchangeRate,
             status: data.status === 'published' ? 'upcoming' : (data.status || 'upcoming'),
             isPrivate: data.isPrivate || false,
-            privateMode: data.privateMode || null,
-            eventType: data.eventType || null,
-            barEnabled: data.barEnabled !== undefined ? data.barEnabled : true,
-            hasTickets: data.hasTickets !== undefined ? data.hasTickets : true,
           } as EventData);
         }
         // Verify invite for private events
@@ -425,8 +403,6 @@ function BuyPageInner() {
     if (!event || !payMethod || cart.length === 0) return;
     setProcessing(true);
     try {
-      // Ensure the user has a Firebase auth session (anonymous if not signed in)
-      if (!auth.currentUser) await signInAnonymously(auth);
       const codes: string[] = [];
       const paymentStatus =
         payMethod === 'stripe'  ? 'paid' :
@@ -434,7 +410,6 @@ function BuyPageInner() {
         'pending_cash';
 
       let firstTicket = true;
-      const pin = genPin();
       for (const item of cart) {
         const seats = item.section.type === 'reserved' ? item.seats : Array(item.qty).fill(null);
         for (let i = 0; i < item.qty; i++) {
@@ -451,7 +426,6 @@ function BuyPageInner() {
             chargeTotal: Math.round(item.section.price * (1 + feeRate) * 100) / 100,
             paymentMethod: payMethod, paymentStatus,
             txnId: txnId.trim() || null,
-            buyerPin: pin,
             status: paymentStatus === 'paid' ? 'valid' : 'pending',
             purchasedAt: serverTimestamp(),
             ...(firstTicket && barTabAmount > 0 ? { barTabBalance: barTabAmount, barTabSpent: 0, ...(Object.keys(barCart).length > 0 ? { barPreorder: Object.entries(barCart).map(([name, qty]) => ({ name, qty, price: barMenuItems.find(i => i.name === name)?.price ?? 0 })).filter(x => x.qty > 0) } : {}) } : {}),
@@ -461,7 +435,6 @@ function BuyPageInner() {
         }
       }
       setTicketCodes(codes);
-      setBuyerPin(pin);
       if (invite?.id && codes[0]) confirmGuest(invite.id, codes[0]).catch(() => {});
       setStep('done');
     } catch (e: any) {
@@ -474,10 +447,7 @@ function BuyPageInner() {
     if (!event || cart.length === 0) return;
     setProcessing(true);
     try {
-      // Ensure the user has a Firebase auth session (anonymous if not signed in)
-      if (!auth.currentUser) await signInAnonymously(auth);
       const codes: string[] = [];
-      const pin = genPin();
       for (const item of cart) {
         const seats = item.section.type === 'reserved' ? item.seats : Array(item.qty).fill(null);
         for (let i = 0; i < item.qty; i++) {
@@ -491,7 +461,6 @@ function BuyPageInner() {
             seat: seats[i] || null,
             price: 0, priceHTG: 0,
             paymentMethod: 'free', paymentStatus: 'paid',
-            buyerPin: pin,
             status: 'valid',
             purchasedAt: serverTimestamp(),
           });
@@ -500,8 +469,6 @@ function BuyPageInner() {
       }
       setPayMethod('free');
       setTicketCodes(codes);
-      setBuyerPin(pin);
-      codes.forEach(code => saveTicketLocally({ ticketCode: code, buyerPin: pin, buyerPhone: phone, buyerName: name, eventId: event?.id, eventName: event?.name }));
       if (invite?.id && codes[0]) confirmGuest(invite.id, codes[0]).catch(() => {});
       setStep('done');
     } catch (e: any) {
@@ -623,14 +590,6 @@ function BuyPageInner() {
           </div>
         )}
 
-        {(event.eventType === 'free_open_unlimited' || event.hasTickets === false) ? (
-          <div className="p-5 rounded-xl bg-white/[0.03] border border-border text-center mb-4">
-            <p className="text-2xl mb-2">🚪</p>
-            <p className="font-heading text-lg mb-1">{t('slug_bar_only_title')}</p>
-            <p className="text-sm text-gray-400">{t('slug_bar_only_desc')}</p>
-          </div>
-        ) : (
-        <>
         <h2 className="font-heading text-lg mb-3">{t('slug_choose_tickets')}</h2>
 
         <div className="space-y-3">
@@ -672,7 +631,7 @@ function BuyPageInner() {
                     {sec.price === 0 ? (
                       <>
                         <p className="font-heading text-sm text-green">GRATIS</p>
-                        <p className="text-[10px] text-gray-400">{t('buy_mandatory_ticket')}</p>
+                        <p className="text-[10px] text-gray-400">Tikè Obligatwa</p>
                       </>
                     ) : (
                       <>
@@ -715,8 +674,6 @@ function BuyPageInner() {
             );
           })}
         </div>
-        </>
-        )}
       </div>
 
       {/* Sticky cart bar */}
@@ -767,7 +724,7 @@ function BuyPageInner() {
         <h2 className="font-heading text-xl mb-4">{t('buy_your_info_h')}</h2>
         {user && (
           <div className="flex items-center gap-2 mb-4 bg-green/10 border border-green/20 rounded-xl px-4 py-2.5 text-xs text-green font-bold">
-            {t('buy_auto_filled')}
+            ✓ Enfòmasyon ou ranpli otomatikman
           </div>
         )}
         <div className="space-y-4">
@@ -826,7 +783,7 @@ function BuyPageInner() {
           if (!validateInfo()) return;
           if (cartTotal === 0) { completeFreeOrder(); return; }
           // No bar tab for fully free private events
-          if (!event?.barEnabled || event?.eventType === 'free_private') { setStep('payment'); return; }
+          if (event?.isPrivate && event.privateMode === 'free') { setStep('payment'); return; }
           if (event?.id) Promise.all([getBarItems(event.id), getBarStations(event.id)]).then(([items, stations]) => {
             const stationMap = new Map(stations.map(s => [s.id!, s]));
             setBarMenuItems(items
@@ -842,7 +799,7 @@ function BuyPageInner() {
           disabled={processing}
           className="w-full mt-4 py-3.5 rounded-xl font-heading text-base bg-orange text-white hover:bg-orange/90 transition-all disabled:opacity-50 flex items-center justify-center gap-2">
           {processing
-            ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> {t('slug_stripe_wait')}</>
+            ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Tann...</>
             : t('buy_continue')}
         </button>
 
@@ -884,8 +841,8 @@ function BuyPageInner() {
                 <div className="relative text-center px-6 pt-6 pb-4 flex-shrink-0">
                   <button onClick={() => setShowBarTab(false)} className="absolute top-4 right-4 text-gray-500 hover:text-white text-xl leading-none">✕</button>
                   <p className="text-3xl mb-2">🍺</p>
-                  <h3 className="font-heading text-xl text-white">{t('bar_modal_title')}</h3>
-                  <p className="text-gray-400 text-sm mt-1">{t('bar_modal_desc')}</p>
+                  <h3 className="font-heading text-xl text-white">Pre-order from the Bar</h3>
+                  <p className="text-gray-400 text-sm mt-1">Pay now, pick up at the event</p>
                 </div>
 
                 {hasMenu ? (
@@ -922,14 +879,14 @@ function BuyPageInner() {
                     <div className="px-6 pb-6 pt-3 flex-shrink-0 border-t border-white/[0.07]">
                       {cartTotal > 0 && (
                         <div className="flex justify-between text-sm font-bold mb-3">
-                          <span className="text-gray-400">{t('bar_modal_total_label')}</span>
+                          <span className="text-gray-400">Total pre-order</span>
                           <span className="text-orange text-lg">${cartTotal.toFixed(2)}</span>
                         </div>
                       )}
                       <div className="flex gap-3">
-                        <button onClick={skip} className="flex-1 py-3 rounded-xl border border-white/[0.1] text-gray-400 font-bold text-sm hover:border-white/30 transition-all">{t('bar_modal_skip')}</button>
+                        <button onClick={skip} className="flex-1 py-3 rounded-xl border border-white/[0.1] text-gray-400 font-bold text-sm hover:border-white/30 transition-all">Skip</button>
                         <button onClick={confirm} className="flex-1 py-3 rounded-xl bg-orange text-white font-bold text-sm hover:bg-orange/90 transition-all">
-                          {cartTotal > 0 ? `Add $${cartTotal.toFixed(2)} →` : t('bar_modal_continue')}
+                          {cartTotal > 0 ? `Add $${cartTotal.toFixed(2)} →` : 'Continue →'}
                         </button>
                       </div>
                     </div>
@@ -946,15 +903,15 @@ function BuyPageInner() {
                     </div>
                     <div className="relative mb-5">
                       <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
-                      <input type="number" min={1} placeholder={t('bar_modal_custom_amount_ph')} value={customTab}
+                      <input type="number" min={1} placeholder="Custom amount" value={customTab}
                         onChange={e => { setCustomTab(e.target.value); setBarTabAmount(Math.max(0, parseInt(e.target.value) || 0)); }}
                         className="w-full pl-8 pr-4 py-3 rounded-xl bg-white/[0.06] border border-white/[0.1] text-white text-sm outline-none focus:border-orange" />
                     </div>
                     <div className="flex gap-3">
-                      <button onClick={skip} className="flex-1 py-3 rounded-xl border border-white/[0.1] text-gray-400 font-bold text-sm hover:border-white/30 transition-all">{t('bar_modal_skip')}</button>
+                      <button onClick={skip} className="flex-1 py-3 rounded-xl border border-white/[0.1] text-gray-400 font-bold text-sm hover:border-white/30 transition-all">Skip</button>
                       <button onClick={confirm}
                         className="flex-1 py-3 rounded-xl bg-orange text-white font-bold text-sm hover:bg-orange/90 transition-all">
-                        {barTabAmount > 0 ? `Add $${barTabAmount} →` : t('bar_modal_continue')}
+                        {barTabAmount > 0 ? `Add $${barTabAmount} →` : 'Continue →'}
                       </button>
                     </div>
                   </div>
@@ -977,13 +934,13 @@ function BuyPageInner() {
         {chargeTotal === 0 ? (
           <div className="text-center py-8">
             <p className="text-5xl mb-4">🎟️</p>
-            <p className="text-gray-400 text-sm mb-6">{t('buy_free_ticket_info')}</p>
+            <p className="text-gray-400 text-sm mb-6">Tikè sa a gratis. Pa gen peman obligatwa.</p>
             {purchaseError && <p className="text-red-400 text-xs mb-3">{purchaseError}</p>}
             <button onClick={completeFreeOrder} disabled={processing}
               className="w-full py-3.5 rounded-xl font-heading text-base bg-orange text-white disabled:opacity-30 hover:bg-orange/90 transition-all flex items-center justify-center gap-2">
               {processing
-                ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> {t('buy_free_loading')}</>
-                : t('buy_free_ticket_cta')}
+                ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Chajman…</>
+                : '🎫 Pran Tikè Gratis la'}
             </button>
           </div>
         ) : (
@@ -1053,10 +1010,7 @@ function BuyPageInner() {
                   onSuccess={async (paymentIntentId) => {
                     if (!event || cart.length === 0) return;
                     try {
-                      // Ensure the user has a Firebase auth session (anonymous if not signed in)
-                      if (!auth.currentUser) await signInAnonymously(auth);
                       const codes: string[] = [];
-                      const pin = genPin();
                       let firstTicket = true;
                       for (const item of cart) {
                         const seats = item.section.type === 'reserved' ? item.seats : Array(item.qty).fill(null);
@@ -1072,15 +1026,12 @@ function BuyPageInner() {
                             price: item.section.price, priceHTG: htg(item.section.price),
                             paymentMethod: 'stripe', paymentStatus: 'paid',
                             txnId: paymentIntentId, status: 'valid',
-                            buyerPin: pin,
                             purchasedAt: serverTimestamp(),
                             ...(firstTicket && barTabAmount > 0 ? { barTabBalance: barTabAmount, barTabSpent: 0, ...(Object.keys(barCart).length > 0 ? { barPreorder: Object.entries(barCart).map(([name, qty]) => ({ name, qty, price: barMenuItems.find(i => i.name === name)?.price ?? 0 })).filter(x => x.qty > 0) } : {}) } : {}),
                           });
                           codes.push(code); firstTicket = false;
                         }
                       }
-                      setBuyerPin(pin);
-                      codes.forEach(c => saveTicketLocally({ ticketCode: c, buyerPin: pin, buyerPhone: phone, buyerName: name, eventId: event?.id, eventName: event?.name }));
                       setTicketCodes(codes); setStep('done');
                     } catch (e) { console.error(e); }
                   }}
@@ -1145,21 +1096,21 @@ function BuyPageInner() {
         <div className="text-6xl mb-4">🎉</div>
         <h2 className="font-heading text-2xl mb-2">
           {payMethod === 'free'
-            ? t('buy_free_ticket_confirmed')
+            ? 'Tikè Gratis Konfime!'
             : payMethod === 'cash' || payMethod === 'moncash' || payMethod === 'natcash'
             ? t('buy_pending_ticket')
             : t('buy_confirmed_ticket')}
         </h2>
         <p className="text-gray-400 text-sm mb-8">
           {payMethod === 'free'
-            ? t('buy_free_ticket_msg')
+            ? 'Tikè gratis ou konfime. Jwi evènman an!'
             : payMethod === 'cash'
             ? t('buy_cash_confirm_msg')
             : payMethod === 'moncash' || payMethod === 'natcash'
             ? t('buy_moncash_pending_msg')
             : t('buy_stripe_ready_msg')}
         </p>
-        <div className="space-y-3 mb-6">
+        <div className="space-y-3 mb-8">
           {ticketCodes.map((code, i) => (
             <div key={code} className="bg-white/[0.06] rounded-xl p-4">
               <p className="text-[10px] text-gray-500 mb-1">{t('tickets')} #{i + 1}</p>
@@ -1167,19 +1118,6 @@ function BuyPageInner() {
             </div>
           ))}
         </div>
-        {buyerPin && (
-          <div className="bg-[#12121a] border border-[#6366f1] rounded-xl p-4 mb-6">
-            <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-3">🔐 PIN pou wè tikè ou</p>
-            <div className="flex justify-center gap-2 mb-2">
-              {buyerPin.split('').map((d, i) => (
-                <div key={i} className="w-11 h-13 rounded-lg bg-[#6366f1]/10 border-2 border-[#6366f1] flex items-center justify-center text-2xl font-black text-[#6366f1]" style={{ height: 52 }}>
-                  {d}
-                </div>
-              ))}
-            </div>
-            <p className="text-red-400 text-xs mt-2 font-semibold">⚠️ Kenbe PIN sa — ou pral bezwen l pou wè tikè ou.</p>
-          </div>
-        )}
         <div className="flex gap-3">
           <Link href={`/ticket/${ticketCodes[0]}`}
             className="flex-1 py-3 rounded-xl bg-orange text-white font-bold text-sm hover:bg-orange/90 transition-all">
