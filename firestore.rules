@@ -63,9 +63,12 @@ service cloud.firestore {
         resource.data.organizerId == request.auth.uid ||
         resource.data.buyerEmail == request.auth.token.email ||
         resource.data.buyerUid == request.auth.uid ||
-        // Allow transfer initiation/cancellation by anyone with auth (token is the secret)
+        // Allow transfer initiation/cancellation (only transfer fields change)
         request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly(['transferToken', 'transferToName', 'transferToPhone', 'transferExpiry', 'status']) ||
+        // Allow transfer acceptance (buyer info changes, transferToken exists)
+        (resource.data.transferToken != null &&
+         exists(/databases/$(database)/documents/transfers/$(resource.data.transferToken))) ||
         isAdmin()
       );
       allow delete: if isAdmin();
