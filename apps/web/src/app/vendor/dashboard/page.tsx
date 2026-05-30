@@ -21,6 +21,7 @@ import {
   vendorSellTicket,
   saveVendorDraft,
   loadVendorDraft,
+  createVendorBulkCashRequest,
   VendorData,
   VendorPurchase,
   EventData,
@@ -207,6 +208,9 @@ export default function VendorDashboardPage() {
   const [buyClientSecret, setBuyClientSecret] = useState<string | null>(null);
   const [buyOrgStripeId, setBuyOrgStripeId] = useState<string | null>(null);
   const [feeRate, setFeeRate] = useState(0.09);
+  const [buyPayMethod, setBuyPayMethod] = useState<'stripe' | 'cash'>('stripe');
+  const [cashRequestSent, setCashRequestSent] = useState(false);
+  const [vendorCashReqs, setVendorCashReqs] = useState<any[]>([]);
 
   // ─── ONE effect, no useCallback, no router in deps ───────────────
   useEffect(() => {
@@ -273,6 +277,17 @@ export default function VendorDashboardPage() {
             setSales(sSnap.docs.map(d => ({ id: d.id, ...(d.data() as VendorSale) })));
           }
         } catch (e) { console.warn('sales', e); }
+
+        try {
+          const crSnap = await getDocs(query(
+            collection(db, 'vendorBulkCashRequests'),
+            where('vendorId', '==', v.id)
+          ));
+          if (!cancelled) {
+            setVendorCashReqs(crSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+              .sort((a: any, b: any) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)));
+          }
+        } catch (e) { console.warn('cashReqs', e); }
 
         // approved events — load bulk pricing for each event vendor is approved for
         // (done after vendorRequests load below — reloaded there)
@@ -535,8 +550,33 @@ export default function VendorDashboardPage() {
     } finally { setBuyLoading(false); }
   }
 
+  async function handleCashRequest() {
+    if (!vendor?.id || !selectedEvent?.id || !selectedSection) return;
+    setBuyLoading(true); setBuyError('');
+    try {
+      await createVendorBulkCashRequest({
+        vendorId: vendor.id,
+        vendorName: vendor.name,
+        vendorPhone: vendor.phone,
+        organizerId: selectedEvent.organizerId || vendor.organizerId,
+        eventId: selectedEvent.id!,
+        eventName: selectedEvent.name,
+        eventEmoji: '🎫',
+        eventDate: selectedEvent.startDate,
+        section: selectedSection.section,
+        sectionColor: selectedSection.sectionColor,
+        qty: buyQty,
+        priceEach: bulkPrice,
+        paymentMethod: 'cash',
+      });
+      setCashRequestSent(true);
+    } catch (e: any) {
+      setBuyError(e.message || 'Erè.');
+    } finally { setBuyLoading(false); }
+  }
+
   function resetSell() { setSellSuccess(false); setSellCodes([]); setSellPin(''); setSellQty(1); setSellPrice(''); setBuyerName(''); setBuyerPhone(''); setSellError(''); }
-  function resetBuy() { setBuySuccess(false); setBuyQty(10); setBuyError(''); setBuyClientSecret(null); }
+  function resetBuy() { setBuySuccess(false); setBuyQty(10); setBuyError(''); setBuyClientSecret(null); setBuyPayMethod('stripe'); setCashRequestSent(false); }
 
   // ── Spinner pandan chajman ──
   if (loading) return (
@@ -1094,7 +1134,7 @@ export default function VendorDashboardPage() {
           </div>
         )}
 
-        {tab === 'buy' && showBuyConfirm && !buySuccess && (
+        {tab === 'buy' && showBuyConfirm && !buySuccess && !cashRequestSent && (
           <div style={{ ...card, borderColor: '#a855f733', textAlign: 'center', padding: 32 }}>
             <p style={{ fontSize: 48, marginBottom: 12 }}>🛒</p>
             <h3 style={{ fontSize: 20, fontWeight: 800, marginBottom: 16 }}>{t('vend_dash_confirm_purch_h')}</h3>
@@ -1105,14 +1145,26 @@ export default function VendorDashboardPage() {
                 </div>
               ))}
             </div>
+
+            {/* Payment method selector */}
+            <div style={{ maxWidth: 320, margin: '0 auto 20px', display: 'flex', gap: 10 }}>
+              {(['stripe', 'cash'] as const).map(m => (
+                <button key={m} onClick={() => { setBuyPayMethod(m); setBuyClientSecret(null); }}
+                  style={{ flex: 1, padding: '10px 0', borderRadius: 10, border: `2px solid ${buyPayMethod === m ? '#a855f7' : '#1e1e2e'}`, background: buyPayMethod === m ? '#a855f720' : 'transparent', color: '#fff', fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>
+                  {m === 'stripe' ? '💳 Stripe' : '💵 Kach / Zelle / Lòt'}
+                </button>
+              ))}
+            </div>
+
             {buyError && <p style={{ color: '#ef4444', fontSize: 12, marginBottom: 10 }}>{buyError}</p>}
-            {!buyClientSecret && (
+
+            {buyPayMethod === 'stripe' && !buyClientSecret && (
               <button onClick={handleConfirmBuy} disabled={buyLoading}
                 style={{ ...btn('#a855f7'), maxWidth: 320, margin: '0 auto', opacity: buyLoading ? 0.6 : 1 }}>
                 {buyLoading ? '...' : `💳 Peye $${buyTotal.toLocaleString()}`}
               </button>
             )}
-            {buyClientSecret && (
+            {buyPayMethod === 'stripe' && buyClientSecret && (
               <div style={{ maxWidth: 400, margin: '0 auto', textAlign: 'left' }}>
                 <Elements stripe={stripePromise} options={{ clientSecret: buyClientSecret, appearance: { theme: 'night' } }}>
                   <VendorStripeForm
@@ -1122,7 +1174,22 @@ export default function VendorDashboardPage() {
                 </Elements>
               </div>
             )}
-            <button onClick={() => { setShowBuyConfirm(false); setBuyClientSecret(null); }} style={{ color: '#555', background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, marginTop: 12 }}>← {t('back')}</button>
+            {buyPayMethod === 'cash' && (
+              <button onClick={handleCashRequest} disabled={buyLoading}
+                style={{ ...btn('#f97316'), maxWidth: 320, margin: '0 auto', opacity: buyLoading ? 0.6 : 1 }}>
+                {buyLoading ? '...' : `📨 Voye Demann — $${buyTotal.toLocaleString()}`}
+              </button>
+            )}
+            <button onClick={() => { setShowBuyConfirm(false); setBuyClientSecret(null); setBuyPayMethod('stripe'); }} style={{ color: '#555', background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, marginTop: 12 }}>← {t('back')}</button>
+          </div>
+        )}
+
+        {tab === 'buy' && showBuyConfirm && cashRequestSent && (
+          <div style={{ ...card, borderColor: '#f97316', textAlign: 'center', padding: 40 }}>
+            <p style={{ fontSize: 56, marginBottom: 12 }}>📨</p>
+            <h3 style={{ fontSize: 20, fontWeight: 800, color: '#f97316', marginBottom: 8 }}>Demann Voye!</h3>
+            <p style={{ color: '#888', fontSize: 13, maxWidth: 280, margin: '0 auto 20px' }}>Demann ou an voye. Admin ap revize li. Ou pap ka vann tikè yo jouk li apwouve.</p>
+            <button onClick={() => { setShowBuyConfirm(false); setCashRequestSent(false); setBuyPayMethod('stripe'); }} style={{ ...btn('#a855f7'), width: 'auto', padding: '10px 24px' }}>← Retounen</button>
           </div>
         )}
 
@@ -1147,6 +1214,23 @@ export default function VendorDashboardPage() {
                 </div>
               ))}
             </div>
+            {vendorCashReqs.filter(r => r.status === 'pending').length > 0 && (
+              <div style={{ marginBottom: 20 }}>
+                <h3 style={{ fontSize: 14, fontWeight: 800, color: '#f97316', marginBottom: 10 }}>📨 Demann Kach En Atant</h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {vendorCashReqs.filter(r => r.status === 'pending').map(r => (
+                    <div key={r.id} style={{ ...card, borderColor: '#f9741633', padding: 12 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                        <span style={{ fontWeight: 700, fontSize: 13 }}>{r.eventName}</span>
+                        <span style={{ color: '#f97316', fontSize: 10, fontWeight: 700 }}>⏳ EN ATANT</span>
+                      </div>
+                      <p style={{ color: '#888', fontSize: 11 }}>{r.section} · {r.qty} tikè · ${r.totalAmount?.toLocaleString()} ({r.paymentMethod})</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {owned.length === 0 ? (
               <div style={{ ...card, textAlign: 'center', padding: 40 }}><p style={{ fontSize: 40, marginBottom: 10 }}>📦</p><p style={{ color: '#888' }}>{t('vend_dash_empty_inv')}</p></div>
             ) : (

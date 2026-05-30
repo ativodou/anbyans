@@ -1126,6 +1126,67 @@ export async function vendorBulkPurchase(params: {
   return { id: ref.id, ...purchaseDoc };
 }
 
+// ─── Vendor Bulk Cash Requests ────────────────────────────────────────
+
+export async function createVendorBulkCashRequest(params: {
+  vendorId: string;
+  vendorName: string;
+  vendorPhone?: string;
+  organizerId: string;
+  organizerName?: string;
+  eventId: string;
+  eventName: string;
+  eventEmoji?: string;
+  eventDate?: string;
+  section: string;
+  sectionColor?: string;
+  qty: number;
+  priceEach: number;
+  paymentMethod: string;
+}): Promise<string> {
+  const ref = await addDoc(collection(db, 'vendorBulkCashRequests'), {
+    ...params,
+    totalAmount: params.qty * params.priceEach,
+    status: 'pending',
+    createdAt: serverTimestamp(),
+  });
+  return ref.id;
+}
+
+export async function approveVendorBulkCashRequest(requestId: string): Promise<void> {
+  const reqRef = doc(db, 'vendorBulkCashRequests', requestId);
+  const reqSnap = await getDoc(reqRef);
+  if (!reqSnap.exists()) throw new Error('Request not found');
+  const data = reqSnap.data();
+  const result = await vendorBulkPurchase({
+    vendorId: data.vendorId,
+    vendorName: data.vendorName,
+    organizerId: data.organizerId,
+    eventId: data.eventId,
+    eventName: data.eventName,
+    eventEmoji: data.eventEmoji ?? '🎫',
+    eventDate: data.eventDate ?? '',
+    section: data.section,
+    sectionColor: data.sectionColor ?? '#a855f7',
+    qty: data.qty,
+    priceEach: data.priceEach,
+    paymentMethod: data.paymentMethod,
+  });
+  await updateDoc(reqRef, {
+    status: 'approved',
+    resolvedAt: serverTimestamp(),
+    purchaseId: result.id,
+  });
+}
+
+export async function denyVendorBulkCashRequest(requestId: string, note?: string): Promise<void> {
+  await updateDoc(doc(db, 'vendorBulkCashRequests', requestId), {
+    status: 'denied',
+    denialNote: note ?? '',
+    resolvedAt: serverTimestamp(),
+  });
+}
+
 // ─── Update Reseller Status ────────────────────────────────────────
 
 export async function updateVendorTrusted(vendorId: string, trusted: boolean) {

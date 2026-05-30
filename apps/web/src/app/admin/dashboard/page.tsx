@@ -11,7 +11,7 @@ import {
   collection, getDocs, doc, updateDoc, setDoc, deleteDoc,
   query, orderBy, serverTimestamp, getDoc
 } from 'firebase/firestore';
-import { updateEvent, getVenues, createVenue, updateVenue, deleteVenue, seedKnownVenues, getUserPhoto, type EventData, type VenueData } from '@/lib/db';
+import { updateEvent, getVenues, createVenue, updateVenue, deleteVenue, seedKnownVenues, getUserPhoto, approveVendorBulkCashRequest, denyVendorBulkCashRequest, type EventData, type VenueData } from '@/lib/db';
 
 type Tab = 'overview' | 'events' | 'organizers' | 'users' | 'vendors' | 'refunds' | 'finance' | 'venues' | 'settings';
 
@@ -63,6 +63,7 @@ export default function AdminDashboardPage() {
   const [posCashRequests, setPosCashRequests] = useState<any[]>([]);
   const [allTickets, setAllTickets] = useState<any[]>([]);
   const [vendors, setVendors] = useState<any[]>([]);
+  const [vendorCashRequests, setVendorCashRequests] = useState<any[]>([]);
   const [vendorSearch, setVendorSearch] = useState('');
   const [vendorFilter, setVendorFilter] = useState<'all' | 'pending' | 'active' | 'suspended'>('all');
   const [venues, setVenues] = useState<VenueData[]>([]);
@@ -121,7 +122,7 @@ export default function AdminDashboardPage() {
     }).catch(e => console.warn('config load', e));
 
     try {
-      const [evSnap, usersSnap, refSnap, venSnap, cashSnap, budgetCashSnap, posCashSnap] = await Promise.all([
+      const [evSnap, usersSnap, refSnap, venSnap, cashSnap, budgetCashSnap, posCashSnap, vendorCashSnap] = await Promise.all([
         getDocs(collection(db, 'events')),
         getDocs(collection(db, 'users')),
         getDocs(collection(db, 'refundRequests')),
@@ -129,10 +130,12 @@ export default function AdminDashboardPage() {
         getDocs(collection(db, 'cashActivationRequests')),
         getDocs(collection(db, 'budgetCashRequests')),
         getDocs(collection(db, 'posCashRequests')),
+        getDocs(collection(db, 'vendorBulkCashRequests')),
       ]);
       setCashRequests(cashSnap.docs.map(d => ({ id: d.id, ...d.data() })));
       setBudgetCashRequests(budgetCashSnap.docs.map(d => ({ id: d.id, ...d.data() })));
       setPosCashRequests(posCashSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+      setVendorCashRequests(vendorCashSnap.docs.map(d => ({ id: d.id, ...d.data() })));
       setVenues(venSnap as VenueData[]);
 
       const evList = evSnap.docs.map(d => ({ id: d.id, ...d.data() } as EventData));
@@ -332,6 +335,16 @@ export default function AdminDashboardPage() {
     setBudgetCashRequests(prev => prev.map(x => x.id === r.id ? { ...x, status: 'denied' } : x));
   }
 
+  async function adminApproveVendorCashRequest(r: any) {
+    await approveVendorBulkCashRequest(r.id);
+    setVendorCashRequests(prev => prev.map(x => x.id === r.id ? { ...x, status: 'approved' } : x));
+  }
+
+  async function adminDenyVendorCashRequest(r: any) {
+    await denyVendorBulkCashRequest(r.id);
+    setVendorCashRequests(prev => prev.map(x => x.id === r.id ? { ...x, status: 'denied' } : x));
+  }
+
   async function approveCashRequest(r: any) {
     await updateDoc(doc(db, 'cashActivationRequests', r.id), { status: 'approved', resolvedAt: serverTimestamp() });
     await updateDoc(doc(db, 'events', r.eventId), { privateActivated: true, privateActivatedAt: new Date().toISOString() });
@@ -383,8 +396,8 @@ export default function AdminDashboardPage() {
               {id === 'refunds' && (pendingRefunds + pendingCash) > 0 && (
                 <span className="ml-auto bg-red text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">{pendingRefunds + pendingCash}</span>
               )}
-              {id === 'vendors' && vendors.filter(v => v.status === 'pending').length > 0 && (
-                <span className="ml-auto bg-yellow-500 text-black text-[9px] font-bold px-1.5 py-0.5 rounded-full">{vendors.filter(v => v.status === 'pending').length}</span>
+              {id === 'vendors' && (vendors.filter(v => v.status === 'pending').length + vendorCashRequests.filter(r => r.status === 'pending').length) > 0 && (
+                <span className="ml-auto bg-yellow-500 text-black text-[9px] font-bold px-1.5 py-0.5 rounded-full">{vendors.filter(v => v.status === 'pending').length + vendorCashRequests.filter(r => r.status === 'pending').length}</span>
               )}
             </button>
           ))}
@@ -759,6 +772,36 @@ export default function AdminDashboardPage() {
           {/* ═══ VENDORS ═══ */}
           {tab === 'vendors' && (
             <div>
+              {/* Pending vendor bulk cash requests */}
+              {vendorCashRequests.filter(r => r.status === 'pending').length > 0 && (
+                <div className="mb-6">
+                  <h3 className="text-sm font-bold text-orange mb-3">📨 Demann Kach Vandè — En Atant ({vendorCashRequests.filter(r => r.status === 'pending').length})</h3>
+                  <div className="space-y-2">
+                    {vendorCashRequests.filter(r => r.status === 'pending').map(r => (
+                      <div key={r.id} className="bg-dark-card border border-orange/30 rounded-xl p-4">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-bold">{r.vendorName}</p>
+                            <p className="text-[11px] text-gray-muted">{r.eventName} · <span style={{ color: r.sectionColor || '#a855f7' }}>{r.section}</span></p>
+                            <p className="text-[11px] text-gray-muted">{r.qty} tikè · <span className="text-orange font-bold">${r.totalAmount?.toLocaleString()}</span> · {r.paymentMethod}</p>
+                          </div>
+                          <div className="flex gap-2 flex-shrink-0">
+                            <button onClick={() => adminApproveVendorCashRequest(r)}
+                              className="px-3 py-1.5 rounded-lg text-[10px] font-bold bg-green-600/20 text-green-400 border border-green-500/30 hover:bg-green-600 hover:text-white transition-all">
+                              ✅ Aprouve
+                            </button>
+                            <button onClick={() => adminDenyVendorCashRequest(r)}
+                              className="px-3 py-1.5 rounded-lg text-[10px] font-bold bg-red/10 text-red border border-red/30 hover:bg-red hover:text-white transition-all">
+                              🚫 Refize
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Filter + search row */}
               <div className="flex flex-wrap gap-2 mb-4">
                 {(['all', 'pending', 'active', 'suspended'] as const).map(f => (
