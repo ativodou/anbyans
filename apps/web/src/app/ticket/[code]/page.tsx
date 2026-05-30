@@ -18,12 +18,18 @@ export default function TicketPage() {
   const params = useParams();
   const code = (params.code as string) || '';
   const { t } = useT();
-  useAuth();
 
   const [loading, setLoading] = useState(true);
   const [ticket, setTicket] = useState<TicketData | null>(null);
   const [event, setEvent] = useState<EventData | null>(null);
   const [error, setError] = useState('');
+
+  // PIN gate — unauthenticated users must enter the buyer PIN
+  const { user } = useAuth();
+  const [pinUnlocked, setPinUnlocked] = useState(false);
+  const [pinInput, setPinInput] = useState('');
+  const [pinError, setPinError] = useState('');
+
   const [qrWindow, setQrWindow] = useState(getQrWindow());
   const [qrCountdown, setQrCountdown] = useState(15 - Math.floor((Date.now() % 15000) / 1000));
   const [downloading, setDownloading] = useState(false);
@@ -352,6 +358,68 @@ export default function TicketPage() {
             🔍 {t('ticket_verify_link')}
           </Link>
         </div>
+      </div>
+    );
+  }
+
+  // PIN gate — admins, organizers and the ticket's own buyer (by uid) skip it
+  const isOwner = user && (
+    (user as any).role === 'admin' ||
+    (user as any).role === 'organizer' ||
+    (user as any).uid === ticket.buyerUid
+  );
+
+  if (!isOwner && !pinUnlocked) {
+    return (
+      <div style={{ minHeight: '100vh', background: '#0a0a0f', color: '#fff', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+        <div style={{ fontSize: 52, marginBottom: 16 }}>🔐</div>
+        <h1 style={{ fontSize: 22, fontWeight: 800, marginBottom: 8 }}>Antre PIN ou</h1>
+        <p style={{ color: '#888', fontSize: 13, marginBottom: 24, textAlign: 'center', maxWidth: 300 }}>
+          Ou te resevwa yon PIN lè ou te achte oswa aksepte tikè a. Antre l pou wè tikè ou.
+        </p>
+        <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
+          {[0, 1, 2, 3].map(i => (
+            <input
+              key={i}
+              type="number"
+              inputMode="numeric"
+              maxLength={1}
+              value={pinInput[i] || ''}
+              onChange={e => {
+                const val = e.target.value.replace(/\D/g, '').slice(-1);
+                const arr = pinInput.split('');
+                arr[i] = val;
+                setPinInput(arr.join('').slice(0, 4));
+                setPinError('');
+                if (val && i < 3) {
+                  const next = document.getElementById(`pin-${i + 1}`);
+                  if (next) (next as HTMLInputElement).focus();
+                }
+              }}
+              id={`pin-${i}`}
+              style={{
+                width: 52, height: 60, borderRadius: 12, border: `2px solid ${pinError ? '#ef4444' : '#1e1e2e'}`,
+                background: '#12121a', color: '#fff', fontSize: 24, fontWeight: 800,
+                textAlign: 'center', outline: 'none',
+              }}
+            />
+          ))}
+        </div>
+        {pinError && <p style={{ color: '#ef4444', fontSize: 13, marginBottom: 12 }}>{pinError}</p>}
+        <button
+          onClick={() => {
+            if (pinInput.length !== 4) { setPinError('Antre 4 chif PIN ou.'); return; }
+            if (pinInput === String(ticket.buyerPin)) {
+              setPinUnlocked(true);
+            } else {
+              setPinError('PIN enkòrèk. Eseye ankò.');
+              setPinInput('');
+            }
+          }}
+          style={{ padding: '14px 40px', borderRadius: 12, background: '#6366f1', color: '#fff', fontWeight: 700, fontSize: 15, border: 'none', cursor: 'pointer', width: '100%', maxWidth: 260 }}
+        >
+          Konfime PIN →
+        </button>
       </div>
     );
   }
