@@ -35,7 +35,10 @@ service cloud.firestore {
         allow update: if isActiveAuth() && (
           resource.data.organizerId == request.auth.uid ||
           resource.data.buyerUid == request.auth.uid ||
-          // Allow transfer acceptance: the transfers doc with this token must exist and be pending
+          // Allow transfer initiation/cancellation (only transfer fields change)
+          request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['transferToken', 'transferToName', 'transferToPhone', 'transferExpiry', 'status']) ||
+          // Allow transfer acceptance: the transfers doc with this token must exist
           (resource.data.transferToken != null &&
            exists(/databases/$(database)/documents/transfers/$(resource.data.transferToken))) ||
           isAdmin()
