@@ -60,6 +60,9 @@ service cloud.firestore {
         resource.data.organizerId == request.auth.uid ||
         resource.data.buyerEmail == request.auth.token.email ||
         resource.data.buyerUid == request.auth.uid ||
+        // Allow transfer initiation/cancellation by anyone with auth (token is the secret)
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['transferToken', 'transferToName', 'transferToPhone', 'transferExpiry', 'status']) ||
         isAdmin()
       );
       allow delete: if isAdmin();
