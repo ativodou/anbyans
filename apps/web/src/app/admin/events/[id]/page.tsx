@@ -242,6 +242,9 @@ export default function AdminEventDetailPage() {
                       {t.paymentMethod === 'stripe' ? '💳' : t.paymentMethod === 'moncash' ? '📱' : t.paymentMethod === 'cash' ? '💵' : '💳'}{' '}
                       {t.vendorName ? `via ${t.vendorName}` : ''}
                     </p>
+                    <p className="text-[10px] font-mono mt-0.5 text-orange/80">
+                      {t.ticketCode}{t.buyerPin ? ` · PIN: ${t.buyerPin}` : ''}
+                    </p>
                   </div>
                   <div className="text-right flex-shrink-0">
                     <p className="text-sm font-bold">${t.price}</p>
