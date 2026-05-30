@@ -11,12 +11,12 @@ import { fetchAllHaitianEvents, haitianEventsToGallery } from '@/lib/haitianeven
 import { useAuth } from '@/hooks/useAuth';
 
 const FALLBACK_GALLERY = [
-  { title: 'Kompa Fest 2026', venue: 'Parc Istorik, Milot', date: '15 Mars', emoji: '🎶', price: 15, live: true, imageUrl: '', source: 'anbyans' as const },
-  { title: 'DJ Stéphane Live', venue: 'Karibe Hotel, PV', date: '22 Mars', emoji: '🎧', price: 25, live: false, imageUrl: '', source: 'anbyans' as const },
-  { title: 'Rara Lakay 2026', venue: 'Champ de Mars, PaP', date: '5 Avr', emoji: '🥁', price: 10, live: false, imageUrl: '', source: 'anbyans' as const },
-  { title: 'Tabou Combo 50 Ans', venue: 'Little Haiti, Miami', date: '12 Avr', emoji: '🎺', price: 45, live: false, imageUrl: '', source: 'anbyans' as const },
-  { title: 'Kanaval Jacmel', venue: 'Jacmel, Sidès', date: '8 Avr', emoji: '🎭', price: 5, live: true, imageUrl: '', source: 'anbyans' as const },
-  { title: 'Jazz nan Lakou', venue: 'Lakou Trignon, PaP', date: '20 Avr', emoji: '🎷', price: 30, live: false, imageUrl: '', source: 'anbyans' as const },
+  { title: 'Kompa Fest 2026', venue: 'Parc Istorik, Milot', date: '15 Mars', emoji: '🎶', price: 15, live: true, imageUrl: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=400&q=80', source: 'anbyans' as const },
+  { title: 'DJ Stéphane Live', venue: 'Karibe Hotel, PV', date: '22 Mars', emoji: '🎧', price: 25, live: false, imageUrl: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=400&q=80', source: 'anbyans' as const },
+  { title: 'Rara Lakay 2026', venue: 'Champ de Mars, PaP', date: '5 Avr', emoji: '🥁', price: 10, live: false, imageUrl: 'https://images.unsplash.com/photo-1504704911898-68304a7d2807?w=400&q=80', source: 'anbyans' as const },
+  { title: 'Tabou Combo 50 Ans', venue: 'Little Haiti, Miami', date: '12 Avr', emoji: '🎺', price: 45, live: false, imageUrl: 'https://images.unsplash.com/photo-1501612780327-45045538702b?w=400&q=80', source: 'anbyans' as const },
+  { title: 'Kanaval Jacmel', venue: 'Jacmel, Sidès', date: '8 Avr', emoji: '🎭', price: 5, live: true, imageUrl: 'https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?w=400&q=80', source: 'anbyans' as const },
+  { title: 'Jazz nan Lakou', venue: 'Lakou Trignon, PaP', date: '20 Avr', emoji: '🎷', price: 30, live: false, imageUrl: 'https://images.unsplash.com/photo-1415201364774-f6f0bb35f28f?w=400&q=80', source: 'anbyans' as const },
 ];
 
 const GENRES = [
@@ -33,6 +33,23 @@ type GalleryItem = {
   source: 'anbyans' | 'ticketmaster' | 'haitian-times' | 'eventbrite' | 'belfet';
 };
 
+// Per-emoji vivid gradients so imageless cards still look distinct
+const EMOJI_GRADIENT: Record<string, string> = {
+  '🎶': 'from-[#1a0533] to-[#6b21a8]',
+  '🎧': 'from-[#0c1a2e] to-[#1d4ed8]',
+  '🥁': 'from-[#2d1400] to-[#b45309]',
+  '🎺': 'from-[#1a0a00] to-[#c2410c]',
+  '🎭': 'from-[#0f1a00] to-[#4d7c0f]',
+  '🎷': 'from-[#001a1a] to-[#0e7490]',
+  '🎵': 'from-[#1a001a] to-[#7e22ce]',
+  '🎤': 'from-[#1a0000] to-[#dc2626]',
+  '🪘': 'from-[#1a0d00] to-[#92400e]',
+  '🎹': 'from-[#000d1a] to-[#1e40af]',
+  '✨': 'from-[#1a1400] to-[#a16207]',
+  '🕺': 'from-[#001a0d] to-[#065f46]',
+};
+const DEFAULT_GRADIENT = 'from-[#0f0f1a] to-[#1e1b4b]';
+
 const EventGallery = memo(function EventGallery({ items }: { items: GalleryItem[] }) {
   const list = items.length >= 8 ? items : [...items, ...items];
   return (
@@ -42,10 +59,10 @@ const EventGallery = memo(function EventGallery({ items }: { items: GalleryItem[
           <a key={i} href="/events"
             className="flex-shrink-0 w-[200px] bg-dark-card border border-border rounded-card overflow-hidden hover:border-white/[0.12] transition-all group"
             style={{ textDecoration: 'none' }}>
-            <div className="h-24 bg-gradient-to-br from-[#1a1a2e] to-[#16213e] flex items-center justify-center text-4xl relative overflow-hidden">
+            <div className={`h-28 bg-gradient-to-br ${ev.imageUrl ? 'from-[#1a1a2e] to-[#16213e]' : (EMOJI_GRADIENT[ev.emoji] ?? DEFAULT_GRADIENT)} flex items-center justify-center relative overflow-hidden`}>
               {ev.imageUrl
                 ? <img src={ev.imageUrl} alt={ev.title} className="w-full h-full object-cover" />
-                : ev.emoji}
+                : <span className="text-6xl drop-shadow-lg select-none">{ev.emoji}</span>}
               {ev.live && <span className="absolute top-2 left-2 bg-red text-white text-[8px] font-bold px-1.5 py-0.5 rounded-md">● LIVE</span>}
               {ev.source !== 'anbyans' && (
                 <span className="absolute bottom-1 right-1 bg-black/60 text-[8px] text-gray-400 px-1 rounded">
@@ -115,6 +132,12 @@ export default function LandingPage() {
           fetchHaitianCityEvents(4),
         ]);
 
+        // Always add Ticketmaster first — it reliably has images
+        if (tmEvents.status === 'fulfilled') {
+          combined.push(...tmEventsToGallery(tmEvents.value));
+        }
+
+        // Add Haitian-centric events after (no images, but vivid gradient fallback)
         if (haitianEvents.status === 'fulfilled' && haitianEvents.value.length > 0) {
           const hGallery = haitianEventsToGallery(haitianEvents.value).map(ev => ({
             ...ev,
@@ -122,10 +145,6 @@ export default function LandingPage() {
             source: ev.source as GalleryItem['source'],
           }));
           combined.push(...hGallery);
-        }
-
-        if (combined.length < 10 && tmEvents.status === 'fulfilled') {
-          combined.push(...tmEventsToGallery(tmEvents.value));
         }
       } catch (err) { console.error('Event feed error:', err); }
       if (combined.length > 0 && !galleryLoaded.current) { galleryLoaded.current = true; setGallery(combined); }

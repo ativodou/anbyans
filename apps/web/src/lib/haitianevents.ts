@@ -79,6 +79,10 @@ function parseIcal(raw: string): HaitianEvent[] {
     const parts = loc.split(',');
     const city  = parts.length > 1 ? parts[parts.length - 1].trim() : loc;
 
+    // WordPress tribe iCal embeds event image in ATTACH field
+    const attachMatch = block.match(/ATTACH[^:]*:(https?:\/\/[^\r\n]+)/);
+    const imageUrl = attachMatch ? attachMatch[1].trim() : '';
+
     events.push({
       id:        `ht-${dtstart}-${title.slice(0, 20)}`,
       title,
@@ -88,7 +92,7 @@ function parseIcal(raw: string): HaitianEvent[] {
       time:      '',
       emoji:     musicEmoji(title),
       price,
-      imageUrl:  '',
+      imageUrl,
       ticketUrl: url,
       source:    'haitian-times',
     });
