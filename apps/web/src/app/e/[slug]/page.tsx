@@ -7,7 +7,8 @@ import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
 import { useParams, useSearchParams } from 'next/navigation';
 import { collection, query, where, getDocs, doc, getDoc, addDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { db, auth } from '@/lib/firebase';
+import { signInAnonymously } from 'firebase/auth';
 import { getEventByPrivateToken, getPlatformFeeRate, getBarItems, getBarStations, getInvitation, confirmGuest, type Invitation } from '@/lib/db';
 import { useT } from '@/i18n';
 import { useAuth } from '@/hooks/useAuth';
@@ -411,6 +412,8 @@ function BuyPageInner() {
     if (!event || !payMethod || cart.length === 0) return;
     setProcessing(true);
     try {
+      // Ensure the user has a Firebase auth session (anonymous if not signed in)
+      if (!auth.currentUser) await signInAnonymously(auth);
       const codes: string[] = [];
       const paymentStatus =
         payMethod === 'stripe'  ? 'paid' :
@@ -455,6 +458,8 @@ function BuyPageInner() {
     if (!event || cart.length === 0) return;
     setProcessing(true);
     try {
+      // Ensure the user has a Firebase auth session (anonymous if not signed in)
+      if (!auth.currentUser) await signInAnonymously(auth);
       const codes: string[] = [];
       for (const item of cart) {
         const seats = item.section.type === 'reserved' ? item.seats : Array(item.qty).fill(null);
@@ -1028,6 +1033,8 @@ function BuyPageInner() {
                   onSuccess={async (paymentIntentId) => {
                     if (!event || cart.length === 0) return;
                     try {
+                      // Ensure the user has a Firebase auth session (anonymous if not signed in)
+                      if (!auth.currentUser) await signInAnonymously(auth);
                       const codes: string[] = [];
                       let firstTicket = true;
                       for (const item of cart) {
