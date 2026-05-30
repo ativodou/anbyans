@@ -251,7 +251,8 @@ export async function initiateTransfer(
                         Math.random().toString(36).slice(2, 10).toUpperCase();
   const expiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h
 
-  const ticketRef = doc(db, 'events', eventId, 'tickets', ticketId);
+  // Update top-level ticket (tickets are stored at root /tickets, not nested)
+  const ticketRef = doc(db, 'tickets', ticketId);
   await updateDoc(ticketRef, {
     status: 'pending_transfer',
     transferToken,
@@ -297,7 +298,7 @@ export async function acceptTransfer(token: string): Promise<{ pin: string; tick
   if (transfer.status !== 'pending') throw new Error('Transfè sa deja itilize.');
   if (new Date() > transfer.expiry) throw new Error('Transfè a ekspire.');
 
-  const ticketRef = doc(db, 'events', transfer.eventId, 'tickets', transfer.ticketId);
+  const ticketRef = doc(db, 'tickets', transfer.ticketId);
   const ticketSnap = await getDoc(ticketRef);
   if (!ticketSnap.exists()) throw new Error('Tikè pa jwenn.');
 
@@ -321,7 +322,7 @@ export async function acceptTransfer(token: string): Promise<{ pin: string; tick
 }
 
 export async function cancelTransfer(eventId: string, ticketId: string, token: string): Promise<void> {
-  const ticketRef = doc(db, 'events', eventId, 'tickets', ticketId);
+  const ticketRef = doc(db, 'tickets', ticketId);
   await updateDoc(ticketRef, {
     status: 'valid',
     transferToken: null,
