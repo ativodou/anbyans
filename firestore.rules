@@ -33,7 +33,12 @@ service cloud.firestore {
         allow read: if isActiveAuth();
         allow create: if isActiveAuth();
         allow update: if isActiveAuth() && (
-          resource.data.organizerId == request.auth.uid || isAdmin()
+          resource.data.organizerId == request.auth.uid ||
+          resource.data.buyerUid == request.auth.uid ||
+          // Allow transfer acceptance: the transfers doc with this token must exist and be pending
+          (resource.data.transferToken != null &&
+           exists(/databases/$(database)/documents/transfers/$(resource.data.transferToken))) ||
+          isAdmin()
         );
         allow delete: if isAdmin();
       }
@@ -357,6 +362,17 @@ service cloud.firestore {
     // ── OTP codes (server-side only) ───────────────────────────────
     match /otpCodes/{id} {
       allow read, write: if false; // server-side only via Admin SDK
+    }
+
+    // ── Ticket transfers ───────────────────────────────────────────
+    // Doc ID is the secret transfer token. Sender must be authed to
+    // create; anyone with the token link can read/accept (unauthenticated
+    // recipients open the link before they have a session).
+    match /transfers/{token} {
+      allow read: if true;
+      allow create: if isActiveAuth();
+      allow update: if true; // recipient accepts the transfer without a login
+      allow delete: if isAdmin();
     }
 
     // ── Gift claims (unauthenticated guests can claim gifts) ───────

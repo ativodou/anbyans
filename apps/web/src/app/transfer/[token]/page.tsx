@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { getTransferByToken, acceptTransfer, getEvent } from '@/lib/db';
+import { auth } from '@/lib/firebase';
+import { signInAnonymously } from 'firebase/auth';
 import type { EventData } from '@/lib/db';
 import { useT } from '@/i18n';
 
@@ -49,6 +51,7 @@ export default function TransferAcceptPage() {
   const handleAccept = async () => {
     setStatus('accepting');
     try {
+      if (!auth.currentUser) await signInAnonymously(auth);
       const result = await acceptTransfer(token);
       setNewPin(result.pin);
       setTicketCode(result.ticketCode);
