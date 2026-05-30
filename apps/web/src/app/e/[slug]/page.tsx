@@ -159,7 +159,7 @@ function StripeForm({ onSuccess, processing, setProcessing }: {
     <div className="bg-white/[0.04] rounded-xl p-4 mb-4 text-sm">
       <p className="font-bold mb-3">💳 Kart Kredi / Debi</p>
       <div className="bg-white rounded-xl p-3 mb-3">
-        <PaymentElement />
+        <PaymentElement options={{ layout: 'tabs', wallets: { applePay: 'never', googlePay: 'never' }, fields: { billingDetails: { address: { country: 'never', postalCode: 'never' } } } }} />
       </div>
       {error && <p className="text-red-400 text-xs mb-2">{error}</p>}
       <button onClick={handleSubmit} disabled={processing || !stripe}
