@@ -7,6 +7,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { getEvent, initiateTransfer, cancelTransfer, type TicketData, type EventData } from '@/lib/db';
+import { getLocalTickets } from '@/lib/localTickets';
 
 interface TicketWithEvent extends TicketData {
   event?: EventData;
@@ -33,6 +34,32 @@ export default function MyTicketsPage() {
   const [phone, setPhone] = useState('');
   const [pin, setPin] = useState('');
   const [guestError, setGuestError] = useState('');
+
+  // Auto-load tickets saved locally on this device (for anonymous buyers)
+  useEffect(() => {
+    if (authLoading) return;
+    if (user) return; // logged-in users get Firestore results below
+    const local = getLocalTickets();
+    if (local.length === 0) return;
+    // Fetch fresh data from Firestore for each locally saved ticket code
+    (async () => {
+      setLoading(true);
+      try {
+        const results: TicketWithEvent[] = [];
+        for (const lt of local) {
+          const q = query(collection(db, 'tickets'), where('ticketCode', '==', lt.ticketCode));
+          const snap = await getDocs(q);
+          snap.forEach(d => results.push({ id: d.id, ...d.data() } as TicketWithEvent));
+        }
+        await attachEvents(results);
+        setTickets(results);
+        setSearched(true);
+      } catch (err) {
+        console.error('Failed to load local tickets:', err);
+      }
+      setLoading(false);
+    })();
+  }, [authLoading, user]);
 
   // Auto-load for logged-in users
   useEffect(() => {

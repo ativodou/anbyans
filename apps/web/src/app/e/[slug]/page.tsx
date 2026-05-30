@@ -10,6 +10,7 @@ import { collection, query, where, getDocs, doc, getDoc, addDoc, serverTimestamp
 import { db, auth } from '@/lib/firebase';
 import { signInAnonymously } from 'firebase/auth';
 import { getEventByPrivateToken, getPlatformFeeRate, getBarItems, getBarStations, getInvitation, confirmGuest, type Invitation } from '@/lib/db';
+import { saveTicketLocally } from '@/lib/localTickets';
 import { useT } from '@/i18n';
 import { useAuth } from '@/hooks/useAuth';
 import Link from 'next/link';
@@ -500,6 +501,7 @@ function BuyPageInner() {
       setPayMethod('free');
       setTicketCodes(codes);
       setBuyerPin(pin);
+      codes.forEach(code => saveTicketLocally({ ticketCode: code, buyerPin: pin, buyerPhone: phone, buyerName: name, eventId: event?.id, eventName: event?.name }));
       if (invite?.id && codes[0]) confirmGuest(invite.id, codes[0]).catch(() => {});
       setStep('done');
     } catch (e: any) {
@@ -1078,6 +1080,7 @@ function BuyPageInner() {
                         }
                       }
                       setBuyerPin(pin);
+                      codes.forEach(c => saveTicketLocally({ ticketCode: c, buyerPin: pin, buyerPhone: phone, buyerName: name, eventId: event?.id, eventName: event?.name }));
                       setTicketCodes(codes); setStep('done');
                     } catch (e) { console.error(e); }
                   }}
