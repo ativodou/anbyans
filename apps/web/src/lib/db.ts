@@ -1321,6 +1321,7 @@ export async function vendorSellTicket(params: {
     costPriceEach: purchase.priceEach,
     buyerName: params.buyerName,
     buyerPhone: params.buyerPhone,
+    buyerPin,
     codes: assignedCodes,
     soldAt: serverTimestamp(),
   });

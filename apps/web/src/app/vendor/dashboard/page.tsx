@@ -101,8 +101,15 @@ interface VendorSale {
   section: string;
   eventId?: string;
   eventDate?: string;
-  sectionColor: string; qty: number; sellPriceEach: number; costPriceEach: number;
-  buyerName: string; buyerPhone: string; soldAt: any;
+  sectionColor: string;
+  qty: number;
+  sellPriceEach: number;
+  costPriceEach: number;
+  buyerName: string;
+  buyerPhone: string;
+  buyerPin?: string;
+  codes?: string[];
+  soldAt: any;
 }
 type Tab = 'sell' | 'buy' | 'inventory' | 'sales' | 'events';
 
@@ -179,6 +186,9 @@ export default function VendorDashboardPage() {
   const [sellCodes, setSellCodes] = useState<string[]>([]);
   const [sellPin, setSellPin]     = useState('');
   const [sellLoading, setSellLoading] = useState(false);
+  const [salesSearch, setSalesSearch] = useState('');
+  const [expandedSale, setExpandedSale] = useState<string | null>(null);
+  const [copiedSale, setCopiedSale] = useState('');
   const [sellError, setSellError] = useState('');
 
   const [standFeeReqId, setStandFeeReqId] = useState<string | null>(null);
@@ -1150,34 +1160,142 @@ export default function VendorDashboardPage() {
         {tab === 'sales' && (
           <div>
             <h2 style={{ fontSize: 20, fontWeight: 800, marginBottom: 16 }}>{t('vend_dash_sales_title')}</h2>
+
+            {/* Stats */}
             <div style={{ ...card, marginBottom: 16 }}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, textAlign: 'center' }}>
-                {[{l:t('vend_dash_sales'),v:sales.reduce((a,s)=>a+s.qty,0)},{l:t('vend_dash_revenue'),v:`$${totalRevenue}`},{l:t('vend_dash_cost_label'),v:`$${totalCost}`},{l:t('vend_dash_profit'),v:`$${totalProfit}`,c:'#22c55e'}].map(s => (
-                  <div key={s.l}><p style={{ color: '#555', fontSize: 9, textTransform: 'uppercase', marginBottom: 4 }}>{s.l}</p><p style={{ fontSize: 18, fontWeight: 800, color: s.c||'#fff' }}>{s.v}</p></div>
+                {[
+                  { l: t('vend_dash_sales'),       v: sales.reduce((a, s) => a + s.qty, 0) },
+                  { l: t('vend_dash_revenue'),      v: `$${totalRevenue}` },
+                  { l: t('vend_dash_cost_label'),   v: `$${totalCost}` },
+                  { l: t('vend_dash_profit'),       v: `$${totalProfit}`, c: '#22c55e' },
+                ].map(s => (
+                  <div key={s.l}>
+                    <p style={{ color: '#555', fontSize: 9, textTransform: 'uppercase', marginBottom: 4 }}>{s.l}</p>
+                    <p style={{ fontSize: 18, fontWeight: 800, color: s.c || '#fff' }}>{s.v}</p>
+                  </div>
                 ))}
               </div>
             </div>
-            {sales.length === 0 ? (
-              <div style={{ ...card, textAlign: 'center', padding: 40 }}><p style={{ fontSize: 40, marginBottom: 10 }}>📋</p><p style={{ color: '#888' }}>{t('vend_dash_no_sales')}</p></div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {sales.map((s, i) => {
-                  const profit = s.qty * (s.sellPriceEach - s.costPriceEach);
-                  return (
-                    <div key={i} style={{ ...card, display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <div style={{ flex: 1 }}>
-                        <p style={{ fontWeight: 700, fontSize: 12 }}>{s.eventName}</p>
-                        <p style={{ color: '#666', fontSize: 11 }}>{s.qty}× <span style={{ color: s.sectionColor }}>{s.section}</span> · {s.buyerName} · {s.buyerPhone}</p>
-                      </div>
-                      <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                        <p style={{ fontWeight: 700, fontSize: 13 }}>${s.qty * s.sellPriceEach}</p>
-                        <p style={{ color: '#22c55e', fontSize: 10, fontWeight: 700 }}>+${profit} {t('vend_dash_profit_label')}</p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+
+            {/* Search */}
+            {sales.length > 0 && (
+              <input
+                value={salesSearch}
+                onChange={e => setSalesSearch(e.target.value)}
+                placeholder="🔍  Chèche pa non, telefòn, oswa kòd tikè…"
+                style={{ ...inp, marginBottom: 12, fontSize: 13 }}
+              />
             )}
+
+            {sales.length === 0 ? (
+              <div style={{ ...card, textAlign: 'center', padding: 40 }}>
+                <p style={{ fontSize: 40, marginBottom: 10 }}>📋</p>
+                <p style={{ color: '#888' }}>{t('vend_dash_no_sales')}</p>
+              </div>
+            ) : (() => {
+              const term = salesSearch.trim().toLowerCase();
+              const filtered = term
+                ? sales.filter(s =>
+                    s.buyerName?.toLowerCase().includes(term) ||
+                    s.buyerPhone?.includes(term) ||
+                    s.codes?.some(c => c.toLowerCase().includes(term)) ||
+                    s.buyerPin?.includes(term)
+                  )
+                : sales;
+
+              return filtered.length === 0 ? (
+                <div style={{ ...card, textAlign: 'center', padding: 30 }}>
+                  <p style={{ color: '#888', fontSize: 13 }}>Okenn rezilta pou "<strong style={{ color: '#fff' }}>{salesSearch}</strong>"</p>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {filtered.map((s, i) => {
+                    const profit = s.qty * (s.sellPriceEach - s.costPriceEach);
+                    const saleId = s.id || String(i);
+                    const isExpanded = expandedSale === saleId;
+
+                    function copySaleInfo() {
+                      const text = [
+                        `Fan: ${s.buyerName} · ${s.buyerPhone}`,
+                        s.codes?.map((c, ci) => `Tikè ${ci + 1}: ${c}`).join('\n'),
+                        s.buyerPin ? `PIN: ${s.buyerPin}` : '',
+                      ].filter(Boolean).join('\n');
+                      navigator.clipboard.writeText(text);
+                      setCopiedSale(saleId);
+                      setTimeout(() => setCopiedSale(''), 2000);
+                    }
+
+                    return (
+                      <div key={saleId} style={{ ...card }}>
+                        {/* Main row */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}
+                          onClick={() => setExpandedSale(isExpanded ? null : saleId)}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <p style={{ fontWeight: 700, fontSize: 13, marginBottom: 2 }}>{s.buyerName}</p>
+                            <p style={{ color: '#666', fontSize: 11 }}>
+                              {s.buyerPhone} · {s.qty}× <span style={{ color: s.sectionColor }}>{s.section}</span>
+                            </p>
+                            <p style={{ color: '#444', fontSize: 10, marginTop: 2 }}>{s.eventName}</p>
+                          </div>
+                          <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                            <p style={{ fontWeight: 700, fontSize: 13 }}>${s.qty * s.sellPriceEach}</p>
+                            <p style={{ color: '#22c55e', fontSize: 10, fontWeight: 700 }}>+${profit}</p>
+                            <p style={{ color: '#444', fontSize: 18, marginTop: 2 }}>{isExpanded ? '▲' : '▼'}</p>
+                          </div>
+                        </div>
+
+                        {/* Expanded: codes + PIN */}
+                        {isExpanded && (
+                          <div style={{ borderTop: '1px solid #1e1e2e', marginTop: 12, paddingTop: 12 }}>
+                            <div style={{ background: '#0a0a0f', borderRadius: 8, padding: 12 }}>
+                              {/* Codes */}
+                              <div style={{ marginBottom: s.buyerPin ? 10 : 0 }}>
+                                <p style={{ color: '#555', fontSize: 9, textTransform: 'uppercase', letterSpacing: 1, fontWeight: 700, marginBottom: 6 }}>Kòd Tikè</p>
+                                {s.codes && s.codes.length > 0
+                                  ? s.codes.map(c => (
+                                      <p key={c} style={{ fontFamily: 'monospace', fontSize: 13, fontWeight: 800, color: '#22c55e', letterSpacing: 2, margin: '2px 0' }}>{c}</p>
+                                    ))
+                                  : <p style={{ color: '#555', fontSize: 11, fontStyle: 'italic' }}>Kòd ansyen — pa disponib</p>
+                                }
+                              </div>
+
+                              {/* PIN */}
+                              {s.buyerPin && (
+                                <div style={{ borderTop: '1px solid #1e1e2e', paddingTop: 10 }}>
+                                  <p style={{ color: '#555', fontSize: 9, textTransform: 'uppercase', letterSpacing: 1, fontWeight: 700, marginBottom: 6 }}>PIN Fan</p>
+                                  <p style={{ fontFamily: 'monospace', fontSize: 26, fontWeight: 800, color: '#a855f7', letterSpacing: 8, margin: 0 }}>{s.buyerPin}</p>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Action buttons */}
+                            <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                              <button onClick={copySaleInfo}
+                                style={{ flex: 1, padding: '8px 0', borderRadius: 8, border: '1px solid #1e1e2e', background: 'none', color: copiedSale === saleId ? '#22c55e' : '#888', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                                {copiedSale === saleId ? '✓ Kopye' : 'Kopye Info'}
+                              </button>
+                              {s.buyerPhone && (
+                                <a href={`https://wa.me/${s.buyerPhone.replace(/\D/g, '')}?text=${encodeURIComponent(
+                                  `Bonjou ${s.buyerName}! 🎫\n` +
+                                  (s.codes?.map((c, ci) => `Tikè ${ci + 1}: *${c}*`).join('\n') || '') +
+                                  (s.buyerPin ? `\nPIN: *${s.buyerPin}*` : '') +
+                                  `\n\nWè tikè ou: https://anbyans.events/ticket/${s.codes?.[0] || ''}`
+                                )}`}
+                                  target="_blank" rel="noopener noreferrer"
+                                  style={{ flex: 1, padding: '8px 0', borderRadius: 8, border: '1px solid #25D36640', background: '#25D36615', color: '#25D366', fontSize: 11, fontWeight: 700, textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                                  📱 WhatsApp
+                                </a>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
           </div>
         )}
       </div>
