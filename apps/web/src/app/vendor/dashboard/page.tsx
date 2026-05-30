@@ -220,9 +220,33 @@ export default function VendorDashboardPage() {
         if (cancelled) return;
 
         if (!v || !v.id) {
-          setNoVendorDoc(true);
-          setLoading(false);
-          return;
+          // Auto-create vendors doc for self-registered Google resellers
+          try {
+            const { getAuth } = await import('firebase/auth');
+            const fbUser = getAuth().currentUser;
+            if (fbUser) {
+              const { addDoc, collection: col } = await import('firebase/firestore');
+              const { db: fdb } = await import('@/lib/firebase');
+              const [fn, ...rest] = (fbUser.displayName || '').split(' ');
+              const ref = await addDoc(col(fdb, 'vendors'), {
+                uid: fbUser.uid,
+                name: fbUser.displayName || fbUser.email || '',
+                email: fbUser.email || '',
+                phone: fbUser.phoneNumber || '',
+                organizerId: '',
+                status: 'pending',
+                joinedDate: new Date().toISOString().slice(0, 10),
+                createdAt: (await import('firebase/firestore')).serverTimestamp(),
+                updatedAt: (await import('firebase/firestore')).serverTimestamp(),
+              });
+              v = { id: ref.id, uid: fbUser.uid, name: fbUser.displayName || fbUser.email || '', email: fbUser.email || '', phone: '', organizerId: '', status: 'pending', joinedDate: '', payMethod: '', payAccount: '', inviteToken: '' } as any;
+            }
+          } catch {}
+          if (!v || !v.id) {
+            setNoVendorDoc(true);
+            setLoading(false);
+            return;
+          }
         }
 
         setVendor(v);
@@ -522,8 +546,8 @@ export default function VendorDashboardPage() {
     </div>
   );
 
-  // ── FIX: Ekran "an atant" — pa redirect, pa loop ──
-  if (noVendorDoc) return (
+  // ── Ekran "an atant" — vendor doc missing OR status not active ──
+  if (noVendorDoc || (vendor && (vendor as any).status === 'pending') || (vendor && (vendor as any).status === 'rejected')) return (
     <div style={{ minHeight: '100vh', background: '#0a0a0f', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24 }}>
       <p style={{ fontSize: 48 }}>⏳</p>
       <p style={{ color: '#fff', fontWeight: 800, fontSize: 20, textAlign: 'center' }}>

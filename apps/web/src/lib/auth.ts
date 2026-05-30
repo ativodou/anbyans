@@ -11,7 +11,7 @@ import {
   deleteUser,
   type User,
 } from 'firebase/auth';
-import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, getDoc, addDoc, collection, query, where, limit, getDocs, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from './firebase';
 
 // ─── Types ───────────────────────────────────────────────────────
@@ -105,6 +105,25 @@ async function upsertGoogleProfile(fbUser: User, intendedRole: UserRole): Promis
       ...(intendedRole === 'organizer' && { organizerStatus: 'pending' }),
       createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
     } as UserProfile);
+
+    // Auto-create vendors doc so admin can approve and dashboard can load
+    if (intendedRole === 'reseller') {
+      const existing = await getDocs(query(collection(db, 'vendors'), where('uid', '==', fbUser.uid), limit(1)));
+      if (existing.empty) {
+        await addDoc(collection(db, 'vendors'), {
+          uid: fbUser.uid,
+          name: fbUser.displayName || (firstName || fbUser.email || ''),
+          email: fbUser.email || '',
+          phone: fbUser.phoneNumber || '',
+          organizerId: '',
+          status: 'pending',
+          joinedDate: new Date().toISOString().slice(0, 10),
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        });
+      }
+    }
+
     return intendedRole;
   }
   return (userSnap.data() as UserProfile).role ?? intendedRole;
