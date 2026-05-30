@@ -420,6 +420,9 @@ export default function TicketPage() {
         >
           Konfime PIN →
         </button>
+        <Link href="/events" style={{ marginTop: 20, color: '#555', fontSize: 13, textDecoration: 'none' }}>
+          ← Retounen nan evènman yo
+        </Link>
       </div>
     );
   }
