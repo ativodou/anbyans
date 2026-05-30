@@ -177,6 +177,7 @@ export default function VendorDashboardPage() {
   const [showSellConfirm, setShowSellConfirm] = useState(false);
   const [sellSuccess, setSellSuccess] = useState(false);
   const [sellCodes, setSellCodes] = useState<string[]>([]);
+  const [sellPin, setSellPin]     = useState('');
   const [sellLoading, setSellLoading] = useState(false);
   const [sellError, setSellError] = useState('');
 
@@ -430,6 +431,7 @@ export default function VendorDashboardPage() {
       });
       const r = Array.isArray(result) ? { codes: result, pin: '' } : result;
       setSellCodes(r.codes);
+      setSellPin(r.pin || '');
       const ticketUrl = `${window.location.origin}/ticket/${r.codes[0]}`;
       const msg = [
         '🎫 *ANBYANS - TIKÈ OU PARE!*', '',
@@ -498,7 +500,7 @@ export default function VendorDashboardPage() {
     } finally { setBuyLoading(false); }
   }
 
-  function resetSell() { setSellSuccess(false); setSellCodes([]); setSellQty(1); setSellPrice(''); setBuyerName(''); setBuyerPhone(''); setSellError(''); }
+  function resetSell() { setSellSuccess(false); setSellCodes([]); setSellPin(''); setSellQty(1); setSellPrice(''); setBuyerName(''); setBuyerPhone(''); setSellError(''); }
   function resetBuy() { setBuySuccess(false); setBuyQty(10); setBuyError(''); setBuyClientSecret(null); }
 
   // ── Spinner pandan chajman ──
@@ -926,15 +928,26 @@ export default function VendorDashboardPage() {
           <div style={{ ...card, borderColor: '#22c55e', textAlign: 'center', padding: 40 }}>
             <p style={{ fontSize: 56, marginBottom: 12 }}>✅</p>
             <h3 style={{ fontSize: 24, fontWeight: 800, color: '#22c55e', marginBottom: 8 }}>{t('vend_dash_sale_success')}</h3>
-            <p style={{ color: '#888', fontSize: 13, marginBottom: 4 }}>{t('vend_dash_ticket_sent_to')} <strong style={{ color: '#fff' }}>{buyerPhone}</strong></p>
+            <p style={{ color: '#888', fontSize: 13, marginBottom: 12 }}>{t('vend_dash_ticket_sent_to')} <strong style={{ color: '#fff' }}>{buyerPhone}</strong></p>
             {sellCodes.length > 0 && (
-              <div style={{ background: '#0a0a0f', border: '1px solid #1e1e2e', borderRadius: 8, padding: 12, margin: '12px auto', maxWidth: 300 }}>
-                <p style={{ color: '#555', fontSize: 10, marginBottom: 6 }}>Kòd tikè</p>
-                {sellCodes.map(c => <p key={c} style={{ fontFamily: 'monospace', fontSize: 13, color: '#22c55e' }}>{c}</p>)}
+              <div style={{ background: '#0a0a0f', border: '1px solid #1e1e2e', borderRadius: 10, padding: 16, margin: '0 auto 16px', maxWidth: 320, textAlign: 'left' }}>
+                <div style={{ marginBottom: sellPin ? 12 : 0 }}>
+                  <p style={{ color: '#555', fontSize: 9, textTransform: 'uppercase', letterSpacing: 1, fontWeight: 700, marginBottom: 6 }}>Kòd Tikè</p>
+                  {sellCodes.map(c => (
+                    <p key={c} style={{ fontFamily: 'monospace', fontSize: 15, fontWeight: 800, color: '#22c55e', letterSpacing: 2, margin: '2px 0' }}>{c}</p>
+                  ))}
+                </div>
+                {sellPin && (
+                  <div style={{ borderTop: '1px solid #1e1e2e', paddingTop: 12 }}>
+                    <p style={{ color: '#555', fontSize: 9, textTransform: 'uppercase', letterSpacing: 1, fontWeight: 700, marginBottom: 6 }}>PIN Fan</p>
+                    <p style={{ fontFamily: 'monospace', fontSize: 28, fontWeight: 800, color: '#a855f7', letterSpacing: 8, margin: 0 }}>{sellPin}</p>
+                    <p style={{ color: '#555', fontSize: 10, marginTop: 6 }}>⚠️ Ba fan an PIN sa si WhatsApp pa t ouvri.</p>
+                  </div>
+                )}
               </div>
             )}
-            <p style={{ color: '#22c55e', fontWeight: 700, fontSize: 16, marginTop: 8 }}>+${saleProfit} {t('vend_dash_profit_label')}</p>
-            <button onClick={resetSell} style={{ ...btn('#a855f7'), width: 'auto', padding: '10px 24px', marginTop: 16 }}>🎫 {t('vend_dash_sell_more')}</button>
+            <p style={{ color: '#22c55e', fontWeight: 700, fontSize: 16, marginBottom: 16 }}>+${saleProfit} {t('vend_dash_profit_label')}</p>
+            <button onClick={resetSell} style={{ ...btn('#a855f7'), width: 'auto', padding: '10px 24px' }}>🎫 {t('vend_dash_sell_more')}</button>
           </div>
         )}
 
