@@ -201,8 +201,12 @@ function OrganizerLayoutInner({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-dark flex flex-col items-center justify-center text-center px-6">
       <p className="text-5xl mb-4">🚫</p>
       <p className="text-lg font-bold text-white mb-2">Demann ou refize</p>
-      <p className="text-sm text-gray-muted max-w-sm mb-6">Kontakte nou nan anbyanssa@gmail.com pou plis enfòmasyon.</p>
-      <button onClick={handleSignOut} className="px-5 py-2 rounded-xl bg-white/10 text-gray-light text-sm font-bold">Dekonekte</button>
+      <p className="text-sm text-gray-muted max-w-sm mb-4">Kontakte nou pou plis enfòmasyon oswa pou fè apèl.</p>
+      <a href="mailto:anbyanssa@gmail.com" className="text-orange text-sm font-bold underline mb-6">anbyanssa@gmail.com</a>
+      <div className="flex gap-3">
+        <a href="/" className="px-5 py-2 rounded-xl bg-white/10 text-gray-light text-sm font-bold">Ale lakay</a>
+        <button onClick={handleSignOut} className="px-5 py-2 rounded-xl bg-white/10 text-gray-light text-sm font-bold">Dekonekte</button>
+      </div>
     </div>
   );
 
@@ -210,9 +214,12 @@ function OrganizerLayoutInner({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-dark flex flex-col items-center justify-center text-center px-6">
       <div className="w-16 h-16 rounded-full bg-orange/10 border border-orange/30 flex items-center justify-center mb-4 text-3xl">⏳</div>
       <p className="text-lg font-bold text-white mb-2">Kont ou an atant apwobasyon</p>
-      <p className="text-sm text-gray-muted max-w-sm mb-6">Ekip Anbyans ap revize demann ou a. Ou pral resevwa yon imèl lè yo aprouve ou.</p>
-      <p className="text-xs text-gray-muted">Kesyon? anbyanssa@gmail.com</p>
-      <button onClick={handleSignOut} className="mt-4 px-5 py-2 rounded-xl bg-white/10 text-gray-light text-sm font-bold">Dekonekte</button>
+      <p className="text-sm text-gray-muted max-w-sm mb-4">Ekip Anbyans ap revize demann ou a. Ou pral resevwa yon imèl lè yo aprouve ou.</p>
+      <a href="mailto:anbyanssa@gmail.com" className="text-orange text-sm font-bold underline mb-6">anbyanssa@gmail.com</a>
+      <div className="flex gap-3">
+        <a href="/" className="px-5 py-2 rounded-xl bg-white/10 text-gray-light text-sm font-bold">Ale lakay</a>
+        <button onClick={handleSignOut} className="px-5 py-2 rounded-xl bg-white/10 text-gray-light text-sm font-bold">Dekonekte</button>
+      </div>
     </div>
   );
 

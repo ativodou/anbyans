@@ -110,23 +110,36 @@ async function upsertGoogleProfile(fbUser: User, intendedRole: UserRole): Promis
   return (userSnap.data() as UserProfile).role ?? intendedRole;
 }
 
-// Popup — desktop
+// Detect mobile browsers where popups are blocked
+function isMobile(): boolean {
+  if (typeof window === 'undefined') return false;
+  return /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i.test(navigator.userAgent);
+}
+
+// Google sign-in — uses redirect on mobile, popup on desktop
 export async function signInWithGoogle(role: UserRole = 'fan'): Promise<{ user: User; role: UserRole }> {
+  if (isMobile()) {
+    // Store intended role so we can retrieve it after redirect
+    sessionStorage.setItem('google_intended_role', role);
+    await signInWithRedirect(auth, googleProvider);
+    // signInWithRedirect navigates away — this line never runs on mobile
+    throw new Error('redirect');
+  }
   const cred = await signInWithPopup(auth, googleProvider);
   const actualRole = await upsertGoogleProfile(cred.user, role);
   return { user: cred.user, role: actualRole };
 }
 
-// Redirect — mobile (call this to initiate, then handleGoogleRedirectResult on page load)
-export async function startGoogleRedirect(): Promise<void> {
-  await signInWithRedirect(auth, googleProvider);
-}
-
-export async function handleGoogleRedirectResult(intendedRole: UserRole = 'fan'): Promise<{ user: User; role: UserRole } | null> {
+// Call this on every auth page load to handle the redirect result on return
+export async function handleGoogleRedirectResult(intendedRole?: UserRole): Promise<{ user: User; role: UserRole } | null> {
   const result = await getRedirectResult(auth);
   if (!result) return null;
-  const role = await upsertGoogleProfile(result.user, intendedRole);
-  return { user: result.user, role };
+  const role = intendedRole
+    ?? (sessionStorage.getItem('google_intended_role') as UserRole | null)
+    ?? 'fan';
+  sessionStorage.removeItem('google_intended_role');
+  const actualRole = await upsertGoogleProfile(result.user, role);
+  return { user: result.user, role: actualRole };
 }
 
 // ─── Get User Profile ────────────────────────────────────────────

@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useT } from '@/i18n';
-import { signUp, signIn, signInWithGoogle } from '@/lib/auth';
+import { signUp, signIn, signInWithGoogle, getUserProfile } from '@/lib/auth';
 import { auth, db } from '@/lib/firebase';
 import { collection, addDoc, getDocs, query, where, limit, serverTimestamp } from 'firebase/firestore';
 import LangSwitcher from '@/components/LangSwitcher';
@@ -14,8 +14,17 @@ export default function VendorAuth() {
   const { t } = useT();
 
   useEffect(() => {
-    const unsub = auth.onAuthStateChanged(u => { unsub(); if (u) router.replace('/vendor/dashboard'); });
-  }, []);
+    const unsub = auth.onAuthStateChanged(async u => {
+      unsub();
+      if (!u) return;
+      try {
+        const profile = await getUserProfile(u.uid);
+        if (profile?.role === 'reseller' || profile?.role === 'admin') {
+          router.replace('/vendor/dashboard');
+        }
+      } catch { /* stay on page if profile fetch fails */ }
+    });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [tab, setTab] = useState<Tab>('login');
   const [done, setDone] = useState(false);

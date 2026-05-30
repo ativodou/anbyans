@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Suspense } from 'react';
 import { useT } from '@/i18n';
 import LangSwitcher from '@/components/LangSwitcher';
-import { signUp, signIn, signInWithGoogle, getUserProfile } from '@/lib/auth';
+import { signUp, signIn, signInWithGoogle, handleGoogleRedirectResult, getUserProfile } from '@/lib/auth';
 import { useAuth } from '@/hooks/useAuth';
 
 type RoleTab = 'fan' | 'organizer' | 'reseller';
@@ -50,6 +50,15 @@ function AuthPage() {
   const [agreedToTerms, setAgreedToTerms] = useState(false);
 
   const cfg = ROLE_CONFIG[roleTab];
+
+  // Handle Google redirect result on mobile (fires after returning from Google)
+  useEffect(() => {
+    handleGoogleRedirectResult().then(result => {
+      if (result) {
+        router.push(ROLE_CONFIG[result.role as RoleTab]?.redirect ?? '/events');
+      }
+    }).catch(() => {});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-redirect if already signed in
   useEffect(() => {
@@ -133,7 +142,8 @@ function switchRole(r: RoleTab) {
       const { role: actualRole } = await signInWithGoogle(roleTab);
       router.push(ROLE_CONFIG[actualRole as RoleTab]?.redirect ?? '/events');
     } catch (err: any) {
-      if (err.code !== 'auth/popup-closed-by-user' && err.code !== 'auth/cancelled-popup-request') {
+      // 'redirect' is thrown on mobile — the page navigates away, not an error
+      if (err.message !== 'redirect' && err.code !== 'auth/popup-closed-by-user' && err.code !== 'auth/cancelled-popup-request') {
         setError(err.message);
       }
     } finally { setGoogleLoading(false); }

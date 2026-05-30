@@ -11,7 +11,7 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
   useEffect(() => {
     if (loading) return;
     if (!user) {
-      router.replace('/login');
+      router.replace('/auth');
       return;
     }
     // Allow staff and organizers (organizers can preview staff view)
