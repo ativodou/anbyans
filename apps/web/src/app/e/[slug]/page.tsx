@@ -61,6 +61,10 @@ type PayMethod = 'stripe' | 'moncash' | 'natcash' | 'cash' | 'free';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+function genPin() {
+  return String(Math.floor(1000 + Math.random() * 9000));
+}
+
 function genCode() {
   return Math.random().toString(36).substring(2, 10).toUpperCase();
 }
@@ -213,6 +217,7 @@ function BuyPageInner() {
   const [txnId, setTxnId]             = useState('');
   const [processing, setProcessing]   = useState(false);
   const [ticketCodes, setTicketCodes] = useState<string[]>([]);
+  const [buyerPin, setBuyerPin] = useState<string>('');
   const [expandedSection, setExpandedSection] = useState('');
   const [organizerStripeId, setOrganizerStripeId] = useState<string | null>(null);
   const [feeRate, setFeeRate] = useState(0.09);
@@ -428,6 +433,7 @@ function BuyPageInner() {
         'pending_cash';
 
       let firstTicket = true;
+      const pin = genPin();
       for (const item of cart) {
         const seats = item.section.type === 'reserved' ? item.seats : Array(item.qty).fill(null);
         for (let i = 0; i < item.qty; i++) {
@@ -444,6 +450,7 @@ function BuyPageInner() {
             chargeTotal: Math.round(item.section.price * (1 + feeRate) * 100) / 100,
             paymentMethod: payMethod, paymentStatus,
             txnId: txnId.trim() || null,
+            buyerPin: pin,
             status: paymentStatus === 'paid' ? 'valid' : 'pending',
             purchasedAt: serverTimestamp(),
             ...(firstTicket && barTabAmount > 0 ? { barTabBalance: barTabAmount, barTabSpent: 0, ...(Object.keys(barCart).length > 0 ? { barPreorder: Object.entries(barCart).map(([name, qty]) => ({ name, qty, price: barMenuItems.find(i => i.name === name)?.price ?? 0 })).filter(x => x.qty > 0) } : {}) } : {}),
@@ -453,6 +460,7 @@ function BuyPageInner() {
         }
       }
       setTicketCodes(codes);
+      setBuyerPin(pin);
       if (invite?.id && codes[0]) confirmGuest(invite.id, codes[0]).catch(() => {});
       setStep('done');
     } catch (e: any) {
@@ -468,6 +476,7 @@ function BuyPageInner() {
       // Ensure the user has a Firebase auth session (anonymous if not signed in)
       if (!auth.currentUser) await signInAnonymously(auth);
       const codes: string[] = [];
+      const pin = genPin();
       for (const item of cart) {
         const seats = item.section.type === 'reserved' ? item.seats : Array(item.qty).fill(null);
         for (let i = 0; i < item.qty; i++) {
@@ -481,6 +490,7 @@ function BuyPageInner() {
             seat: seats[i] || null,
             price: 0, priceHTG: 0,
             paymentMethod: 'free', paymentStatus: 'paid',
+            buyerPin: pin,
             status: 'valid',
             purchasedAt: serverTimestamp(),
           });
@@ -489,6 +499,7 @@ function BuyPageInner() {
       }
       setPayMethod('free');
       setTicketCodes(codes);
+      setBuyerPin(pin);
       if (invite?.id && codes[0]) confirmGuest(invite.id, codes[0]).catch(() => {});
       setStep('done');
     } catch (e: any) {
@@ -1043,6 +1054,7 @@ function BuyPageInner() {
                       // Ensure the user has a Firebase auth session (anonymous if not signed in)
                       if (!auth.currentUser) await signInAnonymously(auth);
                       const codes: string[] = [];
+                      const pin = genPin();
                       let firstTicket = true;
                       for (const item of cart) {
                         const seats = item.section.type === 'reserved' ? item.seats : Array(item.qty).fill(null);
@@ -1058,12 +1070,14 @@ function BuyPageInner() {
                             price: item.section.price, priceHTG: htg(item.section.price),
                             paymentMethod: 'stripe', paymentStatus: 'paid',
                             txnId: paymentIntentId, status: 'valid',
+                            buyerPin: pin,
                             purchasedAt: serverTimestamp(),
                             ...(firstTicket && barTabAmount > 0 ? { barTabBalance: barTabAmount, barTabSpent: 0, ...(Object.keys(barCart).length > 0 ? { barPreorder: Object.entries(barCart).map(([name, qty]) => ({ name, qty, price: barMenuItems.find(i => i.name === name)?.price ?? 0 })).filter(x => x.qty > 0) } : {}) } : {}),
                           });
                           codes.push(code); firstTicket = false;
                         }
                       }
+                      setBuyerPin(pin);
                       setTicketCodes(codes); setStep('done');
                     } catch (e) { console.error(e); }
                   }}
@@ -1142,7 +1156,7 @@ function BuyPageInner() {
             ? t('buy_moncash_pending_msg')
             : t('buy_stripe_ready_msg')}
         </p>
-        <div className="space-y-3 mb-8">
+        <div className="space-y-3 mb-6">
           {ticketCodes.map((code, i) => (
             <div key={code} className="bg-white/[0.06] rounded-xl p-4">
               <p className="text-[10px] text-gray-500 mb-1">{t('tickets')} #{i + 1}</p>
@@ -1150,6 +1164,19 @@ function BuyPageInner() {
             </div>
           ))}
         </div>
+        {buyerPin && (
+          <div className="bg-[#12121a] border border-[#6366f1] rounded-xl p-4 mb-6">
+            <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-3">🔐 PIN pou wè tikè ou</p>
+            <div className="flex justify-center gap-2 mb-2">
+              {buyerPin.split('').map((d, i) => (
+                <div key={i} className="w-11 h-13 rounded-lg bg-[#6366f1]/10 border-2 border-[#6366f1] flex items-center justify-center text-2xl font-black text-[#6366f1]" style={{ height: 52 }}>
+                  {d}
+                </div>
+              ))}
+            </div>
+            <p className="text-red-400 text-xs mt-2 font-semibold">⚠️ Kenbe PIN sa — ou pral bezwen l pou wè tikè ou.</p>
+          </div>
+        )}
         <div className="flex gap-3">
           <Link href={`/ticket/${ticketCodes[0]}`}
             className="flex-1 py-3 rounded-xl bg-orange text-white font-bold text-sm hover:bg-orange/90 transition-all">
