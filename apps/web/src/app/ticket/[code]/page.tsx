@@ -5,7 +5,8 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useT } from '@/i18n';
 import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { db, auth } from '@/lib/firebase';
+import { signInAnonymously } from 'firebase/auth';
 import { verifyTicketByCode, initiateTransfer, requestRefund, getBarItems, getBarStations, type TicketData, type EventData } from '@/lib/db';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -364,6 +365,7 @@ export default function TicketPage() {
     if (!transferName.trim() || !transferPhone.trim()) return;
     setTransferring(true);
     try {
+      if (!auth.currentUser) await signInAnonymously(auth);
       const token = await initiateTransfer(
         ticket.eventId, ticket.id, transferName.trim(), transferPhone.trim()
       );
