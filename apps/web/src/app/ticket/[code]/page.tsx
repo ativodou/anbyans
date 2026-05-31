@@ -66,6 +66,7 @@ export default function TicketPage() {
   useEffect(() => {
     if (!code) return;
     (async () => {
+      await auth.authStateReady(); // wait for Firebase to restore persisted session
       if (!auth.currentUser) await signInAnonymously(auth);
       const fullCode = code.toUpperCase();
       const res = await verifyTicketByCode(fullCode);

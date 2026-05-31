@@ -404,6 +404,7 @@ function BuyPageInner() {
     if (!event || !payMethod || cart.length === 0) return;
     setProcessing(true);
     try {
+      await auth.authStateReady();
       if (!auth.currentUser) await signInAnonymously(auth);
       const codes: string[] = [];
       const paymentStatus =
@@ -449,6 +450,7 @@ function BuyPageInner() {
     if (!event || cart.length === 0) return;
     setProcessing(true);
     try {
+      await auth.authStateReady();
       if (!auth.currentUser) await signInAnonymously(auth);
       const codes: string[] = [];
       for (const item of cart) {
