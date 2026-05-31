@@ -129,21 +129,8 @@ async function upsertGoogleProfile(fbUser: User, intendedRole: UserRole): Promis
   return (userSnap.data() as UserProfile).role ?? intendedRole;
 }
 
-// Detect mobile browsers where popups are blocked
-function isMobile(): boolean {
-  if (typeof window === 'undefined') return false;
-  return /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i.test(navigator.userAgent);
-}
-
-// Google sign-in — uses redirect on mobile, popup on desktop
+// Google sign-in — popup on all devices (redirect is unreliable on mobile Safari/bookmarks/PWA)
 export async function signInWithGoogle(role: UserRole = 'fan'): Promise<{ user: User; role: UserRole }> {
-  if (isMobile()) {
-    // Store intended role so we can retrieve it after redirect
-    sessionStorage.setItem('google_intended_role', role);
-    await signInWithRedirect(auth, googleProvider);
-    // signInWithRedirect navigates away — this line never runs on mobile
-    throw new Error('redirect');
-  }
   const cred = await signInWithPopup(auth, googleProvider);
   const actualRole = await upsertGoogleProfile(cred.user, role);
   return { user: cred.user, role: actualRole };
