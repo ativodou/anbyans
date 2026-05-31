@@ -161,12 +161,9 @@ export default function AdminDashboardPage() {
         totalRevenue: orgMap[o.id]?.revenue || 0,
       })));
 
-      const tickets: any[] = [];
-      await Promise.all(evList.map(async e => {
-        const snap = await getDocs(collection(db, 'events', e.id!, 'tickets'));
-        snap.docs.forEach(d => tickets.push({ id: d.id, ...d.data() }));
-      }));
-      setAllTickets(tickets);
+      // Tickets live in the root /tickets collection
+      const ticketSnap = await getDocs(collection(db, 'tickets'));
+      setAllTickets(ticketSnap.docs.map(d => ({ id: d.id, ...d.data() })));
 
       // Load vendors
       const vendorSnap = await getDocs(collection(db, 'vendors'));
