@@ -122,7 +122,7 @@ export default function AdminDashboardPage() {
     }).catch(e => console.warn('config load', e));
 
     try {
-      const [evSnap, usersSnap, refSnap, venSnap, cashSnap, budgetCashSnap, posCashSnap, vendorCashSnap] = await Promise.all([
+      const [evSnap, usersSnap, refSnap, venSnap, cashSnap, budgetCashSnap, posCashSnap] = await Promise.all([
         getDocs(collection(db, 'events')),
         getDocs(collection(db, 'users')),
         getDocs(collection(db, 'refundRequests')),
@@ -130,12 +130,14 @@ export default function AdminDashboardPage() {
         getDocs(collection(db, 'cashActivationRequests')),
         getDocs(collection(db, 'budgetCashRequests')),
         getDocs(collection(db, 'posCashRequests')),
-        getDocs(collection(db, 'vendorBulkCashRequests')),
       ]);
       setCashRequests(cashSnap.docs.map(d => ({ id: d.id, ...d.data() })));
       setBudgetCashRequests(budgetCashSnap.docs.map(d => ({ id: d.id, ...d.data() })));
       setPosCashRequests(posCashSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-      setVendorCashRequests(vendorCashSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+      // Load independently so a missing collection doesn't break everything
+      getDocs(collection(db, 'vendorBulkCashRequests'))
+        .then(s => setVendorCashRequests(s.docs.map(d => ({ id: d.id, ...d.data() }))))
+        .catch(() => {});
       setVenues(venSnap as VenueData[]);
 
       const evList = evSnap.docs.map(d => ({ id: d.id, ...d.data() } as EventData));

@@ -22,6 +22,7 @@ const t = {
   admin_tab_events:         { ht:'Evènman', en:'Events', fr:'Événements' },
   admin_tab_organizers:     { ht:'Òganizatè', en:'Organizers', fr:'Organisateurs' },
   admin_tab_users:          { ht:'Itilizatè', en:'Users', fr:'Utilisateurs' },
+  admin_tab_vendors:        { ht:'Vandè', en:'Vendors', fr:'Vendeurs' },
   admin_tab_refunds:        { ht:'Ranbousman', en:'Refunds', fr:'Remboursements' },
   admin_tab_finance:        { ht:'Finans', en:'Finance', fr:'Finance' },
   admin_tab_venues:         { ht:'Sal', en:'Venues', fr:'Lieux' },
