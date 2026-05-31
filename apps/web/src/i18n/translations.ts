@@ -27,6 +27,7 @@ const t = {
   admin_tab_finance:        { ht:'Finans', en:'Finance', fr:'Finance' },
   admin_tab_venues:         { ht:'Sal', en:'Venues', fr:'Lieux' },
   admin_tab_settings:       { ht:'Paramèt', en:'Settings', fr:'Paramètres' },
+  nav_browse_events:        { ht:'Jwenn Evènman', en:'Browse Events', fr:'Parcourir les événements' },
   admin_tickets_sold:       { ht:'Tikè Vann', en:'Tickets Sold', fr:'Billets Vendus' },
   admin_pending_refunds:    { ht:'Ranbousman an Atant', en:'Pending Refunds', fr:'Remboursements en Attente' },
   admin_payment_breakdown:  { ht:'Breakdown Peman', en:'Payment Breakdown', fr:'Répartition des Paiements' },

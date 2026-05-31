@@ -161,7 +161,11 @@ export default function OrganizerRevenuePage() {
         ].map((s, i) => (
           <div key={i} className="bg-dark-card border border-border rounded-card p-4">
             <p className="text-[10px] text-gray-muted uppercase tracking-widest mb-1.5">{s.label}</p>
-            <p className={`font-heading text-3xl tracking-wide ${s.color || ''}`}>{s.value}</p>
+            <p className={`font-heading text-3xl tracking-wide ${s.color || ''}`}>
+              {s.priceUsd !== undefined
+                ? <PriceDisplay usd={s.priceUsd} fmt={fmt} className="text-3xl font-heading tracking-wide" />
+                : s.value}
+            </p>
             {s.sub && <p className={`text-[10px] mt-1 ${s.color || 'text-gray-muted'}`}>{s.sub}</p>}
           </div>
         ))}
