@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useT } from '@/i18n';
-import { signUp, signIn, signInWithGoogle, getUserProfile } from '@/lib/auth';
+import { signUp, signIn, signInWithGoogle, handleGoogleRedirectResult, getUserProfile } from '@/lib/auth';
 import { useAuth } from '@/hooks/useAuth';
 
 export default function OrganizerAuth() {
@@ -35,6 +35,13 @@ export default function OrganizerAuth() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [googleLoading, setGoogleLoading] = useState(false);
+
+  // Handle Google redirect result on mobile
+  useEffect(() => {
+    handleGoogleRedirectResult('organizer').then(result => {
+      if (result) router.replace('/organizer/dashboard');
+    }).catch(() => {});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (user && (user.role === 'organizer' || user.role === 'admin')) {

@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useT } from '@/i18n';
-import { signIn, signInWithGoogle, getUserProfile } from '@/lib/auth';
+import { signIn, signInWithGoogle, handleGoogleRedirectResult, getUserProfile } from '@/lib/auth';
 import { auth } from '@/lib/firebase';
 import LangSwitcher from '@/components/LangSwitcher';
 
@@ -12,6 +12,13 @@ type Tab = 'login' | 'join';
 export default function VendorAuth() {
   const router = useRouter();
   const { t } = useT();
+
+  // Handle Google redirect result on mobile (must run before auth state check)
+  useEffect(() => {
+    handleGoogleRedirectResult('reseller').then(result => {
+      if (result) router.replace('/vendor/dashboard');
+    }).catch(() => {});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Redirect already-logged-in vendors
   useEffect(() => {
