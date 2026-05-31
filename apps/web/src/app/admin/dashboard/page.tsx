@@ -355,6 +355,17 @@ export default function AdminDashboardPage() {
     setCashRequests(prev => prev.map(x => x.id === r.id ? { ...x, status: 'denied' } : x));
   }
 
+  // ── Per-event ticket counts from real ticket data (not stale totalSold on event doc) ──
+  const ticketCountByEvent: Record<string, number> = {};
+  const revenueByEvent: Record<string, number> = {};
+  allTickets.forEach(t => {
+    if (t.status === 'cancelled' || t.status === 'refunded') return;
+    if (t.eventId) {
+      ticketCountByEvent[t.eventId] = (ticketCountByEvent[t.eventId] || 0) + 1;
+      revenueByEvent[t.eventId] = (revenueByEvent[t.eventId] || 0) + (t.price || 0);
+    }
+  });
+
   // ── Finance metrics ──
   const validTickets = allTickets.filter(t => t.status !== 'cancelled' && t.status !== 'refunded');
   const grossRevenue = validTickets.reduce((s, t) => s + (t.price || 0), 0);
@@ -582,7 +593,7 @@ export default function AdminDashboardPage() {
                         {e.isPrivate && <span className="text-[9px] bg-orange/20 text-orange px-1.5 py-0.5 rounded font-bold">{t('admin_private_badge')}</span>}
                       </div>
                       <p className="text-[11px] text-gray-muted">{e.organizerName || '—'} · {e.startDate} · {e.venue?.name || '—'}</p>
-                      <p className="text-[11px] text-gray-light mt-0.5">{(e as any).totalSold || 0} tikè · ${((e as any).revenue || 0).toLocaleString()}</p>
+                      <p className="text-[11px] text-gray-light mt-0.5">{ticketCountByEvent[e.id!] || 0} tikè · ${(revenueByEvent[e.id!] || 0).toLocaleString()}</p>
                     </div>
                     <div className="flex items-center gap-2">
                       <StatusBadge status={e.status} />
