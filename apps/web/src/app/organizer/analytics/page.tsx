@@ -137,7 +137,7 @@ export default function OrganizerAnalyticsPage() {
           { label: t('analytics_total_buyers'),  value: buyers.length,                                                         icon: '👤', color: 'text-white' },
           { label: t('analytics_loyal_2plus'),   value: buyers.filter(b => b.eventCount >= 2).length,                          icon: '⭐', color: 'text-orange' },
           { label: t('analytics_tickets_sold'),  value: validTickets.length,                                                    icon: '🎫', color: 'text-green' },
-          { label: t('analytics_avg_spend_per'), value: '$' + (buyers.length ? Math.round(buyers.reduce((s, b) => s + b.total, 0) / buyers.length) : 0), icon: '💰', color: 'text-cyan' },
+          { label: t('analytics_avg_spend_per'), value: '$' + (buyers.length ? (buyers.reduce((s, b) => s + b.total, 0) / buyers.length).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'), icon: '💰', color: 'text-cyan' },
         ].map(k => (
           <div key={k.label} className="bg-dark-card border border-border rounded-card p-4">
             <p className="text-[10px] text-gray-muted uppercase tracking-widest mb-1">{k.icon} {k.label}</p>

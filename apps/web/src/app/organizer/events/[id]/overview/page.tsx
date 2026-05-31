@@ -110,7 +110,7 @@ export default function EventOverviewPage() {
         {!isFree && (
           <div className={statCard}>
             <p className="text-[10px] text-gray-muted uppercase tracking-widest">Revni</p>
-            <p className="font-heading text-3xl">${revenue.toLocaleString()}</p>
+            <p className="font-heading text-3xl">${revenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
           </div>
         )}
         {event.isPrivate && (
@@ -125,7 +125,7 @@ export default function EventOverviewPage() {
         {barTotal > 0 && (
           <div className={statCard}>
             <p className="text-[10px] text-gray-muted uppercase tracking-widest">Bar Pre-Orders</p>
-            <p className="font-heading text-3xl text-orange">${barTotal.toFixed(0)}</p>
+            <p className="font-heading text-3xl text-orange">${barTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
           </div>
         )}
       </div>
