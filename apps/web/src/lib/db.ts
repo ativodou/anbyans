@@ -1147,10 +1147,25 @@ export async function createVendorBulkCashRequest(params: {
   const ref = await addDoc(collection(db, 'vendorBulkCashRequests'), {
     ...params,
     totalAmount: params.qty * params.priceEach,
-    status: 'pending',
+    status: 'pending_organizer',
     createdAt: serverTimestamp(),
   });
   return ref.id;
+}
+
+export async function organizerApproveVendorCashRequest(requestId: string): Promise<void> {
+  await updateDoc(doc(db, 'vendorBulkCashRequests', requestId), {
+    status: 'pending_admin',
+    organizerApprovedAt: serverTimestamp(),
+  });
+}
+
+export async function organizerDenyVendorCashRequest(requestId: string, note?: string): Promise<void> {
+  await updateDoc(doc(db, 'vendorBulkCashRequests', requestId), {
+    status: 'denied',
+    denialNote: note ?? '',
+    resolvedAt: serverTimestamp(),
+  });
 }
 
 export async function approveVendorBulkCashRequest(requestId: string): Promise<void> {

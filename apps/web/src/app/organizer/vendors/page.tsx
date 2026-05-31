@@ -13,12 +13,16 @@ import {
   updateVendorStatus,
   updateVendorTrusted,
   saveEventBulkTiers,
+  organizerApproveVendorCashRequest,
+  organizerDenyVendorCashRequest,
   type EventData,
   type VendorData,
   type VendorPurchase,
   type VendorRequest,
   type BulkTier,
 } from '@/lib/db';
+import { collection, getDocs, query, where } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import { useOrganizerEvent } from '../OrganizerEventContext';
 
 type VendorWithPurchases = VendorData & {
@@ -47,6 +51,8 @@ export default function OrganizerVendorsPage() {
   const [mainTab, setMainTab]             = useState<'my' | 'requests' | 'ledger'>('my');
   const [ledgerEventId, setLedgerEventId] = useState<string>('all');
   const [vendorRequests, setVendorRequests] = useState<VendorRequest[]>([]);
+  const [cashRequests, setCashRequests]     = useState<any[]>([]);
+  const [resolvingCash, setResolvingCash]   = useState<string | null>(null);
   const [resolvingReq, setResolvingReq]     = useState<string | null>(null);
   const [justApproved, setJustApproved]     = useState<VendorRequest | null>(null);
   const [standFeeInputs, setStandFeeInputs] = useState<Record<string, string>>({}); // reqId → fee amount string
@@ -78,6 +84,13 @@ export default function OrganizerVendorsPage() {
     if (!user?.uid) return;
     setLoading(true);
     try {
+      const cashSnap = await getDocs(query(
+        collection(db, 'vendorBulkCashRequests'),
+        where('organizerId', '==', user.uid),
+        where('status', '==', 'pending_organizer'),
+      ));
+      setCashRequests(cashSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+
       const [evList, resellerList, purchaseList, pendingReqs, approvedReqs] = await Promise.all([
         getOrganizerEvents(user.uid),
         getOrganizerVendors(user.uid),
@@ -189,6 +202,24 @@ Konekte sou dachbod ou pou achte tikè bulk:
   };
 
 
+  const handleApproveCashRequest = async (id: string) => {
+    setResolvingCash(id);
+    try {
+      await organizerApproveVendorCashRequest(id);
+      setCashRequests(prev => prev.filter(r => r.id !== id));
+    } catch (e) { console.error(e); }
+    finally { setResolvingCash(null); }
+  };
+
+  const handleDenyCashRequest = async (id: string) => {
+    setResolvingCash(id);
+    try {
+      await organizerDenyVendorCashRequest(id);
+      setCashRequests(prev => prev.filter(r => r.id !== id));
+    } catch (e) { console.error(e); }
+    finally { setResolvingCash(null); }
+  };
+
   if (loading) return (
     <div className="flex items-center justify-center py-32">
       <div className="w-8 h-8 border-2 border-orange border-t-transparent rounded-full animate-spin" />
@@ -217,7 +248,7 @@ Konekte sou dachbod ou pou achte tikè bulk:
       <div className="flex gap-2 mb-5 border-b border-border">
         {([
           ['my',       `👥 ${t('org_my_resellers')}`,  resellers.length],
-          ['requests', `🙋 ${t('org_requests')}`,       vendorRequests.filter(r => r.status === 'pending').length],
+          ['requests', `🙋 ${t('org_requests')}`,       vendorRequests.filter(r => r.status === 'pending').length + cashRequests.length],
           ['ledger',   `💰 Règleman`,                   null],
         ] as const).map(([id, label, count]) => (
           <button key={id} onClick={() => setMainTab(id as any)}
