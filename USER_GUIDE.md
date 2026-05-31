@@ -158,10 +158,9 @@
 
 | Kat / Card / Carte | Kreyòl | English | Français |
 |--------------------|--------|---------|----------|
-| Revni Total | Total vann tikè (USD + HTG) | Total ticket sales (USD + HTG) | Total des ventes de billets (USD + HTG) |
+| Revni Total | Total tout vant tikè (USD + HTG) | Total ticket sales (USD + HTG) | Total des ventes de billets (USD + HTG) |
 | Tikè Vann | Kantite tikè valid | Number of valid tickets | Nombre de billets valides |
 | Evènman Aktif | Evènman pibliye/Live | Published/Live events | Événements publiés/En direct |
-| Vande Dwe | Montan vande yo dwe ou | Amount vendors owe you | Montant dû par les vendeurs |
 
 ---
 
@@ -319,17 +318,16 @@
 
 | Kat / Card / Carte | Kreyòl | English | Français |
 |--------------------|--------|---------|----------|
-| Revni Total | Total tout vant tikè | Total ticket sales | Total des ventes de billets |
+| Revni Total | Vant anliy + kach revandè | Online sales + reseller cash | Ventes en ligne + cash revendeurs |
 | Revni Anliy / Online | Peman Stripe konfime | Confirmed Stripe payments | Paiements Stripe confirmés |
-| Revni Vande / Vendor | Vant pa revandè yo | Sales by resellers | Ventes par les revendeurs |
-| Vande Dwe / Owed | Montan revandè dwe ou | Amount vendors owe you | Montant dû par les revendeurs |
+| Kaj Revandè / Reseller Cash | Kach kolekte davans pou blòk tikè | Cash collected upfront for ticket blocks | Cash encaissé à l'avance pour les blocs de billets |
+| Manje & Bweson / F&B | Pré-kòmand bar (poko disponib) | Bar pre-orders (coming soon) | Pré-commandes bar (bientôt disponible) |
 
 | Tab / Onglet | Kreyòl | English | Français |
 |--------------|--------|---------|----------|
 | Grafik Jounal / Daily Chart | Vant chak jou pou 14 dènye jou | Daily sales for last 14 days | Ventes quotidiennes des 14 derniers jours |
 | Seksyon / Sections | Tikè vann pa seksyon | Tickets sold per section | Billets vendus par section |
-| Peman Vande / Vendor Payments | Ki moun ki dwe, ki moun ki peye | Who owes what, who has paid | Qui doit quoi, qui a payé |
-| Demann Ranbousman / Refunds | Apwouve oswa refize | Approve or deny refund requests | Approuver ou refuser les remboursements |
+| Revandè / Resellers | Tikè achte + kach kolekte pa revandè | Tickets bought + cash collected per reseller | Billets achetés + cash encaissé par revendeur |
 
 #### 📈 Analitik / Analytics / Analyses
 
@@ -373,20 +371,17 @@
 
 ---
 
-### 3.2 Achte Tikè an Gwo · Bulk Purchase · Achat en Gros
+### 3.2 Achte Blòk Tikè · Buy a Ticket Block · Acheter un Bloc de Billets
 
-| # | Kreyòl | English | Français |
-|---|--------|---------|----------|
-| 1 | Ale nan tab **Achte / Buy** | Go to the **Buy** tab | Allez dans l'onglet **Acheter** |
-| 2 | Chwazi evènman an | Select the event | Sélectionnez l'événement |
-| 3 | Chwazi seksyon an | Select the section | Sélectionnez la section |
-| 4 | Antre kantite (1–1,000) | Enter quantity (1–1,000) | Entrez la quantité (1–1 000) |
-| 5 | Wè pri gwo-detay | View bulk pricing tiers | Consultez les tarifs en gros |
-| 6 | Klike "Konfime" | Click "Confirm" | Cliquez "Confirmer" |
+**Kreyòl:** Revandè achte yon blòk tikè davans ak kach nan men òganizatè a — pa gen peman anliy. Òganizatè anrejistre achè a nan sistèm nan.
 
-> 🇭🇹 Achè an gwo disponib sèlman pandan fenèt vande òganizatè a (dat ouvèti → dat fèmti).
-> 🇬🇧 Bulk purchasing is only available during the vendor window set by the organizer (open → close date).
-> 🇫🇷 L'achat en gros n'est disponible que pendant la fenêtre vendeur définie par l'organisateur (date d'ouverture → fermeture).
+**English:** Resellers buy their ticket block in advance with cash from the organizer — no online payment. The organizer records the purchase in the system.
+
+**Français:** Les revendeurs achètent leur bloc de billets en avance en espèces auprès de l'organisateur — pas de paiement en ligne. L'organisateur enregistre l'achat dans le système.
+
+> 🇭🇹 Pri revandè se pri rabè — revandè vann nan pri yo vle epi yo kenbe diferans lan kòm benefis.
+> 🇬🇧 Reseller price is a discounted rate — resellers sell at their own price and keep the markup as profit.
+> 🇫🇷 Le prix revendeur est un tarif réduit — les revendeurs vendent au prix qu'ils souhaitent et gardent la marge.
 
 ---
 
