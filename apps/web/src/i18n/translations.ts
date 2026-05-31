@@ -651,7 +651,7 @@ revenue_total:        { ht:'Revni Total', en:'Total Revenue', fr:'Revenu Total' 
   /* ═══ REVENUE PAGE ═══ */
   rev_total_revenue:          { ht: 'REVNI TOTAL', en: 'TOTAL REVENUE', fr: 'REVENUS TOTAUX' },
   rev_online_sales:           { ht: 'VANT ONLINE', en: 'ONLINE SALES', fr: 'VENTES EN LIGNE' },
-  rev_reseller_sales:         { ht: 'VANT REVANDÈ', en: 'RESELLER SALES', fr: 'VENTES REVENDEURS' },
+  rev_reseller_sales:         { ht: 'KAJ REVANDÈ', en: 'RESELLER CASH', fr: 'CASH REVENDEURS' },
   rev_resellers_owe:          { ht: 'REVANDÈ DWE', en: 'RESELLERS OWE', fr: 'REVENDEURS DOIVENT' },
   rev_food_bev:               { ht: 'MANJE & BWESON', en: 'FOOD & BEVERAGE', fr: 'ALIMENTATION & BOISSONS' },
   rev_ticket_count:           { ht: 'tikè', en: 'tickets', fr: 'billets' },

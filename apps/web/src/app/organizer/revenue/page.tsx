@@ -76,18 +76,19 @@ export default function OrganizerRevenuePage() {
     ? vendorPurchases.filter(vp => vp.eventId === selectedEvent.id)
     : vendorPurchases;
 
-  const validTickets        = filteredTickets.filter(tk => tk.status !== 'cancelled' && tk.status !== 'refunded');
-  const totalRevenue        = validTickets.reduce((a, tk) => a + (tk.price || 0), 0);
-  const vendorTicketRevenue = validTickets.filter(tk => tk.vendorId).reduce((a, tk) => a + (tk.price || 0), 0);
-  const onlineRevenue       = totalRevenue - vendorTicketRevenue;
+  const validTickets   = filteredTickets.filter(tk => tk.status !== 'cancelled' && tk.status !== 'refunded');
+  const onlineRevenue  = validTickets.filter(tk => !tk.vendorId).reduce((a, tk) => a + (tk.price || 0), 0);
+
+  // Reseller revenue = what the organizer actually collected in cash upfront (qty × priceEach)
+  const resellerRevenue = filteredVendorPurchases.reduce((a, vp) => a + vp.qty * vp.priceEach, 0);
+  const totalRevenue    = onlineRevenue + resellerRevenue;
 
   const vendorStats = vendors.map(v => {
-    const purchases  = filteredVendorPurchases.filter(vp => vp.vendorId === v.id);
-    const totalVSold = purchases.reduce((a, vp) => a + vp.sold, 0);
-    const totalOwed  = purchases.reduce((a, vp) => a + vp.sold * vp.priceEach, 0);
-    return { ...v, totalVSold, totalOwed };
-  }).filter(v => v.totalVSold > 0 || viewMode === 'all');
-  const totalVendorOwed = vendorStats.reduce((a, v) => a + v.totalOwed, 0);
+    const purchases    = filteredVendorPurchases.filter(vp => vp.vendorId === v.id);
+    const totalQty     = purchases.reduce((a, vp) => a + vp.qty, 0);
+    const totalCash    = purchases.reduce((a, vp) => a + vp.qty * vp.priceEach, 0);
+    return { ...v, totalQty, totalCash };
+  }).filter(v => v.totalQty > 0);
 
   // ── Daily sales chart data (last 14 days) ──
   const dailyData = (() => {
@@ -151,13 +152,12 @@ export default function OrganizerRevenuePage() {
       </div>
 
       {/* ── Stats ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
         {[
-          { label: t('rev_total_revenue'),   value: '__PRICE__', priceUsd: totalRevenue,       sub: `${validTickets.length} ${t('rev_ticket_count')}` },
-          { label: t('rev_online_sales'),    value: '__PRICE__', priceUsd: onlineRevenue,       sub: totalRevenue > 0 ? `${Math.round(onlineRevenue / totalRevenue * 100)}% total` : '—', color: 'text-green' },
-          { label: t('rev_reseller_sales'),  value: '__PRICE__', priceUsd: vendorTicketRevenue, sub: totalRevenue > 0 ? `${Math.round(vendorTicketRevenue / totalRevenue * 100)}% total` : '—', color: 'text-orange' },
-          { label: t('rev_resellers_owe'),   value: '__PRICE__', priceUsd: totalVendorOwed,     color: totalVendorOwed > 0 ? 'text-orange' : 'text-green' },
-          { label: t('rev_food_bev'),        value: '$0', sub: t('rev_coming_soon'), color: 'text-gray-muted' },
+          { label: t('rev_total_revenue'),   value: '__PRICE__', priceUsd: totalRevenue,      sub: `${validTickets.length} ${t('rev_ticket_count')}` },
+          { label: t('rev_online_sales'),    value: '__PRICE__', priceUsd: onlineRevenue,      sub: totalRevenue > 0 ? `${Math.round(onlineRevenue / totalRevenue * 100)}% total` : '—', color: 'text-green' },
+          { label: t('rev_reseller_sales'),  value: '__PRICE__', priceUsd: resellerRevenue,    sub: totalRevenue > 0 ? `${Math.round(resellerRevenue / totalRevenue * 100)}% total` : '—', color: 'text-orange' },
+          { label: t('rev_food_bev'),        value: '$0.00', sub: t('rev_coming_soon'), color: 'text-gray-muted' },
         ].map((s, i) => (
           <div key={i} className="bg-dark-card border border-border rounded-card p-4">
             <p className="text-[10px] text-gray-muted uppercase tracking-widest mb-1.5">{s.label}</p>
@@ -220,9 +220,9 @@ export default function OrganizerRevenuePage() {
           )}
         </div>
 
-        {/* ── Reseller Balances ── */}
+        {/* ── Reseller Breakdown ── */}
         <div className="bg-dark-card border border-border rounded-card p-5">
-          <h3 className="font-heading text-lg tracking-wide mb-4">{t('rev_reseller_balance')}</h3>
+          <h3 className="font-heading text-lg tracking-wide mb-4">{t('rev_reseller_sales')}</h3>
           {vendorStats.length === 0 ? (
             <p className="text-gray-muted text-sm text-center py-6">{t('rev_no_resellers')}</p>
           ) : (
@@ -231,17 +231,10 @@ export default function OrganizerRevenuePage() {
                 <div key={v.id} className="flex items-center gap-3 py-2.5 border-b border-border last:border-0">
                   <span className="text-base">🏪</span>
                   <p className="text-xs font-semibold flex-1">{v.name}</p>
-                  <p className="text-xs text-gray-light">{v.totalVSold} {t('rev_ticket_count')}</p>
-                  {v.totalOwed > 0 ? (
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold"><PriceDisplay usd={v.totalOwed} fmt={fmt} className="text-xs" /></span>
-                      <button className="px-2.5 py-1 rounded-lg bg-orange text-white text-[9px] font-bold hover:bg-orange/80 transition-all">
-                        {t('rev_request')}
-                      </button>
-                    </div>
-                  ) : (
-                    <span className="text-xs font-bold text-green">✓ {t('rev_settled')}</span>
-                  )}
+                  <p className="text-xs text-gray-muted">{v.totalQty} {t('rev_ticket_count')}</p>
+                  <span className="text-xs font-bold text-orange">
+                    <PriceDisplay usd={v.totalCash} fmt={fmt} className="text-xs" />
+                  </span>
                 </div>
               ))}
             </div>
