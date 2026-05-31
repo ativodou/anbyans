@@ -66,6 +66,7 @@ export default function TicketPage() {
   useEffect(() => {
     if (!code) return;
     (async () => {
+      if (!auth.currentUser) await signInAnonymously(auth);
       const fullCode = code.toUpperCase();
       const res = await verifyTicketByCode(fullCode);
       if (res.valid && res.ticket) {
