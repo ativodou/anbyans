@@ -788,7 +788,7 @@ export default function AdminDashboardPage() {
                           <div className="flex gap-2 flex-shrink-0">
                             <button onClick={() => adminApproveVendorCashRequest(r)}
                               className="px-3 py-1.5 rounded-lg text-[10px] font-bold bg-green-600/20 text-green-400 border border-green-500/30 hover:bg-green-600 hover:text-white transition-all">
-                              ✅ Aprouve
+                              💰 Kòb Resevwa — Lage Tikè
                             </button>
                             <button onClick={() => adminDenyVendorCashRequest(r)}
                               className="px-3 py-1.5 rounded-lg text-[10px] font-bold bg-red/10 text-red border border-red/30 hover:bg-red hover:text-white transition-all">
