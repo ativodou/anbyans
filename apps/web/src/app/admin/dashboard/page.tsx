@@ -396,8 +396,8 @@ export default function AdminDashboardPage() {
               {id === 'refunds' && (pendingRefunds + pendingCash) > 0 && (
                 <span className="ml-auto bg-red text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">{pendingRefunds + pendingCash}</span>
               )}
-              {id === 'vendors' && (vendors.filter(v => v.status === 'pending').length + vendorCashRequests.filter(r => r.status === 'pending').length) > 0 && (
-                <span className="ml-auto bg-yellow-500 text-black text-[9px] font-bold px-1.5 py-0.5 rounded-full">{vendors.filter(v => v.status === 'pending').length + vendorCashRequests.filter(r => r.status === 'pending').length}</span>
+              {id === 'vendors' && (vendors.filter(v => v.status === 'pending').length + vendorCashRequests.filter(r => r.status === 'pending_admin').length) > 0 && (
+                <span className="ml-auto bg-yellow-500 text-black text-[9px] font-bold px-1.5 py-0.5 rounded-full">{vendors.filter(v => v.status === 'pending').length + vendorCashRequests.filter(r => r.status === 'pending_admin').length}</span>
               )}
             </button>
           ))}
@@ -773,11 +773,11 @@ export default function AdminDashboardPage() {
           {tab === 'vendors' && (
             <div>
               {/* Pending vendor bulk cash requests */}
-              {vendorCashRequests.filter(r => r.status === 'pending').length > 0 && (
+              {vendorCashRequests.filter(r => r.status === 'pending_admin').length > 0 && (
                 <div className="mb-6">
-                  <h3 className="text-sm font-bold text-orange mb-3">📨 Demann Kach Vandè — En Atant ({vendorCashRequests.filter(r => r.status === 'pending').length})</h3>
+                  <h3 className="text-sm font-bold text-orange mb-3">📨 Demann Kach Vandè — En Atant ({vendorCashRequests.filter(r => r.status === 'pending_admin').length})</h3>
                   <div className="space-y-2">
-                    {vendorCashRequests.filter(r => r.status === 'pending').map(r => (
+                    {vendorCashRequests.filter(r => r.status === 'pending_admin').map(r => (
                       <div key={r.id} className="bg-dark-card border border-orange/30 rounded-xl p-4">
                         <div className="flex items-start justify-between gap-4">
                           <div className="flex-1 min-w-0">
