@@ -136,6 +136,7 @@ export interface TicketData {
   eventId: string;
   organizerId?: string;
   buyerName: string;
+  originalBuyerName?: string;
   buyerEmail: string;
   buyerPhone: string;
   section: string;
@@ -698,6 +699,7 @@ export async function purchaseTickets(
       eventId,
       organizerId,
       buyerName,
+      originalBuyerName: buyerName,
       buyerEmail,
       buyerPhone,
       section,
@@ -1069,6 +1071,7 @@ export async function vendorBulkPurchase(params: {
       eventId: params.eventId,
       organizerId: params.organizerId,
       buyerName: `Vandè: ${params.vendorName}`,
+      originalBuyerName: `Vandè: ${params.vendorName}`,
       buyerEmail: '',
       buyerPhone: '',
       section: params.section,
